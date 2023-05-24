@@ -3,6 +3,7 @@ local shadow_root = menu.shadow_root()
 local T = require('translations')
 local Shared = require('shared')
 local PLAYER_ID = Shared.PLAYER_ID
+local CHAR_SLOT = Shared.CHAR_SLOT
 
 local SetPlayerWeaponDamageModifier = Shared.SetPlayerWeaponDamageModifier
 
@@ -18,6 +19,8 @@ local WriteByte = Shared.WriteByte
 local WriteFloat = Shared.WriteFloat
 local WriteLong = Shared.WriteLong
 local RefByRelPath = Shared.RefByRelPath
+
+local StatSetInt = Shared.StatSetInt
 
 pluto_class GCooldowns
     KosatkaMissileCooldown = 262145 + 30187 -- default 60000 (int)
@@ -227,7 +230,7 @@ pluto_class Cooldowns
         end)
 
         cooldowns:toggle(T'Remove MK2 Cooldown', {}, T'Remove Oppressor MKII request cooldown', function(state)
-            GCooldowns:SetOppressor2Cooldown(state ? 0 : 300000)
+            GCooldowns:SetMk2Cooldown(state ? 0 : 300000)
         end)
 
         cooldowns:toggle(T'Remove Strike Team Cooldown', {}, T'Remove strike team request cooldown', function(state)
@@ -235,7 +238,7 @@ pluto_class Cooldowns
         end)
 
         cooldowns:toggle_loop(T'Remove Orbital Cannon Cooldown', {}, T'Remove orbital cannon cooldown', function()
-            StatSetInt(util.joaat(CHAR_INDEX .. 'ORBITAL_CANNON_COOLDOWN'), 0, true)
+            StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'ORBITAL_CANNON_COOLDOWN'), 0, true)
         end)
 
         cooldowns:toggle(T'Remove MK2 Chaff Cooldown', {}, T'Remove Oppressor MKII chaff cooldown', function(state)

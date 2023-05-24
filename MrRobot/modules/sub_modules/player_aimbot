@@ -108,21 +108,25 @@ pluto_class PlayerAimbot
 
     function HooksInit()
         players.add_command_hook(function(pid, root)
-            self.target_bitfield = Bit:Set(self.target_bitfield, pid)
-            local name = players.get_name(pid)
-            if pid == PLAYER_ID then return end
-            if RefByRelPath(self.target_list, name):isValid() then return end
-            self.target_list:toggle(players.get_name(pid), {}, '', function(state)
-                self.target_bitfield = state and Bit:Set(self.target_bitfield, pid) or Bit:Clear(self.target_bitfield, pid)
-            end, Bit:Check(self.target_bitfield, pid))
+            xpcall(function()
+                self.target_bitfield = Bit:Set(self.target_bitfield, pid)
+                local name = players.get_name(pid)
+                if pid == PLAYER_ID and name ~= 'UndiscoveredPlayer' then return end
+                if RefByRelPath(self.target_list, name):isValid() then return end
+                self.target_list:toggle(players.get_name(pid), {}, '', function(state)
+                    self.target_bitfield = state and Bit:Set(self.target_bitfield, pid) or Bit:Clear(self.target_bitfield, pid)
+                end, Bit:Check(self.target_bitfield, pid))
+            end, |err| -> nil)
         end)
 
         players.on_leave(function(pid, name)
-            self.target_bitfield = Bit:Clear(self.target_bitfield, pid)
-            local ref = RefByRelPath(self.target_list, name)
-            if ref:isValid() then
-                ref:delete()
-            end
+            xpcall(function()
+                self.target_bitfield = Bit:Clear(self.target_bitfield, pid)
+                local ref = RefByRelPath(self.target_list, name)
+                if ref:isValid() then
+                    ref:delete()
+                end
+            end, |err| -> nil)
         end)
     end
 
@@ -283,7 +287,6 @@ pluto_class PlayerAimbot
             ::continue::
         end
 
-        local inspect = require('inspect')
         local smallest_distance = self.max_distance
         local closest_entity = nil
 

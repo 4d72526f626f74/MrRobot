@@ -414,20 +414,24 @@ pluto_class Online
         players.add_command_hook(function(pid, root)
             local name = players.get_name(pid)
 
-            if pid ~= PLAYER_ID then
-                if not RefByRelPath(ghosting, name):isValid() then
-                    ghosting:toggle(players.get_name(pid), {}, T'Become ghosted to this player', function(state)
-                        SetRemotePlayerAsGhost(pid, state)
-                    end)
+            xpcall(function()
+                if pid ~= PLAYER_ID then
+                    if not RefByRelPath(ghosting, name):isValid() then
+                        ghosting:toggle(players.get_name(pid), {}, T'Become ghosted to this player', function(state)
+                            SetRemotePlayerAsGhost(pid, state)
+                        end)
+                    end
                 end
-            end
+            end, |err| -> nil)
         end)
 
         players.on_leave(function(pid, name)
-            local ref = RefByRelPath(ghosting, name)
-            if ref:isValid() then
-                ref:delete()
-            end
+            xpcall(function()
+                local ref = RefByRelPath(ghosting, name)
+                if ref:isValid() then
+                    ref:delete()
+                end
+            end, |err| -> nil)
         end)
 
         local beast_blips = {}

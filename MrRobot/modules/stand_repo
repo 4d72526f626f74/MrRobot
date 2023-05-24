@@ -1,0 +1,306 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+
+local tools_ref = menu.ref_by_rel_path(root, T'Tools')
+if tools_ref:isValid() then
+    root = tools_ref
+end
+
+local fs = filesystem
+
+local lib_dir = fs.scripts_dir() .. '/lib'
+local res_dir = fs.scripts_dir() .. '/resources'
+local store_dir = fs.scripts_dir() .. '/store'
+
+local endpoint = 'stand.gg'
+local stand_natives = {
+    ['natives-1681379138.lua'] = {
+        ['name'] = 'natives-1681379138.lua',
+        ['files'] = {
+            {'init.lua', lib_dir .. '/natives-1681379138/init.lua', '/dl/lua/lib/natives-1681379138/init.lua'},
+            {'uno.lua', lib_dir .. '/natives-1681379138/uno.lua',  '/dl/lua/lib/natives-1681379138/uno.lua'},
+            {'g.lua', lib_dir .. '/natives-1681379138/g.lua', '/dl/lua/lib/natives-1681379138/g.lua'},
+            {'g-uno.lua', lib_dir .. '/natives-1681379138/g-uno.lua', '/dl/lua/lib/natives-1681379138/g-uno.lua'}
+        }
+    },
+    ['natives-1676318796.lua'] = {
+        ['name'] = 'natives-1676318796.lua',
+        ['files'] = {
+            {'natives-1676318796.lua', lib_dir .. '/natives-1676318796.lua', '/dl/lua/lib/natives-1676318796.lua'}
+        }
+    },
+    ['natives-1676318796-uno.lua'] = {
+        ['name'] = 'natives-1676318796-uno.lua',
+        ['files'] = {
+            {'natives-1676318796-uno.lua', lib_dir .. '/natives-1676318796-uno.lua', '/dl/lua/lib/natives-1676318796-uno.lua'}
+        }
+    },
+    ['natives-1672190175.lua'] = {
+        ['name'] = 'natives-1672190175.lua',
+        ['files'] = {
+            {'natives-1672190175.lua', lib_dir .. '/natives-1672190175.lua', '/dl/lua/lib/natives-1672190175.lua'}
+        }
+    },
+    ['natives-1672190175-uno.lua'] = {
+        ['name'] = 'natives-1672190175-uno.lua',
+        ['files'] = {
+            {'natives-1672190175-uno.lua', lib_dir .. '/natives-1672190175-uno.lua', '/dl/lua/lib/natives-1672190175-uno.lua'}
+        }
+    },
+    ['natives-1663599433.lua'] = {
+        ['name'] = 'natives-1663599433.lua',
+        ['files'] = {
+            {'natives-1663599433.lua', lib_dir .. '/natives-1663599433.lua', '/dl/lua/lib/natives-1663599433.lua'}
+        }
+    },
+    ['natives-1663599433-uno.lua'] = {
+        ['name'] = 'natives-1663599433-uno.lua',
+        ['files'] = {
+            {'natives-1663599433-uno.lua', lib_dir .. '/natives-1663599433-uno.lua', '/dl/lua/lib/natives-1663599433-uno.lua'}
+        }
+    },
+    ['natives-1660775568.lua'] = {
+        ['name'] = 'natives-1660775568.lua',
+        ['files'] = {
+            {'natives-1660775568.lua', lib_dir .. '/natives-1660775568.lua', '/dl/lua/lib/natives-1660775568.lua'}
+        }
+    },
+    ['natives-1660775568-uno.lua'] = {
+        ['name'] = 'natives-1660775568-uno.lua',
+        ['files'] = {
+            {'natives-1660775568-uno.lua', lib_dir .. '/natives-1660775568-uno.lua', '/dl/lua/lib/natives-1660775568-uno.lua'}
+        }
+    },
+    ['natives-1651208000.lua'] = {
+        ['name'] = 'natives-1651208000.lua',
+        ['files'] = {
+            {'natives-1651208000.lua', lib_dir .. '/natives-1651208000.lua', '/dl/lua/lib/natives-1651208000.lua'}
+        }
+    },
+    ['natives-1640181023.lua'] = {
+        ['name'] = 'natives-1640181023.lua',
+        ['files'] = {
+            {'natives-1640181023.lua', lib_dir .. '/natives-1640181023.lua', '/dl/lua/lib/natives-1640181023.lua'}
+        }
+    },
+    ['natives-1627063482.lua'] = {
+        ['name'] = 'natives-1627063482.lua',
+        ['files'] = {
+            {'natives-1627063482.lua', lib_dir .. '/natives-1627063482.lua', '/dl/lua/lib/natives-1627063482.lua'}
+        }
+    }
+}
+
+local stand_libs = {
+    ['lunajson'] = {
+        ['name'] = 'lunajson.lua',
+        ['author'] = '?',
+        ['files'] = {
+            {'lunajson.lua', lib_dir .. '/lunajson.lua', '/dl/lua/lib/lunajson.lua'},
+            {'decoder.lua', lib_dir .. '/lunajson/decoder.lua', '/dl/lua/lib/lunajson/decoder.lua'},
+            {'encoder.lua', lib_dir .. '/lunajson/encoder.lua', '/dl/lua/lib/lunajson/encoder.lua'},
+            {'sax.lua', lib_dir .. '/lunajson/sax.lua', '/dl/lua/lib/lunajson/sax.lua'}
+        },
+        ['create_directory'] = true,
+        ['dirs'] = {
+            {lib_dir .. '/lunajson'}
+        }
+    },
+    ['json'] = {
+        ['name'] = 'json.lua',
+        ['author'] = '?',
+        ['files'] = {
+            {'json.lua', lib_dir .. '/json.lua', '/dl/lua/lib/json.lua'}
+        },
+        ['create_directory'] = false
+    },
+    ['pretty.json'] = {
+        ['name'] = 'pretty.lua',
+        ['author'] = '?',
+        ['files'] = {
+            {'json.lua', lib_dir .. '/pretty/json.lua', '/dl/lua/lib/pretty/json.lua'},
+            {'constants.lua', lib_dir .. '/pretty/json/constant.lua', '/dl/lua/lib/pretty/json/constant.lua'},
+            {'parser.lua', lib_dir .. '/pretty/json/parser.lua', '/dl/lua/lib/pretty/json/parser.lua'},
+            {'serializer.lua', lib_dir .. '/pretty/json/serializer.lua', '/dl/lua/lib/pretty/json/serializer.lua'}
+        },
+        ['create_directory'] = true,
+        ['dirs'] = {
+            {lib_dir .. '/pretty'},
+            {lib_dir .. '/pretty/json'}
+        }
+    },
+    ['imGUI-V2.1.2'] = {
+        ['name'] = 'lua_imGUI-V2.1.2.lua',
+        ['author'] = 'Murten',
+        ['files'] = {
+            {'ImGUI_checkmark.png', res_dir .. '/ImGUI_checkmark.png', '/dl/lua/resources/ImGUI_checkmark.png'},
+            {'ImGUI_cursor.png', res_dir .. '/ImGUI_cursor.png', '/dl/lua/resources/ImGUI_cursor.png'},
+            {'lua_imGUI V2.1.2.lua', lib_dir .. '/lua_imGUI V2.1.2.lua', '/dl/lua/lib/lua_imGUI V2.1.2.lua'}
+        },
+        ['create_directory'] = false,
+        ['depends'] = {
+            {'natives-1640181023', lib_dir .. '/natives-1640181023.lua', '/dl/lua/lib/natives-1640181023.lua'}
+        }
+    },
+    ['SLAXML'] = {
+        ['name'] = 'slaxml.lua',
+        ['author'] = 'Phrogz',
+        ['files'] = {
+            {'slaxml.lua', lib_dir .. '/slaxml.lua', '/dl/lua/lib/slaxml.lua'},
+            {'slaxdom.lua', lib_dir .. '/slaxdom.lua', '/dl/lua/lib/slaxdom.lua'}
+        },
+        ['create_directory'] = false
+    },
+    ['iniparser'] = {
+        ['name'] = 'iniparser.lua',
+        ['author'] = 'well-in-that-case',
+        ['files'] = {
+            {'iniparser.lua', lib_dir .. '/iniparser.lua', '/dl/lua/lib/iniparser.lua'}
+        },
+        ['create_directory'] = false
+    },
+    ['ScaleformLib'] = {
+        ['name'] = 'ScaleformLib.lua',
+        ['author'] = 'aaronlink127',
+        ['files'] = {
+            {'ScaleformLib.lua', lib_dir .. '/ScaleformLib.lua', '/dl/lua/lib/ScaleformLib.lua'}
+        },
+        ['create_directory'] = false
+    },
+    ['xml2lua'] = {
+        ['name'] = 'xml2lua.lua',
+        ['author'] = 'Paul Chakravarti',
+        ['files'] = {
+            {'xml2lua.lua', lib_dir .. '/xml2lua.lua', '/dl/lua/lib/xml2lua.lua'}
+        },
+        ['create_directory'] = false
+    },
+    ['inspect'] = {
+        ['name'] = 'inspect.lua',
+        ['author'] = 'Enrique García Cota',
+        ['files'] = {
+            {'inspect.lua', lib_dir .. '/inspect.lua', '/dl/lua/lib/inspect.lua'}
+        }
+    },
+    ['quaternionLib'] = {
+        ['name'] = 'quaternionLib.lua',
+        ['author'] = 'Murten',
+        ['files'] = {
+            {'quaternionLib.lua', lib_dir .. '/quaternionLib.lua', '/dl/lua/lib/quaternionLib.lua'}
+        },
+        ['create_directory'] = false
+    }
+}
+
+local repo = root:list(T'Stand Repository', {}, '')
+local natives = repo:list(T'Natives', {}, T'Stand Natives ')
+local libs = repo:list(T'Libs', {}, T'Libs for other scripts like json, scaleformLib, etc.')
+
+local function download_sync(url, path, download_path)
+    local bytes = 0
+
+    if fs.exists(download_path) then
+        io.remove(download_path)
+    end
+    
+    async_http.init(url, path, function(body, headers, status_code)
+        if status_code == 200 then
+            bytes = body
+
+            local file <close> = assert(io.open(download_path, 'wb'))
+            file:write(body)
+            file:close()
+
+            util.toast('Download complete!')
+        elseif status_code == 404 then
+            util.toast('File was not found on the server')
+            bytes = 1
+            util.stop_thread()
+        end
+    end)
+
+    async_http.dispatch()
+
+    repeat
+        util.draw_debug_text('Download in progress, please wait ...')
+        util.yield_once()
+    until bytes ~= 0
+
+    bytes = nil
+    url = nil
+    path = nil
+end
+
+for k, v in pairs(stand_natives) do
+    local n = natives:list(v.name:gsub('.lua', ''), {}, '')
+    local installed = n:readonly('Installed: ' .. tostring(fs.exists(v.files[1][2])))
+    n:divider('')
+
+    n:action(T'Download/Update', {}, '', function()
+        if #v.files ~= 1 then
+            local dir = lib_dir .. '/' .. v.name:gsub('.lua', '')
+            if not fs.exists(dir) then
+                fs.mkdir(dir)
+            end
+        end
+
+        for _, file in pairs(v.files) do
+            download_sync(endpoint, file[3], file[2])
+        end
+        installed.menu_name = 'Installed: ' .. tostring(fs.exists(v.files[1][2]))
+    end)
+
+    n:action(T'Uninstall', {}, '', function()
+        if SCRIPT_CAN_CONTINUE then
+            for _, file in pairs(v.files) do
+                io.remove(file[2])
+            end
+        end
+
+        installed.menu_name = 'Installed: ' .. tostring(fs.exists(v.files[1][2]))
+    end)
+end
+
+for k, v in pairs(stand_libs) do
+    local l = libs:list(k, {}, '')
+    l:readonly('Author: ' .. v.author)
+    l:divider('')
+    l:action(T'Download/Update', {}, '', function()
+        if #v.files ~= 1 and v.create_directory then
+            for _, dir in pairs(v.dirs) do
+                if not fs.exists(dir[1]) then
+                    fs.mkdir(dir[1])
+                end
+            end
+        end
+
+        for _, file in pairs(v.files) do
+            download_sync(endpoint, file[3], file[2])
+        end
+
+        xpcall(function()
+            for _, file in pairs(v.depends) do
+                download_sync(endpoint, file[3], file[2])
+            end
+        end, |err| -> 0)
+    end)
+
+    l:action(T'Uninstall', {}, '', function()
+        if SCRIPT_CAN_CONTINUE then
+            for _, file in pairs(v.files) do
+                io.remove(file[2])
+            end
+        end
+    end)
+
+    l:action(T'Unistall Dependencies', {}, '', function()
+        if SCRIPT_CAN_CONTINUE then
+            xpcall(function()
+                for _, file in pairs(v.depends) do
+                    io.remove(file[2])
+                end
+            end, |err| -> 0)
+        end
+    end)
+end

@@ -1,0 +1,269 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+local Shared = require('shared')
+local PLAYER_ID = Shared.PLAYER_ID
+
+--[[Hash (int)]] local function NetworkHashFromPlayerHandle(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0xBC1D768F2F5D6C05)return native_invoker.get_return_value_int()end
+--[[Vector3 (vector3)]] local function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
+--[[Vehicle (int)]] local function NetToVeh(--[[int]] netHandle)native_invoker.begin_call()native_invoker.push_arg_int(netHandle)native_invoker.end_call_2(0x367B936610BA360C)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function DecorSetInt(--[[Entity (int)]] entity,--[[string]] propertyName,--[[int]] value)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.push_arg_int(value)native_invoker.end_call_2(0x0CE3AA5E1CA19E10)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetRemotePlayerAsGhost(--[[Player (int)]] player,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xA7C511FA1C5BDA38)end
+--[[Ped (int)]] local function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x43A66C31C68491C0)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function GetEventData(--[[int]] eventGroup,--[[int]] eventIndex,--[[Any* (pointer)]] eventData,--[[int]] eventDataSize)native_invoker.begin_call()native_invoker.push_arg_int(eventGroup)native_invoker.push_arg_int(eventIndex)native_invoker.push_arg_pointer(eventData)native_invoker.push_arg_int(eventDataSize)native_invoker.end_call_2(0x2902843FCD2B2D79)return native_invoker.get_return_value_bool()end
+--[[int]] local function GetNumberOfEvents(--[[int]] eventGroup)native_invoker.begin_call()native_invoker.push_arg_int(eventGroup)native_invoker.end_call_2(0x5F92A689A06620AA)return native_invoker.get_return_value_int()end
+--[[int]] local function GetEventAtIndex(--[[int]] eventGroup,--[[int]] eventIndex)native_invoker.begin_call()native_invoker.push_arg_int(eventGroup)native_invoker.push_arg_int(eventIndex)native_invoker.end_call_2(0xD8F66A3A60C62153)return native_invoker.get_return_value_int()end
+
+local GetEntityCanBeDamaged = Shared.GetEntityCanBeDamaged
+local IsPedInAnyVehicle = Shared.IsPedInAnyVehicle
+
+local VEHICLE_KICK_PRIMARY <constexpr> = 2793046 + 852
+local VEHICLE_KICK_SECONDARY <constexpr> = 2793046 + 853
+--local TRANSITION_STATE <const> = 2657589 + 1 + (PLAYER_ID * 466) -- Global_2657589[PLAYER::PLAYER_ID() /*466*/]
+
+local ScriptGlobal = Shared.ScriptGlobal
+local ScriptLocal = Shared.ScriptLocal
+local ReadInt = Shared.ReadInt
+local ReadShort = Shared.ReadShort
+local ReadByte = Shared.ReadByte
+local ReadFloat = Shared.ReadFloat
+local ReadLong = Shared.ReadLong
+local WriteInt = Shared.WriteInt
+local WriteShort = Shared.WriteShort
+local WriteByte = Shared.WriteByte
+local WriteFloat = Shared.WriteFloat
+local WriteLong = Shared.WriteFloat
+local Alloc = Shared.Alloc
+local SpoofScript = Shared.SpoofScript
+
+local settings = 0
+local pkick, pkick, local_nethash
+
+local function GetNetworkId(pid)
+    return ReadInt(ScriptGlobal(2657589 + 1 + (pid * 466) + 38))
+end
+
+local function SetNetworkId(pid, net_id)
+    WriteInt(ScriptGlobal(2657589 + 1 + (pid * 466) + 38), net_id)
+end
+
+local function GetVehicleFromNetId(pid)
+    return NetToVeh(GetNetworkId(pid))
+end
+
+pluto_class Protections
+    function __construct()
+        self.root = root:list(T'Protections', {}, T'Protections')
+        local protections = self.root
+        local vehicle_protections = protections:list(T'Vehicle', {}, T'Vehicle protections')
+        local player_protections = protections:list(T'Player', {}, T'Player protections')
+        local vehicle_spoofing = vehicle_protections:list(T'Vehicle Spoofing', {}, T'Vehicle spoofing')
+        local detections = root:list(T'Detections', {}, T'Detections')
+    
+        local veh_kick_ref
+        veh_kick_ref = vehicle_protections:toggle(T'Vehicle Kick', {}, T'Prevents you from being kicked from any vehicle (this protection is NOT the same as Stand\'s kick from vehicle protection)', function(state)
+            pkick = pkick ?? ScriptGlobal(VEHICLE_KICK_PRIMARY)
+            skick = skick ?? ScriptGlobal(VEHICLE_KICK_SECONDARY)
+    
+            WriteByte(pkick, state ? 0 : 1)
+            WriteByte(skick, state ? 1 : 0)
+        end)
+    
+        local veh_smartkick_ref
+        veh_smartkick_ref = vehicle_protections:toggle_loop(T'Smart Vehicle Kick', {}, T'Vehicle kick protection will only be enabled when you are in a personal vehicle, this will prevent any negative side effects like breaking missions', function()
+            local veh = GetVehicleFromNetId(PLAYER_ID)
+            local ped = players.user_ped()
+    
+            if veh ~= 0 and IsPedInAnyVehicle(ped) then
+                if veh_kick_ref:isValid() then
+                    veh_kick_ref.value = true
+                end
+            end
+    
+            if veh ~= 0 and not IsPedInAnyVehicle(ped) then
+                if veh_kick_ref:isValid() then
+                    veh_kick_ref.value = false
+                end
+            end
+        end)
+    
+        vehicle_protections:toggle_loop(T'Anti-Oppressor MKII', {}, T'Delete broomsticks so shitbags cannot use them', function()
+            for Shared.GetAllVehiclesAsPointers() as entity do
+                local model = Shared.ReverseJoaat(Shared.GetModelHash(entity))
+                if model:find('oppressor2') then
+                    Shared.DeleteByPointer(entity)
+                end
+            end
+        end)
+    
+        vehicle_spoofing:toggle_loop(T'Vehicle Spoofing', {}, T'Revert other players attempts at trying to spoof your personal vehicle', function()
+            local_nethash = local_nethash ?? NetworkHashFromPlayerHandle(PLAYER_ID)
+    
+            for pid = 0, 32 do
+                if pid ~= PLAYER_ID then
+                    if Shared:PlayerInList(pid) then
+                        if GetNetworkId(pid) == GetNetworkId(PLAYER_ID) then
+                            local veh = GetVehicleFromNetId(PLAYER_ID)
+                            if veh ~= 0 then
+                                DecorSetInt(veh, 'Player_Vehicle', local_nethash)
+                                DecorSetInt(veh, 'Previous_Owner', 0)
+                                util.yield(100)
+                                SetNetworkId(pid, -1)
+    
+                                local proot = menu.player_root(pid)
+    
+                                if Shared.RefByRelPath(vehicle_spoofing, 'Kick').value then
+                                    -- thank you ref_by_path for making this longer than it needs to be by not working
+                                    if proot:isValid() then
+                                        local kick = Shared.RefByRelPath(proot, 'Kick')
+                                        if kick:isValid() then
+                                            local kick = Shared.RefByRelPath(kick, 'Smart')
+                                            if kick:isValid() then
+                                                kick:trigger()
+                                            end
+                                        end
+                                    end
+                                elseif Shared.RefByRelPath(vehicle_spoofing, 'Ban Kick').value then
+                                    if proot:isValid() then
+                                        local kick = Shared.RefByRelPath(proot, 'Kick')
+                                        if kick:isValid() then
+                                            local kick = Shared.RefByRelPath(kick, 'Ban')
+                                            if kick:isValid() then
+                                                kick:trigger()
+                                            end
+                                        end
+                                    end
+                                elseif Shared.RefByRelPath(vehicle_spoofing, 'Crash').value then
+                                    if proot:isValid() then
+                                        local crash = Shared.RefByRelPath(proot, 'Crash')
+                                        if crash:isValid() then
+                                            local crash = Shared.RefByRelPath(crash, 'Elegant')
+                                            if crash:isValid() then
+                                                crash:trigger()
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    
+        vehicle_spoofing:divider(T'Reactions')
+    
+        vehicle_spoofing:toggle(T'Kick', {}, T'Kick the player who is spoofing your personal vehicle', function() end)
+        vehicle_spoofing:toggle(T'Ban Kick', {}, T'Ban kick the player who is spoofing your personal vehicle', function() end)
+        vehicle_spoofing:toggle(T'Crash', {}, T'Crash the player who is spoofing your personal vehicle', function() end)
+    
+        player_protections:toggle_loop(T'Anti Orbital Cannon', {}, T'Prevents you from being targeted by the orbital cannon, players can still manually target you but it will be very unlikely that they will find you', function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) and pid ~= PLAYER_ID then
+                    Shared:SetPassiveMode(Shared:IsUsingOrbitalCannon(pid))
+                end
+            end
+        end,
+        function()
+            Shared:SetPassiveMode(false)
+        end)
+    
+        player_protections:toggle_loop(T'Ghost Godmode Trash', {}, T'Automatically become ghosted to trash players that are using godmode', function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) and pid ~= PLAYER_ID then
+                    SetRemotePlayerAsGhost(pid, Shared.IsGodmode(pid))
+                end
+            end
+        end)
+    
+        player_protections:toggle_loop(T'Anti-Attacker', {T'antiattacker'}, 'Prevents you from being attacked by a mugger, mercenaries, hit squad or strike team', function()
+            SpoofScript('am_gang_call', function()
+                local sender = ScriptLocal('am_gang_call', 287)
+                local target = ScriptLocal('am_gang_call', 288)
+    
+                if sender ~= 0 and target ~= 0 then
+                    WriteByte(sender, PLAYER_ID)
+                    WriteByte(target, -1)
+                end
+            end)
+        end)
+    
+        player_protections:toggle_loop(T'Anti-Beast', {}, T'Prevents you from becoming the beast', function()
+            SpoofScript('am_hunt_the_beast', Shared.TerminateThisThread)
+        end)
+    
+        player_protections:toggle(T'Block Mugger Notification', {}, 'Block mugger notification spam', function(state)
+            local block = ScriptGlobal(1670314 + 154)
+            WriteByte(block, state ? 1 : 0)
+        end)
+    
+        player_protections:toggle(T'Block Stand Notification Spam', {}, 'Block stand notification spam', function(state)
+            Shared:BlockStandNotificationSpam(state)
+        end)
+    
+        player_protections:toggle(T'Block All Notifications', {}, 'Block all notifications', function(state)
+            Shared:BlockAllNotifications(state)
+        end)
+    
+        player_protections:toggle_loop(T'Bounty', {}, T'Prevents bounties from being set on you', function()
+            if Shared:GetPlayerBounty(PLAYER_ID) > 0 then
+                Shared:SetPlayerBounty(PLAYER_ID, -1, false)
+            end
+        end)
+    
+        player_protections:toggle_loop(T'Bounty (Session-Wide)', {}, T'Prevent bounties from being set on other players in the session', function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) then
+                    if Shared:GetPlayerBounty(pid) > 0 then
+                        Shared:SetPlayerBounty(pid, 0, false)
+                        Shared:SetPlayerBountyReward(pid, 0)
+                    end
+                end
+            end
+        end)
+    
+        player_protections:toggle_loop(T'Modded Bounties (Session-Wide)', {}, T'Detects and fixes modded bounties for the entire session', function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) then
+                    local bounty = Shared:GetPlayerBounty(pid)
+                    if bounty > 0 then
+                        if Shared:IsModdedBounty(bounty) then
+                            Shared:SetPlayerBounty(pid, 0, false)
+                            Shared:SetPlayerBountyReward(pid, 0)
+                        end
+                    end
+                end
+            end
+        end)
+    
+        detections:toggle_loop(T'Vehicle Spoofing', {}, T'Detects when a player is spoofing your personal vehicle', function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) and pid ~= PLAYER_ID then
+                    if GetNetworkId(pid) == GetNetworkId(PLAYER_ID) then
+                        Shared:TriggerDetection(pid, 'Vehicle Spoofing')
+                    end
+                end
+            end
+        end)
+    
+        local desync_detect
+        desync_detect = detections:toggle_loop(T'Desync Kick', {}, T'Detects when another player in the session is desync kicked by a modder (may not be accurate 100% of the time)', function()
+            for i = 0, Shared.GetNumberOfEvents(1) do
+                local event = Shared.GetEventAtIndex(1, i)
+                if event == 154 and Shared.GetEventData(1, i, Shared.EventData, 56) then
+                    local args = {}
+                    for i = 0, 56 do
+                        table.insert(args, Shared.ReadInt(Shared.EventData + i * 8))                
+                    end
+    
+                    if args[56] == -32765 then
+                        Shared.DesyncData.Active = desync_detect.value
+                        Shared.DesyncData.Detected = true
+                    end
+                end
+            end
+        end)
+    end
+end
+
+return Protections

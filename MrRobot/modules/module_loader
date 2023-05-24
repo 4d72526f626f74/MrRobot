@@ -1,0 +1,180 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+local sha256 = require('crypto').sha256
+local fs = filesystem
+local script_custom = fs.scripts_dir() .. '/MrRobot/custom'
+
+local json = soup.json
+
+pluto_class ModuleLoader
+    function __construct()
+        self.root = root:list(
+            T'Module Loader', 
+            {}, 
+            T'Load custom modules into the script, within your custom module you can extend the functionality of the script and add things that you want into it with very little effort, this cannot be used for loading scripts like AcjokerScript, NovaScript, LanceScript, Kepler, SoulScript, HexaScript',
+            function()
+                self:ModuleListUpdater()
+            end,
+            function()
+                self.flag = false
+            end
+        )
+
+        self.total_files = #fs.list_files(script_custom)
+        self.flag = false
+
+        local custom = self.root
+
+        custom:action(T'Open Folder', {}, T'Open custom modules folder', function()
+            util.open_folder(script_custom)
+        end)
+
+        self:CreateRepo()
+        self:UpdateModulesList()
+
+        custom:divider('')
+        self:FindModules()
+    end
+
+    function ModuleListUpdater()
+        self.flag = true
+        util.create_tick_handler(function()
+            if not self.flag then
+                return false
+            end
+
+            if self.total_files ~= #fs.list_files(script_custom) then
+                self.total_files = #fs.list_files(script_custom)
+                local children = self.root:getChildren()
+                local custom = self.root
+                table.remove(children, 1)
+                table.remove(children, 1)
+                table.remove(children, 1)
+                table.remove(children, 1)
+
+                for children as child do
+                    if child:isValid() then
+                        child:delete()
+                    end
+                end
+
+                self:FindModules()
+            end
+        end)
+    end
+
+    function FindModules()
+        local custom = self.root
+        for fs.list_files(script_custom) as file do
+            local name = file:match('^.+/(.+)$'):gsub('\\', '/'):sub(8)
+            local mod_list = custom:list(name, {}, '')
+            mod_list:action(T'Load', {}, T'Load the module', function()
+                local loading_start = util.current_time_millis()
+                menu.my_root = || -> mod_list
+                local load_module = true
+                local fp <close> = assert(io.open(file, 'rb'))
+                local content = fp:read('*all')
+                fp:close()
+
+                if content:match('raw.githubusercontent.com') then
+                    load_module = false
+                elseif content:match('/hexarobi/stand-lua-auto-updater/main/auto-updater.lua') then
+                    load_module = false
+                elseif content:match('pcall(require, "auto-updater")') then
+                    load_module = false
+                elseif content:match('auto-updater') then
+                    load_module = false
+                end
+                
+                if load_module then
+                    if package.loaded[name] ~= nil then
+                        util.toast(T'Module already loaded' .. ': ' .. name)
+                    else
+                        menu.ref_by_rel_path(mod_list, 'Load').visible = false
+                        local status, err = pcall(require, name)
+                        if not status then
+                            util.log(err)
+                        else
+                            util.toast(T'Successfully loaded module' .. ': ' .. name)
+                        end
+                    end
+                else
+                    util.toast(T'Wtf you doing? this module is using an auto-updater, aborting load')
+                end
+                menu.my_root = || -> root
+                local loading_end = util.current_time_millis()
+                print(T'Loaded module ' .. name .. ' in ' .. (loading_end - loading_start) .. 'ms')
+            end)
+        end
+    end
+
+    function CreateRepo()
+        self.module_repo = self.root:list(T'Modules Repository', {}, T'Custom modules repository for downloading custom modules')
+        async_http.init('sodamnez.xyz', '/Stand/MrRobot/ModulesRepository/index.php', function(body, headers, status_code)
+            if status_code == 200 then
+                local modules = json.decode(body)
+                for modules as m do
+                    local name = m.name
+                    if fs.exists(script_custom .. '/' .. m.name) then
+                        local fp <close> = assert(io.open(script_custom .. '/' .. m.name, 'rb'))
+                        local content = fp:read('*all')
+                        fp:close()
+
+                        if sha256(content) ~= m.hash then
+                            async_http.init('sodamnez.xyz', $'/Stand/MrRobot/ModulesRepository/{name}', function(body, headers, status_code)
+                                if status_code == 200 then
+                                    local fp <close> = assert(io.open(script_custom .. '/' .. name, 'wb'))
+                                    fp:write(body)
+                                    fp:close()
+                                    util.toast(T'Successfully updated module' .. ': ' .. name)
+                                end
+                            end)
+
+                            async_http.dispatch()
+                        end
+                    end
+
+                    local version = m.version
+                    local author = m.author
+
+                    self.module_repo:action(tostring(name), {}, $'Author: {author}\nVersion: {version}', function()
+                        async_http.init('sodamnez.xyz', $'/Stand/MrRobot/ModulesRepository/{name}', function(body, headers, status_code)
+                            if status_code == 200 then
+                                local fp <close> = assert(io.open(script_custom .. '/' .. name, 'wb'))
+                                fp:write(body)
+                                fp:close()
+                                util.toast(T'Successfully downloaded module' .. ': ' .. name)
+                            end
+                        end)
+
+                        async_http.dispatch()
+                    end)
+                end
+            end
+        end)
+
+        async_http.dispatch()
+    end
+
+    function UpdateModulesList()
+        self.root:action(T'Update Module List', {}, T'Manually update modules list', function()
+            local children = self.root:getChildren()
+            local custom = self.root
+            table.remove(children, 1)
+            table.remove(children, 1)
+            table.remove(children, 1)
+            table.remove(children, 1)
+
+            for children as child do
+                if child:isValid() then
+                    child:delete()
+                end
+            end
+
+            self:FindModules()
+        end)
+    end
+end
+
+return ModuleLoader

@@ -1,0 +1,58 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+local Bitfield = require('bitfield')
+local Shared = require('shared')
+local CHAR_SLOT = Shared.CHAR_SLOT
+
+local GetEntityModel = Shared.GetEntityModel
+local NetGameserverTransferWalletToBank = Shared.NetGameserverTransferWalletToBank
+
+local ScriptGlobal = Shared.ScriptGlobal
+local WriteShort = Shared.WriteShort
+local WriteByte = Shared.WriteByte
+local WriteInt = Shared.WriteInt
+local ReadShort = Shared.ReadShort
+local ReadInt = Shared.ReadInt
+local ReadByte = Shared.ReadByte
+local Scan = Shared.Scan
+local Alloc = Shared.Alloc
+local CreateTickHandler = Shared.CreateTickHandler
+local IsSessionStarted = Shared.IsSessionStarted
+local RefByRelPath = Shared.RefByRelPath
+local ReverseJoaat = Shared.ReverseJoaat
+local Joaat = util.joaat
+
+pluto_class Tools
+    function __construct()
+        self.root = root:list(T'Tools', {T'tools'}, T'Tools')
+        root = self.root
+
+        root:action(T'Unlock Arcades', {T'unlockarcades'}, T'Unlock arcades on mazebank foreclosure without going to Lester', function()
+            local arcade = ScriptGlobal(1970832 + 22)
+            local bitfield = Bitfield.new(ReadShort(arcade))
+        
+            bitfield:BitSet(0x14E) -- set multiple bits using a bitmask instead of doing it like a noob and setting each individually
+            WriteShort(arcade, bitfield.value)
+        
+            arcade = ScriptGlobal(1853910 + 1 + (Shared.PLAYER_ID * 862) + 267 + 428)
+            WriteByte(arcade, 1)
+        end)
+        
+        root:action(T'Deposit Wallet Money', {T'depositwalletall'}, T'Deposit all money from your wallet', function()
+            local wallet = ReadInt(Scan('') + 0x1D42AC0)
+            NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
+        end)
+        
+        root:action(T'Instant $2000', {}, T'', function()
+            WriteInt(ScriptGlobal(262145 + 145), 1)
+            util.yield(1000)
+            WriteInt(ScriptGlobal(262145 + 145), 18000000)
+            util.yield(500)
+        end)
+        
+        root:divider('')
+    end
+end
+
+return Tools

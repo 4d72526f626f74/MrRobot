@@ -1,0 +1,33 @@
+local setmetatable = setmetatable
+local scaleform = setmetatable(scaleform, {})
+
+--[[int]] local function RequestScaleformMovie(--[[string]] scaleformName)native_invoker.begin_call()native_invoker.push_arg_string(scaleformName)native_invoker.end_call_2(0x11FE353CF9733E6F)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function HasScaleformMovieLoaded(--[[int]] scaleformHandle)native_invoker.begin_call()native_invoker.push_arg_int(scaleformHandle)native_invoker.end_call_2(0x85F01B8D5B90570E)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetScaleformMovieAsNoLongerNeeded(--[[int* (pointer)]] scaleformHandle)native_invoker.begin_call()native_invoker.push_arg_pointer(scaleformHandle)native_invoker.end_call_2(0x1D132D614DD86811)end
+--[[void]] local function DrawScaleformMovie(--[[int]] scaleformHandle,--[[float]] x,--[[float]] y,--[[float]] width,--[[float]] height,--[[int]] red,--[[int]] green,--[[int]] blue,--[[int]] alpha,--[[int]] p9)native_invoker.begin_call()native_invoker.push_arg_int(scaleformHandle)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(width)native_invoker.push_arg_float(height)native_invoker.push_arg_int(red)native_invoker.push_arg_int(green)native_invoker.push_arg_int(blue)native_invoker.push_arg_int(alpha)native_invoker.push_arg_int(p9)native_invoker.end_call_2(0x54972ADAF0294A93)end
+--[[string]] local function GetControlInstructionalButtonsString(--[[int]] control,--[[int]] action,--[[BOOL (bool)]] allowXOSwap)native_invoker.begin_call()native_invoker.push_arg_int(control)native_invoker.push_arg_int(action)native_invoker.push_arg_bool(allowXOSwap)native_invoker.end_call_2(0x0499D7B09FC9B407)return native_invoker.get_return_value_string()end
+--[[void]] local function CallScaleformMovieMethodWithString(--[[int]] scaleform,--[[string]] methodName,--[[string]] param1,--[[string]] param2,--[[string]] param3,--[[string]] param4,--[[string]] param5)native_invoker.begin_call()native_invoker.push_arg_int(scaleform)native_invoker.push_arg_string(methodName)native_invoker.push_arg_string(param1)native_invoker.push_arg_string(param2)native_invoker.push_arg_string(param3)native_invoker.push_arg_string(param4)native_invoker.push_arg_string(param5)native_invoker.end_call_2(0x51BC1ED3CC44E8F7)end
+
+-- not used, finished or tested yet
+
+function scaleform:request_scaleform(scaleformName)
+    local scaleform = RequestScaleformMovie(scaleformName)
+    repeat
+        util.yield_once()
+    until HasScaleformMovieLoaded(scaleform)
+    return scaleform
+end
+
+function scaleform:unload(scaleform)
+    SetScaleformMovieAsNoLongerNeeded(scaleform)
+end
+
+function scaleform:render(scaleform, x, y, width, height)
+    DrawScaleformMovie(scaleform, x, y, width, height, 255, 255, 255, 255, 0)
+end
+
+function scaleform:get_button(control, action, allowXOSwap)
+    return GetControlInstructionalButtonsString(control, action, allowXOSwap)
+end
+
+return scaleform

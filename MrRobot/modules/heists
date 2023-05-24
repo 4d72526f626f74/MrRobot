@@ -1,0 +1,1271 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+local Shared = require('shared')
+local Bit, BitMask = Shared.Bit, Shared.BitMask
+local CHAR_SLOT = Shared.CHAR_SLOT 
+
+local ApplyForceToEntityCenterOfMass = Shared.ApplyForceToEntityCenterOfMass
+local SetEntityCollision = Shared.SetEntityCollision
+local SetEntityProofs = Shared.SetEntityProofs
+local GetEntityCoords = Shared.GetEntityCoords
+local SetPedAccuracy = Shared.SetPedAccuracy
+local SetPedCanRagdoll = Shared.SetPedCanRagdoll
+local DoesEntityExist = Shared.DoesEntityExist
+local SetEntityCoords = Shared.SetEntityCoords
+local GetEntityModel = Shared.GetEntityModel
+local SetPedToRagdoll = Shared.SetPedToRagdoll
+local SetEnableBoundAnkles = Shared.SetEnableBoundAnkles
+local GetDistanceBetweenCoords = Shared.GetDistanceBetweenCoords
+local SetEntityHealth = Shared.SetEntityHealth
+local DoorSystemSetOpenRatio = Shared.DoorSystemSetOpenRatio
+local GetNextBlipInfoId = Shared.GetNextBlipInfoId
+local DoorSystemSetSpringRemoved = Shared.DoorSystemSetSpringRemoved
+local GetPedLastWeaponImpactCoord = Shared.GetPedLastWeaponImpactCoord
+local GetBlipInfoIdEntityIndex = Shared.GetBlipInfoIdEntityIndex
+local GetFirstBlipInfoId = Shared.GetFirstBlipInfoId
+local NetworkGetEntityIsNetworked = Shared.NetworkGetEntityIsNetworked
+local GetEntityHealth = Shared.GetEntityHealth
+local SetAiWeaponDamageModifier = Shared.SetAiWeaponDamageModifier
+local AddOwnedExplosion = Shared.AddOwnedExplosion
+local GetCurrentPedWeapon = Shared.GetCurrentPedWeapon
+local RemoveAllPedWeapons = Shared.RemoveAllPedWeapons
+local GiveWeaponToPed = Shared.GiveWeaponToPed
+local SetPedFiringPattern = Shared.SetPedFiringPattern
+local SetPedAccuracy = Shared.SetPedAccuracy
+local SetEntityInvincible = Shared.SetEntityInvincible
+local DoorSystemFindExistingDoor = Shared.DoorSystemFindExistingDoor
+local DoorSystemSetDoorState = Shared.DoorSystemSetDoorState
+local DoorSystemSetHoldOpen = Shared.DoorSystemSetHoldOpen
+
+local ScriptGlobal = Shared.ScriptGlobal
+local ScriptLocal = Shared.ScriptLocal
+local Alloc = Shared.Alloc
+local ReadInt = Shared.ReadInt
+local ReadShort = Shared.ReadShort
+local ReadByte = Shared.ReadByte
+local ReadFloat = Shared.ReadFloat
+local ReadLong = Shared.ReadLong
+local WriteInt = Shared.WriteInt
+local WriteShort = Shared.WriteShort
+local WriteByte = Shared.WriteByte
+local WriteFloat = Shared.WriteFloat
+local WriteLong = Shared.WriteLong
+local RefByPath = Shared.RefByPath
+local RefByRelPath = Shared.RefByRelPath
+local GetAllObjectsAsPointers = Shared.GetAllObjectsAsPointers
+local GetAllPickupsAsPointers = Shared.GetAllPickupsAsPointers
+local GetAllPedsAsPointers = Shared.GetAllPedsAsPointers
+local PointerToHandle = Shared.PointerToHandle
+local GetModelHash = Shared.GetModelHash
+local DeleteByPointer = Shared.DeleteByPointer
+local DeleteByHandle = Shared.DeleteByHandle
+local ReverseJoaat = Shared.ReverseJoaat
+local SetCanMigrate = Shared.SetCanMigrate
+local GetPosition = Shared.GetPosition
+local Joaat = util.joaat
+local SpoofScript = Shared.SpoofScript
+
+pluto_class GHeists
+    static function AutomatedPreset()
+        -- stats and values are from heist control https://github.com/IceDoomfist/Stand-Heist-Control/
+        -- thanks to IceDoomfist for allowing me to use his code
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_BOLTCUT'), -1, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_UNIFORM'), -1, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_GRAPPEL'), -1, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4_MISSIONS'), -1, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_WEAPONS'), 1, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_TROJAN'), 5, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4_PLAYTHROUGH_STATUS'), 100, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_TARGET'), 5, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4_PROGRESS'), 126823, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_BS_GEN'), -1, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_BS_ENTR'), -1, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_BS_ABIL'), -1, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_WEP_DISRP'), 3, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_ARM_DISRP'), 3, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_HEL_DISRP'), 3, true)
+        Shared.StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'H4CNF_APPROACH'), -1, true)
+    end
+
+    static function CalculateValue(desired_amount)
+        local take = math.floor(desired_amount * 1) -- amount each player will get without pavel and fencing fees
+        take = math.floor(take + (take * 0.12000000000000001)) -- add pavel and fencing fees
+
+        return take
+    end
+end
+
+local impact_coords = v3()
+local gate_ptr = Alloc(4)
+
+local gate_coords = {
+    SECONDARY_TARGET_BASEMENT_DOOR = v3.new(5002.2915039062, -5746.7397460938, 14.941325187683),
+    BASEMENT_ENTRY_DOOR_1 = v3.new(5006.6015625, -5734.466796875, 15.936750411987),
+    BASEMENT_ENTRY_DOOR_2 = v3.new(4992.8266601562, -5756.6586914062, 15.988387107849),
+    MAIN_GATE = v3.new(4987.5874023438, -5718.634765625, 20.781032562256),
+    MAIN_GATE_1 = v3.new(4984.1337890625, -5709.2485351562, 20.781032562256),
+    MAIN_GATE_2 = v3.new(4981.0122070312, -5712.7470703125, 20.781032562256),
+    MAIN_GATE_3 = v3.new(4990.6811523438, -5715.1059570312, 20.781032562256),
+    ARCH_GATE_RIGHT = v3.new(4993.048828125, -5758.0986328125, 20.270370483398),
+    ARCH_GATE_RIGHT_1 = v3.new(4998.6025390625, -5733.0712890625, 20.270597457886),
+    ARCH_GATE_LEFT = v3.new(4994.3681640625, -5755.9975585938, 20.270370483398),
+    ARCH_GATE_LEFT_1 = v3.new(5000.2680664062, -5731.2290039062, 20.270597457886),
+    PRIMARY_TARGET_GATE = v3.new(5007.6196289062, -5753.6083984375, 15.572952270508),
+    BASEMENT_FINGERPRINT_ENTRY_GATE = v3.new(4998.0825195312, -5743.1323242188, 14.941325187683)
+}
+
+local function FindEntityByModel(iter, ent_model)
+    local ent = 0
+    
+    for i, entity in pairs(iter()) do
+        local model = ReverseJoaat(GetModelHash(entity))
+        if model:find(ent_model) then
+            ent = entity
+            break
+        end
+    end
+
+    return ent
+end
+
+local function DeleteEntitiesByModel(iter, ent_model)
+    for i, entity in pairs(iter()) do
+        local model = ReverseJoaat(GetModelHash(entity))
+        if model:find(ent_model) then
+            DeleteByPointer(entity)
+        end
+    end
+end
+
+local function FindAllGates()
+    local hashes = {}
+    
+    for i, entity in pairs(GetAllObjectsAsPointers()) do
+        local model = ReverseJoaat(GetModelHash(entity))
+        if (model:find('h4_prop_h4_gate_r_01a') or model:find('h4_prop_h4_gate_l_01a') or model:find('h4_prop_h4_gate_02a') or model:find('h4_prop_h4_gate_03a') or model:find('h4_prop_h4_gate_04a') or model:find('h4_prop_h4_gate_05a')) then
+            local pos = GetPosition(entity)
+            DoorSystemFindExistingDoor(pos.x, pos.y, pos.z, GetModelHash(entity), gate_ptr)
+            local hash = ReadInt(gate_ptr)
+
+            table.insert(hashes, {
+                hash = hash,
+                entity = entity,
+                model = model,
+            })
+        end
+    end
+
+    return hashes
+end
+
+local function GetGateFromCoords(coords)
+    for i, entity in pairs(GetAllObjectsAsPointers()) do
+        local model = ReverseJoaat(GetModelHash(entity))
+        if DoorSystemFindExistingDoor(coords.x, coords.y, coords.z, GetModelHash(entity), gate_ptr) then
+            local handle = PointerToHandle(entity)
+            local hash = ReadInt(gate_ptr)
+            return {
+                hash = hash,
+                entity = handle,
+                model = model,
+            }
+        end
+    end
+
+    return 0
+end
+
+local function UnlockDoor(door)
+    DoorSystemSetDoorState(door, 0, true, true)
+    DoorSystemSetHoldOpen(door, true, true)
+end
+
+local function LockDoor(door)
+    DoorSystemSetDoorState(door, 1, true, true)
+    DoorSystemSetOpenRatio(door, 0.0, true, true)
+    DoorSystemSetHoldOpen(door, true, true)
+end
+
+local function TeleportToBlip(blip_id)
+    local blip = GetFirstBlipInfoId(blip_id)
+
+    if blip ~= 0 then
+        local entity = GetBlipInfoIdEntityIndex(blip)
+        if entity ~= 0 and DoesEntityExist(entity) then
+            local pos = GetEntityCoords(entity)
+            SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, true, true, true, true)
+        end
+    end
+end
+
+local function DeletePedsByModel(model)
+    for i, entity in pairs(GetAllPedsAsPointers()) do
+        local ent_model = ReverseJoaat(GetModelHash(entity))
+        if ent_model:find(model) then
+            DeleteByPointer(entity)
+        end
+    end
+end
+
+local function DeleteObjectsByModel(model)
+    for i, entity in pairs(GetAllObjectsAsPointers()) do
+        local ent_model = ReverseJoaat(GetModelHash(entity))
+        if ent_model:find(model) then
+            DeleteByPointer(entity)
+        end
+    end
+end
+
+pluto_class Heists
+    function __construct()
+        self.root = root:list(T'Heists', {}, T'Heist options')
+        local heists = self.root
+        local cayo = heists:list(T'Cayo Perico', {}, T'Cayo Perico options')
+        local casino = heists:list(T'Diamond Casino', {}, T'Casino options')
+    
+        cayo:action(T'Delete Primary Target', {}, T'Will not work if you are not the host', function()
+            local glass = FindEntityByModel(GetAllObjectsAsPointers, 'glass_disp')
+            local vault = FindEntityByModel(GetAllObjectsAsPointers, 'h4_safe')
+            local blip_id = BitMask:Get(Shared.BlipIds >> 0x32, 0x3FF)
+    
+            if glass ~= 0 then DeleteByPointer(glass) end
+            if vault ~= 0 then DeleteByPointer(vault) end
+    
+            local blip = GetFirstBlipInfoId(blip_id)
+            repeat
+                util.yield_once()
+                blip = GetNextBlipInfoId(blip_id)
+            until blip ~= 0
+    
+            if blip ~= 0 then
+                local entity = GetBlipInfoIdEntityIndex(blip)
+                if entity ~= 0 and DoesEntityExist(entity) then
+                    DeleteByHandle(entity)
+                end
+            end
+        end)
+    
+        cayo:action(T'Delete Gate Key', {}, T'Will not work  if yu are not the host', function()
+            local key = FindEntityByModel(GetAllPickupsAsPointers, 'key')
+            if key ~= 0 then DeleteByPointer(key) end
+        end)
+    
+        cayo:action(T'Delete Keycards', {}, T'Will not work if you are not the host', function()
+            DeleteEntitiesByModel(GetAllPickupsAsPointers, 'keycard')
+        end)
+    
+        cayo:action(T'Delete Vault Cash', {}, T'Will not work if you are not the host', function()
+            local cash = FindEntityByModel(GetAllPickupsAsPointers, 'cash')
+            if cash ~= 0 then DeleteByPointer(cash) end
+        end)
+    
+        cayo:action(T'Give Guards Minigun', {}, T'Give all the guards a minigun', function()
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cartelguard') or model:find('hc_gun') then
+                    local handle = PointerToHandle(entity)
+                    RemoveAllPedWeapons(handle, true)
+                    GiveWeaponToPed(handle, util.joaat('WEAPON_MINIGUN'), 9999, true)
+                    SetPedFiringPattern(handle, util.joaat('FIRING_PATTERN_FULL_AUTO'))
+                    SetPedAccuracy(handle, 100)
+                end
+            end
+        end)
+    
+        cayo:action(T'Disarm Guards', {}, T'Remove all weapons from guards', function()
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cartelguard') or model:find('hc_gun') then
+                    local handle = PointerToHandle(entity)
+                    Shared.RequestControl(handle)
+                    SetCanMigrate(entity, false)
+                    RemoveAllPedWeapons(handle, true)
+                end
+            end
+        end)
+    
+        cayo:action(T'Remove Drainage Pipe', {}, T'Deletes the drainage pipe', function()
+            for i, entity in pairs(GetAllObjectsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('prop_chem_grill') then
+                    DeleteByPointer(entity)
+                end
+            end
+        end)
+    
+        cayo:action(T'Remove All Cameras', {}, T'Deletes all the cameras', function()
+            for i, entity in pairs(GetAllObjectsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cctv_cam') then
+                    DeleteByPointer(entity)
+                end
+            end
+        end)
+    
+        cayo:action(T'Remove All Guards', {}, T'Delete all the guards', function()
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cartelguard') or model:find('hc_gun') then
+                    DeleteByPointer(entity)
+                end
+            end
+        end)
+    
+        cayo:action(T'Make Guards Useless', {}, T'Forces the guards to fall over then binds their ankles preventing them from getting up', function()
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cartelguard') or model:find('hc_gun') then
+                    local handle = PointerToHandle(entity)
+                    Shared.RequestControl(handle)
+                    SetCanMigrate(entity, false)
+    
+                    local pos = GetEntityCoords(handle)
+                    local health = GetEntityHealth(handle)
+    
+                    SetPedCanRagdoll(handle, true)
+                    SetPedToRagdoll(handle, 1, 1, 0, true, true, false)
+                    ApplyForceToEntityCenterOfMass(handle, 1, 0.0, pos.y - 2, 0.0, true, true, false, true)
+                    SetEnableBoundAnkles(handle, true)
+                    SetEntityHealth(handle, health)
+                end
+            end
+        end)
+    
+        cayo:action(T'Ragdoll Guards', {}, T'Make all the guards fall over', function()
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cartelguard') or model:find('hc_gun') then
+                    local handle = PointerToHandle(entity)
+                    Shared.RequestControl(handle)
+                    SetCanMigrate(entity, false)
+    
+                    local pos = GetEntityCoords(handle)
+                    local health = GetEntityHealth(handle)
+    
+                    SetPedCanRagdoll(handle, true)
+                    SetPedToRagdoll(handle, 1, 1, 0, true, true, false)
+                    ApplyForceToEntityCenterOfMass(handle, 1, 0.0, pos.y - 2, 0.0, true, true, false, true)
+                    SetEntityHealth(handle, health)
+                end
+            end
+        end)
+    
+        cayo:action(T'Collect Primary Target', {}, T'Collect the primary target instantly', function()
+            local glass = FindEntityByModel(GetAllObjectsAsPointers, 'glass_disp')
+            local vault = FindEntityByModel(GetAllObjectsAsPointers, 'h4_safe')
+            local blip_id = BitMask:Get(Shared.BlipIds >> 0x32, 0x3FF)
+    
+            if glass ~= 0 then DeleteByPointer(glass) end
+            if vault ~= 0 then DeleteByPointer(vault) end
+    
+            local blip = GetFirstBlipInfoId(blip_id)
+            repeat
+                util.yield_once()
+                blip = GetNextBlipInfoId(blip_id)
+            until blip ~= 0
+    
+            if blip ~= 0 then
+                local entity = GetBlipInfoIdEntityIndex(blip)
+                if entity ~= 0 and DoesEntityExist(entity) then
+                    local pos = GetEntityCoords(players.user_ped())
+                    SetEntityCoords(entity, pos.x, pos.y, pos.z - 1.0, false, false, false, false)
+                    SetPedToRagdoll(players.user_ped(), 10, 10, 0, false, false, false)
+                end
+            end
+        end)
+    
+        cayo:action(T'Bring Targets To Player', {}, T'Teleports all secondary loot to you', function()
+            for i, entity in pairs(GetAllObjectsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('gold') or model:find('coke') or model:find('painting') or model:find('weed') then
+                    local handle = PointerToHandle(entity)
+                    Shared.RequestControl(handle)
+                    SetCanMigrate(entity, false)
+                    local pos = GetEntityCoords(players.user_ped())
+                    SetEntityCoords(handle, pos.x, pos.y, pos.z - 1.0, false, false, false, false)
+                end
+            end
+        end)
+    
+        cayo:action(T'Auto Solve Fingerprints', {}, T'Completes the hacking for you', function()
+            local fingerprints = memory.script_local('fm_mission_controller_2020', 21269 + 1531)
+            if fingerprints ~= 0 then
+                for i = 0, 3 do
+                    for j = 0, 7 do
+                        WriteByte(fingerprints + (168 * i) + (24 * j) + (32 * i), j % 8)   
+                    end
+                end
+            end
+        end)
+    
+        cayo:divider('')
+
+        cayo:toggle_loop(T'Setup Heist', {}, T'Setup the heist and skip all the prep missions etc', function()
+            if SCRIPT_CAN_CONTINUE then
+                GHeists.AutomatedPreset()
+                for i = 29983, 29983 + 4 do
+                    WriteInt(ScriptGlobal(262145 + i), GHeists.CalculateValue(2550000))
+                end
+            end
+        end)
+    
+        cayo:toggle_loop(T'Skip Hacking', {}, T'Does the same as auto solve fingerprints but it is automated', function()
+            SpoofScript('fm_mission_controller_2020', function()
+                local fingerprints = memory.script_local('fm_mission_controller_2020', 21269 + 1531)
+                if fingerprints ~= 0 then
+                    for i = 0, 3 do
+                        for j = 0, 7 do
+                            WriteByte(fingerprints + (168 * i) + (24 * j) + (32 * i), j % 8)   
+                        end
+                    end
+                end
+            end)
+        end)
+    
+        cayo:toggle_loop(T'Immortal Guards', {}, T'Make the guards immortal', function()
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cartelguard') or model:find('hc_gun') then
+                    local handle = PointerToHandle(entity)
+                    Shared.RequestControl(handle)
+                    SetCanMigrate(entity, false)
+                    SetEntityInvincible(handle, true)
+                end
+            end
+        end,
+        function()
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cartelguard') or model:find('hc_gun') then
+                    local handle = PointerToHandle(entity)
+                    Shared.RequestControl(handle)
+                    SetCanMigrate(entity, false)
+                    SetEntityInvincible(handle, false)
+                end
+            end
+        end)
+    
+        cayo:toggle(T'Guards Insta Kill', {}, T'Guards instantly kill you', function(state)
+            SetAiWeaponDamageModifier(state and Shared.MAX_INTT or 1.0)
+        end)
+    
+        cayo:toggle_loop(T'Guards Explosive Ammo', {}, T'Gives the guards explosive ammo', function()
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cartelguard') or model:find('hc_gun') then
+                    local handle = PointerToHandle(entity)
+                    if GetPedLastWeaponImpactCoord(handle, impact_coords) then
+                        SetEntityProofs(handle, false, false, true, false, false, false, true, false)
+                        AddOwnedExplosion(handle, impact_coords.x, impact_coords.y, impact_coords.z, 18, 1.0, true, false, 0.0)
+                    end
+                end
+            end
+        end)
+    
+        cayo:toggle_loop(T'Auto Collect Mission Pickups', {}, T'Collects mission pickups for you, such as keycards, gatekeys, vault cash (enable before entering the compound otherwise vault cash will not be collected)', function()
+            for i, entity in pairs(GetAllPickupsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('securitycard') or model:find('keys_jail') or model:find('cash') then
+                    local handle = PointerToHandle(entity)
+                    local pos = GetEntityCoords(players.user_ped())
+                    SetEntityCoords(handle, pos.x, pos.y, pos.z - 1.0, false, false, false, false)
+                end
+            end
+        end)
+    
+        cayo:toggle(T'Disable Collisions', {}, T'Disables collisions for certain objects such as doors, gates and elevators (elevators in the office)', function(state)
+            for i, entity in pairs(GetAllObjectsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+    
+                if model:find('elevator') or model:find('gate') or model:find('door') or model:find('chain_lock') then
+                    local handle = PointerToHandle(entity)
+                    SetEntityCollision(handle, not state, false)
+                end
+            end
+        end)
+    
+        cayo:toggle(T'Poor Guard Accuracy', {}, T'Makes guards have poor accuracy', function(state)
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+    
+                if model:find('cartelguards') or model:find('hc_gunman') then
+                    local handle = PointerToHandle(entity)
+                    if state then
+                        SetPedAccuracy(handle, 0)
+                    else
+                        SetPedAccuracy(handle, 100)
+                    end
+                end
+            end
+        end)
+    
+        cayo:toggle_loop(T'Unlock All Gates', {}, T'Unlocks all gates but only when you are close to them', function()
+            local hashes = FindAllGates()
+            local pos = GetEntityCoords(players.user_ped())
+    
+            for k, v in ipairs(hashes) do
+                if v.hash ~= 0 then
+                    local ent_pos = GetPosition(v.entity)
+                    local dist = GetDistanceBetweenCoords(pos.x, pos.y, pos.z, ent_pos.x, ent_pos.y, ent_pos.z, true)
+    
+                    if dist <= 0.72 then
+                        UnlockDoor(PointerToHandle(v.entity))
+                    end
+                end
+            end
+        end)
+    
+        cayo:toggle(T'Lock All Gates', {}, T'Locks all gates', function(state)
+            local hashes = FindAllGates()
+    
+            for k, v in ipairs(hashes) do
+                if v.hash ~= 0 then
+                    LockDoor(PointerToHandle(v.entity))
+                end
+            end
+        end)
+    
+        cayo:divider('')
+    
+        local gate_manager = cayo:list(T'Gate Manager', {}, T'Manages all the gates within the compound on the island')
+        local gm_compound = gate_manager:list(T'Compound', {}, '')
+    
+        gm_compound:action(T'Load/Reload Gates', {}, '', function()
+            for i, child in pairs(gm_compound:getChildren()) do
+                if child:isValid() and child.menu_name ~= 'Load/Reload Gates' then
+                    child:delete()
+                end
+            end
+    
+            gm_compound:divider('')
+    
+            local secondary_target_basement_door = GetGateFromCoords(gate_coords.SECONDARY_TARGET_BASEMENT_DOOR)
+            local basement_entry_door_1 = GetGateFromCoords(gate_coords.BASEMENT_ENTRY_DOOR_1)
+            local basement_entry_door_2 = GetGateFromCoords(gate_coords.BASEMENT_ENTRY_DOOR_2)
+            local main_gate = GetGateFromCoords(gate_coords.MAIN_GATE)
+            local main_gate_1 = GetGateFromCoords(gate_coords.MAIN_GATE_1)
+            local main_gate_2 = GetGateFromCoords(gate_coords.MAIN_GATE_2)
+            local main_gate_3 = GetGateFromCoords(gate_coords.MAIN_GATE_3)
+            local arch_gate = GetGateFromCoords(gate_coords.ARCH_GATE_RIGHT)
+            local arch_gate_1 = GetGateFromCoords(gate_coords.ARCH_GATE_LEFT)
+            local arch_gate_2 = GetGateFromCoords(gate_coords.ARCH_GATE_RIGHT_1)
+            local arch_gate_3 = GetGateFromCoords(gate_coords.ARCH_GATE_LEFT_1)
+            local primary_target_gate = GetGateFromCoords(gate_coords.PRIMARY_TARGET_GATE)
+            local basement_fingerprint_entry_gate = GetGateFromCoords(gate_coords.BASEMENT_FINGERPRINT_ENTRY_GATE)
+    
+            if primary_target_gate ~= 0 then
+                local ptarget_gate = gm_compound:list(T'Primary Target Gate', {}, '')
+    
+                ptarget_gate:divider('Information')
+                ptarget_gate:readonly(T'Entity ID', tostring(primary_target_gate.entity))
+                ptarget_gate:readonly(T'Hash', tostring(primary_target_gate.hash))
+                ptarget_gate:readonly(T'Model', tostring(primary_target_gate.model))
+                ptarget_gate:divider('')
+    
+                ptarget_gate:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.PRIMARY_TARGET_GATE
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                ptarget_gate:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(primary_target_gate.hash)
+                end)
+    
+                ptarget_gate:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(primary_target_gate.hash)
+                end)
+    
+                ptarget_gate:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(primary_target_gate.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(primary_target_gate.hash, false)
+                end)
+    
+                ptarget_gate:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(primary_target_gate.hash)
+                    DoorSystemSetOpenRatio(primary_target_gate.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(primary_target_gate.hash, true)
+                end)
+    
+                ptarget_gate:action(T'Force Lock', {}, T'', function()
+                    LockDoor(primary_target_gate.hash)
+                    DoorSystemSetOpenRatio(primary_target_gate.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(primary_target_gate.hash, true)
+                end)
+    
+                ptarget_gate:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(primary_target_gate.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Primary Target Gate')
+            end
+    
+            if secondary_target_basement_door ~= 0 then
+                local starget_door = gm_compound:list(T'Secondary Target Basement Door', {}, '')
+    
+                starget_door:divider('Information')
+                starget_door:readonly(T'Entity ID', tostring(secondary_target_basement_door.entity))
+                starget_door:readonly(T'Hash', tostring(secondary_target_basement_door.hash))
+                starget_door:readonly(T'Model', tostring(secondary_target_basement_door.model))
+                starget_door:divider('')
+    
+                starget_door:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.SECONDARY_TARGET_BASEMENT_DOOR
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                starget_door:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(secondary_target_basement_door.hash)
+                end)
+    
+                starget_door:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(secondary_target_basement_door.hash)
+                end)
+    
+                starget_door:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(secondary_target_basement_door.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(secondary_target_basement_door.hash, false)
+                end)
+    
+                starget_door:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(secondary_target_basement_door.hash)
+                    DoorSystemSetOpenRatio(secondary_target_basement_door.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(secondary_target_basement_door.hash, true)
+                end)
+    
+                starget_door:action(T'Force Lock', {}, T'', function()
+                    LockDoor(secondary_target_basement_door.hash)
+                    DoorSystemSetOpenRatio(secondary_target_basement_door.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(secondary_target_basement_door.hash, true)
+                end)
+    
+                starget_door:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(secondary_target_basement_door.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Secondary Target Basement Door')
+            end
+    
+            if basement_entry_door_1 ~= 0 then
+                local basement_door_1 = gm_compound:list(T'Basement Entry Door 1', {}, '')
+    
+                basement_door_1:divider('Information')
+                basement_door_1:readonly(T'Entity ID', tostring(basement_entry_door_1.entity))
+                basement_door_1:readonly(T'Hash', tostring(basement_entry_door_1.hash))
+                basement_door_1:readonly(T'Model', tostring(basement_entry_door_1.model))
+                basement_door_1:divider('')
+    
+                basement_door_1:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.BASEMENT_ENTRY_DOOR_1
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                basement_door_1:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(basement_entry_door_1.hash)
+                end)
+    
+                basement_door_1:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(basement_entry_door_1.hash)
+                end)
+    
+                basement_door_1:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(basement_entry_door_1.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(basement_entry_door_1.hash, false)
+                end)
+    
+                basement_door_1:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(basement_entry_door_1.hash)
+                    DoorSystemSetOpenRatio(basement_entry_door_1.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(basement_entry_door_1.hash, true)
+                end)
+    
+                basement_door_1:action(T'Force Lock', {}, T'', function()
+                    LockDoor(basement_entry_door_1.hash)
+                    DoorSystemSetOpenRatio(basement_entry_door_1.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(basement_entry_door_1.hash, true)
+                end)
+    
+                basement_door_1:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(basement_entry_door_1.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Basement Entry Door 1')
+            end
+    
+            if basement_entry_door_2 ~= 0 then
+                local basement_door_2 = gm_compound:list(T'Basement Entry Door 2', {}, '')
+    
+                basement_door_2:divider('Information')
+                basement_door_2:readonly(T'Entity ID', tostring(basement_entry_door_2.entity))
+                basement_door_2:readonly(T'Hash', tostring(basement_entry_door_2.hash))
+                basement_door_2:readonly(T'Model', tostring(basement_entry_door_2.model))
+                basement_door_2:divider('')
+    
+                basement_door_2:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.BASEMENT_ENTRY_DOOR_2
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                basement_door_2:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(basement_entry_door_2.hash)
+                end)
+    
+                basement_door_2:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(basement_entry_door_2.hash)
+                end)
+    
+                basement_door_2:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(basement_entry_door_2.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(basement_entry_door_2.hash, false)
+                end)
+    
+                basement_door_2:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(basement_entry_door_2.hash)
+                    DoorSystemSetOpenRatio(basement_entry_door_2.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(basement_entry_door_2.hash, true)
+                end)
+    
+                basement_door_2:action(T'Force Lock', {}, T'', function()
+                    LockDoor(basement_entry_door_2.hash)
+                    DoorSystemSetOpenRatio(basement_entry_door_2.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(basement_entry_door_2.hash, true)
+                end)
+    
+                basement_door_2:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(basement_entry_door_2.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Basement Entry Door 2')
+            end
+    
+            if main_gate ~= 0 then
+                local main_gate_door = gm_compound:list(T'Main Gate Left (Inner Gate)', {}, '')
+    
+                main_gate_door:divider('Information')
+                main_gate_door:readonly(T'Entity ID', tostring(main_gate.entity))
+                main_gate_door:readonly(T'Hash', tostring(main_gate.hash))
+                main_gate_door:readonly(T'Model', tostring(main_gate.model))
+                main_gate_door:divider('')
+    
+                main_gate_door:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.MAIN_GATE
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                main_gate_door:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(main_gate.hash)
+                end)
+    
+                main_gate_door:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(main_gate.hash)
+                end)
+    
+                main_gate_door:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(main_gate.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(main_gate.hash, false)
+                end)
+    
+                main_gate_door:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(main_gate.hash)
+                    DoorSystemSetOpenRatio(main_gate.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(main_gate.hash, true)
+                end)
+    
+                main_gate_door:action(T'Force Lock', {}, T'', function()
+                    LockDoor(main_gate.hash)
+                    DoorSystemSetOpenRatio(main_gate.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(main_gate.hash, true)
+                end)
+    
+                main_gate_door:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(main_gate.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Main Gate Left (Inner Gate)')
+            end
+    
+            if main_gate_1 ~= 0 then
+                local main_gate_door_1 = gm_compound:list(T'Main Gate Right (Outer Gate)', {}, '')
+    
+                main_gate_door_1:divider('Information')
+                main_gate_door_1:readonly(T'Entity ID', tostring(main_gate_1.entity))
+                main_gate_door_1:readonly(T'Hash', tostring(main_gate_1.hash))
+                main_gate_door_1:readonly(T'Model', tostring(main_gate_1.model))
+                main_gate_door_1:divider('')
+    
+                main_gate_door_1:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.MAIN_GATE_1
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                main_gate_door_1:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(main_gate_1.hash)
+                end)
+    
+                main_gate_door_1:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(main_gate_1.hash)
+                end)
+    
+                main_gate_door_1:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(main_gate_1.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(main_gate_1.hash, false)
+                end)
+    
+                main_gate_door_1:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(main_gate_1.hash)
+                    DoorSystemSetOpenRatio(main_gate_1.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(main_gate_1.hash, true)
+                end)
+    
+                main_gate_door_1:action(T'Force Lock', {}, T'', function()
+                    LockDoor(main_gate_1.hash)
+                    DoorSystemSetOpenRatio(main_gate_1.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(main_gate_1.hash, true)
+                end)
+    
+                main_gate_door_1:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(main_gate_1.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Main Gate Right (Outer Gate)')
+            end
+    
+            if main_gate_2 ~= 0 then
+                local main_gate_door_2 = gm_compound:list(T'Main Gate Left (Outer Gate)', {}, '')
+    
+                main_gate_door_2:divider('Information')
+                main_gate_door_2:readonly(T'Entity ID', tostring(main_gate_2.entity))
+                main_gate_door_2:readonly(T'Hash', tostring(main_gate_2.hash))
+                main_gate_door_2:readonly(T'Model', tostring(main_gate_2.model))
+                main_gate_door_2:divider('')
+    
+                main_gate_door_2:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.MAIN_GATE_2
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                main_gate_door_2:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(main_gate_2.hash)
+                end)
+    
+                main_gate_door_2:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(main_gate_2.hash)
+                end)
+    
+                main_gate_door_2:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(main_gate_2.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(main_gate_2.hash, false)
+                end)
+    
+                main_gate_door_2:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(main_gate_2.hash)
+                    DoorSystemSetOpenRatio(main_gate_2.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(main_gate_2.hash, true)
+                end)
+    
+                main_gate_door_2:action(T'Force Lock', {}, T'', function()
+                    LockDoor(main_gate_2.hash)
+                    DoorSystemSetOpenRatio(main_gate_2.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(main_gate_2.hash, true)
+                end)
+    
+                main_gate_door_2:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(main_gate_2.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Main Gate Left (Outer Gate)')
+            end
+    
+            if main_gate_3 ~= 0 then
+                local main_gate_door_3 = gm_compound:list(T'Main Gate Right (Inner Gate)', {}, '')
+    
+                main_gate_door_3:divider('Information')
+                main_gate_door_3:readonly(T'Entity ID', tostring(main_gate_3.entity))
+                main_gate_door_3:readonly(T'Hash', tostring(main_gate_3.hash))
+                main_gate_door_3:readonly(T'Model', tostring(main_gate_3.model))
+                main_gate_door_3:divider('')
+    
+                main_gate_door_3:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.MAIN_GATE_3
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                main_gate_door_3:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(main_gate_3.hash)
+                end)
+    
+                main_gate_door_3:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(main_gate_3.hash)
+                end)
+    
+                main_gate_door_3:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(main_gate_3.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(main_gate_3.hash, false)
+                end)
+    
+                main_gate_door_3:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(main_gate_3.hash)
+                    DoorSystemSetOpenRatio(main_gate_3.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(main_gate_3.hash, true)
+                end)
+    
+                main_gate_door_3:action(T'Force Lock', {}, T'', function()
+                    LockDoor(main_gate_3.hash)
+                    DoorSystemSetOpenRatio(main_gate_3.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(main_gate_3.hash, true)
+                end)
+    
+                main_gate_door_3:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(main_gate_3.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Main Gate Right (Inner Gate)')
+            end
+    
+            if basement_fingerprint_entry_gate ~= 0 then
+                local basement_fingerprint_entry_gate_door = gm_compound:list(T'Basement Fingerprint Entry Gate', {}, '')
+    
+                basement_fingerprint_entry_gate_door:divider('Information')
+                basement_fingerprint_entry_gate_door:readonly(T'Entity ID', tostring(basement_fingerprint_entry_gate.entity))
+                basement_fingerprint_entry_gate_door:readonly(T'Hash', tostring(basement_fingerprint_entry_gate.hash))
+                basement_fingerprint_entry_gate_door:readonly(T'Model', tostring(basement_fingerprint_entry_gate.model))
+                basement_fingerprint_entry_gate_door:divider('')
+    
+                basement_fingerprint_entry_gate_door:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.BASEMENT_FINGERPRINT_ENTRY_GATE
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                basement_fingerprint_entry_gate_door:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(basement_fingerprint_entry_gate.hash)
+                end)
+    
+                basement_fingerprint_entry_gate_door:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(basement_fingerprint_entry_gate.hash)
+                end)
+    
+                basement_fingerprint_entry_gate_door:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(basement_fingerprint_entry_gate.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(basement_fingerprint_entry_gate.hash, false)
+                end)
+    
+                basement_fingerprint_entry_gate_door:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(basement_fingerprint_entry_gate.hash)
+                    DoorSystemSetOpenRatio(basement_fingerprint_entry_gate.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(basement_fingerprint_entry_gate.hash, true)
+                end)
+    
+                basement_fingerprint_entry_gate_door:action(T'Force Lock', {}, T'', function()
+                    LockDoor(basement_fingerprint_entry_gate.hash)
+                    DoorSystemSetOpenRatio(basement_fingerprint_entry_gate.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(basement_fingerprint_entry_gate.hash, true)
+                end)
+    
+                basement_fingerprint_entry_gate_door:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(basement_fingerprint_entry_gate.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Basement Fingerprint Entry Gate')
+            end
+    
+            if arch_gate ~= 0 then
+                local arch_gate_door = gm_compound:list(T'Arch Gate Left (Left Side)', {}, '')
+    
+                arch_gate_door:divider('Information')
+                arch_gate_door:readonly(T'Entity ID', tostring(arch_gate.entity))
+                arch_gate_door:readonly(T'Hash', tostring(arch_gate.hash))
+                arch_gate_door:readonly(T'Model', tostring(arch_gate.model))
+                arch_gate_door:divider('')
+    
+                arch_gate_door:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.ARCH_GATE
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                arch_gate_door:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(arch_gate.hash)
+                end)
+    
+                arch_gate_door:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(arch_gate.hash)
+                end)
+    
+                arch_gate_door:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(arch_gate.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(arch_gate.hash, false)
+                end)
+    
+                arch_gate_door:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(arch_gate.hash)
+                    DoorSystemSetOpenRatio(arch_gate.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(arch_gate.hash, true)
+                end)
+    
+                arch_gate_door:action(T'Force Lock', {}, T'', function()
+                    LockDoor(arch_gate.hash)
+                    DoorSystemSetOpenRatio(arch_gate.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(arch_gate.hash, true)
+                end)
+    
+                arch_gate_door:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(arch_gate.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Arch Gate Left (Left Side)')
+            end
+    
+            if arch_gate_1 ~= 0 then
+                local arch_gate_door_1 = gm_compound:list(T'Arch Gate Right (Left Side)', {}, '')
+    
+                arch_gate_door_1:divider('Information')
+                arch_gate_door_1:readonly(T'Entity ID', tostring(arch_gate_1.entity))
+                arch_gate_door_1:readonly(T'Hash', tostring(arch_gate_1.hash))
+                arch_gate_door_1:readonly(T'Model', tostring(arch_gate_1.model))
+                arch_gate_door_1:divider('')
+    
+                arch_gate_door_1:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.ARCH_GATE_1
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                arch_gate_door_1:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(arch_gate_1.hash)
+                end)
+    
+                arch_gate_door_1:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(arch_gate_1.hash)
+                end)
+    
+                arch_gate_door_1:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(arch_gate_1.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(arch_gate_1.hash, false)
+                end)
+    
+                arch_gate_door_1:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(arch_gate_1.hash)
+                    DoorSystemSetOpenRatio(arch_gate_1.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(arch_gate_1.hash, true)
+                end)
+    
+                arch_gate_door_1:action(T'Force Lock', {}, T'', function()
+                    LockDoor(arch_gate_1.hash)
+                    DoorSystemSetOpenRatio(arch_gate_1.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(arch_gate_1.hash, true)
+                end)
+    
+                arch_gate_door_1:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(arch_gate_1.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Arch Gate Right (Left Side)')
+            end
+    
+            if arch_gate_2 ~= 0 then
+                local arch_gate_door_2 = gm_compound:list(T'Arch Gate Left (Right Side)', {}, '')
+    
+                arch_gate_door_2:divider('Information')
+                arch_gate_door_2:readonly(T'Entity ID', tostring(arch_gate_2.entity))
+                arch_gate_door_2:readonly(T'Hash', tostring(arch_gate_2.hash))
+                arch_gate_door_2:readonly(T'Model', tostring(arch_gate_2.model))
+                arch_gate_door_2:divider('')
+    
+                arch_gate_door_2:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.ARCH_GATE_2
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                arch_gate_door_2:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(arch_gate_2.hash)
+                end)
+    
+                arch_gate_door_2:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(arch_gate_2.hash)
+                end)
+    
+                arch_gate_door_2:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(arch_gate_2.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(arch_gate_2.hash, false)
+                end)
+    
+                arch_gate_door_2:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(arch_gate_2.hash)
+                    DoorSystemSetOpenRatio(arch_gate_2.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(arch_gate_2.hash, true)
+                end)
+    
+                arch_gate_door_2:action(T'Force Lock', {}, T'', function()
+                    LockDoor(arch_gate_2.hash)
+                    DoorSystemSetOpenRatio(arch_gate_2.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(arch_gate_2.hash, true)
+                end)
+    
+                arch_gate_door_2:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(arch_gate_2.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Arch Gate Left (Right Side)')
+            end
+    
+            if arch_gate_3 ~= 0 then
+                local arch_gate_door_3 = gm_compound:list(T'Arch Gate Right (Right Side)', {}, '')
+    
+                arch_gate_door_3:divider('Information')
+                arch_gate_door_3:readonly(T'Entity ID', tostring(arch_gate_3.entity))
+                arch_gate_door_3:readonly(T'Hash', tostring(arch_gate_3.hash))
+                arch_gate_door_3:readonly(T'Model', tostring(arch_gate_3.model))
+                arch_gate_door_3:divider('')
+    
+                arch_gate_door_3:action(T'Teleport', {}, T'Teleport to the door', function()
+                    local pos = gate_coords.ARCH_GATE_3
+                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, false)
+                end)
+    
+                arch_gate_door_3:toggle_loop(T'Unlock', {}, T'', function()
+                    UnlockDoor(arch_gate_3.hash)
+                end)
+    
+                arch_gate_door_3:toggle_loop(T'Lock', {}, T'', function()
+                    LockDoor(arch_gate_3.hash)
+                end)
+    
+                arch_gate_door_3:toggle_loop(T'Remove Spring', {}, T'', function()
+                    DoorSystemSetSpringRemoved(arch_gate_3.hash, true)
+                end,
+                function()
+                    DoorSystemSetSpringRemoved(arch_gate_3.hash, false)
+                end)
+    
+                arch_gate_door_3:action(T'Force Unlock', {}, T'', function()
+                    UnlockDoor(arch_gate_3.hash)
+                    DoorSystemSetOpenRatio(arch_gate_3.hash, 1.0, true)
+                    DoorSystemSetSpringRemoved(arch_gate_3.hash, true)
+                end)
+    
+                arch_gate_door_3:action(T'Force Lock', {}, T'', function()
+                    LockDoor(arch_gate_3.hash)
+                    DoorSystemSetOpenRatio(arch_gate_3.hash, 0.0, true)
+                    DoorSystemSetSpringRemoved(arch_gate_3.hash, true)
+                end)
+    
+                arch_gate_door_3:action(T'Delete', {}, T'', function()
+                    DeleteByHandle(arch_gate_3.entity)
+                end)
+            else
+                util.toast(T'Failed to find: Arch Gate Right (Right Side)')
+            end
+        end)
+    
+        local teleports = cayo:list(T'Teleports', {}, T'Teleport to various locations in Cayo Perico')
+        local compound_teleports = teleports:list(T'Compound', {}, T'Teleport to various locations in the compound')
+        local island_teleports = teleports:list(T'Island', {}, T'Teleport to various locations on the island')
+        local exits_teleports = teleports:list(T'Exits', {}, T'Teleport to exit locations (kosatka, docks, airstrip)')
+    
+        compound_teleports:action(T'Teleport To Main Gate', {}, T'Teleport to the main gate', function()
+            TeleportToBlip(770)
+        end)
+    
+        compound_teleports:action(T'Keypad (Office)', {}, T'Teleport to the keypad', function()
+            SetEntityCoords(players.user_ped(), 5010.1064, -5750.2285, 28.845306, false, false, false, false)
+        end)
+    
+        compound_teleports:action(T'Keypad (Basement Gate 1)', {}, T'Teleport to the keypad', function()
+            SetEntityCoords(players.user_ped(), 4998.503, -5741.256, 14.840623, false, false, false, false)
+        end)
+    
+        compound_teleports:action(T'Keypad (Basement Gate 2)', {}, T'Teleport to the keypad', function()
+            SetEntityCoords(players.user_ped(), 5000.2285, -5742.254, 14.840579, false, false, false, false)
+        end)
+    
+        compound_teleports:action(T'Primary Target (Inside)', {}, T'Teleport to the primary target', function()
+            SetEntityCoords(players.user_ped(), 5006.965, -5756.058, 15.484438, false, false, false, false)
+        end)
+    
+        compound_teleports:action(T'Primary Target (Outside)', {}, T'Teleport to the primary target', function()
+            SetEntityCoords(players.user_ped(), 5008.653, -5752.9556, 15.484442, false, false, false, false)
+        end)
+    
+        compound_teleports:action(T'Secondary Target (Inside)', {}, T'Teleport to the secondary target', function()
+            SetEntityCoords(players.user_ped(), 5001.242, -5748.7764, 14.840479, false, false, false, false)
+        end)
+    
+        compound_teleports:action(T'Secondary Target (Outside)', {}, T'Teleport to the secondary target', function()
+            SetEntityCoords(players.user_ped(), 5003.048, -5745.5356, 14.840562, false, false, false, false)
+        end)
+    
+        island_teleports:action(T'Drainage Pipe 1st Checkpoint', {}, T'Teleport to the first checkpoint', function()
+            SetEntityCoords(players.user_ped(), 5043.1865, -5815.148, -10.635807, false, false, false, false)
+        end)
+    
+        island_teleports:action(T'Drainage Pipe 2nd Checkpoint', {}, T'Teleport to the second checkpoint', function()
+            SetEntityCoords(players.user_ped(), 5053.362, -5774.8247, -5.1060443    , false, false, false, false)
+        end)
+    
+        exits_teleports:action(T'Teleport To Kosatka', {}, T'Teleport to the kosatka', function()
+            TeleportToBlip(760)
+        end)
+    
+        casino:action(T'Delete All Cameras', {}, T'Delete all the cameras', function()
+            for i, entity in pairs(GetAllObjectsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('cam') or model:find('cctv_cam') then
+                    DeleteByPointer(entity)
+                end
+            end
+        end)
+    
+        casino:action(T'Delete All Guards', {}, T'Delete all the annoying guards', function()
+            for i, entity in pairs(GetAllPedsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+                if model:find('s_m_y_westsec_02') or model:find('s_m_y_casino_01') then
+                    DeleteByPointer(entity)
+                end
+            end
+        end)
+    
+        casino:action(T'Delete Service Doors', {}, '', function()
+            DeleteObjectsByModel('service_door')
+        end)
+    
+        casino:action(T'Delete Gen Doors', {}, '', function()
+            DeleteObjectsByModel('gendoor')
+        end)
+    
+        casino:action(T'Delete Mini Vault Door', {}, '', function()
+            DeleteObjectsByModel('ch_vault_d_door_01b')
+        end)
+    
+        casino:action(T'Delete Elevator Door', {}, '', function()
+            DeleteObjectsByModel('garageliftdoor')
+        end)
+    
+        casino:action(T'Delete Tunnel Door (map trap)', {}, '', function()
+            DeleteObjectsByModel('tunnel_door_01')
+        end)
+    end
+end
+
+return Heists

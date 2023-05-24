@@ -1,0 +1,44 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+local Shared = require('shared')
+
+local ReadByte = Shared.ReadByte
+local ScriptGlobal = Shared.ScriptGlobal
+local ReadInt = Shared.ReadInt
+local GetPosition = Shared.GetPosition
+local GetAllPickupsAsPointers = Shared.GetAllPickupsAsPointers
+local DeleteByPointer = Shared.DeleteByPointer
+
+local GetOffsetFromEntityInWorldCoords = Shared.GetOffsetFromEntityInWorldCoords
+local SimulateControlKey = Shared.SimulateControlKey
+
+--local TransactionErrorHash <const> = -991495373
+
+pluto_class Settings
+    function __construct()
+        self.root = root:list(T'Settings', {T'settings'}, T'Settings')
+
+        self.autoaccept_ref = self.root:toggle_loop(T'Auto Accept Transaction Errors', {}, T'Automatically accept transaction errors for you', function()
+            if self:ErrorIsActive() then
+                local ped = players.user_ped()
+                SimulateControlKey(201, 1, 2)
+                for GetAllPickupsAsPointers() as entity do
+                    local pos = GetPosition(entity)
+                    local player_pos = GetOffsetFromEntityInWorldCoords(ped, 0, 0, 0)
+        
+                    if Shared.Distance(pos, player_pos) < 10.0 then
+                        DeleteByPointer(entity)
+                    end
+                end
+            end
+        end)
+    end
+
+    function ErrorIsActive()
+        local banner = ScriptGlobal(4536673) -- global is from UnknownCheats
+        return ReadInt(banner) ~= 0 or ReadInt(banner + 0x8) ~= 0
+    end
+end
+
+return Settings

@@ -1,0 +1,201 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+local Shared = require('shared')
+local CHAR_SLOT = Shared.CHAR_SLOT
+
+local RemoveBlip = Shared.RemoveBlip
+local OnPreStop = Shared.OnPreStop
+local GetAllPickupsAsPointers = Shared.GetAllPickupsAsPointers
+local GetPosition = Shared.GetPosition
+local ReverseJoaat = Shared.ReverseJoaat
+local RefByRelPath = Shared.RefByRelPath
+local RefByPath = Shared.RefByPath
+local StopThread = Shared.StopThread
+local GetModelHash = Shared.GetModelHash
+local PointerToHandle = Shared.PointerToHandle
+local Joaat = Shared.Joaat
+local godmode_ref = RefByPath('Self>Immortality')
+
+local ReadByte = Shared.ReadByte
+local ReadInt = Shared.ReadInt
+local Alloc = Shared.Alloc
+
+local blips = setmetatable({casino={}, jammers={}}, {
+    __index = blips,
+    __gc = function(self)
+        for _, blip in pairs(self.casino) do
+            RemoveBlip(blip)
+        end
+
+        for _, blip in pairs(self.jammers) do
+            RemoveBlip(blip)
+        end
+    end
+})
+
+OnPreStop(function()
+    blips = nil
+end)
+
+local ptr = Alloc(4)
+
+local SetEntityCoords = Shared.SetEntityCoords
+local AddOwnedExplosion = Shared.AddOwnedExplosion
+local AddBlipForCoord = Shared.AddBlipForCoord
+local SetBlipSprite = Shared.SetBlipSprite
+local GetOffsetFromEntityInWorldCoords = Shared.GetOffsetFromEntityInWorldCoords
+local StatGetInt = Shared.StatGetInt
+local Toast = Shared.Toast
+local SetPackedStatBoolCode = Shared.SetPackedStatBoolCode
+
+pluto_class Collectables
+    function __construct()
+        self.root = root:list(T'Collectables', {}, T'Collectables collectibles make up your fucking mind Rockstar')
+        local collectables = self.root
+
+        collectables:action(T'Find All', {}, T'Finds most collectables not all of them', function()
+            for i = 26811, 26910 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
+            for i = 28099, 28148 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
+            for i = 30241, 30250 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
+            for i = 34262, 34361 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
+            for i = 36630, 36654 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
+            for i = 30297, 30307 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
+    
+            Toast('Join a new session to apply the changes!')
+        end)
+    
+        -- 30297 - 30306 = hidden cache
+        -- 30307 - 30308 = treasure chest
+        -- 25522 - 25531 = hidden stashes
+        -- 34252 - ? = trick or treat
+        -- 34262 - 34361 = ld organics
+        -- 36630 - 36654 = snowmen
+    
+        local casino = collectables:list(T'Casino', {}, T'Casino')
+        local jammers = collectables:list(T'Signal Jammers', {}, T'Signal Jammers')
+        local figures = collectables:list(T'Figurines', {}, T'Figurines')
+        local ld_organics = collectables:list(T'LD Organics', {}, T'LD Organics')
+        local snowmen = collectables:list(T'Snowmen', {}, T'Snowmen')
+    
+        figures:action(T'Find All Actions Figures', {}, T'Instantly find all action figures', function()
+            for i = 26811, 26910 do
+                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+            end
+    
+            Toast('Join a new session to apply the changes!')
+        end)
+    
+        casino:action(T'Find All Cards', {}, T'Instantly find all the cards', function()
+            for i = 26911, 26964 do
+                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+            end
+    
+            Toast('Join a new session to apply the changes!')
+        end)
+    
+        casino:toggle(T'Show All Cards', {}, T'Adds a blip at location of each card', function(state)
+            if state then
+                for i, vector in pairs(Shared.Data.CasinoCards) do
+                    local blip = AddBlipForCoord(vector.x, vector.y, vector.z)
+                    SetBlipSprite(blip, 680)
+                    table.insert(blips.casino, blip)
+                    blip = nil
+                end
+            else
+                for i, blip in pairs(blips.casino) do
+                    RemoveBlip(blip)
+                end
+            end
+        end)
+    
+        casino:toggle_loop(T'Collect Nearby Cards', {}, T'Automatically collect casino cards when they\'re within range', function()
+            local pos = GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
+    
+            for i, entity in pairs(GetAllPickupsAsPointers()) do
+                local model = ReverseJoaat(GetModelHash(entity))
+    
+                if model:find('vw_prop_vw_lux_card_01a') then
+                    SetEntityCoords(PointerToHandle(entity), pos.x, pos.y, pos.z, true, true, true, true)
+                end
+            end
+        end)
+    
+        casino:action(T'Teleport To Cards', {}, T'Teleports you to each card location and collects it for you', function()
+            local ref = RefByRelPath(casino, T'Collect Nearby Cards')
+            local ped = players.user_ped()
+            
+            if StatGetInt(Joaat('MP' .. CHAR_SLOT .. '_' .. 'PLAYING_CARD_COLLECTED'), ptr, -1)  then
+                if ReadInt(ptr) >= 54 then
+                    StopThread()
+                end
+            end
+    
+            if ref:isValid() then ref.value = true end
+    
+            for i, vector in pairs(Shared.Data.CasinoCards) do
+                SetEntityCoords(ped, vector.x, vector.y, vector.z, true, true, true, true)
+                util.yield(4000)
+            end
+    
+            if ref:isValid() then ref.value = false end
+        end)
+    
+        jammers:action(T'Unlock Avi Schwartzman', {}, T'Unlocks Avi Schwartzman', function()
+            for i = 28099, 28148 do
+                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+            end
+    
+            Toast('Join a new session to apply the changes!')
+        end)
+    
+        jammers:toggle(T'Show All Jammers', {}, T'Adds a blip showing the location of each jammer on the map', function(state)
+            if state then
+                for i, vector in pairs(Shared.Data.SignalJammers) do
+                    local blip = AddBlipForCoord(vector.x, vector.y, vector.z)
+                    SetBlipSprite(blip, 162)
+                    table.insert(blips.jammers, blip)
+                end
+            else
+                if blips ~= nil then
+                    for i, blip in pairs(blips.jammers) do
+                        RemoveBlip(blip)
+                    end
+                end
+            end
+        end)
+    
+        jammers:action(T'Destroy The Jammers', {}, T'Teleports you to each jammer and makes it go kaboom', function()
+            godmode_ref.value = true
+            local ped = players.user_ped()
+    
+            for i, jammer in pairs(Shared.Data.SignalJammers) do
+                SetEntityCoords(ped, jammer.x, jammer.y, jammer.z, true, true, true, true)
+                util.yield(500)
+                AddOwnedExplosion(ped, jammer.x, jammer.y, jammer.z, 1, Shared.MAX_INT, false, true, 0.0)
+                AddOwnedExplosion(ped, jammer.x, jammer.y, jammer.z, 1, Shared.MAX_INT, false, true, 0.0)
+                util.yield(1000)
+            end
+    
+            godmode_ref.value = false
+        end)
+    
+        ld_organics:action(T'Find All LD Organics', {}, T'Instantly find all LD organics', function()
+            for i = 34262, 34361 do
+                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+            end
+    
+            Toast('Join a new session to apply the changes!')
+        end)
+    
+        snowmen:action(T'Find All Snowmen', {}, T'Instantly find all snowmen', function()
+            for i = 36630, 36654 do
+                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+            end
+    
+            Toast('Join a new session to apply the changes!')
+        end)
+    end
+end
+
+return Collectables

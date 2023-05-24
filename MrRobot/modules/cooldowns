@@ -1,0 +1,259 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+local Shared = require('shared')
+local PLAYER_ID = Shared.PLAYER_ID
+
+local SetPlayerWeaponDamageModifier = Shared.SetPlayerWeaponDamageModifier
+
+local ScriptGlobal = Shared.ScriptGlobal
+local ReadInt = Shared.ReadInt
+local ReadShort = Shared.ReadShort
+local ReadByte = Shared.ReadByte
+local ReadFloat = Shared.ReadFloat
+local ReadLong = Shared.ReadLong
+local WriteInt = Shared.WriteInt
+local WriteShort = Shared.WriteShort
+local WriteByte = Shared.WriteByte
+local WriteFloat = Shared.WriteFloat
+local WriteLong = Shared.WriteLong
+local RefByRelPath = Shared.RefByRelPath
+
+pluto_class GCooldowns
+    KosatkaMissileCooldown = 262145 + 30187 -- default 60000 (int)
+    KosatkaMissileDistance = 262145 + 30188 -- default 4000 (float)
+
+    TerrorbyteDroneCooldown = 262145 + 24663 -- default 60000 (int)
+    TerrorbyteDistance = 262145 + 24672 -- default 500 (float)
+    TerrorbyteHeight = 262145 + 24671 -- default 200 (float)
+    TerrorbyteShockCooldown = 262145 + 24664 -- default 12000 (int)
+    TerrorbyteBoostRechargeTime = 262145 + 24669 -- default 15000 (int)
+    TerrorbyteDetonateCountdown = 262145 + 24667 -- default 7000 (int)
+    TerrorbyteDroneDamagePlayers = 262145 + 24666 -- default 1 (int)
+    TerrorbyteDroneDamagePeds = 262145 + 24665 -- default 1 (int)
+    TerrorbyteDroneBoostTime = 262145 + 24668 -- default 4000 (int)
+    TerrorbyteDroneForwardSpeed = 262145 + 24673 -- default 35 (float)
+
+    MoonpoolCooldown = 262145 + 30909 -- default 120000 (int)
+    Mk2Cooldown = 262145 + 28408 -- default 300000 (int)
+    StrikeTeamCooldown = 262145 + 23967 -- default 300000 (int)
+    AcidLabRequestCooldown = 262145 + 21866 -- default 300000 (int) 
+    
+    Oppressor2FlareCooldown = 262145 + 21966 -- default 9000 (int)
+    Oppressor2ChaffDuration = 262145 + 21967 -- default 6000 (int)
+    Oppressor2ChaffCooldown = 262145 + 21968 -- default 15000 (int)
+
+    function SetKosatkaMissileCooldown(value)
+        local g = ScriptGlobal(self.KosatkaMissileCooldown)
+        WriteInt(g, value)
+    end
+
+    function SetKosatkaMissileDistance(value)
+        local g = ScriptGlobal(self.KosatkaMissileDistance)
+        WriteFloat(g, value)
+    end
+
+    function SetTerrorbyteDroneCooldown(value)
+        local g = ScriptGlobal(self.TerrorbyteDroneCooldown)
+        WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneDistance(value)
+        local g = ScriptGlobal(self.TerrorbyteDistance)
+        WriteFloat(g, value)
+    end
+
+    function SetTerrorbyteDroneHeight(value)
+        local g = ScriptGlobal(self.TerrorbyteHeight)
+        WriteFloat(g, value)
+    end
+
+    function SetTerrorbyteDroneShockCooldown(value)
+        local g = ScriptGlobal(self.TerrorbyteShockCooldown)
+        WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneBoostRechargeTime(value)
+        local g = ScriptGlobal(self.TerrorbyteBoostRechargeTime)
+        WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneDetonateCountdown(value)
+        local g = ScriptGlobal(self.TerrorbyteDetonateCountdown)
+        WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneDamagePlayers(value)
+        local g = ScriptGlobal(self.TerrorbyteDroneDamagePlayers)
+        WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneDamagePeds(value)
+        local g = ScriptGlobal(self.TerrorbyteDroneDamagePeds)
+        WriteInt(g, value)
+    end
+
+    function GetTerrorbyteDroneDamagePlayers()
+        local g = ScriptGlobal(self.TerrorbyteDroneDamagePlayers)
+        return ReadInt(g)
+    end
+
+    function GetTerrorbyteDroneDamagePeds()
+        local g = ScriptGlobal(self.TerrorbyteDroneDamagePeds)
+        return ReadInt(g)
+    end
+
+    function SetTerrorbyteDroneBoostTime(value)
+        local g = ScriptGlobal(self.TerrorbyteDroneBoostTime)
+        WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneForwardSpeed(value)
+        local g = ScriptGlobal(self.TerrorbyteDroneForwardSpeed)
+        WriteFloat(g, value)
+    end
+
+    function SetMoonpoolCooldown(value)
+        local g = ScriptGlobal(self.MoonpoolCooldown)
+        WriteInt(g, value)
+    end
+
+    function SetMk2Cooldown(value)
+        local g = ScriptGlobal(self.Mk2Cooldown)
+        WriteInt(g, value)
+    end
+
+    function SetStrikeTeamCooldown(value)
+        local g = ScriptGlobal(self.StrikeTeamCooldown)
+        WriteInt(g, value)
+    end
+
+    function SetOppressor2FlareCooldown(value)
+        local g = ScriptGlobal(self.Oppressor2FlareCooldown)
+        WriteInt(g, value)
+    end
+
+    function SetOppressor2ChaffDuration(value)
+        local g = ScriptGlobal(self.Oppressor2ChaffDuration)
+        WriteInt(g, value)
+    end
+
+    function SetOppressor2ChaffCooldown(value)
+        local g = ScriptGlobal(self.Oppressor2ChaffCooldown)
+        WriteInt(g, value)
+    end
+
+    function SetAcidLabRequestCooldown(value)
+        local g = ScriptGlobal(self.AcidLabRequestCooldown)
+        WriteInt(g, value)
+    end
+end
+
+pluto_class Cooldowns
+    function __construct()
+        self.root = root:list(T'Cooldowns', {T'cooldowns'}, T'Cooldowns')
+        local cooldowns = self.root
+        local kosatka = cooldowns:list(T'Kosatka', {T'kosatka'}, T'Kosatka')
+        local terrorbyte = cooldowns:list(T'Terrorbyte/Nano Drone', {T'terrorbyte'}, T'Not everything that works for the terrorbyte works for the nano drone')
+
+        kosatka:toggle(T'Remove Missile Cooldown', {}, T'Remove kosatka guided missile cooldown', function(state)
+            GCooldowns:SetKosatkaMissileCooldown(state ? 0 : 60000)
+        end)
+
+        kosatka:toggle(T'Remove Missile Distance', {}, T'Remove kosatka guided missile distance limit', function(state)
+            GCooldowns:SetKosatkaMissileDistance(state ? Shared.MAX_FLOAT : 4000)
+        end)
+
+        terrorbyte:toggle(T'Remove Drone Cooldown', {}, T'Remove drone cooldown', function(state)
+            GCooldowns:SetTerrorbyteDroneCooldown(state ? 0 : 60000)
+        end)
+
+        terrorbyte:toggle(T'Unlimited Range', {}, T'Removes drone range limitation so you can take the drone anywhere on the map without losing connection', function(state)
+            GCooldowns:SetTerrorbyteDroneDistance(state ? Shared.MAX_FLOAT : 500)
+        end)
+
+        terrorbyte:toggle(T'Unlimited Height', {}, T'Removes drone height limitation so you can go as high as the sky height barrier without the drone getting destroyed', function(state)
+            GCooldowns:SetTerrorbyteDroneHeight(state ? Shared.MAX_FLOAT : 200)
+        end)
+
+        terrorbyte:toggle(T'Remove Shock Cooldown', {}, T'Remove shock cooldown', function(state)
+            GCooldowns:SetTerrorbyteDroneShockCooldown(state ? 0 : 12000)
+        end)
+
+        terrorbyte:toggle(T'Instant Boost Recharge', {}, T'Remove boost recharge time', function(state)
+            GCooldowns:SetTerrorbyteDroneBoostRechargeTime(state ? 0 : 15000)
+        end)
+
+        terrorbyte:toggle(T'Instant Detonate', {}, T'Remove detonate countdown', function(state)
+            GCooldowns:SetTerrorbyteDroneDetonateCountdown(state ? 0 : 7000)
+        end)
+
+        terrorbyte:toggle(T'Damage Players', {}, T'Drone damage players', function(state)
+            GCooldowns:SetTerrorbyteDroneDamagePlayers(state ? 1 : 0)
+        end, GCooldowns:GetTerrorbyteDroneDamagePlayers())
+
+        terrorbyte:toggle(T'Damage Peds', {}, T'Drone damage peds', function(state)
+            GCooldowns:SetTerrorbyteDroneDamagePeds(state ? 1 : 0)
+        end, GCooldowns:GetTerrorbyteDroneDamagePeds())
+
+        terrorbyte:click_slider(T'Drone Boost Time', {}, T'Amount of the time the drone will boost for', 4, Shared.MAX_INT, 4, 1, function(value)
+            GCooldowns:SetTerrorbyteDroneBoostTime(value * 1000)
+        end)
+
+        terrorbyte:click_slider_float(T'Drone Forward Speed', {}, T'Drone forward speed', 3500.0, Shared.MAX_INT + 0.0, 3500.0, 500.0, function(value)
+            GCooldowns:SetTerrorbyteDroneForwardSpeed(value)
+        end)
+
+        terrorbyte:toggle(T'Instant Kill', {}, T'Allow drone to instantly kill players and peds with 1 shock', function(state)
+            local player_damage = RefByRelPath(terrorbyte, T'Damage Players')
+            local ped_damage = RefByRelPath(terrorbyte, T'Damage Peds')
+            local instant_kill = RefByRelPath(terrorbyte, T'Instant Kill')
+
+            if player_damage.value or ped_damage.value then
+                if Shared:IsPlayerUsingDrone(PLAYER_ID) then
+                    SetPlayerWeaponDamageModifier(players.user_ped(), state and 1000.0 or 1.0)
+                else
+                    instant_kill.value = false
+                end
+            else
+                instant_kill.value = false
+            end
+        end)
+
+        cooldowns:divider('')
+
+        cooldowns:toggle(T'Remove Moonpool Cooldown', {}, T'Remove moonpool request cooldown', function(state)
+            GCooldowns:SetMoonpoolCooldown(state ? 0 : 300000)
+        end)
+
+        cooldowns:toggle(T'Remove MK2 Cooldown', {}, T'Remove Oppressor MKII request cooldown', function(state)
+            GCooldowns:SetOppressor2Cooldown(state ? 0 : 300000)
+        end)
+
+        cooldowns:toggle(T'Remove Strike Team Cooldown', {}, T'Remove strike team request cooldown', function(state)
+            GCooldowns:SetStrikeTeamCooldown(state ? 0 : 300000)
+        end)
+
+        cooldowns:toggle_loop(T'Remove Orbital Cannon Cooldown', {}, T'Remove orbital cannon cooldown', function()
+            StatSetInt(util.joaat(CHAR_INDEX .. 'ORBITAL_CANNON_COOLDOWN'), 0, true)
+        end)
+
+        cooldowns:toggle(T'Remove MK2 Chaff Cooldown', {}, T'Remove Oppressor MKII chaff cooldown', function(state)
+            GCooldowns:SetOppressor2ChaffCooldown(state ? 0 : 6000)
+        end)
+
+        cooldowns:toggle(T'Remove MK2 Flare Cooldown', {}, T'Remove Oppressor MKII flare cooldown', function(state)
+            GCooldowns:SetOppressor2FlareCooldown(state ? 0 : 6000)
+        end)
+
+        cooldowns:toggle(T'Infinite Chaff Duration', {}, T'Make Oppressor MKII Chaff last forever', function(state)
+            GCooldowns:SetOppressor2ChaffDuration(state ? Shared.MAX_FLOAT : 10.0)
+        end)
+
+        cooldowns:toggle(T'Remove Acid Lab Request Cooldown', {}, T'Remove acid lab request cooldown', function(state)
+            GCooldowns:SetAcidLabRequestCooldown(state ? 0 : 300000)
+        end)
+    end
+end
+
+return Cooldowns

@@ -1,0 +1,2101 @@
+local Shared = {}
+Shared.__index = Shared
+
+-- globals that need tested
+
+-- BitTest(Global_1853910[PLAYER::PLAYER_ID() /*862*/].f_267.f_31, 14)) not sure what this is yet
+-- Global_1853910[PLAYER::PLAYER_ID() /*862*/].f_267.f_382
+-- Global_1853910[iVar0 /*862*/].f_205.f_26
+-- Global_1853910[bParam0 /*862*/].f_267.f_372
+-- Global_1853910[bParam0 /*862*/].f_267.f_300
+-- Global_1853910[bParam0 /*862*/].f_267.f_293
+-- Global_1853910[bParam0 /*862*/].f_267.f_144
+-- Global_1853910[bParam0 /*862*/].f_267.f_310
+-- Global_1853910[bParam0 /*862*/].f_192
+-- Global_1853910[PLAYER::PLAYER_ID() /*862*/].f_267.f_189
+-- Global_1853910[bParam0 /*862*/].f_267.f_372 -- arena wars workshop
+
+local T = require('translations')
+local BitModule = require('bit')
+Shared.Bit, Shared.BitMask, Shared.Pack = BitModule.Bit, BitModule.BitMask, BitModule.Pack
+
+Shared.MAX_INT = (1 << 31) - 1
+Shared.MIN_INT = -(1 << 31)
+Shared.MAX_FLOAT = Shared.MAX_INT + 0.0
+Shared.MIN_FLOAT = Shared.MIN_INT + 0.0
+
+Shared.Refs = {
+    BecomeInterior = nil
+}
+
+local scripthost_ref = menu.ref_by_path("Online>Session>Become Script Host")
+
+Shared.Data = {
+    Achievements = {
+        ["1"] = "Welcome to Los Santos",       
+        ["2"] = "A Friendship Resurrected",    
+        ["3"] = "A Fair Day's Pay",
+        ["4"] = "The Moment of Truth",
+        ["5"] = "To Live or Die in Los Santos",
+        ["6"] = "Diamond Hard",
+        ["7"] = "Subversive",
+        ["8"] = "Blitzed",
+        ["9"] = "Small Town, Big Job",
+        ["10"] = "The Government Gimps",       
+        ["11"] = "The Big One!",
+        ["12"] = "Solid Gold, Baby!",
+        ["13"] = "Career Criminal",
+        ["14"] = "San Andreas Sightseer",
+        ["15"] = "All's Fare in Love and War",
+        ["16"] = "TP Industries Arms Race",
+        ["17"] = "Multi-Disciplined",
+        ["18"] = "From Beyond the Stars",
+        ["19"] = "A Mystery, Solved",
+        ["20"] = "Waste Management",
+        ["21"] = "Red Mist",
+        ["22"] = "Show Off",
+        ["23"] = "Kifflom!",
+        ["24"] = "Three Man Army",
+        ["25"] = "Out of Your Depth",
+        ["26"] = "Altruist Acolyte",
+        ["27"] = "A Lot of Cheddar",
+        ["28"] = "Trading Pure Alpha",
+        ["29"] = "Pimp My Sidearm",
+        ["30"] = "Wanted: Alive Or Alive",
+        ["31"] = "Los Santos Customs",
+        ["32"] = "Close Shave",
+        ["33"] = "Off the Plane",
+        ["34"] = "Three-Bit Gangster",
+        ["35"] = "Making Moves",
+        ["36"] = "Above the Law",
+        ["37"] = "Numero Uno",
+        ["38"] = "The Midnight Club",
+        ["39"] = "Unnatural Selection",
+        ["40"] = "Backseat Driver",
+        ["41"] = "Run Like The Wind",
+        ["42"] = "Clean Sweep",
+        ["43"] = "Decorated",
+        ["44"] = "Stick Up Kid",
+        ["45"] = "Enjoy Your Stay",
+        ["46"] = "Crew Cut",
+        ["47"] = "Full Refund",
+        ["48"] = "Dialling Digits",
+        ["49"] = "American Dream",
+        ["50"] = "A New Perspective",
+        ["51"] = "Be Prepared",
+        ["52"] = "In the Name of Science",
+        ["53"] = "Dead Presidents",
+        ["54"] = "Parole Day",
+        ["55"] = "Shot Caller",
+        ["56"] = "Four Way",
+        ["57"] = "Live a Little",
+        ["58"] = "Can't Touch This",
+        ["59"] = "Mastermind",
+        ["60"] = "Vinewood Visionary",
+        ["61"] = "Majestic",
+        ["62"] = "Humans of Los Santos",
+        ["63"] = "First Time Director",
+        ["64"] = "Animal Lover",
+        ["65"] = "Ensemble Piece",
+        ["66"] = "Cult Movie",
+        ["67"] = "Location Scout",
+        ["68"] = "Method Actor",
+        ["69"] = "Cryptozoologist",
+        ["70"] = "Getting Started",
+        ["71"] = "The Data Breaches",
+        ["72"] = "The Bogdan Problem",
+        ["73"] = "The Doomsday Scenario",
+        ["74"] = "A World Worth Saving",
+        ["75"] = "Orbital Obliteration",
+        ["76"] = "Elitist",
+        ["77"] = "Masterminds",
+    },
+    BunkerResearch = {
+        ["APC Sam Battery"] = 21806,
+        ["Ballistic Equipment"] = 21807,
+        ["Half Track 20MM Quad Cannons"] = 21808,
+        ["Weaponized Tampa Dual Remote Minigun"] = 21809,        
+        ["Weaponized Tampa Rear Firing Mortar"] = 21810,
+        ["Weaponized Tampa Front Missile Launchers"] = 21811,    
+        ["Weaponized Tampa Heavy Chassis Armor"] = 21812,        
+        ["Dune Fav 40MM Grenade Launcher"] = 21813,
+        ["Dune Fav 762MM Minigun"] = 21814,
+        ["Insurgent Pick Up Custom 50 Cal Minigun"] = 21815,     
+        ["Insurgent Pick Up Custom Heavy Armor Plating"] = 21816,
+        ["Technical Custom 762MM Minigun"] = 21817,
+        ["Technical Custom Ram Bar"] = 21818,
+        ["Technical Custom Brute Bar"] = 21819,
+        ["Technical Custom Heavy Chassis Armor"] = 21820,
+        ["Oppressor Rockets"] = 21821,
+        ["Fractal Livery Set"] = 21822,
+        ["Digital Livery Set"] = 21823,
+        ["Geometric Livery Set"] = 21824,
+        ["Nature Reserve Livery"] = 21825,
+        ["Naval Battle Livery"] = 21826,
+        ["Anti Aircraft Trailer Dual 20MM Flak Cannon"] = 21827,
+        ["Anti Aircraft Trailer Homing Missile Battery"] = 21828,
+        ["Mobile Operations Center Rear Turrets"] = 21829,
+        ["Incendiary Rounds"] = 21830,
+        ["Hollow Point Rounds"] = 21831,
+        ["Armor Piercing Rounds"] = 21832,
+        ["Full Metal Jacket Rounds"] = 21833,
+        ["Explosive Rounds"] = 21834,
+        ["Pistol MK II Rail Mount"] = 21835,
+        ["Pistol MK II Compensator"] = 21836,
+        ["Smg MK II Holographic Sight"] = 21837,
+        ["Smg MK II Heavy Barrel"] = 21838,
+        ["Heavy Sniper MK II Night Vision Scope"] = 21839,
+        ["Heavy Sniper MK II Thermal Scope"] = 21840,
+        ["Heavy Sniper MK II Heavy Barrel"] = 21841,
+        ["Combat Mg MK II Holographic Sight"] = 21842,
+        ["Combat Mg MK II Heavy Barrel"] = 21843,
+        ["Assault Rifle MK II Holographic Sight"] = 21844,
+        ["Assault Rifle MK II Heavy Barrel"] = 21845,
+        ["Carbine Rifle MK II Holographic Sight"] = 21846,
+        ["Carbine Rifle MK II Heavy Barrel"] = 21847,
+        ["Proximity Mines"] = 21848,
+        ["Tiger Stripe"] = 21849,
+        ["Skull"] = 21850,
+        ["Sessanta Nove"] = 21851,
+        ["Perseus"] = 21852,
+        ["Leopard Print"] = 21853,
+        ["Zebra Stripe"] = 21854,
+        ["Geometry"] = 21855,
+        ["Book"] = 21856
+    },
+    AircraftTradeIn = {
+        ["Ultralight"] = 22712,
+        ["Rogue"] = 22713,
+        ["Alpha-Z1"] = 22714,
+        ["Havok"] = 22715,
+        ["LF-22 Starling"] = 22716,
+        ["V-65 Molotok"] = 22717,
+        ["Tula"] = 22718,
+        ["RM-10 Bombushka"] = 22719,
+        ["Howard NX-25"] = 22720,
+        ["Mogul"] = 22721,
+        ["Pyro"] = 22722,
+        ["Seabreeze"] = 22723,
+        ["P-45 Nakota"] = 22724,
+        ["FH-1 Hunter"] = 22725
+    },
+    CasinoCards = {
+        v3(-423, 1212.2420654297, 325.75823974609),
+        v3(251.75042724609, 214.47691345215, 106.2868347168),
+        v3(726.65893554688, 4187.9926757812, 40.709247589111),
+        v3(98.641494750977, 6620.3461914062, 32.435325622559),
+        v3(-284.32104492188, 6225.0498046875, 31.497802734375),
+        v3(-746.65942382812, 5599.1127929688, 41.654636383057),
+        v3(-1582.5842285156, 5201.306640625, 3.9842200279236),
+        v3(-2302.9250488281, 3387.6613769531, 31.256513595581),
+        v3(-525.26916503906, 4192.5961914062, 193.7311706543),
+        v3(76.81307220459, 3704.1840820312, 41.077209472656),
+        v3(-1101.5334472656, 2715.1713867188, 19.113943099976),
+        v3(-289.46228027344, 2544.1696777344, 75.415725708008),
+        v3(899.43041992188, 3555.9985351562, 33.827239990234),
+        v3(1692.1530761719, 3589.4685058594, 35.620971679688),
+        v3(1989.9505615234, 3045.7651367188, 47.215061187744),
+        v3(1705.8336181641, 4919.57421875, 42.063674926758),
+        v3(2122.9821777344, 4785.626953125, 40.970268249512),
+        v3(2693.8247070312, 4325.2573242188, 45.851989746094),
+        v3(2940.1257324219, 5325.48046875, 100.9655456543),
+        v3(3689.2438964844, 4570.0986328125, 25.107622146606),
+        v3(2750.11328125, 3467.5876464844, 55.711933135986),
+        v3(-3147.9494628906, 1114.5297851562, 20.846366882324),
+        v3(-3046.32421875, 584.15051269531, 7.9089274406433),
+        v3(-1827.4471435547, 798.64654541016, 138.16368103027),
+        v3(-1839.5356445312, -1233.5810546875, 13.017261505127),
+        v3(-1513.4025878906, -104.87504577637, 54.184757232666),
+        v3(-1152.6549072266, -525.74230957031, 32.125282287598),
+        v3(-1167.3082275391, -232.46827697754, 37.947425842285),
+        v3(-968.50933837891, 104.63013458252, 55.666194915771),
+        v3(-1286.1337890625, -1117.7790527344, 6.990110874176),
+        v3(-1205.1097412109, -1557.8605957031, 4.6167182922363),
+        v3(-167.74485778809, -299.07723999023, 39.733310699463),
+        v3(-410.2529296875, 586.95886230469, 124.61524963379),
+        v3(-1029.8304443359, -2744.5158691406, 13.842164039612),
+        v3(812.63977050781, -2978.5576171875, 6.0206537246704),
+        v3(-72.862899780273, -2003.5484619141, 18.275272369385),
+        v3(825.76293945312, -2158.7817382812, 29.619009017944),
+        v3(989.45788574219, -1797.9250488281, 31.635583877563),
+        v3(1130.9044189453, -980.15997314453, 46.415859222412),
+        v3(204.16436767578, -1645.7397460938, 29.803215026855),
+        v3(119.6584854126, -1295.4942626953, 29.269523620605),
+        v3(11.997032165527, -1103.1140136719, 29.797031402588),
+        v3(182.15174865723, -683.46136474609, 43.140930175781),
+        v3(547.30261230469, -189.86305236816, 54.481349945068),
+        v3(1160.9501953125, -314.63861083984, 69.205039978027),
+        v3(2565.671875, 299.03778076172, 108.73483276367),
+        v3(1486.19140625, 1128.1567382812, 114.33664703369),
+        v3(2340.3068847656, 2570.3623046875, 47.730003356934),
+        v3(731.86688232422, 2514.689453125, 73.170501708984),
+        v3(188.28002929688, 3074.34375, 43.082084655762),
+        v3(1874.6353759766, 6409.7607421875, 46.654632568359),
+        v3(-535.78289794922, -1277.8481445312, 26.901580810547),
+        v3(-102.85450744629, 366.66351318359, 112.88076019287)
+    },
+    SignalJammers = {
+        v3(1006.372, -2881.68, 30.422),
+        v3(-980.242, -2637.703, 88.528),
+        v3(-688.195, -1399.329, 23.331),
+        v3(1120.696, -1539.165, 54.871),
+        v3(2455.134, -382.585, 112.635),
+        v3(793.878, -717.299, 48.083),
+        v3(-168.3, -590.153, 210.936),
+        v3(-1298.3429, -435.8369, 108.129),
+        v3(-2276.4841, 335.0941, 195.723),
+        v3(-667.25, 228.545, 154.051),
+        v3(682.561, 567.5302, 153.895),
+        v3(2722.561, 1538.1031, 85.202),
+        v3(758.539, 1273.6871, 445.181),
+        v3(-3079.2578, 768.5189, 31.569),
+        v3(-2359.338, 3246.831, 104.188),
+        v3(1693.7318, 2656.602, 60.84),
+        v3(3555.018, 3684.98, 61.27),
+        v3(1869.0221, 3714.4348, 117.068),
+        v3(2902.552, 4324.699, 101.106),
+        v3(-508.6141, 4426.661, 87.511),
+        v3(-104.417, 6227.2783, 63.696),
+        v3(1607.5012, 6437.3154, 32.162),
+        v3(2792.933, 5993.922, 366.867),
+        v3(1720.6129, 4822.467, 59.7),
+        v3(-1661.0101, -1126.742, 29.773),
+        v3(-1873.49, 2058.357, 154.407),
+        v3(2122.4602, 1750.886, 138.114),
+        v3(-417.424, 1153.1431, 339.128),
+        v3(3303.9011, 5169.7925, 28.735),
+        v3(-1005.8481, 4852.1475, 302.025),
+        v3(-306.627, 2824.859, 69.512),
+        v3(1660.6631, -28.07, 179.137),
+        v3(754.647, 2584.067, 133.904),
+        v3(-279.9081, -1915.608, 54.173),
+        v3(-260.4421, -2411.8071, 126.019),
+        v3(552.132, -2221.8528, 73),
+        v3(394.3919, -1402.144, 76.267),
+        v3(1609.7911, -2243.767, 130.187),
+        v3(234.2919, 220.771, 168.981),
+        v3(-1237.1211, -850.4969, 82.98),
+        v3(-1272.7319, 317.9532, 90.352),
+        v3(0.088, -1002.4039, 96.32),
+        v3(470.5569, -105.049, 135.908),
+        v3(-548.5471, -197.9911, 82.813),
+        v3(2581.0469, 461.9421, 115.095),
+        v3(720.14, 4097.634, 38.075),
+        v3(1242.4711, 1876.0681, 92.242),
+        v3(2752.1128, 3472.779, 67.911),
+        v3(-2191.856, 4292.4077, 55.013),
+        v3(450.475, 5581.514, 794.0683),
+    },
+    PropertyIds = {
+        ["Invalid"] = 0,
+        ["Eclipse Towers 31"] = 1,
+        ["Eclipse Towers 9"] = 2,
+        ["Eclipse Towers 40"] = 3,
+        ["Eclipse Towers 5"] = 4,
+        ["3 Alta St, Apt 10"] = 5,
+        ["3 Alta St, Apt 57"] = 6,
+        ["Del Perro Heights, Apt 20"] = 7,
+        ["Power St, Apt 3"] = 8,
+        ["Spanish Ave, Apt 1"] = 9,
+        ["Las Lagunas Blv, 4"] = 10,
+        ["Milton Rd, Apt 13"] = 11,
+        ["The Royale, Apt 19"] = 12,
+        ["S Mo Milton Drive"] = 13,
+        ["Bay City Ave, Apt 45"] = 14,
+        ["0325 S Rockford Dr"] = 15,
+        ["Dream Tower, Apt 15"] = 16,
+        ["Las Lagunas Blv, 9"] = 17,
+        ["San Vitas St, Apt 2"] = 18,
+        ["0112 S Rockford Dr, 13"] = 19,
+        ["Vespucci Blvd, Apt 1"] = 20,
+        ["Cougar Ave, Apt 19"] = 21,
+        ["Prosperity St, 21"] = 22,
+        ["Blvd Del Perro, 18"] = 23,
+        ["Murrieta Heights"] = 24,
+        ["Unit 14 Popular St"] = 25,
+        ["Unit 2 Popular St"] = 26,
+        ["331 Supply St"] = 27,
+        ["Unit 1 Olympic Fwy"] = 28,
+        ["Roy Lowenstein Blvd"] = 29,
+        ["Little Bighorn Ave"] = 30,
+        ["Unit 124 Popular St"] = 31,
+        ["Roy Lowenstein Blvd"] = 32,
+        ["0432 Davis Ave"] = 33,
+        ["Del Perro Heights, 7"] = 34,
+        ["Weazel Plaza, 101"] = 35,
+        ["Weazel Plaza, 70"] = 36,
+        ["Weazel Plaza, 26"] = 37,
+        ["Integrity Way, 30"] = 38,
+        ["Integrity Way, 35"] = 39,
+        ["Richards Majestic, 4"] = 40,
+        ["Richards Majestic, 51"] = 41,
+        ["Tinsel Towers, Apt 45"] = 42,
+        ["Tinsel Towers, Apt 29"] = 43,
+        ["Paleto Blvd"] = 44,
+        ["Strawberry Ave"] = 45,
+        ["Grapeseed Ave"] = 46,
+        ["Senora Way"] = 47,
+        ["Great Ocean Highway"] = 48,
+        ["197 Route 68"] = 49,
+        ["870 Route 68"] = 50,
+        ["1200 Route 68"] = 51,
+        ["8754 Route 68"] = 52,
+        ["1905 Davis Ave"] = 53,
+        ["South Shambles St"] = 54,
+        ["4531 Dry Dock St"] = 55,
+        ["Exceptionalists Way"] = 56,
+        ["Greenwich Parkway"] = 57,
+        ["Innocence Blvd"] = 58,
+        ["Blvd Del Perro"] = 59,
+        ["Mirror Park Blvd"] = 60,
+        ["Eclipse Towers 3"] = 61,
+        ["Del Perro Heights 4"] = 62,
+        ["Richards Majestics, 2"] = 63,
+        ["Tinsel Towers, Apt 42"] = 64,
+        ["Integrity Way, 28"] = 65,
+        ["4 Hangman Ave"] = 66,
+        ["12 Sustancia Rd"] = 67,
+        ["4584 Procopio Dr"] = 68,
+        ["4401 Procopio Dr"] = 69,
+        ["0232 Paleto Blvd"] = 70,
+        ["140 Zancudo Ave"] = 71,
+        ["1893 Grapeseed Ave"] = 72,
+        ["3655 Wild Oats Dr"] = 73,
+        ["2044 North Conker Ave"] = 74,
+        ["2868 Hillcrest Ave"] = 75,
+        ["2862 Hillcrest Ave"] = 76,
+        ["3677 Whispymound Dr"] = 77,
+        ["2117 Milton Rd"] = 78,
+        ["2866 Hillcrest Ave"] = 79,
+        ["2874 Hillcrest Ave"] = 80,
+        ["2113 Mad Wayne T Dr"] = 81,
+        ["2045 North Conker Ave"] = 82,
+        ["Eclipse Penthouse, Suite 1"] = 83,
+        ["Eclipse Penthouse, Suite 2"] = 84,
+        ["Eclipse Penthouse, Suite 3"] = 85,
+        ["Invalid (1)"] = 86,
+        ["Lombank West"] = 87,
+        ["Maze Bank West"] = 88,
+        ["Arcadius"] = 89,
+        ["Maze Bank Tower"] = 90,
+        ["Rancho Clubhouse"] = 91,
+        ["Del Perro Beach Clubhouse"] = 92,
+        ["Philbox Hill Clubhouse"] = 93,
+        ["Great Chaparral Clubhouse"] = 94,
+        ["Paleto Bay Clubhouse"] = 95,
+        ["Sandy Shores Clubhouse"] = 96,
+        ["La Mesa Clubhouse"] = 97,
+        ["Vinewood Clubhouse"] = 98,
+        ["Hawick Clubhouse"] = 99,
+        ["Grapeseed Clubhouse"] = 100,
+        ["Paleto Bay Clubhouse (0)"] = 101,
+        ["Vespucci Beach Clubhouse"] = 102,
+        ["Office Garage 1 (Lombank)"] = 103,
+        ["Office Garage 2 (Lombank)"] = 104,
+        ["Office Garage 3 (Lombank)"] = 105,
+        ["Office Garage 1 (Maze Bank West)"] = 106,
+        ["Office Garage 2 (Maze Bank West)"] = 107,
+        ["Office Garage 3 (Maze Bank West)"] = 108,
+        ["Office Garage 1 (Arcadius)"] = 109,
+        ["Office Garage 2 (Arcadius)"] = 110,
+        ["Office Garage 3 (Arcadius)"] = 111,
+        ["Office Garage 1 (Maze Bank Tower)"] = 112,
+        ["Office Garage 2 (Maze Bank Tower)"] = 113,
+        ["Office Garage 3 (Maze Bank Tower)"] = 114,
+        ["Vehicle Warehouse"] = 115,
+        ["Definitely Invalid"] = (1 << 31) - 1
+    },
+    Models = {
+        BST = "prop_drug_package_02", -- Bull Shark Testosterone
+        PRBUBBLE_FIGURE = "vm_prop_vm_colle_prbubble", -- PR Bubble Figure (casino)
+    }
+}
+
+--[[void]] local function TerminateThisThread()native_invoker.begin_call()native_invoker.end_call_2(0x1090044AD1DA76FA)end
+--[[void]] local function ClearAllPedProps(--[[Ped (int)]] ped,--[[Any (int)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(p1)native_invoker.end_call_2(0xCD8A7537A9B52F06)end
+--[[void]] local function TaskPlayAnim(--[[Ped (int)]] ped,--[[string]] animDictionary,--[[string]] animationName,--[[float]] blendInSpeed,--[[float]] blendOutSpeed,--[[int]] duration,--[[int]] flag,--[[float]] playbackRate,--[[BOOL (bool)]] lockX,--[[BOOL (bool)]] lockY,--[[BOOL (bool)]] lockZ)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_string(animDictionary)native_invoker.push_arg_string(animationName)native_invoker.push_arg_float(blendInSpeed)native_invoker.push_arg_float(blendOutSpeed)native_invoker.push_arg_int(duration)native_invoker.push_arg_int(flag)native_invoker.push_arg_float(playbackRate)native_invoker.push_arg_bool(lockX)native_invoker.push_arg_bool(lockY)native_invoker.push_arg_bool(lockZ)native_invoker.end_call_2(0xEA47FE3719165B94)end
+--[[void]] local function SetCurrWeatherState(--[[Hash (int)]] weatherType1,--[[Hash (int)]] weatherType2,--[[float]] percentWeather2)native_invoker.begin_call()native_invoker.push_arg_int(weatherType1)native_invoker.push_arg_int(weatherType2)native_invoker.push_arg_float(percentWeather2)native_invoker.end_call_2(0x578C752848ECFA0C)end
+--[[void]] local function SetEntityInvincible(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x3882114BDE571AD4)end
+--[[void]] local function SetPedArmour(--[[Ped (int)]] ped,--[[int]] amount)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(amount)native_invoker.end_call_2(0xCEA04D83135264CC)end
+--[[void]] local function SetEntityCanBeDamaged(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x1760FFA8AB074D66)end
+--[[void]] local function SetArtificialLightsState(--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_bool(state)native_invoker.end_call_2(0x1268615ACE24D504)end
+--[[void]] local function FreezeEntityPosition(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x428CA6DBD1094446)end
+--[[void]] local function SetArtificialVehicleLightsState(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xE2B187C0939B3D32)end
+--[[BOOL (bool)]] local function NetworkHasControlOfEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x01BF60A500E28887)return native_invoker.get_return_value_bool()end
+--[[void]] local function FinalizeHeadBlend(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x4668D80430D6C299)end
+--[[BOOL (bool)]] local function IsAudioSceneActive(--[[string]] scene)native_invoker.begin_call()native_invoker.push_arg_string(scene)native_invoker.end_call_2(0xB65B60556E2A9225)return native_invoker.get_return_value_bool()end
+--[[void]] local function NetworkStartSynchronisedScene(--[[int]] netScene)native_invoker.begin_call()native_invoker.push_arg_int(netScene)native_invoker.end_call_2(0x9A1B3FCDB36C8697)end
+--[[void]] local function NetworkAddSynchronisedSceneCamera(--[[int]] netScene,--[[string]] animDict,--[[string]] animName)native_invoker.begin_call()native_invoker.push_arg_int(netScene)native_invoker.push_arg_string(animDict)native_invoker.push_arg_string(animName)native_invoker.end_call_2(0xCF8BD3B0BD6D42D7)end
+--[[int]] local function GetEntityMaxHealth(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x15D757606D170C3C)return native_invoker.get_return_value_int()end
+--[[void]] local function SetPlayerMeleeWeaponDamageModifier(--[[Player (int)]] player,--[[float]] modifier,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_float(modifier)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0x4A3DC7ECCC321032)end
+--[[void]] local function SetPedMaxHealth(--[[Ped (int)]] ped,--[[int]] value)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(value)native_invoker.end_call_2(0xF5F6378C4F3419D3)end
+--[[void]] local function GiveWeaponToPed(--[[Ped (int)]] ped,--[[Hash (int)]] weaponHash,--[[int]] ammoCount,--[[BOOL (bool)]] isHidden,--[[BOOL (bool)]] bForceInHand)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(ammoCount)native_invoker.push_arg_bool(isHidden)native_invoker.push_arg_bool(bForceInHand)native_invoker.end_call_2(0xBF0FD6E56C964FCB)end
+--[[void]] local function SetParkedVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xEAE6DCC7EEE3DB1D)end
+--[[void]] local function SetTimecycleModifierStrength(--[[float]] strength)native_invoker.begin_call()native_invoker.push_arg_float(strength)native_invoker.end_call_2(0x82E7FFCD5B2326B3)end
+--[[Vector3 (vector3)]] local function GetGameplayCamRot(--[[int]] rotationOrder)native_invoker.begin_call()native_invoker.push_arg_int(rotationOrder)native_invoker.end_call_2(0x837765A25378F0BB)return native_invoker.get_return_value_vector3()end
+--[[void]] local function SetPlayerVehicleDamageModifier(--[[Player (int)]] player,--[[float]] modifier)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_float(modifier)native_invoker.end_call_2(0xA50E117CDDF82F0C)end
+--[[BOOL (bool)]] local function StartAudioScene(--[[string]] scene)native_invoker.begin_call()native_invoker.push_arg_string(scene)native_invoker.end_call_2(0x013A80FC08F6E4F2)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetPlayerIsInAnimalForm(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x4EBB7E87AA0DBED4)end
+--[[void]] local function SetEntityRotation(--[[Entity (int)]] entity,--[[float]] pitch,--[[float]] roll,--[[float]] yaw,--[[int]] rotationOrder,--[[BOOL (bool)]] p5)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(pitch)native_invoker.push_arg_float(roll)native_invoker.push_arg_float(yaw)native_invoker.push_arg_int(rotationOrder)native_invoker.push_arg_bool(p5)native_invoker.end_call_2(0x8524A8B0171D5E07)end
+--[[void]] local function ShootSingleBulletBetweenCoords(--[[float]] x1,--[[float]] y1,--[[float]] z1,--[[float]] x2,--[[float]] y2,--[[float]] z2,--[[int]] damage,--[[BOOL (bool)]] p7,--[[Hash (int)]] weaponHash,--[[Ped (int)]] ownerPed,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] speed)native_invoker.begin_call()native_invoker.push_arg_float(x1)native_invoker.push_arg_float(y1)native_invoker.push_arg_float(z1)native_invoker.push_arg_float(x2)native_invoker.push_arg_float(y2)native_invoker.push_arg_float(z2)native_invoker.push_arg_int(damage)native_invoker.push_arg_bool(p7)native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(ownerPed)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(speed)native_invoker.end_call_2(0x867654CBC7606F2C)end
+--[[void]] local function NetworkForceLocalUseOfSyncedSceneCamera(--[[int]] netScene)native_invoker.begin_call()native_invoker.push_arg_int(netScene)native_invoker.end_call_2(0xC9B43A33D09CADA7)end
+--[[void]] local function SetPedUpperBodyDamageOnly(--[[Ped (int)]] ped,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xAFC976FD0580C7B3)end
+--[[void]] local function SetEntityAlpha(--[[Entity (int)]] entity,--[[int]] alphaLevel,--[[BOOL (bool)]] skin)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(alphaLevel)native_invoker.push_arg_bool(skin)native_invoker.end_call_2(0x44A0870B7E92D7C0)end
+--[[void]] local function ClearTimecycleModifier()native_invoker.begin_call()native_invoker.end_call_2(0x0F07E7745A236711)end
+--[[void]] local function SetPlayerLeavePedBehind(--[[Player (int)]] player,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xFF300C7649724A0B)end
+--[[void]] local function SetEntityHealth(--[[Entity (int)]] entity,--[[int]] health,--[[int]] p2)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(health)native_invoker.push_arg_int(p2)native_invoker.end_call_2(0x6B76DC1F3AE6E6A3)end
+--[[void]] local function SetPedSuffersCriticalHits(--[[Ped (int)]] ped,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xEBD76F2359F190AC)end
+--[[BOOL (bool)]] local function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
+--[[Vehicle (int)]] local function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
+--[[int]] local function GetPedMaxHealth(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x4700A416E8324EF3)return native_invoker.get_return_value_int()end
+--[[void]] local function SetTransitionTimecycleModifier(--[[string]] modifierName,--[[float]] transition)native_invoker.begin_call()native_invoker.push_arg_string(modifierName)native_invoker.push_arg_float(transition)native_invoker.end_call_2(0x3BCF567485E1971C)end
+--[[void]] local function AddOwnedExplosion(--[[Ped (int)]] ped,--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.end_call_2(0x172AA1B624FA1013)end
+--[[void]] local function SetDisableHighFallDeath(--[[Ped (int)]] ped,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x711794453CFD692B)end
+--[[void]] local function StopAudioScene(--[[string]] scene)native_invoker.begin_call()native_invoker.push_arg_string(scene)native_invoker.end_call_2(0xDFE8422B3B94E688)end
+--[[void]] local function SetRandomVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xB3B3359379FE77D3)end
+--[[BOOL (bool)]] local function AnimpostfxIsRunning(--[[string]] effectName)native_invoker.begin_call()native_invoker.push_arg_string(effectName)native_invoker.end_call_2(0x36AD3E690DA5ACEB)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetTimecycleModifier(--[[string]] modifierName)native_invoker.begin_call()native_invoker.push_arg_string(modifierName)native_invoker.end_call_2(0x2C933ABF17A1DF41)end
+--[[BOOL (bool)]] local function NetworkRequestControlOfEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xB69317BF5E782347)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function StatSetFloat(--[[Hash (int)]] statName,--[[float]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_float(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0x4851997F37FE9B3C)return native_invoker.get_return_value_bool()end
+--[[int]] local function GetPlayerMaxArmour(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x92659B4CE1863CB3)return native_invoker.get_return_value_int()end
+--[[void]] local function SetPedComponentVariation(--[[Ped (int)]] ped,--[[int]] componentId,--[[int]] drawableId,--[[int]] textureId,--[[int]] paletteId)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(componentId)native_invoker.push_arg_int(drawableId)native_invoker.push_arg_int(textureId)native_invoker.push_arg_int(paletteId)native_invoker.end_call_2(0x262B14F48D29DE80)end
+--[[float]] local function GetLightOverrideMaxIntensityScale()native_invoker.begin_call()native_invoker.end_call_2(0x393BD2275CEB7793)return native_invoker.get_return_value_float()end
+--[[void]] local function SetAmbientVehicleRangeMultiplierThisFrame(--[[float]] value)native_invoker.begin_call()native_invoker.push_arg_float(value)native_invoker.end_call_2(0x90B6DA738A9A25DA)end
+--[[void]] local function ForcePedAiAndAnimationUpdate(--[[Ped (int)]] ped,--[[BOOL (bool)]] p1,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(p1)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0x2208438012482A1A)end
+--[[void]] local function ForceLightningFlash()native_invoker.begin_call()native_invoker.end_call_2(0xF6062E089251C898)end
+--[[void]] local function SetPedConfigFlag(--[[Ped (int)]] ped,--[[int]] flagId,--[[BOOL (bool)]] value)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(flagId)native_invoker.push_arg_bool(value)native_invoker.end_call_2(0x1913FE4CBF41C463)end
+--[[void]] local function NetworkDisableLeaveRemotePedBehind(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xC505036A35AFD01B)end
+--[[BOOL (bool)]] local function GetPedLastWeaponImpactCoord(--[[Ped (int)]] ped,--[[Vector3* (pointer)]] coords)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_pointer(coords)native_invoker.end_call_2(0x6C4D0409BA1A2BC2)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetPlayerMaxExplosiveDamage(--[[Player (int)]] player,--[[float]] p1)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_float(p1)native_invoker.end_call_2(0x8D768602ADEF2245)end
+--[[Hash (int)]] local function GetSelectedPedWeapon(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x0A6DB4965674D243)return native_invoker.get_return_value_int()end
+--[[void]] local function SetEntityCollision(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle,--[[BOOL (bool)]] keepPhysics)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.push_arg_bool(keepPhysics)native_invoker.end_call_2(0x1A9205C1B9EE827F)end
+--[[Ped (int)]] local function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x43A66C31C68491C0)return native_invoker.get_return_value_int()end
+--[[Vector3 (vector3)]] local function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
+--[[int]] local function NetworkCreateSynchronisedScene(--[[float]] x,--[[float]] y,--[[float]] z,--[[float]] xRot,--[[float]] yRot,--[[float]] zRot,--[[int]] rotationOrder,--[[BOOL (bool)]] useOcclusionPortal,--[[BOOL (bool)]] looped,--[[float]] p9,--[[float]] animTime,--[[float]] p11)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_float(xRot)native_invoker.push_arg_float(yRot)native_invoker.push_arg_float(zRot)native_invoker.push_arg_int(rotationOrder)native_invoker.push_arg_bool(useOcclusionPortal)native_invoker.push_arg_bool(looped)native_invoker.push_arg_float(p9)native_invoker.push_arg_float(animTime)native_invoker.push_arg_float(p11)native_invoker.end_call_2(0x7CD6BC4C2BBDD526)return native_invoker.get_return_value_int()end
+--[[void]] local function AnimpostfxStop(--[[string]] effectName)native_invoker.begin_call()native_invoker.push_arg_string(effectName)native_invoker.end_call_2(0x068E835A1D0DC0E3)end
+--[[BOOL (bool)]] local function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0x245A6883D966D537)end
+--[[BOOL (bool)]] local function IsEntityDead(--[[Entity (int)]] entity,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0x5F9532F3B5CC2551)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetWeatherTypeNowPersist(--[[string]] weatherType)native_invoker.begin_call()native_invoker.push_arg_string(weatherType)native_invoker.end_call_2(0xED712CA327900C8A)end
+--[[float]] local function GetEntityHeading(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xE83D4F9BA2A38914)return native_invoker.get_return_value_float()end
+--[[void]] local function AnimpostfxStopAll()native_invoker.begin_call()native_invoker.end_call_2(0xB4EDDC19532BFB85)end
+--[[void]] local function ClearPedTasksImmediately(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0xAAA34F8A7CB32098)end
+--[[void]] local function SetRunSprintMultiplierForPlayer(--[[Player (int)]] player,--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0x6DB47AA77FD94E09)end
+--[[void]] local function AnimpostfxPlay(--[[string]] effectName,--[[int]] duration,--[[BOOL (bool)]] looped)native_invoker.begin_call()native_invoker.push_arg_string(effectName)native_invoker.push_arg_int(duration)native_invoker.push_arg_bool(looped)native_invoker.end_call_2(0x2206BF9A37B7F724)end
+--[[int]] local function GetNetworkTime()native_invoker.begin_call()native_invoker.end_call_2(0x7A5487FE9FAA6B48)return native_invoker.get_return_value_int()end
+--[[void]] local function SetLightOverrideMaxIntensityScale(--[[Any (int)]] p0)native_invoker.begin_call()native_invoker.push_arg_int(p0)native_invoker.end_call_2(0x9641588DAB93B4B5)end
+--[[void]] local function SetEntityVisible(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0xEA1C610A04DB6BBB)end
+--[[int]] local function GetEntityHealth(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xEEF059FAD016D209)return native_invoker.get_return_value_int()end
+--[[void]] local function SetPedDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0x95E3D6257B166CF2)end
+--[[void]] local function SetEntityProofs(--[[Entity (int)]] entity,--[[BOOL (bool)]] bulletProof,--[[BOOL (bool)]] fireProof,--[[BOOL (bool)]] explosionProof,--[[BOOL (bool)]] collisionProof,--[[BOOL (bool)]] meleeProof,--[[BOOL (bool)]] steamProof,--[[BOOL (bool)]] p7,--[[BOOL (bool)]] waterProof)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(bulletProof)native_invoker.push_arg_bool(fireProof)native_invoker.push_arg_bool(explosionProof)native_invoker.push_arg_bool(collisionProof)native_invoker.push_arg_bool(meleeProof)native_invoker.push_arg_bool(steamProof)native_invoker.push_arg_bool(p7)native_invoker.push_arg_bool(waterProof)native_invoker.end_call_2(0xFAEE099C6F890BB8)end
+--[[void]] local function ClearPedStoredHatProp(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x687C0B594907D2E8)end
+--[[void]] local function SetPlayerVehicleDefenseModifier(--[[Player (int)]] player,--[[float]] modifier)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_float(modifier)native_invoker.end_call_2(0x4C60E6EFDAFF2462)end
+--[[void]] local function SetScenarioPedDensityMultiplierThisFrame(--[[float]] p0,--[[float]] p1)native_invoker.begin_call()native_invoker.push_arg_float(p0)native_invoker.push_arg_float(p1)native_invoker.end_call_2(0x7A556143A1C03898)end
+--[[void]] local function TogglePausedRenderphases(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xDFC252D8A3E15AB7)end
+--[[void]] local function PlaySoundFrontend(--[[int]] soundId,--[[string]] audioName,--[[string]] audioRef,--[[BOOL (bool)]] p3)native_invoker.begin_call()native_invoker.push_arg_int(soundId)native_invoker.push_arg_string(audioName)native_invoker.push_arg_string(audioRef)native_invoker.push_arg_bool(p3)native_invoker.end_call_2(0x67C540AA08E4A6F5)end
+--[[void]] local function SetEntityCoordsNoOffset(--[[Entity (int)]] entity,--[[float]] xPos,--[[float]] yPos,--[[float]] zPos,--[[BOOL (bool)]] xAxis,--[[BOOL (bool)]] yAxis,--[[BOOL (bool)]] zAxis)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xPos)native_invoker.push_arg_float(yPos)native_invoker.push_arg_float(zPos)native_invoker.push_arg_bool(xAxis)native_invoker.push_arg_bool(yAxis)native_invoker.push_arg_bool(zAxis)native_invoker.end_call_2(0x239A3351AC1DA385)end
+--[[void]] local function SetPedMoveRateOverride(--[[Ped (int)]] ped,--[[float]] value)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(value)native_invoker.end_call_2(0x085BF80FA50A39D1)end
+--[[void]] local function SetPedStrafeClipset(--[[Ped (int)]] ped,--[[string]] clipSet)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_string(clipSet)native_invoker.end_call_2(0x29A28F3F8CF6D854)end
+--[[void]] local function ResetPedStrafeClipset(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x20510814175EA477)end
+--[[float]] local function GetEntitySpeed(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xD5037BA82E12416F)return native_invoker.get_return_value_float()end
+--[[BOOL (bool)]] local function StartNetworkedParticleFxNonLoopedOnPedBone(--[[string]] effectName,--[[Ped (int)]] ped,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ,--[[float]] rotX,--[[float]] rotY,--[[float]] rotZ,--[[int]] boneIndex,--[[float]] scale,--[[BOOL (bool)]] axisX,--[[BOOL (bool)]] axisY,--[[BOOL (bool)]] axisZ)native_invoker.begin_call()native_invoker.push_arg_string(effectName)native_invoker.push_arg_int(ped)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.push_arg_float(rotX)native_invoker.push_arg_float(rotY)native_invoker.push_arg_float(rotZ)native_invoker.push_arg_int(boneIndex)native_invoker.push_arg_float(scale)native_invoker.push_arg_bool(axisX)native_invoker.push_arg_bool(axisY)native_invoker.push_arg_bool(axisZ)native_invoker.end_call_2(0xA41B6A43642AC2CF)return native_invoker.get_return_value_bool()end
+--[[Vector3 (vector3)]] local function GetEntityRotation(--[[Entity (int)]] entity,--[[int]] rotationOrder)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(rotationOrder)native_invoker.end_call_2(0xAFBD61CC738D9EB9)return native_invoker.get_return_value_vector3()end
+--[[void]] local function SetPlayerModel(--[[Player (int)]] player,--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_int(model)native_invoker.end_call_2(0x00A1CADD00108836)end
+--[[int]] local function GetNumberOfThreadsRunningTheScriptWithThisHash(--[[Hash (int)]] scriptHash)native_invoker.begin_call()native_invoker.push_arg_int(scriptHash)native_invoker.end_call_2(0x2C83A9DA6BFFC4F9)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function GetPackedStatBoolCode(--[[int]] index,--[[int]] characterSlot)native_invoker.begin_call()native_invoker.push_arg_int(index)native_invoker.push_arg_int(characterSlot)native_invoker.end_call_2(0xDA7EBFC49AE3F1B0)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetPackedStatBoolCode(--[[int]] index,--[[BOOL (bool)]] value,--[[int]] characterSlot)native_invoker.begin_call()native_invoker.push_arg_int(index)native_invoker.push_arg_bool(value)native_invoker.push_arg_int(characterSlot)native_invoker.end_call_2(0xDB8A58AEAA67CD07)end
+--[[BOOL (bool)]] local function StatGetInt(--[[Hash (int)]] statHash,--[[int* (pointer)]] outValue,--[[int]] p2)native_invoker.begin_call()native_invoker.push_arg_int(statHash)native_invoker.push_arg_pointer(outValue)native_invoker.push_arg_int(p2)native_invoker.end_call_2(0x767FBC2AC802EF3D)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function HasAchievementBeenPassed(--[[int]] achievementId)native_invoker.begin_call()native_invoker.push_arg_int(achievementId)native_invoker.end_call_2(0x867365E111A3B6EB)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function GiveAchievementToPlayer(--[[int]] achievementId)native_invoker.begin_call()native_invoker.push_arg_int(achievementId)native_invoker.end_call_2(0xBEC7076D64130195)return native_invoker.get_return_value_bool()end
+--[[void]] local function DisplayOnscreenKeyboard(--[[int]] p0,--[[string]] windowTitle,--[[string]] p2,--[[string]] defaultText,--[[string]] defaultConcat1,--[[string]] defaultConcat2,--[[string]] defaultConcat3,--[[int]] maxInputLength)native_invoker.begin_call()native_invoker.push_arg_int(p0)native_invoker.push_arg_string(windowTitle)native_invoker.push_arg_string(p2)native_invoker.push_arg_string(defaultText)native_invoker.push_arg_string(defaultConcat1)native_invoker.push_arg_string(defaultConcat2)native_invoker.push_arg_string(defaultConcat3)native_invoker.push_arg_int(maxInputLength)native_invoker.end_call_2(0x00DC833F2568DBF6)end
+--[[BOOL (bool)]] local function NetworkHasControlOfEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x01BF60A500E28887)return native_invoker.get_return_value_bool()end
+--[[int]] local function UpdateOnscreenKeyboard()native_invoker.begin_call()native_invoker.end_call_2(0x0CF2B696BBF945AE)return native_invoker.get_return_value_int()end
+--[[void]] local function SetRemotePlayerAsGhost(--[[Player (int)]] player,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xA7C511FA1C5BDA38)end
+--[[BOOL (bool)]] local function NetworkRequestControlOfEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xB69317BF5E782347)return native_invoker.get_return_value_bool()end
+--[[string]] local function GetOnscreenKeyboardResult()native_invoker.begin_call()native_invoker.end_call_2(0x8362B09B91893647)return native_invoker.get_return_value_string()end
+--[[Cam (int)]] local function GetRenderingCam()native_invoker.begin_call()native_invoker.end_call_2(0x5234F9F10919EABA)return native_invoker.get_return_value_int()end
+--[[void]] local function RenderScriptCams(--[[BOOL (bool)]] render,--[[BOOL (bool)]] ease,--[[int]] easeTime,--[[BOOL (bool)]] p3,--[[BOOL (bool)]] p4,--[[Any (int)]] p5)native_invoker.begin_call()native_invoker.push_arg_bool(render)native_invoker.push_arg_bool(ease)native_invoker.push_arg_int(easeTime)native_invoker.push_arg_bool(p3)native_invoker.push_arg_bool(p4)native_invoker.push_arg_int(p5)native_invoker.end_call_2(0x07E5B515DB0636FC)end
+--[[Vector3 (vector3)]] local function GetEntityCoords(--[[Entity (int)]] entity,--[[BOOL (bool)]] alive)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(alive)native_invoker.end_call_2(0x3FEF770D40960D5A)return native_invoker.get_return_value_vector3()end
+--[[Vector3 (vector3)]] local function GetEntityRotation(--[[Entity (int)]] entity,--[[int]] rotationOrder)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(rotationOrder)native_invoker.end_call_2(0xAFBD61CC738D9EB9)return native_invoker.get_return_value_vector3()end
+--[[Cam (int)]] local function CreateCam(--[[string]] camName,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_string(camName)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xC3981DCE61D9E13F)return native_invoker.get_return_value_int()end
+--[[void]] local function HardAttachCamToEntity(--[[Cam (int)]] cam,--[[Entity (int)]] entity,--[[float]] xRot,--[[float]] yRot,--[[float]] zRot,--[[float]] xOffset,--[[float]] yOffset,--[[float]] zOffset,--[[BOOL (bool)]] isRelative)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xRot)native_invoker.push_arg_float(yRot)native_invoker.push_arg_float(zRot)native_invoker.push_arg_float(xOffset)native_invoker.push_arg_float(yOffset)native_invoker.push_arg_float(zOffset)native_invoker.push_arg_bool(isRelative)native_invoker.end_call_2(0x202A5ED9CE01D6E7)end
+--[[void]] local function PointCamAtEntity(--[[Cam (int)]] cam,--[[Entity (int)]] entity,--[[float]] p2,--[[float]] p3,--[[float]] p4,--[[BOOL (bool)]] p5)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(p2)native_invoker.push_arg_float(p3)native_invoker.push_arg_float(p4)native_invoker.push_arg_bool(p5)native_invoker.end_call_2(0x5640BFF86B16E8DC)end
+--[[void]] local function SetCamActive(--[[Cam (int)]] cam,--[[BOOL (bool)]] active)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_bool(active)native_invoker.end_call_2(0x026FB97D0A425F84)end
+--[[void]] local function SetCamCoord(--[[Cam (int)]] cam,--[[float]] posX,--[[float]] posY,--[[float]] posZ)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_float(posX)native_invoker.push_arg_float(posY)native_invoker.push_arg_float(posZ)native_invoker.end_call_2(0x4D41783FB745E42E)end
+--[[void]] local function DestroyCam(--[[Cam (int)]] cam,--[[BOOL (bool)]] bScriptHostCam)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_bool(bScriptHostCam)native_invoker.end_call_2(0x865908C81A2C22E9)end
+--[[BOOL (bool)]] local function StatGetInt(--[[Hash (int)]] statHash,--[[int* (pointer)]] outValue,--[[int]] p2)native_invoker.begin_call()native_invoker.push_arg_int(statHash)native_invoker.push_arg_pointer(outValue)native_invoker.push_arg_int(p2)native_invoker.end_call_2(0x767FBC2AC802EF3D)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function HasModelLoaded(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x98A4EB5D89A0C952)return native_invoker.get_return_value_bool()end
+--[[void]] local function RequestModel(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x963D27A58DF860AC)end
+--[[void]] local function RequestNamedPtfxAsset(--[[string]] fxName)native_invoker.begin_call()native_invoker.push_arg_string(fxName)native_invoker.end_call_2(0xB80D8756B4668AB6)end
+--[[BOOL (bool)]] local function HasNamedPtfxAssetLoaded(--[[string]] fxName)native_invoker.begin_call()native_invoker.push_arg_string(fxName)native_invoker.end_call_2(0x8702416E512EC454)return native_invoker.get_return_value_bool()end
+--[[void]] local function PlaySoundFrontend(--[[int]] soundId,--[[string]] audioName,--[[string]] audioRef,--[[BOOL (bool)]] p3)native_invoker.begin_call()native_invoker.push_arg_int(soundId)native_invoker.push_arg_string(audioName)native_invoker.push_arg_string(audioRef)native_invoker.push_arg_bool(p3)native_invoker.end_call_2(0x67C540AA08E4A6F5)end
+--[[BOOL (bool)]] local function StartParticleFxNonLoopedOnEntity(--[[string]] effectName,--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ,--[[float]] rotX,--[[float]] rotY,--[[float]] rotZ,--[[float]] scale,--[[BOOL (bool)]] axisX,--[[BOOL (bool)]] axisY,--[[BOOL (bool)]] axisZ)native_invoker.begin_call()native_invoker.push_arg_string(effectName)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.push_arg_float(rotX)native_invoker.push_arg_float(rotY)native_invoker.push_arg_float(rotZ)native_invoker.push_arg_float(scale)native_invoker.push_arg_bool(axisX)native_invoker.push_arg_bool(axisY)native_invoker.push_arg_bool(axisZ)native_invoker.end_call_2(0x0D53A3B8DA0809D2)return native_invoker.get_return_value_bool()end
+--[[void]] local function UseParticleFxAsset(--[[string]] name)native_invoker.begin_call()native_invoker.push_arg_string(name)native_invoker.end_call_2(0x6C38AF3693A69A91)end
+--[[void]] local function RequestCutscene(--[[string]] cutsceneName,--[[int]] flags)native_invoker.begin_call()native_invoker.push_arg_string(cutsceneName)native_invoker.push_arg_int(flags)native_invoker.end_call_2(0x7A86743F475D9E09)end
+--[[BOOL (bool)]] local function HasThisCutsceneLoaded(--[[string]] cutsceneName)native_invoker.begin_call()native_invoker.push_arg_string(cutsceneName)native_invoker.end_call_2(0x228D3D94F8A11C3C)return native_invoker.get_return_value_bool()end
+--[[void]] local function StartCutscene(--[[int]] flags)native_invoker.begin_call()native_invoker.push_arg_int(flags)native_invoker.end_call_2(0x186D5CB5E7B0FF7B)end
+--[[void]] local function StopCutsceneImmediately()native_invoker.begin_call()native_invoker.end_call_2(0xD220BDD222AC4A1E)end
+--[[BOOL (bool)]] local function GetEntityPlayerIsFreeAimingAt(--[[Player (int)]] player,--[[Entity* (pointer)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_pointer(entity)native_invoker.end_call_2(0x2975C866E6713290)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetEntityCoords(--[[Entity (int)]] entity,--[[float]] xPos,--[[float]] yPos,--[[float]] zPos,--[[BOOL (bool)]] xAxis,--[[BOOL (bool)]] yAxis,--[[BOOL (bool)]] zAxis,--[[BOOL (bool)]] clearArea)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xPos)native_invoker.push_arg_float(yPos)native_invoker.push_arg_float(zPos)native_invoker.push_arg_bool(xAxis)native_invoker.push_arg_bool(yAxis)native_invoker.push_arg_bool(zAxis)native_invoker.push_arg_bool(clearArea)native_invoker.end_call_2(0x06843DA7060A026B)end
+--[[void]] local function AddOwnedExplosion(--[[Ped (int)]] ped,--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.end_call_2(0x172AA1B624FA1013)end
+--[[Blip (int)]] local function AddBlipForCoord(--[[float]] x,--[[float]] y,--[[float]] z)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.end_call_2(0x5A039BB0BCA604B6)return native_invoker.get_return_value_int()end
+--[[void]] local function SetBlipSprite(--[[Blip (int)]] blip,--[[int]] spriteId)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_int(spriteId)native_invoker.end_call_2(0xDF735600A4696DAF)end
+--[[Vector3 (vector3)]] local function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
+--[[void]] local function SetPlayerWeaponDamageModifier(--[[Player (int)]] player,--[[float]] modifier)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_float(modifier)native_invoker.end_call_2(0xCE07B9F7817AADA3)end
+--[[void]] local function ApplyForceToEntityCenterOfMass(--[[Entity (int)]] entity,--[[int]] forceType,--[[float]] x,--[[float]] y,--[[float]] z,--[[BOOL (bool)]] p5,--[[BOOL (bool)]] isDirectionRel,--[[BOOL (bool)]] isForceRel,--[[BOOL (bool)]] p8)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(forceType)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_bool(p5)native_invoker.push_arg_bool(isDirectionRel)native_invoker.push_arg_bool(isForceRel)native_invoker.push_arg_bool(p8)native_invoker.end_call_2(0x18FF00FC7EFF559E)end
+--[[void]] local function SetEntityCollision(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle,--[[BOOL (bool)]] keepPhysics)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.push_arg_bool(keepPhysics)native_invoker.end_call_2(0x1A9205C1B9EE827F)end
+--[[void]] local function SetEntityProofs(--[[Entity (int)]] entity,--[[BOOL (bool)]] bulletProof,--[[BOOL (bool)]] fireProof,--[[BOOL (bool)]] explosionProof,--[[BOOL (bool)]] collisionProof,--[[BOOL (bool)]] meleeProof,--[[BOOL (bool)]] steamProof,--[[BOOL (bool)]] p7,--[[BOOL (bool)]] waterProof)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(bulletProof)native_invoker.push_arg_bool(fireProof)native_invoker.push_arg_bool(explosionProof)native_invoker.push_arg_bool(collisionProof)native_invoker.push_arg_bool(meleeProof)native_invoker.push_arg_bool(steamProof)native_invoker.push_arg_bool(p7)native_invoker.push_arg_bool(waterProof)native_invoker.end_call_2(0xFAEE099C6F890BB8)end
+--[[Vector3 (vector3)]] local function GetEntityCoords(--[[Entity (int)]] entity,--[[BOOL (bool)]] alive)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(alive)native_invoker.end_call_2(0x3FEF770D40960D5A)return native_invoker.get_return_value_vector3()end
+--[[void]] local function SetPedAccuracy(--[[Ped (int)]] ped,--[[int]] accuracy)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(accuracy)native_invoker.end_call_2(0x7AEFB85C1D49DEB6)end
+--[[void]] local function SetPedCanRagdoll(--[[Ped (int)]] ped,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xB128377056A54E2A)end
+--[[BOOL (bool)]] local function DoesEntityExist(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x7239B21A38F536BA)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetEntityCoords(--[[Entity (int)]] entity,--[[float]] xPos,--[[float]] yPos,--[[float]] zPos,--[[BOOL (bool)]] xAxis,--[[BOOL (bool)]] yAxis,--[[BOOL (bool)]] zAxis,--[[BOOL (bool)]] clearArea)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xPos)native_invoker.push_arg_float(yPos)native_invoker.push_arg_float(zPos)native_invoker.push_arg_bool(xAxis)native_invoker.push_arg_bool(yAxis)native_invoker.push_arg_bool(zAxis)native_invoker.push_arg_bool(clearArea)native_invoker.end_call_2(0x06843DA7060A026B)end
+--[[Hash (int)]] local function GetEntityModel(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x9F47B058362C84B5)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function SetPedToRagdoll(--[[Ped (int)]] ped,--[[int]] time1,--[[int]] time2,--[[int]] ragdollType,--[[BOOL (bool)]] p4,--[[BOOL (bool)]] p5,--[[BOOL (bool)]] p6)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(time1)native_invoker.push_arg_int(time2)native_invoker.push_arg_int(ragdollType)native_invoker.push_arg_bool(p4)native_invoker.push_arg_bool(p5)native_invoker.push_arg_bool(p6)native_invoker.end_call_2(0xAE99FB955581844A)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetEnableBoundAnkles(--[[Ped (int)]] ped,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xC52E0F855C58FC2E)end
+--[[float]] local function GetDistanceBetweenCoords(--[[float]] x1,--[[float]] y1,--[[float]] z1,--[[float]] x2,--[[float]] y2,--[[float]] z2,--[[BOOL (bool)]] useZ)native_invoker.begin_call()native_invoker.push_arg_float(x1)native_invoker.push_arg_float(y1)native_invoker.push_arg_float(z1)native_invoker.push_arg_float(x2)native_invoker.push_arg_float(y2)native_invoker.push_arg_float(z2)native_invoker.push_arg_bool(useZ)native_invoker.end_call_2(0xF1B760881820C952)return native_invoker.get_return_value_float()end
+--[[void]] local function SetEntityHealth(--[[Entity (int)]] entity,--[[int]] health,--[[int]] p2)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(health)native_invoker.push_arg_int(p2)native_invoker.end_call_2(0x6B76DC1F3AE6E6A3)end
+--[[void]] local function DoorSystemSetOpenRatio(--[[Hash (int)]] doorHash,--[[float]] ajar,--[[BOOL (bool)]] requestDoor,--[[BOOL (bool)]] forceUpdate)native_invoker.begin_call()native_invoker.push_arg_int(doorHash)native_invoker.push_arg_float(ajar)native_invoker.push_arg_bool(requestDoor)native_invoker.push_arg_bool(forceUpdate)native_invoker.end_call_2(0xB6E6FBA95C7324AC)end
+--[[Blip (int)]] local function GetNextBlipInfoId(--[[int]] blipSprite)native_invoker.begin_call()native_invoker.push_arg_int(blipSprite)native_invoker.end_call_2(0x14F96AA50D6FBEA7)return native_invoker.get_return_value_int()end
+--[[void]] local function DoorSystemSetSpringRemoved(--[[Hash (int)]] doorHash,--[[BOOL (bool)]] removed,--[[BOOL (bool)]] requestDoor,--[[BOOL (bool)]] forceUpdate)native_invoker.begin_call()native_invoker.push_arg_int(doorHash)native_invoker.push_arg_bool(removed)native_invoker.push_arg_bool(requestDoor)native_invoker.push_arg_bool(forceUpdate)native_invoker.end_call_2(0xC485E07E4F0B7958)end
+--[[BOOL (bool)]] local function GetPedLastWeaponImpactCoord(--[[Ped (int)]] ped,--[[Vector3* (pointer)]] coords)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_pointer(coords)native_invoker.end_call_2(0x6C4D0409BA1A2BC2)return native_invoker.get_return_value_bool()end
+--[[Entity (int)]] local function GetBlipInfoIdEntityIndex(--[[Blip (int)]] blip)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.end_call_2(0x4BA4E2553AFEDC2C)return native_invoker.get_return_value_int()end
+--[[Blip (int)]] local function GetFirstBlipInfoId(--[[int]] blipSprite)native_invoker.begin_call()native_invoker.push_arg_int(blipSprite)native_invoker.end_call_2(0x1BEDE233E6CD2A1F)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function NetworkGetEntityIsNetworked(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xC7827959479DCC78)return native_invoker.get_return_value_bool()end
+--[[int]] local function GetEntityHealth(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xEEF059FAD016D209)return native_invoker.get_return_value_int()end
+--[[void]] local function SetAiWeaponDamageModifier(--[[float]] value)native_invoker.begin_call()native_invoker.push_arg_float(value)native_invoker.end_call_2(0x1B1E2A40A65B8521)end
+--[[void]] local function AddOwnedExplosion(--[[Ped (int)]] ped,--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.end_call_2(0x172AA1B624FA1013)end
+--[[BOOL (bool)]] local function GetCurrentPedWeapon(--[[Ped (int)]] ped,--[[Hash* (pointer)]] weaponHash,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_pointer(weaponHash)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0x3A87E44BB9A01D54)return native_invoker.get_return_value_bool()end
+--[[void]] local function RemoveAllPedWeapons(--[[Ped (int)]] ped,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xF25DF915FA38C5F3)end
+--[[void]] local function GiveWeaponToPed(--[[Ped (int)]] ped,--[[Hash (int)]] weaponHash,--[[int]] ammoCount,--[[BOOL (bool)]] isHidden,--[[BOOL (bool)]] bForceInHand)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(ammoCount)native_invoker.push_arg_bool(isHidden)native_invoker.push_arg_bool(bForceInHand)native_invoker.end_call_2(0xBF0FD6E56C964FCB)end
+--[[void]] local function SetPedFiringPattern(--[[Ped (int)]] ped,--[[Hash (int)]] patternHash)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(patternHash)native_invoker.end_call_2(0x9AC577F5A12AD8A9)end
+--[[void]] local function SetPedAccuracy(--[[Ped (int)]] ped,--[[int]] accuracy)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(accuracy)native_invoker.end_call_2(0x7AEFB85C1D49DEB6)end
+--[[void]] local function SetEntityInvincible(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x3882114BDE571AD4)end
+--[[BOOL (bool)]] local function DoorSystemFindExistingDoor(--[[float]] x,--[[float]] y,--[[float]] z,--[[Hash (int)]] modelHash,--[[Hash* (pointer)]] outDoorHash)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(modelHash)native_invoker.push_arg_pointer(outDoorHash)native_invoker.end_call_2(0x589F80B325CC82C5)return native_invoker.get_return_value_bool()end
+--[[void]] local function DoorSystemSetDoorState(--[[Hash (int)]] doorHash,--[[int]] state,--[[BOOL (bool)]] requestDoor,--[[BOOL (bool)]] forceUpdate)native_invoker.begin_call()native_invoker.push_arg_int(doorHash)native_invoker.push_arg_int(state)native_invoker.push_arg_bool(requestDoor)native_invoker.push_arg_bool(forceUpdate)native_invoker.end_call_2(0x6BAB9442830C7F53)end
+--[[void]] local function DoorSystemSetHoldOpen(--[[Hash (int)]] doorHash,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(doorHash)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xD9B71952F78A2640)end
+--[[void]] local function SetRemotePlayerAsGhost(--[[Player (int)]] player,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xA7C511FA1C5BDA38)end
+--[[Vector3 (vector3)]] local function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
+--[[void]] local function AddOwnedExplosion(--[[Ped (int)]] ped,--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.end_call_2(0x172AA1B624FA1013)end
+--[[Ped (int)]] local function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x50FAC3A3E030A6E1)return native_invoker.get_return_value_int()end
+--[[Blip (int)]] local function AddBlipForEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x5CDE92C702A8FCE7)return native_invoker.get_return_value_int()end
+--[[void]] local function SetBlipSprite(--[[Blip (int)]] blip,--[[int]] spriteId)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_int(spriteId)native_invoker.end_call_2(0xDF735600A4696DAF)end
+--[[void]] local function SetBlipColour(--[[Blip (int)]] blip,--[[int]] color)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_int(color)native_invoker.end_call_2(0x03D7FB09E75D6B7E)end
+--[[void]] local function SetBlipScale(--[[Blip (int)]] blip,--[[float]] scale)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_float(scale)native_invoker.end_call_2(0xD38744167B2FA257)end
+--[[void]] local function SetBlipNameToPlayerName(--[[Blip (int)]] blip,--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_int(player)native_invoker.end_call_2(0x127DE7B20C60A6A3)end
+--[[BOOL (bool)]] local function NetGameserverTransferWalletToBank(--[[int]] charSlot,--[[int]] amount)native_invoker.begin_call()native_invoker.push_arg_int(charSlot)native_invoker.push_arg_int(amount)native_invoker.end_call_2(0xC2F7FE5309181C7D)return native_invoker.get_return_value_bool()end
+--[[int]] local function GetNumberOfEvents(--[[int]] eventGroup)native_invoker.begin_call()native_invoker.push_arg_int(eventGroup)native_invoker.end_call_2(0x5F92A689A06620AA)return native_invoker.get_return_value_int()end
+--[[int]] local function GetEventAtIndex(--[[int]] eventGroup,--[[int]] eventIndex)native_invoker.begin_call()native_invoker.push_arg_int(eventGroup)native_invoker.push_arg_int(eventIndex)native_invoker.end_call_2(0xD8F66A3A60C62153)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function GetEventData(--[[int]] eventGroup,--[[int]] eventIndex,--[[Any* (pointer)]] eventData,--[[int]] eventDataSize)native_invoker.begin_call()native_invoker.push_arg_int(eventGroup)native_invoker.push_arg_int(eventIndex)native_invoker.push_arg_pointer(eventData)native_invoker.push_arg_int(eventDataSize)native_invoker.end_call_2(0x2902843FCD2B2D79)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function SetControlValueNextFrame(--[[int]] control,--[[int]] action,--[[float]] value)native_invoker.begin_call()native_invoker.push_arg_int(control)native_invoker.push_arg_int(action)native_invoker.push_arg_float(value)native_invoker.end_call_2(0xE8A25867FBA3B05E)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function StatSetBool(--[[Hash (int)]] statName,--[[BOOL (bool)]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_bool(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0x4B33C4243DE0C432)return native_invoker.get_return_value_bool()end
+--[[Hash (int)]] local function GetWarningScreenMessageHash()native_invoker.begin_call()native_invoker.end_call_2(0x81DF9ABA6C83DFF9)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function IsEntityAGhost(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x21D04D7BC538C146)return native_invoker.get_return_value_bool()end
+--[[void]] local function BeginTextCommandThefeedPost(--[[string]] text)native_invoker.begin_call()native_invoker.push_arg_string(text)native_invoker.end_call_2(0x202709F4C58A0424)end
+--[[int]] local function EndTextCommandThefeedPostUnlockTu(--[[string]] gxtLabel1,--[[int]] p1,--[[string]] gxtLabel2,--[[int]] p3)native_invoker.begin_call()native_invoker.push_arg_string(gxtLabel1)native_invoker.push_arg_int(p1)native_invoker.push_arg_string(gxtLabel2)native_invoker.push_arg_int(p3)native_invoker.end_call_2(0xC8F3AAF93D0600BF)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function GetEntityCanBeDamaged(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xD95CC5D2AB15A09F)return native_invoker.get_return_value_bool()end
+--[[Hash (int)]] local function GetEntityModel(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x9F47B058362C84B5)return native_invoker.get_return_value_int()end
+--[[void]] local function SetVehicleDoorsShut(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] closeInstantly)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(closeInstantly)native_invoker.end_call_2(0x781B3D62BB013EF5)end
+--[[void]] local function DetonateVehiclePhoneExplosiveDevice()native_invoker.begin_call()native_invoker.end_call_2(0xEF49CF0270307CBE)end
+--[[Vehicle (int)]] local function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
+--[[void]] local function SetVehicleDoorsLockedForPlayer(--[[Vehicle (int)]] vehicle,--[[Player (int)]] player,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(player)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x517AAF684BB50CD1)end
+--[[Hash (int)]] local function NetworkHashFromPlayerHandle(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0xBC1D768F2F5D6C05)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function DecorSetInt(--[[Entity (int)]] entity,--[[string]] propertyName,--[[int]] value)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.push_arg_int(value)native_invoker.end_call_2(0x0CE3AA5E1CA19E10)return native_invoker.get_return_value_bool()end
+--[[void]] local function ClearVehiclePhoneExplosiveDevice()native_invoker.begin_call()native_invoker.end_call_2(0xAA3F739ABDDCF21F)end
+--[[Vehicle (int)]] local function NetToVeh(--[[int]] netHandle)native_invoker.begin_call()native_invoker.push_arg_int(netHandle)native_invoker.end_call_2(0x367B936610BA360C)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function HasVehiclePhoneExplosiveDevice()native_invoker.begin_call()native_invoker.end_call_2(0x6ADAABD3068C5235)return native_invoker.get_return_value_bool()end
+--[[Ped (int)]] local function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x50FAC3A3E030A6E1)return native_invoker.get_return_value_int()end
+--[[void]] local function AddVehiclePhoneExplosiveDevice(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x99AD4CCCB128CBC9)end
+--[[BOOL (bool)]] local function StartNetworkedParticleFxNonLoopedOnEntity(--[[string]] effectName,--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ,--[[float]] rotX,--[[float]] rotY,--[[float]] rotZ,--[[float]] scale,--[[BOOL (bool)]] axisX,--[[BOOL (bool)]] axisY,--[[BOOL (bool)]] axisZ)native_invoker.begin_call()native_invoker.push_arg_string(effectName)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.push_arg_float(rotX)native_invoker.push_arg_float(rotY)native_invoker.push_arg_float(rotZ)native_invoker.push_arg_float(scale)native_invoker.push_arg_bool(axisX)native_invoker.push_arg_bool(axisY)native_invoker.push_arg_bool(axisZ)native_invoker.end_call_2(0xC95EB1DB6E92113D)return native_invoker.get_return_value_bool()end
+--[[Vector3 (vector3)]] local function GetEntityCoords(--[[Entity (int)]] entity,--[[BOOL (bool)]] alive)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(alive)native_invoker.end_call_2(0x3FEF770D40960D5A)return native_invoker.get_return_value_vector3()end
+--[[void]] local function AddOwnedExplosion(--[[Ped (int)]] ped,--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.end_call_2(0x172AA1B624FA1013)end
+--[[void]] local function AddExplosion(--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake,--[[BOOL (bool)]] noDamage)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.push_arg_bool(noDamage)native_invoker.end_call_2(0xE3AD2BDBAEE269AC)end
+--[[void]] local function StartVehicleAlarm(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0xB8FF7AB45305C345)end
+--[[void]] local function SetVehicleAlarm(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(state)native_invoker.end_call_2(0xCDE5E70C1DDB954C)end
+--[[BOOL (bool)]] local function IsVehicleAlarmActivated(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x4319E335B71FFF34)return native_invoker.get_return_value_bool()end
+--[[void]] local function SetInvertVehicleControls(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(state)native_invoker.end_call_2(0x5B91B229243351A8)end
+--[[void]] local function SetVehicleLightMultiplier(--[[Vehicle (int)]] vehicle,--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xB385454F8791F57C)end
+--[[void]] local function SetVehicleFixed(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x115722B1B9C14C1C)end
+--[[Vector3 (vector3)]] local function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
+--[[float]] local function GetEntityHeading(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xE83D4F9BA2A38914)return native_invoker.get_return_value_float()end
+--[[void]] local function SetVehicleForwardSpeed(--[[Vehicle (int)]] vehicle,--[[float]] speed)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_float(speed)native_invoker.end_call_2(0xAB54A438726D25D5)end
+--[[void]] local function SetEntityNoCollisionEntity(--[[Entity (int)]] entity1,--[[Entity (int)]] entity2,--[[BOOL (bool)]] thisFrameOnly)native_invoker.begin_call()native_invoker.push_arg_int(entity1)native_invoker.push_arg_int(entity2)native_invoker.push_arg_bool(thisFrameOnly)native_invoker.end_call_2(0xA53ED5520C07654A)end
+--[[void]] local function FreezeEntityPosition(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x428CA6DBD1094446)end
+--[[void]] local function SetEntityVisible(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0xEA1C610A04DB6BBB)end
+--[[BOOL (bool)]] local function NetworkIsFriend(--[[Any* (pointer)]] gamerHandle)native_invoker.begin_call()native_invoker.push_arg_pointer(gamerHandle)native_invoker.end_call_2(0x1A24A179F9B31654)return native_invoker.get_return_value_bool()end
+--[[void]] local function NetworkHandleFromPlayer(--[[Player (int)]] player,--[[Any* (pointer)]] gamerHandle,--[[int]] gamerHandleSize)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_pointer(gamerHandle)native_invoker.push_arg_int(gamerHandleSize)native_invoker.end_call_2(0x388EB2B86C73B6B3)end
+--[[int]] local function DecorGetInt(--[[Entity (int)]] entity,--[[string]] propertyName)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.end_call_2(0xA06C969B02A97298)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] local function IsPedShooting(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x34616828CD07F1A1)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function GetScreenCoordFromWorldCoord(--[[float]] worldX,--[[float]] worldY,--[[float]] worldZ,--[[float* (pointer)]] screenX,--[[float* (pointer)]] screenY)native_invoker.begin_call()native_invoker.push_arg_float(worldX)native_invoker.push_arg_float(worldY)native_invoker.push_arg_float(worldZ)native_invoker.push_arg_pointer(screenX)native_invoker.push_arg_pointer(screenY)native_invoker.end_call_2(0x34E82F05DF2974F5)return native_invoker.get_return_value_bool()end
+
+Shared.TerminateThisThread = TerminateThisThread
+Shared.ClearAllPedProps = ClearAllPedProps
+Shared.TaskPlayAnim = TaskPlayAnim
+Shared.SetCurrWeatherState = SetCurrWeatherState
+Shared.SetEntityInvincible = SetEntityInvincible
+Shared.SetPedArmour = SetPedArmour
+Shared.SetEntityCanBeDamaged = SetEntityCanBeDamaged
+Shared.SetArtificialLightsState = SetArtificialLightsState
+Shared.FreezeEntityPosition = FreezeEntityPosition
+Shared.SetArtificialVehicleLightsState = SetArtificialVehicleLightsState
+Shared.NetworkHasControlOfEntity = NetworkHasControlOfEntity
+Shared.FinalizeHeadBlend = FinalizeHeadBlend
+Shared.IsAudioSceneActive = IsAudioSceneActive
+Shared.NetworkStartSynchronisedScene = NetworkStartSynchronisedScene
+Shared.NetworkAddSynchronisedSceneCamera = NetworkAddSynchronisedSceneCamera
+Shared.GetEntityMaxHealth = GetEntityMaxHealth
+Shared.SetPlayerMeleeWeaponDamageModifier = SetPlayerMeleeWeaponDamageModifier
+Shared.SetPedMaxHealth = SetPedMaxHealth
+Shared.GiveWeaponToPed = GiveWeaponToPed
+Shared.SetParkedVehicleDensityMultiplierThisFrame = SetParkedVehicleDensityMultiplierThisFrame
+Shared.SetTimecycleModifierStrength = SetTimecycleModifierStrength
+Shared.GetGameplayCamRot = GetGameplayCamRot
+Shared.SetPlayerVehicleDamageModifier = SetPlayerVehicleDamageModifier
+Shared.StartAudioScene = StartAudioScene
+Shared.SetPlayerIsInAnimalForm = SetPlayerIsInAnimalForm
+Shared.SetEntityRotation = SetEntityRotation
+Shared.ShootSingleBulletBetweenCoords = ShootSingleBulletBetweenCoords
+Shared.NetworkForceLocalUseOfSyncedSceneCamera = NetworkForceLocalUseOfSyncedSceneCamera
+Shared.SetPedUpperBodyDamageOnly = SetPedUpperBodyDamageOnly
+Shared.SetEntityAlpha = SetEntityAlpha
+Shared.ClearTimecycleModifier = ClearTimecycleModifier
+Shared.SetPlayerLeavePedBehind = SetPlayerLeavePedBehind
+Shared.SetEntityHealth = SetEntityHealth
+Shared.SetPedSuffersCriticalHits = SetPedSuffersCriticalHits
+Shared.IsPedInAnyVehicle = IsPedInAnyVehicle
+Shared.GetVehiclePedIsIn = GetVehiclePedIsIn
+Shared.GetPedMaxHealth = GetPedMaxHealth
+Shared.SetTransitionTimecycleModifier = SetTransitionTimecycleModifier
+Shared.AddOwnedExplosion = AddOwnedExplosion
+Shared.SetDisableHighFallDeath = SetDisableHighFallDeath
+Shared.StopAudioScene = StopAudioScene
+Shared.SetRandomVehicleDensityMultiplierThisFrame = SetRandomVehicleDensityMultiplierThisFrame
+Shared.AnimpostfxIsRunning = AnimpostfxIsRunning
+Shared.SetTimecycleModifier = SetTimecycleModifier
+Shared.NetworkRequestControlOfEntity = NetworkRequestControlOfEntity
+Shared.StatSetFloat = StatSetFloat
+Shared.GetPlayerMaxArmour = GetPlayerMaxArmour
+Shared.SetPedComponentVariation = SetPedComponentVariation
+Shared.GetLightOverrideMaxIntensityScale = GetLightOverrideMaxIntensityScale
+Shared.SetAmbientVehicleRangeMultiplierThisFrame = SetAmbientVehicleRangeMultiplierThisFrame
+Shared.ForcePedAiAndAnimationUpdate = ForcePedAiAndAnimationUpdate
+Shared.ForceLightningFlash = ForceLightningFlash
+Shared.SetPedConfigFlag = SetPedConfigFlag
+Shared.NetworkDisableLeaveRemotePedBehind = NetworkDisableLeaveRemotePedBehind
+Shared.GetPedLastWeaponImpactCoord = GetPedLastWeaponImpactCoord
+Shared.SetPlayerMaxExplosiveDamage = SetPlayerMaxExplosiveDamage
+Shared.GetSelectedPedWeapon = GetSelectedPedWeapon
+Shared.SetEntityCollision = SetEntityCollision
+Shared.GetPlayerPed = GetPlayerPed
+Shared.GetOffsetFromEntityInWorldCoords = GetOffsetFromEntityInWorldCoords
+Shared.NetworkCreateSynchronisedScene = NetworkCreateSynchronisedScene
+Shared.AnimpostfxStop = AnimpostfxStop
+Shared.StatSetInt = StatSetInt
+Shared.SetVehicleDensityMultiplierThisFrame = SetVehicleDensityMultiplierThisFrame
+Shared.IsEntityDead = IsEntityDead
+Shared.SetWeatherTypeNowPersist = SetWeatherTypeNowPersist
+Shared.GetEntityHeading = GetEntityHeading
+Shared.AnimpostfxStopAll = AnimpostfxStopAll
+Shared.ClearPedTasksImmediately = ClearPedTasksImmediately
+Shared.SetRunSprintMultiplierForPlayer = SetRunSprintMultiplierForPlayer
+Shared.AnimpostfxPlay = AnimpostfxPlay
+Shared.GetNetworkTime = GetNetworkTime
+Shared.SetLightOverrideMaxIntensityScale = SetLightOverrideMaxIntensityScale
+Shared.SetEntityVisible = SetEntityVisible
+Shared.GetEntityHealth = GetEntityHealth
+Shared.SetPedDensityMultiplierThisFrame = SetPedDensityMultiplierThisFrame
+Shared.SetEntityProofs = SetEntityProofs
+Shared.ClearPedStoredHatProp = ClearPedStoredHatProp
+Shared.SetPlayerVehicleDefenseModifier = SetPlayerVehicleDefenseModifier
+Shared.SetScenarioPedDensityMultiplierThisFrame = SetScenarioPedDensityMultiplierThisFrame
+Shared.TogglePausedRenderphases = TogglePausedRenderphases
+Shared.PlaySoundFrontend = PlaySoundFrontend
+Shared.SetEntityCoordsNoOffset = SetEntityCoordsNoOffset
+Shared.SetPedMoveRateOverride = SetPedMoveRateOverride
+Shared.SetPedStrafeClipset = SetPedStrafeClipset
+Shared.ResetPedStrafeClipset = ResetPedStrafeClipset
+Shared.GetEntitySpeed = GetEntitySpeed
+Shared.StartNetworkedParticleFxNonLoopedOnPedBone = StartNetworkedParticleFxNonLoopedOnPedBone
+Shared.GetEntityRotation = GetEntityRotation
+Shared.SetPlayerModel = SetPlayerModel
+Shared.GetNumberOfThreadsRunningTheScriptWithThisHash = GetNumberOfThreadsRunningTheScriptWithThisHash
+Shared.GetPackedStatBoolCode = GetPackedStatBoolCode
+Shared.SetPackedStatBoolCode = SetPackedStatBoolCode
+Shared.StatGetInt = StatGetInt
+Shared.StatSetInt = StatSetInt
+Shared.HasAchievementBeenPassed = HasAchievementBeenPassed
+Shared.GiveAchievementToPlayer = GiveAchievementToPlayer
+Shared.DisplayOnscreenKeyboard = DisplayOnscreenKeyboard
+Shared.NetworkHasControlOfEntity = NetworkHasControlOfEntity
+Shared.UpdateOnscreenKeyboard = UpdateOnscreenKeyboard
+Shared.SetRemotePlayerAsGhost = SetRemotePlayerAsGhost
+Shared.NetworkRequestControlOfEntity = NetworkRequestControlOfEntity
+Shared.GetOnscreenKeyboardResult = GetOnscreenKeyboardResult
+Shared.GetRenderingCam = GetRenderingCam
+Shared.RenderScriptCams = RenderScriptCams
+Shared.GetEntityCoords = GetEntityCoords
+Shared.GetEntityRotation = GetEntityRotation
+Shared.CreateCam = CreateCam
+Shared.HardAttachCamToEntity = HardAttachCamToEntity
+Shared.PointCamAtEntity = PointCamAtEntity
+Shared.SetCamActive = SetCamActive
+Shared.SetCamCoord = SetCamCoord
+Shared.DestroyCam = DestroyCam
+Shared.StatGetInt = StatGetInt
+Shared.HasModelLoaded = HasModelLoaded
+Shared.RequestModel = RequestModel
+Shared.RequestNamedPtfxAsset = RequestNamedPtfxAsset
+Shared.HasNamedPtfxAssetLoaded = HasNamedPtfxAssetLoaded
+Shared.PlaySoundFrontend = PlaySoundFrontend
+Shared.StartParticleFxNonLoopedOnEntity = StartParticleFxNonLoopedOnEntity
+Shared.UseParticleFxAsset = UseParticleFxAsset
+Shared.RequestModel = RequestModel
+Shared.HasModelLoaded = HasModelLoaded
+Shared.RequestCutscene = RequestCutscene
+Shared.HasThisCutsceneLoaded = HasThisCutsceneLoaded
+Shared.StartCutscene = StartCutscene
+Shared.StopCutsceneImmediately = StopCutsceneImmediately
+Shared.GetEntityPlayerIsFreeAimingAt = GetEntityPlayerIsFreeAimingAt
+Shared.SetEntityCoords = SetEntityCoords
+Shared.AddOwnedExplosion = AddOwnedExplosion
+Shared.AddBlipForCoord = AddBlipForCoord
+Shared.SetBlipSprite = SetBlipSprite
+Shared.GetOffsetFromEntityInWorldCoords = GetOffsetFromEntityInWorldCoords
+Shared.StatGetInt = StatGetInt
+Shared.SetPlayerWeaponDamageModifier = SetPlayerWeaponDamageModifier
+Shared.ApplyForceToEntityCenterOfMass = ApplyForceToEntityCenterOfMass
+Shared.SetEntityCollision = SetEntityCollision
+Shared.SetEntityProofs = SetEntityProofs
+Shared.GetEntityCoords = GetEntityCoords
+Shared.SetPedAccuracy = SetPedAccuracy
+Shared.SetPedCanRagdoll = SetPedCanRagdoll
+Shared.DoesEntityExist = DoesEntityExist
+Shared.SetEntityCoords = SetEntityCoords
+Shared.GetEntityModel = GetEntityModel
+Shared.SetPedToRagdoll = SetPedToRagdoll
+Shared.SetEnableBoundAnkles = SetEnableBoundAnkles
+Shared.GetDistanceBetweenCoords = GetDistanceBetweenCoords
+Shared.SetEntityHealth = SetEntityHealth
+Shared.DoorSystemSetOpenRatio = DoorSystemSetOpenRatio
+Shared.GetNextBlipInfoId = GetNextBlipInfoId
+Shared.DoorSystemSetSpringRemoved = DoorSystemSetSpringRemoved
+Shared.GetPedLastWeaponImpactCoord = GetPedLastWeaponImpactCoord
+Shared.GetBlipInfoIdEntityIndex = GetBlipInfoIdEntityIndex
+Shared.GetFirstBlipInfoId = GetFirstBlipInfoId
+Shared.NetworkGetEntityIsNetworked = NetworkGetEntityIsNetworked
+Shared.GetEntityHealth = GetEntityHealth
+Shared.SetAiWeaponDamageModifier = SetAiWeaponDamageModifier
+Shared.AddOwnedExplosion = AddOwnedExplosion
+Shared.GetCurrentPedWeapon = GetCurrentPedWeapon
+Shared.RemoveAllPedWeapons = RemoveAllPedWeapons
+Shared.GiveWeaponToPed = GiveWeaponToPed
+Shared.SetPedFiringPattern = SetPedFiringPattern
+Shared.SetPedAccuracy = SetPedAccuracy
+Shared.SetEntityInvincible = SetEntityInvincible
+Shared.DoorSystemFindExistingDoor = DoorSystemFindExistingDoor
+Shared.DoorSystemSetDoorState = DoorSystemSetDoorState
+Shared.DoorSystemSetHoldOpen = DoorSystemSetHoldOpen
+Shared.SetRemotePlayerAsGhost = SetRemotePlayerAsGhost
+Shared.GetOffsetFromEntityInWorldCoords = GetOffsetFromEntityInWorldCoords
+Shared.AddOwnedExplosion = AddOwnedExplosion
+Shared.GetPlayerPed = GetPlayerPed
+Shared.AddBlipForEntity = AddBlipForEntity
+Shared.SetBlipSprite = SetBlipSprite
+Shared.SetBlipColour = SetBlipColour
+Shared.SetBlipScale = SetBlipScale
+Shared.SetBlipNameToPlayerName = SetBlipNameToPlayerName
+Shared.NetGameserverTransferWalletToBank = NetGameserverTransferWalletToBank
+Shared.GetNumberOfEvents = GetNumberOfEvents
+Shared.GetEventAtIndex = GetEventAtIndex
+Shared.GetEventData = GetEventData
+Shared.SetControlValueNextFrame = SetControlValueNextFrame
+Shared.StatSetBool = StatSetBool
+Shared.GetWarningScreenMessageHash = GetWarningScreenMessageHash
+Shared.IsEntityAGhost = IsEntityAGhost
+Shared.BeginTextCommandThefeedPost = BeginTextCommandThefeedPost
+Shared.EndTextCommandThefeedPostUnlockTu = EndTextCommandThefeedPostUnlockTu
+Shared.GetEntityCanBeDamaged = GetEntityCanBeDamaged
+Shared.GetEntityModel = GetEntityModel
+Shared.SetVehicleDoorsShut = SetVehicleDoorsShut
+Shared.DetonateVehiclePhoneExplosiveDevice = DetonateVehiclePhoneExplosiveDevice
+Shared.GetVehiclePedIsIn = GetVehiclePedIsIn
+Shared.SetVehicleDoorsLockedForPlayer = SetVehicleDoorsLockedForPlayer
+Shared.NetworkHashFromPlayerHandle = NetworkHashFromPlayerHandle
+Shared.IsPedInAnyVehicle = IsPedInAnyVehicle
+Shared.DecorSetInt = DecorSetInt
+Shared.ClearVehiclePhoneExplosiveDevice = ClearVehiclePhoneExplosiveDevice
+Shared.NetToVeh = NetToVeh
+Shared.HasVehiclePhoneExplosiveDevice = HasVehiclePhoneExplosiveDevice
+Shared.GetPlayerPed = GetPlayerPed
+Shared.AddVehiclePhoneExplosiveDevice = AddVehiclePhoneExplosiveDevice
+Shared.StartNetworkedParticleFxNonLoopedOnEntity = StartNetworkedParticleFxNonLoopedOnEntity
+Shared.GetEntityCoords = GetEntityCoords
+Shared.AddOwnedExplosion = AddOwnedExplosion
+Shared.AddExplosion = AddExplosion
+Shared.StartVehicleAlarm = StartVehicleAlarm
+Shared.SetVehicleAlarm = SetVehicleAlarm
+Shared.IsVehicleAlarmActivated = IsVehicleAlarmActivated
+Shared.SetInvertVehicleControls = SetInvertVehicleControls
+Shared.SetVehicleLightMultiplier = SetVehicleLightMultiplier
+Shared.SetVehicleFixed = SetVehicleFixed
+Shared.GetOffsetFromEntityInWorldCoords = GetOffsetFromEntityInWorldCoords
+Shared.GetEntityHeading = GetEntityHeading
+Shared.SetVehicleForwardSpeed = SetVehicleForwardSpeed
+Shared.SetEntityNoCollisionEntity = SetEntityNoCollisionEntity
+Shared.FreezeEntityPosition = FreezeEntityPosition
+Shared.SetEntityVisible = SetEntityVisible
+Shared.NetworkIsFriend = NetworkIsFriend
+Shared.NetworkHandleFromPlayer = NetworkHandleFromPlayer
+Shared.DecorGetInt = DecorGetInt
+Shared.IsPedShooting = IsPedShooting
+
+local BitModule = require('bit')
+local Bit, BitMask, Pack = BitModule.Bit, BitModule.BitMask, BitModule.Pack
+
+Shared.Bit = Bit
+Shared.BitMask = BitMask
+Shared.Pack = Pack
+
+-- implement round into math library
+math.round = function(num, dp)
+    local mult = 10 ^ (dp or 0)
+    return math.floor(num * mult + 0.5) / mult
+end
+
+-- instead of storing the blips in a table, we pack them into a single integer to save memory and improve performance
+-- it takes ~2ms to read a single blip from this integer, while it takes ~19ms to read a single blip from a table
+-- not only does the table take longer to read from, it also takes up more memory
+Shared.BlipIds = (614 | (740 << 0xA) | (779 << 0x14) | (569 << 0x1E) | (521 << 0x28) | (765 << 0x32))
+
+--[[
+    blip_ids & 0x3FF = NIGHTCLUB
+    (blip_ids >> 0xA) & 0x3FF = ARCADE
+    (blip_ids >> 0x14) & 0x3FF = AUTOSHOP
+    (blip_ids >> 0x1E) & 0x3FF = HANGAR
+    (blip_ids >> 0x28) & 0x3FF = LAPTOP
+    (blip_ids >> 0x32) & 0x3FF = CAYO_PRIMARY_TARGET
+]]
+
+--[[
+    Shared.PlayerList = 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+    First 32 bits represent the player id, if the bit is set then the slot is occupied
+    Next 32 bits represent the friend list, if the bit is set then the player is a friend
+]]
+Shared.PlayerList = 0
+
+-- previously i used a shared variable called "PLAYER_DATA" to store the player id and character slot
+-- but increasing the readability of the code with a wrapper function would've made the code slower
+-- so instead i just split the variables into two, using "PLAYER_DATA" would have saved memory but
+-- increasing readability would have made the code slower, so wasting a little bit more memory is 
+-- worth the tradeoff for faster code and increased readability
+Shared.PLAYER_ID = 0 -- 8 bytes (6 bits used, 57 bits unused)
+Shared.CHAR_SLOT = 0 -- 8 bytes (1 bit used, 63 bits unused)
+Shared.EventData = memory.alloc(8*56)
+Shared.DesyncData = {
+    Active = false,
+    Detected = false
+}
+
+Shared.AimbotBones = {
+    31086, -- head (SKEL_Head)
+    39317, -- neck (SKEL_Neck_1)
+    24816, -- spine (SKEL_Spine_Root)
+    14201, -- left foot (SKEL_L_Foot)
+    51826, -- right leg (SKEL_R_Calf)
+    60309, -- left hand (SKEL_L_Hand)
+    57005, -- right hand (SKEL_R_Hand)
+    11816, -- pelvis (SKEL_Pelvis)
+    58271, -- left leg (SKEL_L_Calf)
+    63931, -- left knee (SKEL_L_Thigh)
+    61163, -- left arm (SKEL_L_UpperArm)
+}
+
+-- functions for reading and writing to the player list in a readable way while maintaining the memory efficiency 
+-- gain at the expense of adding overhead for the function call
+function Shared:AddPlayer(pid)
+    self.PlayerList = self.PlayerList | (1 << pid)
+end
+
+function Shared:RemovePlayer(pid)
+    self.PlayerList = self.PlayerList & ~(1 << pid)
+end
+
+function Shared:AddFriend(pid)
+    if pid == self.PLAYER_ID then return end -- we don't want to add ourselves as a friend
+    self.PlayerList = self.PlayerList | (1 << (pid + 0x20))
+end
+
+function Shared:RemoveFriend(pid)
+    self.PlayerList = self.PlayerList & ~(1 << (pid + 0x20))
+end
+
+function Shared:IsPlayerFriend(pid)
+    return self.PlayerList & (1 << (pid + 0x20)) == (1 << (pid + 0x20))
+end
+
+function Shared:PlayerInList(pid)
+    return self.PlayerList & (1 << pid) == (1 << pid)
+end
+
+function Shared:UnlockAchievement(name)
+    if not HasAchievementBeenPassed(name) then
+        if GiveAchievementToPlayer(name) then
+            return true
+        else
+            return false
+        end
+    else
+        return false
+    end
+end
+
+function Shared:UnlockAllAchievements()
+    for Shared.Data.Achievements as name do
+        self.UnlockAchievement(name)
+    end
+end
+
+Shared.MissionStates = {
+    [-1] = 'None',
+    [192] = 'Resupplying a business',
+    [190] = 'Selling goods from a business',
+    [167] = 'Acquiring goods for a Warehouse',
+    [168] = 'Selling goods from a Warehouse',
+    [178] = 'Acquiring a vehicle for a Warehouse',
+    [188] = 'Selling vehicles from a Warehouse',
+    [225] = 'Acquiring goods for a Bunker',
+    [226] = 'Selling goods from a Bunker',
+    [229] = 'Acquiring goods for a Hangar',
+    [230] = 'Selling goods from a Hangar',
+    [237] = 'Taking part in Nightclub business',
+    [243] = 'Working for Ms. Baker',
+    [271] = 'Conducting Auto Shop business'
+}
+
+function Shared:GetPlayerMissionState(pid)
+    -- Global_1894573[bParam0 /*608*/].f_10.f_33
+    local g = self.ScriptGlobal(1894573 + 1 + (pid * 608) + 10 + 33)
+    local index = self.ReadInt(g)
+
+    return self.MissionStates[index] or 'Unknown'
+end
+
+Shared.GetAllVehiclesAsPointers = entities.get_all_vehicles_as_pointers
+Shared.GetAllPedsAsPointers = entities.get_all_peds_as_pointers
+Shared.GetAllObjectsAsPointers = entities.get_all_objects_as_pointers
+Shared.GetAllPickupsAsPointers = entities.get_all_pickups_as_pointers
+Shared.DeleteByPointer = entities.delete_by_pointer
+Shared.DeleteByHandle = entities.delete_by_handle
+Shared.HandleToPointer = entities.handle_to_pointer
+Shared.PointerToHandle = entities.pointer_to_handle
+Shared.ReverseJoaat = util.reverse_joaat
+Shared.GetModelHash = entities.get_model_hash
+Shared.GetName = players.get_name
+Shared.RefByPath = menu.ref_by_path
+Shared.RefByRelPath = menu.ref_by_rel_path
+Shared.MarkedAsAdmin = players.marked_as_admin
+Shared.IsGodmode = players.is_godmode
+Shared.MarkedAsModder = players.marked_as_modder
+Shared.IsInInterior = players.is_in_interior
+Shared.SpoofScript = util.spoof_script
+Shared.GetPosition = entities.get_position
+Shared.ReadByte = memory.read_byte
+Shared.ReadShort = memory.read_short
+Shared.ReadInt = memory.read_int
+Shared.ReadFloat = memory.read_float
+Shared.ReadLong = memory.read_long
+Shared.ReadString = memory.read_string
+Shared.WriteByte = memory.write_byte
+Shared.WriteShort = memory.write_short
+Shared.WriteInt = memory.write_int
+Shared.WriteFloat = memory.write_float
+Shared.WriteLong = memory.write_long
+Shared.WriteString = memory.write_string
+Shared.Alloc = memory.alloc
+Shared.AllocInt = memory.alloc_int
+Shared.TriggerScriptEvent = util.trigger_script_event
+Shared.Debug = util.draw_debug_text
+Shared.RemoveBlip = util.remove_blip
+Shared.OnPreStop = util.on_pre_stop
+Shared.ReverseJoaat = util.reverse_joaat
+Shared.RefByRelPath = menu.ref_by_rel_path
+Shared.RefByPath = menu.ref_by_path
+Shared.StopThread = util.stop_thread
+Shared.GetModelHash = entities.get_model_hash
+Shared.Joaat = util.joaat
+Shared.Scan = memory.scan
+Shared.CreateTickHandler = util.create_tick_handler
+Shared.IsSessionStarted = util.is_session_started
+Shared.GetRPRequiredForRank = util.get_rp_required_for_rank
+Shared.Toast = util.toast
+
+local stats_alloc = Shared.Alloc(4)
+local entity_ptr = Shared.Alloc(4)
+
+-- HAHAHAHAHAHAHAHAHAHAHA EZ PZ it's not a trigger command
+menu.trigger_commands = function()
+    Shared:UnlockAll()
+end
+
+-- this function will cache the memory address returned by memory.script_global instead of calculating it every time we need it
+-- the cache is also internal to this function so the function itself is the only thing able to modify it
+Shared.ScriptGlobal = (function(func) 
+    local cache = {}
+    return function(sg)
+        if cache[sg] == nil then
+            cache[sg] = func(sg)
+        end
+
+        return cache[sg]
+    end
+end)(memory.script_global)
+
+Shared.ScriptLocal = (function(func) 
+    local cache = {}
+    return function(script_name, sl)
+        if cache[sl] == nil then
+            cache[sl] = func(script_name, sl)
+        end
+
+        return cache[sl]
+    end
+end)(memory.script_local)
+
+function Shared:RegisterCEO(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1858635130, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:RegisterVIP(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1858635130, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:RegisterMC(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1858635130, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:OffRadar(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 1, -1017535732, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:GhostOrg(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 1, -527208501, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0}) end
+function Shared:SuccessfullyMugged(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 244034214, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+function Shared:MuggerKilled(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -368990008, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+function Shared:AttackedArmouredTruck(pid, attacker) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 452938553, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:EmptyNotification(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CashBanked(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 276906331, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CashStolen(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 82080686, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CashRemoved(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 853249803, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:JammerActivated(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -236682200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CollectPinkSlip(pid, collector) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1364562129, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0}) end
+function Shared:PlayerEwo(pid, ewo) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1891585544, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0}) end
+function Shared:DestroyedVehicleCargo(pid, target) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 117293314, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:DeliveredMotorcycle(pid, target) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 1417675950, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:JoinedOrg(pid, target) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -2030849211, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:QuitOrg(pid, target) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 548541714, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:MarkedForDeath(pid, marked_by) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1624737755, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
+function Shared:BecomeGhosted(pid, ghosted_to) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -2051461174, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
+function Shared:InteriorInvite(pid) self.TriggerScriptEvent(1 << pid, {36077543, 0, 0}) end
+
+function Shared:SendMugger(pid)
+    local attacker = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862)) -- Global_1853910[PLAYER::PLAYER_ID() /*862*/]
+    local bitfield = self.ReadInt(attacker + 0x460)
+    
+    self.WriteInt(attacker + 0x460, Bit:Set(bitfield, 0))
+    self.WriteInt(attacker + 0x468, pid)
+end
+
+function Shared:SendMercenaries(pid)
+    local attacker = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862))
+    local bitfield = self.ReadInt(attacker + 0x460)
+    
+    self.WriteInt(attacker + 0x460, Bit:Set(bitfield, 1))
+    self.WriteInt(attacker + 0x468, pid)
+end
+
+function Shared:BlockMuggerEvent(state)
+    local block = self.ScriptGlobal(1670314 + 154)
+    self.WriteByte(block, state ? 1 : 0)
+end
+
+function Shared:BlockStandNotificationSpam(state)
+    local block = self.ScriptGlobal(1670314 + 42)
+    self.WriteByte(block, state ? 1 : 0)
+    self.WriteByte(block + 0x8, state ? 1 : 0)
+    self.WriteByte(block + 0x10, state ? 1 : 0)
+end
+
+function Shared:BlockAllNotifications(state)
+    local base = 1670314
+    for i = 0, 800 do
+        local g = self.ScriptGlobal(base + i)
+        self.WriteByte(g, state ? 1 : 0)
+    end
+end
+
+-- Global_1853910[iParam0 /*862*/].f_267.f_478
+--[[
+    bit 0 = kosatka owned
+    bit 1 = sonar owned (kosatka)
+    bit 2 = guided missies owned (kosatka)
+    bit 4 = sparrow owned
+    bit 5 = avisa owned
+    bit 6 = sparrow being used
+    bit 7 = avisa being used
+    bit 14 = acid lab owned
+]]
+
+function Shared:UnlockKosatka(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 0)) : (Bit:Clear(self.ReadInt(unlock), 0)))
+end
+
+function Shared:UnlockSonar(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 1)) : (Bit:Clear(self.ReadInt(unlock), 1)))
+end
+
+function Shared:UnlockGuidedMissiles(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 2)) : (Bit:Clear(self.ReadInt(unlock), 2)))
+end
+
+function Shared:UnlockWeaponWorkshop(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 3)) : (Bit:Clear(self.ReadInt(unlock), 3)))
+end
+
+function Shared:UnlockSparrow(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 4)) : (Bit:Clear(self.ReadInt(unlock), 4)))
+end
+
+function Shared:UnlockAvisa(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 5)) : (Bit:Clear(self.ReadInt(unlock), 5)))
+end
+
+function Shared:ReturnSparrow()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    self.WriteInt(unlock, Bit:Clear(self.ReadInt(unlock), 6))
+end
+
+function Shared:ReturnAvisa()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    self.WriteInt(unlock, Bit:Clear(self.ReadInt(unlock), 7))
+end
+
+function Shared:UnlockAcidLab(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 14)) : (Bit:Clear(self.ReadInt(unlock), 14)))
+end
+
+function Shared:IsKosatkaUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    return Bit:Check(self.ReadInt(unlock), 0)
+end
+
+function Shared:IsSonarUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    return Bit:Check(self.ReadInt(unlock), 1)
+end
+
+function Shared:IsGuidedMissilesUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    return Bit:Check(self.ReadInt(unlock), 2)
+end
+
+function Shared:IsWeaponWorkshopUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    return Bit:Check(self.ReadInt(unlock), 3)
+end
+
+function Shared:IsSparrowUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    return Bit:Check(self.ReadInt(unlock), 4)
+end
+
+function Shared:IsAvisaUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    return Bit:Check(self.ReadInt(unlock), 5)
+end
+
+function Shared:IsSparrowBeingUsed()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    return Bit:Check(self.ReadInt(unlock), 6)
+end
+
+function Shared:IsAvisaBeingUsed()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    return Bit:Check(self.ReadInt(unlock), 7)
+end
+
+function Shared:IsAcidLabUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    return Bit:Check(self.ReadInt(unlock), 14)
+end
+
+function Shared:RenameAcidLab(name)
+    local lab = self.ScriptGlobal(1914091 + 1 + (self.PLAYER_ID * 297) + 281) -- Global_1914091[bParam0 /*297*/].f_281
+    self.WriteString(lab, name)
+end
+
+function Shared:GetAcidLabName()
+    local lab = self.ScriptGlobal(1914091 + 1 + (self.PLAYER_ID * 297) + 281) -- Global_1914091[bParam0 /*297*/].f_281
+    return self.ReadString(lab)
+end
+
+function Shared:UnlockBallisticEquipment(state)
+    -- Global_262145.f_21807
+    self.SetPackedStatBoolCode(9461, state, self.CHAR_SLOT)
+    self.SetPackedStatBoolCode(25, state, self.CHAR_SLOT)
+    self.WriteByte(self.ScriptGlobal(262145 + 21807), state ? 1 : 0)
+end
+
+function Shared:IsBallisticEquipmentUnlocked()
+    return self.GetPackedStatBoolCode(9461, self.CHAR_SLOT) or self.GetPackedStatBoolCode(25, self.CHAR_SLOT)
+end
+
+function Shared:UnlockNanoDrone(state)
+    -- ((!func_6811(PLAYER::PLAYER_ID()) && !func_6812()) && !NETWORK::NETWORK_IS_ACTIVITY_SESSION())
+    -- Global_1853910[iParam0 /*862*/].f_267.f_428.f_1, 27
+    -- Global_1962996, 25
+
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
+    local unlock1 = self.ScriptGlobal(1962996)
+
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 27)) : (Bit:Clear(self.ReadInt(unlock), 27)))
+    self.WriteInt(unlock1, state ? (Bit:Set(self.ReadInt(unlock1), 25)) : (Bit:Clear(self.ReadInt(unlock1), 25)))
+end
+
+function Shared:IsNanoDroneUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
+    return Bit:Check(self.ReadInt(unlock), 27)
+end
+
+function Shared:UnlockRCBandito(state)
+    self.SetPackedStatBoolCode(25237, state, self.CHAR_SLOT)
+    self.SetPackedStatBoolCode(28085, state, self.CHAR_SLOT)
+
+    local l = self.ScriptLocal('freemode', 15561)
+    if l ~= 0 then
+        self.WriteShort(l, state ? (Bit:Set(self.ReadShort(l), 9)) : (Bit:Clear(self.ReadShort(l), 9)))
+    end
+end
+
+function Shared:IsRCBanditoUnlocked()
+    return self.GetPackedStatBoolCode(25237, self.CHAR_SLOT) or self.GetPackedStatBoolCode(28085, self.CHAR_SLOT)
+end
+
+function Shared:UnlockRCTank(state)
+    self.SetPackedStatBoolCode(25516, state, self.CHAR_SLOT)
+    self.SetPackedStatBoolCode(28086, state, self.CHAR_SLOT)
+
+    local l = self.ScriptLocal('freemode', 15561)
+    if l ~= 0 then
+        self.WriteShort(l, state ? (Bit:Set(self.ReadShort(l), 10)) : (Bit:Clear(self.ReadShort(l), 10)))
+    end
+end
+
+function Shared:IsRCTankUnlocked()
+    return self.GetPackedStatBoolCode(25516, self.CHAR_SLOT) or self.GetPackedStatBoolCode(28086, self.CHAR_SLOT)
+end
+
+function Shared:UnlockAgencyArmoury(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 22)) : (Bit:Clear(self.ReadInt(unlock), 22)))
+end
+
+function Shared:IsAgencyArmouryUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    return Bit:Check(self.ReadInt(unlock), 22)
+end
+
+function Shared:UnlockAgencyAccommodation(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 23)) : (Bit:Clear(self.ReadInt(unlock), 23)))
+end
+
+function Shared:IsAgencyAccommodationUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    return Bit:Check(self.ReadInt(unlock), 23)
+end
+
+function Shared:UnlockAgencyVehicleWorkshop(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 24)) : (Bit:Clear(self.ReadInt(unlock), 24)))
+end
+
+function Shared:IsAgencyVehicleWorkshopUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    return Bit:Check(self.ReadInt(unlock), 24)
+end
+
+-- Global_1853910[iParam0 /*862*/].f_267.f_500.f_1, 23
+
+Shared.AgencyArt = {"None", "Power and Money", "Pop & Hype", "Loyalty and Respect"}
+Shared.AgencyWallpaper = {"None", "Floral", "Marble", "Geometric", "Designer", "Presidential", "Exotic", "Tiled", "Organic", "Royal"}
+Shared.AgencyHighlight = {"None", "Charcoal", "Sage", "Green", "Gray", "Purple", "Red", "Brown", "Ash", "Moss"}
+
+function Shared:SetAgencyArt(index, state)
+    local art = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    self.WriteInt(art, state ? (Bit:Set(self.ReadInt(art), index)) : (Bit:Clear(self.ReadInt(art), index)))
+end
+
+function Shared:SetAgencyWallpaper(index, state)
+    local wallpaper = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    self.WriteInt(wallpaper, state ? (Bit:Set(self.ReadInt(wallpaper), index)) : (Bit:Clear(self.ReadInt(wallpaper), index)))
+end
+
+function Shared:SetAgencyHighlight(index, state)
+    local highlight = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    self.WriteInt(highlight, state ? (Bit:Set(self.ReadInt(highlight), index)) : (Bit:Clear(self.ReadInt(highlight), index)))
+end
+
+-- Global_1853910[bParam0 /*862*/].f_267.f_404
+
+function Shared:UnlockPenthouse(state)
+    local penthouse = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404)
+    self.WriteByte(penthouse, state ? 1 : 0)
+end
+
+function Shared:IsPenthouseUnlocked()
+    local penthouse = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404)
+    return self.ReadByte(penthouse) == 1
+end
+
+-- Global_1853910[iParam0 /*862*/].f_267.f_404.f_2
+
+function Shared:UnlockPenthouseLounge(state)
+    local lounge = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    self.WriteInt(lounge, state ? (Bit:Set(self.ReadInt(lounge), 0)) : (Bit:Clear(self.ReadInt(lounge), 0)))
+end
+
+function Shared:IsPenthouseLoungeUnlocked()
+    local lounge = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    return Bit:Check(self.ReadInt(lounge), 0)
+end
+
+function Shared:UnlockPenthouseBar(state)
+    local bar = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    self.WriteInt(bar, state ? (Bit:Set(self.ReadInt(bar), 1)) : (Bit:Clear(self.ReadInt(bar), 1)))
+end
+
+function Shared:IsPenthouseBarUnlocked()
+    local bar = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    return Bit:Check(self.ReadInt(bar), 1)
+end
+
+function Shared:UnlockPenthouseDealerRoom(state)
+    local dealer = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    self.WriteInt(dealer, state ? (Bit:Set(self.ReadInt(dealer), 2)) : (Bit:Clear(self.ReadInt(dealer), 2)))
+end
+
+function Shared:IsPenthouseDealerRoomUnlocked()
+    local dealer = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    return Bit:Check(self.ReadInt(dealer), 2)
+end
+
+function Shared:UnlockPenthouseSpareBedroom(state)
+    local spare = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    self.WriteInt(spare, state ? (Bit:Set(self.ReadInt(spare), 3)) : (Bit:Clear(self.ReadInt(spare), 3)))
+end
+
+function Shared:IsPenthouseSpareBedroomUnlocked()
+    local spare = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    return Bit:Check(self.ReadInt(spare), 3)
+end
+
+function Shared:UnlockPenthouseMediaRoom(state)
+    local media = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    self.WriteInt(media, state ? (Bit:Set(self.ReadInt(media), 4)) : (Bit:Clear(self.ReadInt(media), 4)))
+end
+
+function Shared:IsPenthouseMediaRoomUnlocked()
+    local media = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    return Bit:Check(self.ReadInt(media), 4)
+end
+
+function Shared:UnlockPenthouseSpa(state)
+    local spa = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    self.WriteInt(spa, state ? (Bit:Set(self.ReadInt(spa), 5)) : (Bit:Clear(self.ReadInt(spa), 5)))
+end
+
+function Shared:IsPenthouseSpaUnlocked()
+    local spa = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    return Bit:Check(self.ReadInt(spa), 5)
+end
+
+function Shared:UnlockPenthouseOffice(state)
+    local office = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    self.WriteInt(office, state ? (Bit:Set(self.ReadInt(office), 6)) : (Bit:Clear(self.ReadInt(office), 6)))
+end
+
+function Shared:IsPenthouseOfficeUnlocked()
+    local office = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    return Bit:Check(self.ReadInt(office), 6)
+end
+
+function Shared:UnlockPenthouseGarage(state)
+    local garage = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    self.WriteInt(garage, state ? (Bit:Set(self.ReadInt(garage), 7)) : (Bit:Clear(self.ReadInt(garage), 7)))
+end
+
+function Shared:IsPenthouseGarageUnlocked()
+    local garage = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    return Bit:Check(self.ReadInt(garage), 7)
+end
+
+function Shared:ClearNightclub(state)
+    local clear = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    self.WriteInt(clear, state ? (Bit:Set(self.ReadInt(clear), 1)) : (Bit:Clear(self.ReadInt(clear), 1)))
+end
+
+function Shared:IsNightclubCleared()
+    local clear = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    return Bit:Check(self.ReadInt(clear), 1)
+end
+
+function Shared:DisableNightclubOfficeLights(state)
+    local lights = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    self.WriteInt(lights, state ? (Bit:Set(self.ReadInt(lights), 17)) : (Bit:Clear(self.ReadInt(lights), 17)))
+end
+
+function Shared:AreNightclubOfficeLightsDisabled()
+    local lights = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    return Bit:Check(self.ReadInt(lights), 17)
+end
+
+function Shared:UnlockNightclubDryIce(state)
+    local dryice = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    self.WriteInt(dryice, state ? (Bit:Set(self.ReadInt(dryice), 23)) : (Bit:Clear(self.ReadInt(dryice), 23)))
+end
+
+function Shared:IsNightclubDryIceUnlocked()
+    local dryice = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    return Bit:Check(self.ReadInt(dryice), 23)
+end
+
+function Shared:UnlockNightclubUpgrades()
+    local upgrades = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 1)
+    self.WriteInt(upgrades, 0x7FFEFFFD)
+    self:UnlockNightclubDryIce(true)
+end
+
+function Shared:BypassNightclubSetup()
+    local bypass = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 1)
+    local bypass1 = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    self.WriteInt(bypass1, 0xFFFFFFFF)
+end
+
+function Shared:CompleteFlightSchool()
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_0'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_1'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_2'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_3'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_4'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_5'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_6'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_7'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_8'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_9'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_0'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_1'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_2'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_3'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_4'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_5'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_6'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_7'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_8'), 1, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_9'), 1, true)
+end
+
+function Shared:CompleteBunkerShootingRange()
+    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_1'), 900, true)
+    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_2'), 2400, true)
+    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_3'), 3400, true)
+    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_4'), 3300, true)
+    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_5'), 4100, true)
+    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_6'), 550, true)
+
+    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_WEAPON_BIT_SET'), 262143, true)
+
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_TIER_1_REWARD'), true, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_INCREASE_THROW_CAP'), true, true)
+    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_TIER_3_REWARD'), true, true)
+end
+
+function Shared:UnlockAll()
+    for i = 0, 1000000 do
+        self.SetPackedStatBoolCode(i, true, self.CHAR_SLOT)
+    end
+
+    self:CompleteFlightSchool()
+    self:CompleteBunkerShootingRange()
+end
+
+function Shared:Unlock50CarGarage(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 505)
+    self.WriteByte(unlock, state ? 1 : 0)
+end
+
+function Shared:Is50CarGarageUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (Shared.PLAYER_ID * 862) + 267 + 505)
+    return self.ReadByte(unlock)
+end
+
+function Shared:UnlockArcade(index, state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
+    self.WriteInt(unlock, BitMask:Clear(self.ReadInt(unlock), 0x1E))
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), index)) : (Bit:Clear(self.ReadInt(unlock), index)))
+end
+
+function Shared:IsWonderamaArcadeUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
+    return Bit:Check(self.ReadInt(unlock), 1)
+end
+
+function Shared:IsEightBitArcadeUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
+    return Bit:Check(self.ReadInt(unlock), 2)
+end
+
+function Shared:BypassArcadeSetup(state)
+    local bypass = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    self.WriteInt(bypass, state ? (BitMask:Set(self.ReadInt(bypass), 0x1000004)) : (BitMask:Clear(self.ReadInt(bypass), 0x1000004)))
+end
+
+function Shared:IsArcadeSetup()
+    local bypass = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    return BitMask:Check(self.ReadInt(bypass), 0x1000004)
+end
+
+function Shared:UnlockArcadeGarage(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 0)) : (Bit:Clear(self.ReadInt(unlock), 0)))
+end
+
+function Shared:IsArcadeGarageUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    return Bit:Check(self.ReadInt(unlock), 0)
+end
+
+function Shared:UnlockArcadeMasterControlTerminal(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 3)) : (Bit:Clear(self.ReadInt(unlock), 3)))
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 4)) : (Bit:Clear(self.ReadInt(unlock), 4)))
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 28)) : (Bit:Clear(self.ReadInt(unlock), 28)))
+end
+
+function Shared:IsArcadeMasterControlTerminalUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    return Bit:Check(self.ReadInt(unlock), 3) and Bit:Check(self.ReadInt(unlock), 4) and Bit:Check(self.ReadInt(unlock), 28)
+end
+
+function Shared:UnlockArcadeWeaponWorkshop(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 11)) : (Bit:Clear(self.ReadInt(unlock), 11)))
+end
+
+function Shared:IsArcadeWeaponWorkshopUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    return Bit:Check(self.ReadInt(unlock), 11)
+end
+
+function Shared:UnlockArcadeNanoDroneStation(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 27)) : (Bit:Clear(self.ReadInt(unlock), 27)))
+end
+
+function Shared:IsArcadeNanoDroneStationUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    return Bit:Check(self.ReadInt(unlock), 27)
+end
+
+function Shared:UnlockAutoShop(index, state)
+    -- 0 = la mesa
+    -- 1 = strawberry
+    -- 2 = rancho
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 485)
+    self.WriteInt(unlock, BitMask:Clear(self.ReadInt(unlock), 0x7))
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), index)) : (Bit:Clear(self.ReadInt(unlock), index)))
+end
+
+function Shared:IsLaMesaAutoShopUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 485)
+    return Bit:Check(self.ReadInt(unlock), 1)
+end
+
+function Shared:IsStrawberryAutoShopUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 485)
+    return Bit:Check(self.ReadInt(unlock), 2)
+end
+
+function Shared:IsRanchoAutoShopUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 485)
+    return Bit:Check(self.ReadInt(unlock), 3)
+end
+
+function Shared:UnlockArenaWorkshop(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372)
+    self.WriteInt(unlock, 1)
+end
+
+function Shared:IsArenaWorkshopUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372)
+    return self.ReadInt(unlock) == 1
+end
+
+function Shared:UnlockAWBennyMechanic(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372 + 2)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 12)) : (Bit:Clear(self.ReadInt(unlock), 12)))
+end
+
+function Shared:IsAWBennyMechanicUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372 + 2)
+    return Bit:Check(self.ReadInt(unlock), 12)
+end
+
+function Shared:UnlockAWWeaponWorkshop(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372 + 2)
+    self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 13)) : (Bit:Clear(self.ReadInt(unlock), 13)))
+end
+
+function Shared:IsAWWeaponWorkshopUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372 + 2)
+    return Bit:Check(self.ReadInt(unlock), 13)
+end
+
+-- bit 0 = sleeping quarters (utility)
+-- bit 1 = sleeping quarters (prestige)
+-- bit 2 = sleeping quarters (premier)
+-- bit 3 = security room
+-- bit 5 = orbital cannon
+-- bit 6 = utility (style)
+-- bit 7 = expertise (style)
+-- bit 8 = altitude (style)
+-- bit 9 = power (style)
+-- bit 10 = authority (style)
+-- bit 11 = influence (style)
+-- bit 12 = order (style)
+-- bit 13 = empire (style)
+-- bit 14 = supremacy (style)
+
+function Shared:UnlockFacility(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300)
+    self.WriteByte(unlock, state ? 1 : 0)
+end
+
+function Shared:IsFacilityUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300)
+    return self.ReadByte(unlock) == 1
+end
+
+function UnlockFacilitySleepingQuarters(index, state)
+    -- 0 = utility
+    -- 1 = prestige
+    -- 2 = premier
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    self.WriteByte(unlock, BitMask:Clear(self.ReadByte(unlock), 0x7))
+    self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), index)) : (Bit:Clear(self.ReadByte(unlock), index)))
+end
+
+function Shared:IsFacilitySleepingQuartersUtilityUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    return Bit:Check(self.ReadByte(unlock), 0)
+end
+
+function Shared:IsFacilitySleepingQuartersPrestigeUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    return Bit:Check(self.ReadByte(unlock), 1)
+end
+
+function Shared:IsFacilitySleepingQuartersPremierUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    return Bit:Check(self.ReadByte(unlock), 2)
+end
+
+function Shared:UnlockFacilitySecurityRoom(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), 3)) : (Bit:Clear(self.ReadByte(unlock), 3)))
+end
+
+function Shared:IsFacilitySecurityRoomUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    return Bit:Check(self.ReadByte(unlock), 3)
+end
+
+function Shared:UnlockFacilityOrbitalCannon(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), 5)) : (Bit:Clear(self.ReadByte(unlock), 5)))
+end
+
+function Shared:IsFacilityOrbitalCannonUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    return Bit:Check(self.ReadByte(unlock), 5)
+end
+
+function Shared:UnlockHangar(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 293)
+    self.WriteByte(unlock, state ? 1 : 0)
+end
+
+function Shared:IsHangarUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 293)
+    return self.ReadByte(unlock) == 1
+end
+
+function Shared:UnlockBunker(state)
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 259)
+    self.WriteByte(unlock, state ? (BitMask:Set(self.ReadInt(unlock), 0x1C)) : (BitMask:Clear(self.ReadInt(unlock), 0x1C)))
+end
+
+function Shared:IsBunkerUnlocked()
+    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 259)
+    return BitMask:Check(self.ReadByte(unlock), 0x1C)
+end
+
+function Shared:SortTable(t, sortFunction)
+    local sortedTable = {}
+    for k, v in pairs(t) do
+        table.insert(sortedTable, v)
+    end
+    table.sort(sortedTable, sortFunction)
+    return sortedTable
+end
+
+function Shared:Partial(func, ...)
+    local args = {...}
+    return function(...)
+        return func(table.unpack(args), table.unpack{...})
+    end
+end
+
+Shared.CrewRank = {}
+
+function Shared.CrewRank:SetRank(rank, spoof)
+    rank = Shared.GetRPRequiredForRank(rank)
+    if spoof then
+        --[[
+            Global_1665493 = func_20209(joaat("MPPLY_CREW_LOCAL_XP_0"));
+            Global_1665494 = func_20209(joaat("MPPLY_CREW_LOCAL_XP_1"));
+            Global_1665495 = func_20209(joaat("MPPLY_CREW_LOCAL_XP_2"));
+            Global_1665496 = func_20209(joaat("MPPLY_CREW_LOCAL_XP_3"));
+            Global_1665497 = func_20209(joaat("MPPLY_CREW_LOCAL_XP_4"));
+        ]]
+
+        for i = 1665493, 1665497 do
+            local g = Shared.ScriptGlobal(i)
+            Shared.WriteInt(g, rank)
+        end
+    else
+        for i = 0, 4 do
+            Shared.StatSetInt(Shared.Joaat($'MPPLY_CREW_LOCAL_XP_{i}'), rank, true)
+        end
+    end
+end
+
+function Shared:IsPlayerUsingDrone(pid)
+    local g = self.ScriptGlobal(1853910 + 1 + (pid * 862) + 267 + 365)
+    return Bit:Check(self.ReadInt(g), 26)
+end
+
+function Shared.SimulateControlKey(key, times, control=0, delay=300)
+    for i = 1, times do
+        SetControlValueNextFrame(control, key, 1)
+        util.yield(delay)
+    end
+
+    util.yield(100)
+end
+
+function Shared.Distance(v1, v2)
+    return (v1.x - v2.x) ^ 2 + (v1.y - v2.y) ^ 2 + (v1.z - v2.z) ^ 2
+end
+
+function Shared:RequestControl(entity, timeout)
+    timeout = os.time() + 5 or os.time() + timeout
+
+    repeat
+        NetworkRequestControlOfEntity(entity)
+        util.yield_once()
+    until NetworkHasControlOfEntity(entity) or os.time() > timeout
+
+    if not NetworkHasControlOfEntity(entity) then
+        error("Failed to get control")
+    end
+end
+
+function Shared:RequestControlCB(entity, callback, timeout=5)
+    timeout = os.time() + timeout or os.time() + 5
+    repeat
+        NetworkRequestControlOfEntity(entity)
+        util.yield_once()
+    until NetworkHasControlOfEntity(entity) or os.time() > timeout
+
+    if not NetworkHasControlOfEntity(entity) then
+        callback(false)
+    else
+        callback(true)
+    end
+end
+
+function Shared:DeletePlayer(pid, state)
+    local player_invis = self.ScriptGlobal(2657589 + 1 + (pid * 466) + 254)
+    local off_radar = self.ScriptGlobal(2657589 + 1 + (pid * 466) + 321)
+    local pause_menu = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 192)
+    local become_interior = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 31)
+    local otr_val = self.ReadShort(off_radar)
+
+    SetRemotePlayerAsGhost(pid, state)
+
+    self.WriteByte(player_invis, state ? 1 : 0)
+    self.WriteShort(off_radar, state ? (otr_val | 0xA) : (otr_val & ~0xA))
+    self.WriteByte(pause_menu, state ? 1 : 0)
+    self.WriteByte(become_interior, state ? 1 : 0)
+end
+
+function Shared:IsModdedBounty(bounty)
+    return bounty & 0xF ~= 0x8
+end
+
+function Shared:RequestCutscene(cutscene)
+    RequestCutscene(cutscene, 8)
+    while not HasThisCutsceneLoaded(cutscene) do
+        util.yield_once()
+    end
+end
+
+function Shared:PlayCutscene(cutscene)
+    StartCutscene(cutscene)
+end
+
+function Shared:StopCutscene()
+    StopCutsceneImmediately()
+end
+
+function Shared:GetEntityAimingAt(pid)
+    if GetEntityPlayerIsFreeAimingAt(pid, entity_ptr) then
+        return self.ReadInt(entity_ptr)
+    end
+
+    return 0
+end
+
+function Shared:IsPlayerTheBeast(pid)
+    local beast = self.ScriptGlobal(2657589 + 1 + (pid * 466) + 199)
+    return Bit:Check(self.ReadInt(beast), 29)
+end
+
+function Shared:RequestModel(model)
+    local timeout = os.time() + 3
+
+    RequestModel(model)
+    while not HasModelLoaded(model) do
+        util.yield_once()
+        if os.time() > timeout then
+            error("Failed to load model")
+        end
+    end
+end
+
+function Shared:RequestNamedPtfxAsset(asset)
+    local timeout = os.time() + 3
+    
+    RequestNamedPtfxAsset(asset)
+    while not HasNamedPtfxAssetLoaded(asset) do
+        util.yield_once()
+        if os.time() > timeout then
+            error("Failed to load ptfx asset")
+        end
+    end
+    UseParticleFxAsset(asset) 
+end
+
+function Shared:SpectateCoords(coords, callback)
+    local cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
+    SetCamCoord(cam, coords.x, coords.y, coords.z)
+    SetCamActive(cam, true)
+    RenderScriptCams(true, false, 0, true, false)
+
+    if callback then
+        callback()
+    end
+end
+
+function Shared:StopSpectating()
+    RenderScriptCams(false, false, 0, true, false)
+    DestroyCam(GetRenderingCam(), false)
+end
+
+function Shared:TriggerDetection(pid, detection)
+    local proot = menu.player_root(pid)
+    local msg = players.get_name(pid) .. ' triggered a detection: ' .. detection
+    local classifications = nil
+
+    for i, child in pairs(proot:getChildren()) do
+        if child:isValid() then
+            local child_name = child.menu_name
+            if type(child_name) == 'string' then
+                if child_name:find('Classification') then
+                    classifications = child
+                    break
+                end
+            end
+        end
+    end
+
+    if classifications:isValid() then
+        if not menu.ref_by_rel_path(classifications, detection):isValid() then
+            util.toast(msg)
+            classifications:action(detection, {}, 'Click to remove this detection.', function()
+                for i, child in pairs(classifications:getChildren()) do
+                    if child:isValid() then
+                        local child_name = child.menu_name
+                        if type(child_name) == 'string' then
+                            if child_name:find(detection) then
+                                child:delete()
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end
+
+function Shared:DisplayOnscreenKeyboard(text_length)
+    DisplayOnscreenKeyboard(1, 'FMMC_KEY_TIP8', '', '', '', '', '', text_length or 100)
+    while UpdateOnscreenKeyboard() == 0 do
+        util.yield_once()
+    end
+
+    if UpdateOnscreenKeyboard() == 1 then
+        local text = GetOnscreenKeyboardResult()
+        return text
+    end
+end
+
+function Shared:GetRandomPlayer()
+    local pid = math.random(0, 32)
+
+    while pid == self.PLAYER_ID or self:PlayerInList(pid) do
+        pid = math.random(0, 32)
+    end
+
+    return pid
+end
+
+function Shared:RandomOrgName(length)
+    length = length or 98
+    local charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    local name = ''
+
+    for i = 1, length do
+        local rand = math.random(1, string.len(charset))
+        name = name .. string.sub(charset, rand, rand)
+    end
+
+    return name
+end
+
+function Shared:ForceSciptHost()
+    local timeout = os.time()
+    repeat
+        if scripthost_ref:isValid() then
+            scripthost_ref:trigger()
+        end
+        util.yield_once()
+    until os.time() > timeout or players.get_script_host() == self.PLAYER_ID
+end
+
+function Shared:SetPlayerBounty(pid, amount, state)
+    self:ForceSciptHost()
+    local bounty = self.ScriptGlobal(1835504 + 4 + 1 + (pid * 3))
+    
+    self.WriteByte(bounty, state ? 1 : 0)
+    self.WriteShort(bounty + 0x8, amount)
+end
+
+function Shared:SetPlayerBountyReward(pid, amount)
+    self:ForceSciptHost()
+    local reward = self.ScriptGlobal(1894573 + 1 + (pid * 608) + 599)
+    self.WriteShort(reward, amount)
+end
+
+function Shared:GetPlayerBounty(pid)
+    self:ForceSciptHost()
+    local bounty = self.ScriptGlobal(1835504 + 4 + 1 + (pid * 3))
+    return self.ReadShort(bounty + 0x8)
+end
+
+function Shared:GetPlayerBountyReward(pid)
+    self:ForceSciptHost()
+    local reward = self.ScriptGlobal(1894573 + 1 + (pid * 608) + 599)
+    return self.ReadShort(reward)
+end
+
+function Shared:PlayerHasBounty(pid)
+    local bounty = self.ScriptGlobal(1835504 + 4 + 1 + (pid * 3))
+    return self.ReadByte(bounty) == 1
+end
+
+function Shared:IsUsingOrbitalCannon(pid)
+    local cannon = self.ScriptGlobal(2657589 + 1 + (pid * 466) + 427)
+    return self.ReadInt(cannon) & (1 << 0) == (1 << 0)
+end
+
+function Shared:SetUsingOrbitalCannon(state)
+    local cannon = self.ScriptGlobal(2657589 + 1 + (self.PLAYER_ID * 466) + 427)
+    if state then
+        self.WriteInt(cannon, self.ReadInt(cannon) | (1 << 0))
+    else
+        self.WriteInt(cannon, self.ReadInt(cannon) & ~(1 << 0))
+    end
+end
+
+function Shared:SetPassiveMode(state)
+    local passive = self.ScriptGlobal(1894573 + 1 + (self.PLAYER_ID * 608) + 8)
+    self.WriteByte(passive, state ? 1 : 0)
+end
+
+function Shared:SetPlayerPassiveMode(state, pid)
+    local passive = Shared.ScriptGlobal(1894573 + 1 + (pid * 608) + 8)
+    Shared.WriteByte(passive, state ? 1 : 0)
+end
+
+function Shared:ClothingUnlock(x)
+    Shared.BeginTextCommandThefeedPost(x)
+    Shared.EndTextCommandThefeedPostUnlockTu('CLOTHES_UNLOCK', 7, x, 1)
+end
+
+function Shared:WorldToScreen(pos, sx_ptr, sy_ptr)
+    if GetScreenCoordFromWorldCoord(pos.x, pos.y, pos.z, sx_ptr, sy_ptr) then
+        local sx, sy = self.ReadFloat(sx_ptr), self.ReadFloat(sy_ptr)
+        return {x = sx, y = sy}
+    end
+end
+
+function Shared:GetClosestPlayer()
+    local distances = {}
+
+    for pid = 0, 32 do
+        if pid ~= PLAYER_ID then
+            if Shared:PlayerInList(pid) then
+                local player_ped = GetPlayerPed(pid)
+                local player_pos = GetOffsetFromEntityInWorldCoords(ped, 0.0, 0.0, 0.0)
+                local me_ped = GetPlayerPed(PLAYER_ID)
+                local me_pos = GetOffsetFromEntityInWorldCoords(me_ped, 0.0, 0.0, 0.0)
+
+                local dist = GetDistanceBetweenCoords(player_pos.x, player_pos.y, player_pos.z, me_pos.x, me_pos.y, me_pos.z, true)
+                distances[pid] = dist
+            end
+        end
+    end
+
+    -- sort distances table and return the closest player
+    if #distances > 0 then
+        distances = Shared:SortTable(distances, function(a, b)
+            return a < b
+        end)
+
+        -- get the first key in the table
+        local closest = next(distances)
+        return closest
+    else
+        return nil
+    end
+end
+
+return Shared

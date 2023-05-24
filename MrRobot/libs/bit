@@ -1,0 +1,120 @@
+local Bit = {}
+local BitMask = {}
+local Pack = {}
+
+function Bit:Set(value, bit)
+    return value | (1 << bit)
+end
+
+function Bit:Clear(value, bit)
+    return value & ~(1 << bit)
+end
+
+function Bit:Toggle(value, bit)
+    return value ~ (1 << bit)
+end
+
+function Bit:Check(value, bit)
+    return (value & (1 << bit)) ~= 0
+end
+
+function Bit:Get(value, bit)
+    return value & bit
+end
+
+-- Other useful functions
+function Bit:Length(value)
+    local length = 0
+
+    while value > 0 do
+        value = value >> 1
+        length = length + 1
+    end
+
+    return length
+end
+
+function Bit:LShift(value, shift)
+    return value << shift
+end
+
+function Bit:RShift(value, shift)
+    return value >> shift
+end
+
+function Bit:Rotl(value, shift)
+    return (value << shift) | (value >> (Bit:Length(value) - shift))
+end
+
+function Bit:Rotr(value, shift)
+    return (value >> shift) | (value << (Bit:Length(value) - shift))
+end
+
+function BitMask:Create(...)
+    local mask = 0
+
+    for _, bit in ipairs({...}) do
+        mask = mask | (1 << bit)
+    end
+
+    return mask
+end
+
+function BitMask:Set(value, mask)
+    return value | mask
+end
+
+function BitMask:Clear(value, mask)
+    return value & ~mask
+end
+
+function BitMask:Toggle(value, mask)
+    return value ~ mask
+end
+
+function BitMask:Check(value, mask)
+    return (value & mask) ~= 0
+end
+
+function BitMask:Get(value, mask)
+    return value & mask
+end
+
+function BitMask:Extract(value, offset, length)
+    return (value >> offset) & ((1 << length) - 1)
+end
+
+function BitMask:Insert(value, offset, length, insert)
+    return (value & ~(((1 << length) - 1) << offset)) | ((insert & ((1 << length) - 1)) << offset)
+end
+
+function BitMask:Replace(value, offset, length, replace)
+    return (value & ~(((1 << length) - 1) << offset)) | ((replace & ((1 << length) - 1)) << offset)
+end
+
+function Pack:Pack(size, ...)
+    local packed = 0
+    local args = {...}
+
+    for i = 1, #args do
+        packed = packed | (args[i] << ((i - 1) * size))
+    end
+
+    return packed
+end
+
+function Pack:Unpack(size, packed)
+    local unpacked = {}
+
+    for i = 1, Bit:Length(packed) / size do
+        unpacked[i] = (packed >> ((i - 1) * size)) & ((1 << size) - 1)
+    end
+
+    return unpacked
+end
+
+return {
+    Bit = Bit,
+    BitMask = BitMask,
+    Pack = Pack
+}

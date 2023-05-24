@@ -1,0 +1,62 @@
+local Bitfield = {}
+Bitfield.__index = Bitfield
+
+function Bitfield.new(value)
+    local self = setmetatable({}, Bitfield)
+    self.value = value
+    return self
+end
+
+function Bitfield:BitTest(bit)
+    return self.value & bit == bit
+end
+
+function Bitfield:BitSet(bit)
+    self.value |= bit
+end
+
+function Bitfield:BitClear(bit)
+    self.value &= ~bit
+end
+
+function Bitfield:BitToggle(bit)
+    self.value = self.value ~ bit
+end
+
+function Bitfield:Clear()
+    self.value = 0
+end
+
+function Bitfield:BitLength()
+    local length = 0
+    local temp = 0
+
+    while temp > 0 do
+        temp >>= 1
+        length = length + 1
+    end
+end
+
+function Bitfield:__tostring()
+    return string.format("0x%X", self.value)
+end
+
+function Bitfield:__eq(other)
+    return self.value == other.value
+end
+
+function Bitfield:__call(addr, size)
+    if size <= 8 then
+        memory.write_byte(addr, self.value)
+    elseif size <= 16 then
+        memory.write_short(addr, self.value)
+    elseif size <= 32 then
+        memory.write_int(addr, self.value)
+    elseif size <= 64 then
+        memory.write_long(addr, self.value)
+    else
+        error("Bitfield:__call() - size must be <= 64")
+    end
+end
+
+return Bitfield

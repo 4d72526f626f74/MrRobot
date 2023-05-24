@@ -1,0 +1,114 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+
+local ScriptGlobal = memory.script_global
+local WriteByte = memory.write_byte
+local WriteInt = memory.write_int
+local WriteFloat = memory.write_float
+local WriteLong = memory.write_long
+local WriteShort = memory.write_short
+local WriteString = memory.write_string
+local ReadByte = memory.read_byte
+local ReadInt = memory.read_int
+local ReadFloat = memory.read_float
+local ReadLong = memory.read_long
+local ReadShort = memory.read_short
+local ReadString = memory.read_string
+
+local ref_by_rel_path = menu.ref_by_rel_path
+
+pluto_class Tunables
+    function __construct()
+        self.root = root:list(T'Tunables', {T'rtunableseditor'}, T'Tunables editor')
+        local tunables = self.root
+        local tunable = tunables:text_input('Tunable', {'tunable'}, 'Tunable that you want to edit, you do not need to add 262145 as that is done for you', function(value) end, '0')
+        local value = tunables:text_input('Value', {'value'}, 'Value that you want to set the tunable to', function(value) end, '0')
+    
+        tunables:divider('Write Tunable')
+    
+        tunables:action('Write Int', {}, 'Write Int', function()
+            
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+            local value_ref = ref_by_rel_path(tunables, 'Value')
+    
+            WriteInt(ScriptGlobal(262145 + tonumber(tunable_ref.value)), value_ref.value)
+        end)
+    
+        tunables:action('Write Float', {}, 'Write Float', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+            local value_ref = ref_by_rel_path(tunables, 'Value')
+    
+            WriteFloat(ScriptGlobal(262145 + tonumber(tunable_ref.value)), value_ref.value)
+        end)
+    
+        tunables:action('Write Byte', {}, 'Write Byte', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+            local value_ref = ref_by_rel_path(tunables, 'Value')
+    
+            WriteByte(ScriptGlobal(262145 + tonumber(tunable_ref.value)), value_ref.value)
+        end)
+    
+        tunables:action('Write Short', {}, 'Write Short', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+            local value_ref = ref_by_rel_path(tunables, 'Value')
+    
+            WriteShort(ScriptGlobal(262145 + tonumber(tunable_ref.value)), value_ref.value)
+        end)
+    
+        tunables:action('Write Long', {}, 'Write Long', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+            local value_ref = ref_by_rel_path(tunables, 'Value')
+    
+            WriteLong(ScriptGlobal(262145 + tonumber(tunable_ref.value)), value_ref.value)
+        end)
+    
+        tunables:action('Write String', {}, 'Write String', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+            local value_ref = ref_by_rel_path(tunables, 'Value')
+    
+            WriteString(ScriptGlobal(262145 + tonumber(tunable_ref.value)), value_ref.value)
+        end)
+    
+        tunables:divider('Read Tunable')
+    
+        tunables:action('Read Int', {}, 'Read an int', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+            local value_ref = ref_by_rel_path(tunables, 'Value')
+    
+            util.toast(ReadInt(ScriptGlobal(262145 + tonumber(tunable_ref.value))))
+        end)
+    
+        tunables:action('Read Float', {}, 'Read a float', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+    
+            util.toast(ReadFloat(ScriptGlobal(262145 + tonumber(tunable_ref.value))))
+        end)
+    
+        tunables:action('Read Byte', {}, 'Read a byte', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+    
+            util.toast(ReadByte(ScriptGlobal(262145 + tonumber(tunable_ref.value))))
+        end)
+    
+        tunables:action('Read Short', {}, 'Read a short (16 bits)', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+    
+            util.toast(ReadShort(ScriptGlobal(262145 + tonumber(tunable_ref.value))))
+        end)
+    
+        tunables:action('Read Long', {}, 'Read a long (64 bits)', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+    
+            util.toast(ReadLong(ScriptGlobal(262145 + tonumber(tunable_ref.value))))
+        end)
+    
+        tunables:action('Read String', {}, 'Read a string', function()
+            local tunable_ref = ref_by_rel_path(tunables, 'Tunable')
+    
+            util.toast(ReadString(ScriptGlobal(262145 + tonumber(tunable_ref.value))))
+        end)
+    end
+end
+
+return Tunables

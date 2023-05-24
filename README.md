@@ -22,4 +22,4 @@ When you run the script all the that are needed are downloaded for you
     
 ## Support
 
-Discord Server: https://discord.gg/tqZj5B5tah
+Discord Server: [https://discord.gg/tqZj5B5tah](https://discord.gg/qYErTtzNXr)

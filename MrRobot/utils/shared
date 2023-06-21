@@ -24,6 +24,9 @@ Shared.MIN_INT = -(1 << 31)
 Shared.MAX_FLOAT = Shared.MAX_INT + 0.0
 Shared.MIN_FLOAT = Shared.MIN_INT + 0.0
 
+-- Alert = 1 << 0
+Shared.Settings = 1 << 0
+
 Shared.Refs = {
     BecomeInterior = nil
 }
@@ -111,73 +114,73 @@ Shared.Data = {
         ["77"] = "Masterminds",
     },
     BunkerResearch = {
-        ["APC Sam Battery"] = 21806,
-        ["Ballistic Equipment"] = 21807,
-        ["Half Track 20MM Quad Cannons"] = 21808,
-        ["Weaponized Tampa Dual Remote Minigun"] = 21809,        
-        ["Weaponized Tampa Rear Firing Mortar"] = 21810,
-        ["Weaponized Tampa Front Missile Launchers"] = 21811,    
-        ["Weaponized Tampa Heavy Chassis Armor"] = 21812,        
-        ["Dune Fav 40MM Grenade Launcher"] = 21813,
-        ["Dune Fav 762MM Minigun"] = 21814,
-        ["Insurgent Pick Up Custom 50 Cal Minigun"] = 21815,     
-        ["Insurgent Pick Up Custom Heavy Armor Plating"] = 21816,
-        ["Technical Custom 762MM Minigun"] = 21817,
-        ["Technical Custom Ram Bar"] = 21818,
-        ["Technical Custom Brute Bar"] = 21819,
-        ["Technical Custom Heavy Chassis Armor"] = 21820,
-        ["Oppressor Rockets"] = 21821,
-        ["Fractal Livery Set"] = 21822,
-        ["Digital Livery Set"] = 21823,
-        ["Geometric Livery Set"] = 21824,
-        ["Nature Reserve Livery"] = 21825,
-        ["Naval Battle Livery"] = 21826,
-        ["Anti Aircraft Trailer Dual 20MM Flak Cannon"] = 21827,
-        ["Anti Aircraft Trailer Homing Missile Battery"] = 21828,
-        ["Mobile Operations Center Rear Turrets"] = 21829,
-        ["Incendiary Rounds"] = 21830,
-        ["Hollow Point Rounds"] = 21831,
-        ["Armor Piercing Rounds"] = 21832,
-        ["Full Metal Jacket Rounds"] = 21833,
-        ["Explosive Rounds"] = 21834,
-        ["Pistol MK II Rail Mount"] = 21835,
-        ["Pistol MK II Compensator"] = 21836,
-        ["Smg MK II Holographic Sight"] = 21837,
-        ["Smg MK II Heavy Barrel"] = 21838,
-        ["Heavy Sniper MK II Night Vision Scope"] = 21839,
-        ["Heavy Sniper MK II Thermal Scope"] = 21840,
-        ["Heavy Sniper MK II Heavy Barrel"] = 21841,
-        ["Combat Mg MK II Holographic Sight"] = 21842,
-        ["Combat Mg MK II Heavy Barrel"] = 21843,
-        ["Assault Rifle MK II Holographic Sight"] = 21844,
-        ["Assault Rifle MK II Heavy Barrel"] = 21845,
-        ["Carbine Rifle MK II Holographic Sight"] = 21846,
-        ["Carbine Rifle MK II Heavy Barrel"] = 21847,
-        ["Proximity Mines"] = 21848,
-        ["Tiger Stripe"] = 21849,
-        ["Skull"] = 21850,
-        ["Sessanta Nove"] = 21851,
-        ["Perseus"] = 21852,
-        ["Leopard Print"] = 21853,
-        ["Zebra Stripe"] = 21854,
-        ["Geometry"] = 21855,
-        ["Book"] = 21856
+        ["APC Sam Battery"] = 21806 + 129,
+        ["Ballistic Equipment"] = 21807 + 129,
+        ["Half Track 20MM Quad Cannons"] = 21808 + 129,
+        ["Weaponized Tampa Dual Remote Minigun"] = 21809 + 129,        
+        ["Weaponized Tampa Rear Firing Mortar"] = 21810 + 129,
+        ["Weaponized Tampa Front Missile Launchers"] = 21811 + 129,    
+        ["Weaponized Tampa Heavy Chassis Armor"] = 21812 + 129,        
+        ["Dune Fav 40MM Grenade Launcher"] = 21813 + 129,
+        ["Dune Fav 762MM Minigun"] = 21814 + 129,
+        ["Insurgent Pick Up Custom 50 Cal Minigun"] = 21815 + 129,     
+        ["Insurgent Pick Up Custom Heavy Armor Plating"] = 21816 + 129,
+        ["Technical Custom 762MM Minigun"] = 21817 + 129,
+        ["Technical Custom Ram Bar"] = 21818 + 129,
+        ["Technical Custom Brute Bar"] = 21819 + 129,
+        ["Technical Custom Heavy Chassis Armor"] = 21820 + 129,
+        ["Oppressor Rockets"] = 21821 + 129,
+        ["Fractal Livery Set"] = 21822 + 129,
+        ["Digital Livery Set"] = 21823 + 129,
+        ["Geometric Livery Set"] = 21824 + 129,
+        ["Nature Reserve Livery"] = 21825 + 129,
+        ["Naval Battle Livery"] = 21826 + 129,
+        ["Anti Aircraft Trailer Dual 20MM Flak Cannon"] = 21827 + 129,
+        ["Anti Aircraft Trailer Homing Missile Battery"] = 21828 + 129,
+        ["Mobile Operations Center Rear Turrets"] = 21829 + 129,
+        ["Incendiary Rounds"] = 21830 + 129,
+        ["Hollow Point Rounds"] = 21831 + 129,
+        ["Armor Piercing Rounds"] = 21832 + 129,
+        ["Full Metal Jacket Rounds"] = 21833 + 129,
+        ["Explosive Rounds"] = 21834 + 129,
+        ["Pistol MK II Rail Mount"] = 21835 + 129,
+        ["Pistol MK II Compensator"] = 21836 + 129,
+        ["Smg MK II Holographic Sight"] = 21837 + 129,
+        ["Smg MK II Heavy Barrel"] = 21838 + 129,
+        ["Heavy Sniper MK II Night Vision Scope"] = 21839 + 129,
+        ["Heavy Sniper MK II Thermal Scope"] = 21840 + 129,
+        ["Heavy Sniper MK II Heavy Barrel"] = 21841 + 129,
+        ["Combat Mg MK II Holographic Sight"] = 21842 + 129,
+        ["Combat Mg MK II Heavy Barrel"] = 21843 + 129,
+        ["Assault Rifle MK II Holographic Sight"] = 21844 + 129,
+        ["Assault Rifle MK II Heavy Barrel"] = 21845 + 129,
+        ["Carbine Rifle MK II Holographic Sight"] = 21846 + 129,
+        ["Carbine Rifle MK II Heavy Barrel"] = 21847 + 129,
+        ["Proximity Mines"] = 21848 + 129,
+        ["Tiger Stripe"] = 21849 + 129,
+        ["Skull"] = 21850 + 129,
+        ["Sessanta Nove"] = 21851 + 129,
+        ["Perseus"] = 21852 + 129,
+        ["Leopard Print"] = 21853 + 129,
+        ["Zebra Stripe"] = 21854 + 129,
+        ["Geometry"] = 21855 + 129,
+        ["Book"] = 21856 + 129
     },
     AircraftTradeIn = {
-        ["Ultralight"] = 22712,
-        ["Rogue"] = 22713,
-        ["Alpha-Z1"] = 22714,
-        ["Havok"] = 22715,
-        ["LF-22 Starling"] = 22716,
-        ["V-65 Molotok"] = 22717,
-        ["Tula"] = 22718,
-        ["RM-10 Bombushka"] = 22719,
-        ["Howard NX-25"] = 22720,
-        ["Mogul"] = 22721,
-        ["Pyro"] = 22722,
-        ["Seabreeze"] = 22723,
-        ["P-45 Nakota"] = 22724,
-        ["FH-1 Hunter"] = 22725
+        ["Ultralight"] = 22712 + 180,
+        ["Rogue"] = 22713 + 180,
+        ["Alpha-Z1"] = 22714 + 180,
+        ["Havok"] = 22715 + 180,
+        ["LF-22 Starling"] = 22716 + 180,
+        ["V-65 Molotok"] = 22717 + 180,
+        ["Tula"] = 22718 + 180,
+        ["RM-10 Bombushka"] = 22719 + 180,
+        ["Howard NX-25"] = 22720 + 180,
+        ["Mogul"] = 22721 + 180,
+        ["Pyro"] = 22722 + 180,
+        ["Seabreeze"] = 22723 + 180,
+        ["P-45 Nakota"] = 22724 + 180,
+        ["FH-1 Hunter"] = 22725 + 180
     },
     CasinoCards = {
         v3(-423, 1212.2420654297, 325.75823974609),
@@ -1029,6 +1032,15 @@ Shared.Scan = memory.scan
 Shared.CreateTickHandler = util.create_tick_handler
 Shared.IsSessionStarted = util.is_session_started
 Shared.GetRPRequiredForRank = util.get_rp_required_for_rank
+
+util.toast = (function(func)
+    return function(...)
+        if Shared.Settings & (1 << 0) == (1 << 0) then
+            func(...)
+        end
+    end
+end)(util.toast)
+
 Shared.Toast = util.toast
 
 local stats_alloc = Shared.Alloc(4)
@@ -1063,31 +1075,31 @@ Shared.ScriptLocal = (function(func)
     end
 end)(memory.script_local)
 
-function Shared:RegisterCEO(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1858635130, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:RegisterVIP(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1858635130, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:RegisterMC(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1858635130, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:OffRadar(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 1, -1017535732, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:GhostOrg(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 1, -527208501, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0}) end
-function Shared:SuccessfullyMugged(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 244034214, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
-function Shared:MuggerKilled(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -368990008, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
-function Shared:AttackedArmouredTruck(pid, attacker) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 452938553, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:EmptyNotification(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashBanked(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 276906331, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashStolen(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 82080686, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashRemoved(pid, amount) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 853249803, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:JammerActivated(pid) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -236682200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CollectPinkSlip(pid, collector) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1364562129, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0}) end
-function Shared:PlayerEwo(pid, ewo) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1891585544, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0}) end
-function Shared:DestroyedVehicleCargo(pid, target) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 117293314, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:DeliveredMotorcycle(pid, target) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 1417675950, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:JoinedOrg(pid, target) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -2030849211, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:QuitOrg(pid, target) self.TriggerScriptEvent(1 << pid, {2041805809, 0, 548541714, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:MarkedForDeath(pid, marked_by) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -1624737755, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
-function Shared:BecomeGhosted(pid, ghosted_to) self.TriggerScriptEvent(1 << pid, {2041805809, 0, -2051461174, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
+function Shared:RegisterCEO(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 514341487, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:RegisterVIP(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 514341487, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:RegisterMC(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 514341487, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:OffRadar(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 1, -1496350145, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:GhostOrg(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 1, 688031806, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0}) end
+function Shared:SuccessfullyMugged(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1079941038, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+function Shared:MuggerKilled(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -578453253, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+function Shared:AttackedArmouredTruck(pid, attacker) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1964206081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:EmptyNotification(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CashBanked(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 94410750, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CashStolen(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -295926414, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CashRemoved(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -242911964, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:JammerActivated(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1957780196, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CollectPinkSlip(pid, collector) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1919354072, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0}) end
+function Shared:PlayerEwo(pid, ewo) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1269083963, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0}) end
+function Shared:DestroyedVehicleCargo(pid, target) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1537935777, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:DeliveredMotorcycle(pid, target) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1532850163, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:JoinedOrg(pid, target) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1601625667, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:QuitOrg(pid, target) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1995714668, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:MarkedForDeath(pid, marked_by) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 110435988, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
+function Shared:BecomeGhosted(pid, ghosted_to) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1233120647, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
 function Shared:InteriorInvite(pid) self.TriggerScriptEvent(1 << pid, {36077543, 0, 0}) end
 
 function Shared:SendMugger(pid)
-    local attacker = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862)) -- Global_1853910[PLAYER::PLAYER_ID() /*862*/]
+    local attacker = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867)) -- Global_1853910[PLAYER::PLAYER_ID() /*862*/]
     local bitfield = self.ReadInt(attacker + 0x460)
     
     self.WriteInt(attacker + 0x460, Bit:Set(bitfield, 0))
@@ -1095,7 +1107,7 @@ function Shared:SendMugger(pid)
 end
 
 function Shared:SendMercenaries(pid)
-    local attacker = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862))
+    local attacker = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867))
     local bitfield = self.ReadInt(attacker + 0x460)
     
     self.WriteInt(attacker + 0x460, Bit:Set(bitfield, 1))
@@ -1103,19 +1115,19 @@ function Shared:SendMercenaries(pid)
 end
 
 function Shared:BlockMuggerEvent(state)
-    local block = self.ScriptGlobal(1670314 + 154)
+    local block = self.ScriptGlobal(1670105 + 156)
     self.WriteByte(block, state ? 1 : 0)
 end
 
 function Shared:BlockStandNotificationSpam(state)
-    local block = self.ScriptGlobal(1670314 + 42)
+    local block = self.ScriptGlobal(1670105 + 42)
     self.WriteByte(block, state ? 1 : 0)
     self.WriteByte(block + 0x8, state ? 1 : 0)
     self.WriteByte(block + 0x10, state ? 1 : 0)
 end
 
 function Shared:BlockAllNotifications(state)
-    local base = 1670314
+    local base = 1670105
     for i = 0, 800 do
         local g = self.ScriptGlobal(base + i)
         self.WriteByte(g, state ? 1 : 0)
@@ -1135,102 +1147,102 @@ end
 ]]
 
 function Shared:UnlockKosatka(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 0)) : (Bit:Clear(self.ReadInt(unlock), 0)))
 end
 
 function Shared:UnlockSonar(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 1)) : (Bit:Clear(self.ReadInt(unlock), 1)))
 end
 
 function Shared:UnlockGuidedMissiles(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 2)) : (Bit:Clear(self.ReadInt(unlock), 2)))
 end
 
 function Shared:UnlockWeaponWorkshop(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 3)) : (Bit:Clear(self.ReadInt(unlock), 3)))
 end
 
 function Shared:UnlockSparrow(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 4)) : (Bit:Clear(self.ReadInt(unlock), 4)))
 end
 
 function Shared:UnlockAvisa(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 5)) : (Bit:Clear(self.ReadInt(unlock), 5)))
 end
 
 function Shared:ReturnSparrow()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, Bit:Clear(self.ReadInt(unlock), 6))
 end
 
 function Shared:ReturnAvisa()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, Bit:Clear(self.ReadInt(unlock), 7))
 end
 
 function Shared:UnlockAcidLab(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 14)) : (Bit:Clear(self.ReadInt(unlock), 14)))
 end
 
 function Shared:IsKosatkaUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     return Bit:Check(self.ReadInt(unlock), 0)
 end
 
 function Shared:IsSonarUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     return Bit:Check(self.ReadInt(unlock), 1)
 end
 
 function Shared:IsGuidedMissilesUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     return Bit:Check(self.ReadInt(unlock), 2)
 end
 
 function Shared:IsWeaponWorkshopUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     return Bit:Check(self.ReadInt(unlock), 3)
 end
 
 function Shared:IsSparrowUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     return Bit:Check(self.ReadInt(unlock), 4)
 end
 
 function Shared:IsAvisaUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     return Bit:Check(self.ReadInt(unlock), 5)
 end
 
 function Shared:IsSparrowBeingUsed()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     return Bit:Check(self.ReadInt(unlock), 6)
 end
 
 function Shared:IsAvisaBeingUsed()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     return Bit:Check(self.ReadInt(unlock), 7)
 end
 
 function Shared:IsAcidLabUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 478)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     return Bit:Check(self.ReadInt(unlock), 14)
 end
 
 function Shared:RenameAcidLab(name)
-    local lab = self.ScriptGlobal(1914091 + 1 + (self.PLAYER_ID * 297) + 281) -- Global_1914091[bParam0 /*297*/].f_281
+    local lab = self.ScriptGlobal(1914706 + 1 + (self.PLAYER_ID * 299) + 283) -- Global_1914091[bParam0 /*297*/].f_281 new: Global_1914706[plParam0 /*299*/].f_283
     self.WriteString(lab, name)
 end
 
 function Shared:GetAcidLabName()
-    local lab = self.ScriptGlobal(1914091 + 1 + (self.PLAYER_ID * 297) + 281) -- Global_1914091[bParam0 /*297*/].f_281
+    local lab = self.ScriptGlobal(1914706 + 1 + (self.PLAYER_ID * 299) + 283) -- Global_1914091[bParam0 /*297*/].f_281
     return self.ReadString(lab)
 end
 
@@ -1250,15 +1262,15 @@ function Shared:UnlockNanoDrone(state)
     -- Global_1853910[iParam0 /*862*/].f_267.f_428.f_1, 27
     -- Global_1962996, 25
 
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
-    local unlock1 = self.ScriptGlobal(1962996)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429)
+    local unlock1 = self.ScriptGlobal(1963795)
 
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 27)) : (Bit:Clear(self.ReadInt(unlock), 27)))
     self.WriteInt(unlock1, state ? (Bit:Set(self.ReadInt(unlock1), 25)) : (Bit:Clear(self.ReadInt(unlock1), 25)))
 end
 
 function Shared:IsNanoDroneUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429)
     return Bit:Check(self.ReadInt(unlock), 27)
 end
 
@@ -1266,7 +1278,7 @@ function Shared:UnlockRCBandito(state)
     self.SetPackedStatBoolCode(25237, state, self.CHAR_SLOT)
     self.SetPackedStatBoolCode(28085, state, self.CHAR_SLOT)
 
-    local l = self.ScriptLocal('freemode', 15561)
+    local l = self.ScriptLocal('freemode', 15648)
     if l ~= 0 then
         self.WriteShort(l, state ? (Bit:Set(self.ReadShort(l), 9)) : (Bit:Clear(self.ReadShort(l), 9)))
     end
@@ -1280,7 +1292,7 @@ function Shared:UnlockRCTank(state)
     self.SetPackedStatBoolCode(25516, state, self.CHAR_SLOT)
     self.SetPackedStatBoolCode(28086, state, self.CHAR_SLOT)
 
-    local l = self.ScriptLocal('freemode', 15561)
+    local l = self.ScriptLocal('freemode', 15648)
     if l ~= 0 then
         self.WriteShort(l, state ? (Bit:Set(self.ReadShort(l), 10)) : (Bit:Clear(self.ReadShort(l), 10)))
     end
@@ -1291,32 +1303,32 @@ function Shared:IsRCTankUnlocked()
 end
 
 function Shared:UnlockAgencyArmoury(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 502 + 1)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 22)) : (Bit:Clear(self.ReadInt(unlock), 22)))
 end
 
 function Shared:IsAgencyArmouryUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 502 + 1)
     return Bit:Check(self.ReadInt(unlock), 22)
 end
 
 function Shared:UnlockAgencyAccommodation(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 502 + 1)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 23)) : (Bit:Clear(self.ReadInt(unlock), 23)))
 end
 
 function Shared:IsAgencyAccommodationUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 502 + 1)
     return Bit:Check(self.ReadInt(unlock), 23)
 end
 
 function Shared:UnlockAgencyVehicleWorkshop(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 502 + 1)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 24)) : (Bit:Clear(self.ReadInt(unlock), 24)))
 end
 
 function Shared:IsAgencyVehicleWorkshopUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 502 + 1)
     return Bit:Check(self.ReadInt(unlock), 24)
 end
 
@@ -1327,153 +1339,153 @@ Shared.AgencyWallpaper = {"None", "Floral", "Marble", "Geometric", "Designer", "
 Shared.AgencyHighlight = {"None", "Charcoal", "Sage", "Green", "Gray", "Purple", "Red", "Brown", "Ash", "Moss"}
 
 function Shared:SetAgencyArt(index, state)
-    local art = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    local art = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 502 + 1)
     self.WriteInt(art, state ? (Bit:Set(self.ReadInt(art), index)) : (Bit:Clear(self.ReadInt(art), index)))
 end
 
 function Shared:SetAgencyWallpaper(index, state)
-    local wallpaper = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    local wallpaper = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 502 + 1)
     self.WriteInt(wallpaper, state ? (Bit:Set(self.ReadInt(wallpaper), index)) : (Bit:Clear(self.ReadInt(wallpaper), index)))
 end
 
 function Shared:SetAgencyHighlight(index, state)
-    local highlight = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 500 + 1)
+    local highlight = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 502 + 1)
     self.WriteInt(highlight, state ? (Bit:Set(self.ReadInt(highlight), index)) : (Bit:Clear(self.ReadInt(highlight), index)))
 end
 
 -- Global_1853910[bParam0 /*862*/].f_267.f_404
 
 function Shared:UnlockPenthouse(state)
-    local penthouse = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404)
+    local penthouse = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405)
     self.WriteByte(penthouse, state ? 1 : 0)
 end
 
 function Shared:IsPenthouseUnlocked()
-    local penthouse = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404)
+    local penthouse = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405)
     return self.ReadByte(penthouse) == 1
 end
 
 -- Global_1853910[iParam0 /*862*/].f_267.f_404.f_2
 
 function Shared:UnlockPenthouseLounge(state)
-    local lounge = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local lounge = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     self.WriteInt(lounge, state ? (Bit:Set(self.ReadInt(lounge), 0)) : (Bit:Clear(self.ReadInt(lounge), 0)))
 end
 
 function Shared:IsPenthouseLoungeUnlocked()
-    local lounge = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local lounge = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     return Bit:Check(self.ReadInt(lounge), 0)
 end
 
 function Shared:UnlockPenthouseBar(state)
-    local bar = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local bar = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     self.WriteInt(bar, state ? (Bit:Set(self.ReadInt(bar), 1)) : (Bit:Clear(self.ReadInt(bar), 1)))
 end
 
 function Shared:IsPenthouseBarUnlocked()
-    local bar = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local bar = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     return Bit:Check(self.ReadInt(bar), 1)
 end
 
 function Shared:UnlockPenthouseDealerRoom(state)
-    local dealer = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local dealer = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     self.WriteInt(dealer, state ? (Bit:Set(self.ReadInt(dealer), 2)) : (Bit:Clear(self.ReadInt(dealer), 2)))
 end
 
 function Shared:IsPenthouseDealerRoomUnlocked()
-    local dealer = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local dealer = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     return Bit:Check(self.ReadInt(dealer), 2)
 end
 
 function Shared:UnlockPenthouseSpareBedroom(state)
-    local spare = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local spare = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     self.WriteInt(spare, state ? (Bit:Set(self.ReadInt(spare), 3)) : (Bit:Clear(self.ReadInt(spare), 3)))
 end
 
 function Shared:IsPenthouseSpareBedroomUnlocked()
-    local spare = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local spare = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     return Bit:Check(self.ReadInt(spare), 3)
 end
 
 function Shared:UnlockPenthouseMediaRoom(state)
-    local media = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local media = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     self.WriteInt(media, state ? (Bit:Set(self.ReadInt(media), 4)) : (Bit:Clear(self.ReadInt(media), 4)))
 end
 
 function Shared:IsPenthouseMediaRoomUnlocked()
-    local media = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local media = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     return Bit:Check(self.ReadInt(media), 4)
 end
 
 function Shared:UnlockPenthouseSpa(state)
-    local spa = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local spa = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     self.WriteInt(spa, state ? (Bit:Set(self.ReadInt(spa), 5)) : (Bit:Clear(self.ReadInt(spa), 5)))
 end
 
 function Shared:IsPenthouseSpaUnlocked()
-    local spa = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local spa = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     return Bit:Check(self.ReadInt(spa), 5)
 end
 
 function Shared:UnlockPenthouseOffice(state)
-    local office = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local office = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     self.WriteInt(office, state ? (Bit:Set(self.ReadInt(office), 6)) : (Bit:Clear(self.ReadInt(office), 6)))
 end
 
 function Shared:IsPenthouseOfficeUnlocked()
-    local office = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local office = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     return Bit:Check(self.ReadInt(office), 6)
 end
 
 function Shared:UnlockPenthouseGarage(state)
-    local garage = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local garage = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     self.WriteInt(garage, state ? (Bit:Set(self.ReadInt(garage), 7)) : (Bit:Clear(self.ReadInt(garage), 7)))
 end
 
 function Shared:IsPenthouseGarageUnlocked()
-    local garage = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 404 + 2)
+    local garage = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 405 + 2)
     return Bit:Check(self.ReadInt(garage), 7)
 end
 
 function Shared:ClearNightclub(state)
-    local clear = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    local clear = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 2)
     self.WriteInt(clear, state ? (Bit:Set(self.ReadInt(clear), 1)) : (Bit:Clear(self.ReadInt(clear), 1)))
 end
 
 function Shared:IsNightclubCleared()
-    local clear = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    local clear = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 2)
     return Bit:Check(self.ReadInt(clear), 1)
 end
 
 function Shared:DisableNightclubOfficeLights(state)
-    local lights = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    local lights = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 2)
     self.WriteInt(lights, state ? (Bit:Set(self.ReadInt(lights), 17)) : (Bit:Clear(self.ReadInt(lights), 17)))
 end
 
 function Shared:AreNightclubOfficeLightsDisabled()
-    local lights = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    local lights = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 2)
     return Bit:Check(self.ReadInt(lights), 17)
 end
 
 function Shared:UnlockNightclubDryIce(state)
-    local dryice = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    local dryice = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 2)
     self.WriteInt(dryice, state ? (Bit:Set(self.ReadInt(dryice), 23)) : (Bit:Clear(self.ReadInt(dryice), 23)))
 end
 
 function Shared:IsNightclubDryIceUnlocked()
-    local dryice = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    local dryice = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 2)
     return Bit:Check(self.ReadInt(dryice), 23)
 end
 
 function Shared:UnlockNightclubUpgrades()
-    local upgrades = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 1)
+    local upgrades = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 354 + 1)
     self.WriteInt(upgrades, 0x7FFEFFFD)
     self:UnlockNightclubDryIce(true)
 end
 
 function Shared:BypassNightclubSetup()
-    local bypass = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 1)
-    local bypass1 = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 353 + 2)
+    local bypass = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 354 + 1)
+    local bypass1 = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 2)
     self.WriteInt(bypass1, 0xFFFFFFFF)
 end
 
@@ -1535,70 +1547,70 @@ function Shared:Is50CarGarageUnlocked()
 end
 
 function Shared:UnlockArcade(index, state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429)
     self.WriteInt(unlock, BitMask:Clear(self.ReadInt(unlock), 0x1E))
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), index)) : (Bit:Clear(self.ReadInt(unlock), index)))
 end
 
 function Shared:IsWonderamaArcadeUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429)
     return Bit:Check(self.ReadInt(unlock), 1)
 end
 
 function Shared:IsEightBitArcadeUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429)
     return Bit:Check(self.ReadInt(unlock), 2)
 end
 
 function Shared:BypassArcadeSetup(state)
-    local bypass = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local bypass = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     self.WriteInt(bypass, state ? (BitMask:Set(self.ReadInt(bypass), 0x1000004)) : (BitMask:Clear(self.ReadInt(bypass), 0x1000004)))
 end
 
 function Shared:IsArcadeSetup()
-    local bypass = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local bypass = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     return BitMask:Check(self.ReadInt(bypass), 0x1000004)
 end
 
 function Shared:UnlockArcadeGarage(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 0)) : (Bit:Clear(self.ReadInt(unlock), 0)))
 end
 
 function Shared:IsArcadeGarageUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     return Bit:Check(self.ReadInt(unlock), 0)
 end
 
 function Shared:UnlockArcadeMasterControlTerminal(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 3)) : (Bit:Clear(self.ReadInt(unlock), 3)))
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 4)) : (Bit:Clear(self.ReadInt(unlock), 4)))
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 28)) : (Bit:Clear(self.ReadInt(unlock), 28)))
 end
 
 function Shared:IsArcadeMasterControlTerminalUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     return Bit:Check(self.ReadInt(unlock), 3) and Bit:Check(self.ReadInt(unlock), 4) and Bit:Check(self.ReadInt(unlock), 28)
 end
 
 function Shared:UnlockArcadeWeaponWorkshop(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 11)) : (Bit:Clear(self.ReadInt(unlock), 11)))
 end
 
 function Shared:IsArcadeWeaponWorkshopUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     return Bit:Check(self.ReadInt(unlock), 11)
 end
 
 function Shared:UnlockArcadeNanoDroneStation(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 27)) : (Bit:Clear(self.ReadInt(unlock), 27)))
 end
 
 function Shared:IsArcadeNanoDroneStationUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 428 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 429 + 1)
     return Bit:Check(self.ReadInt(unlock), 27)
 end
 
@@ -1606,53 +1618,53 @@ function Shared:UnlockAutoShop(index, state)
     -- 0 = la mesa
     -- 1 = strawberry
     -- 2 = rancho
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 485)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 862) + 267 + 486)
     self.WriteInt(unlock, BitMask:Clear(self.ReadInt(unlock), 0x7))
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), index)) : (Bit:Clear(self.ReadInt(unlock), index)))
 end
 
 function Shared:IsLaMesaAutoShopUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 485)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 862) + 267 + 486)
     return Bit:Check(self.ReadInt(unlock), 1)
 end
 
 function Shared:IsStrawberryAutoShopUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 485)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 862) + 267 + 486)
     return Bit:Check(self.ReadInt(unlock), 2)
 end
 
 function Shared:IsRanchoAutoShopUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 485)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 862) + 267 + 486)
     return Bit:Check(self.ReadInt(unlock), 3)
 end
 
 function Shared:UnlockArenaWorkshop(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 373)
     self.WriteInt(unlock, 1)
 end
 
 function Shared:IsArenaWorkshopUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 373)
     return self.ReadInt(unlock) == 1
 end
 
 function Shared:UnlockAWBennyMechanic(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372 + 2)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 373 + 2)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 12)) : (Bit:Clear(self.ReadInt(unlock), 12)))
 end
 
 function Shared:IsAWBennyMechanicUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372 + 2)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 373 + 2)
     return Bit:Check(self.ReadInt(unlock), 12)
 end
 
 function Shared:UnlockAWWeaponWorkshop(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372 + 2)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 373 + 2)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 13)) : (Bit:Clear(self.ReadInt(unlock), 13)))
 end
 
 function Shared:IsAWWeaponWorkshopUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 372 + 2)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 373 + 2)
     return Bit:Check(self.ReadInt(unlock), 13)
 end
 
@@ -1672,12 +1684,12 @@ end
 -- bit 14 = supremacy (style)
 
 function Shared:UnlockFacility(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300)
     self.WriteByte(unlock, state ? 1 : 0)
 end
 
 function Shared:IsFacilityUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300)
     return self.ReadByte(unlock) == 1
 end
 
@@ -1685,43 +1697,43 @@ function UnlockFacilitySleepingQuarters(index, state)
     -- 0 = utility
     -- 1 = prestige
     -- 2 = premier
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300 + 1)
     self.WriteByte(unlock, BitMask:Clear(self.ReadByte(unlock), 0x7))
     self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), index)) : (Bit:Clear(self.ReadByte(unlock), index)))
 end
 
 function Shared:IsFacilitySleepingQuartersUtilityUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300 + 1)
     return Bit:Check(self.ReadByte(unlock), 0)
 end
 
 function Shared:IsFacilitySleepingQuartersPrestigeUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300 + 1)
     return Bit:Check(self.ReadByte(unlock), 1)
 end
 
 function Shared:IsFacilitySleepingQuartersPremierUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300 + 1)
     return Bit:Check(self.ReadByte(unlock), 2)
 end
 
 function Shared:UnlockFacilitySecurityRoom(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300 + 1)
     self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), 3)) : (Bit:Clear(self.ReadByte(unlock), 3)))
 end
 
 function Shared:IsFacilitySecurityRoomUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300 + 1)
     return Bit:Check(self.ReadByte(unlock), 3)
 end
 
 function Shared:UnlockFacilityOrbitalCannon(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300 + 1)
     self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), 5)) : (Bit:Clear(self.ReadByte(unlock), 5)))
 end
 
 function Shared:IsFacilityOrbitalCannonUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 300 + 1)
+    local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 300 + 1)
     return Bit:Check(self.ReadByte(unlock), 5)
 end
 
@@ -1786,7 +1798,7 @@ function Shared.CrewRank:SetRank(rank, spoof)
 end
 
 function Shared:IsPlayerUsingDrone(pid)
-    local g = self.ScriptGlobal(1853910 + 1 + (pid * 862) + 267 + 365)
+    local g = self.ScriptGlobal(1853988 + 1 + (pid * 867) + 267 + 366)
     return Bit:Check(self.ReadInt(g), 26)
 end
 
@@ -1831,10 +1843,10 @@ function Shared:RequestControlCB(entity, callback, timeout=5)
 end
 
 function Shared:DeletePlayer(pid, state)
-    local player_invis = self.ScriptGlobal(2657589 + 1 + (pid * 466) + 254)
-    local off_radar = self.ScriptGlobal(2657589 + 1 + (pid * 466) + 321)
-    local pause_menu = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 192)
-    local become_interior = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 31)
+    local player_invis = self.ScriptGlobal(2657704 + 1 + (pid * 463) + 254)
+    local off_radar = self.ScriptGlobal(2657704 + 1 + (pid * 463) + 321)
+    local pause_menu = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 192)
+    local become_interior = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 31)
     local otr_val = self.ReadShort(off_radar)
 
     SetRemotePlayerAsGhost(pid, state)
@@ -1873,7 +1885,8 @@ function Shared:GetEntityAimingAt(pid)
 end
 
 function Shared:IsPlayerTheBeast(pid)
-    local beast = self.ScriptGlobal(2657589 + 1 + (pid * 466) + 199)
+    --local beast = self.ScriptGlobal(2657589 + 1 + (pid * 466) + 199)
+    local beast = self.ScriptGlobal(2657704 + 1 + (pid * 463) + 199) -- not yet tested
     return Bit:Check(self.ReadInt(beast), 29)
 end
 
@@ -2010,7 +2023,8 @@ end
 
 function Shared:SetPlayerBountyReward(pid, amount)
     self:ForceSciptHost()
-    local reward = self.ScriptGlobal(1894573 + 1 + (pid * 608) + 599)
+    -- local reward = self.ScriptGlobal(1894573 + 1 + (pid * 608) + 599)
+    local reward = self.ScriptGlobal(1895156 + 1 + (pid * 609) + 600) -- not yet tested
     self.WriteShort(reward, amount)
 end
 
@@ -2022,7 +2036,7 @@ end
 
 function Shared:GetPlayerBountyReward(pid)
     self:ForceSciptHost()
-    local reward = self.ScriptGlobal(1894573 + 1 + (pid * 608) + 599)
+    local reward = self.ScriptGlobal(1895156 + 1 + (pid * 609) + 600)
     return self.ReadShort(reward)
 end
 
@@ -2032,12 +2046,12 @@ function Shared:PlayerHasBounty(pid)
 end
 
 function Shared:IsUsingOrbitalCannon(pid)
-    local cannon = self.ScriptGlobal(2657589 + 1 + (pid * 466) + 427)
+    local cannon = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 424)
     return self.ReadInt(cannon) & (1 << 0) == (1 << 0)
 end
 
 function Shared:SetUsingOrbitalCannon(state)
-    local cannon = self.ScriptGlobal(2657589 + 1 + (self.PLAYER_ID * 466) + 427)
+    local cannon = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 424)
     if state then
         self.WriteInt(cannon, self.ReadInt(cannon) | (1 << 0))
     else
@@ -2046,12 +2060,12 @@ function Shared:SetUsingOrbitalCannon(state)
 end
 
 function Shared:SetPassiveMode(state)
-    local passive = self.ScriptGlobal(1894573 + 1 + (self.PLAYER_ID * 608) + 8)
+    local passive = self.ScriptGlobal(1894573 + 1 + (self.PLAYER_ID * 609) + 8)
     self.WriteByte(passive, state ? 1 : 0)
 end
 
 function Shared:SetPlayerPassiveMode(state, pid)
-    local passive = Shared.ScriptGlobal(1894573 + 1 + (pid * 608) + 8)
+    local passive = Shared.ScriptGlobal(1894573 + 1 + (pid * 609) + 8)
     Shared.WriteByte(passive, state ? 1 : 0)
 end
 
@@ -2096,6 +2110,128 @@ function Shared:GetClosestPlayer()
     else
         return nil
     end
+end
+
+function Shared:ReturnAvenger()
+    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
+    self.WriteInt(g, self.ReadInt(g) | 0x110000)
+    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) | (1 << 3))
+end
+
+function Shared:ReturnAvenger(location)
+    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
+    self.WriteInt(g, self.ReadInt(g) | (1 << 20))
+    util.yield(10)
+    self.WriteInt(g, self.ReadInt(g) & ~(1 << 20))
+    self.WriteInt(g - (4 << 3), (location == 'hangar') ? self.ReadInt(g - (4 << 3)) & ~(1 << 6) : self.ReadInt(g - (4 << 3)) | (1 << 6))
+    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) | (1 << 3))
+    self.WriteInt(g, self.ReadInt(g) | (1 << 16))
+    util.yield(10)
+    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) & ~(1 << 3))
+end
+
+function Shared:IsAvengerBeingUsed()
+    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
+    return self.ReadInt(g) & (1 << 16) ~= (1 << 16)
+end
+
+function Shared:ReturnDeliveryBike()
+    local blip = self.GetFirstBlipInfoId(348)
+    if blip ~= 0 then
+        local entity = self.GetBlipInfoIdEntityIndex(blip)
+        if entity ~= 0 then
+            local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
+            self.WriteInt(g, self.ReadInt(g) & ~(1 << 6))
+            self.WriteInt(g, self.ReadInt(g) | 0x300)
+
+            self.DeleteByHandle(entity)
+        end
+    end
+end
+
+function Shared:IsDeliveryBikeBeingUsed()
+    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
+    return self.ReadInt(g) & (1 << 6) == (1 << 6)
+end
+
+function Shared:ReturnAcidLab()
+    local blip = self.GetFirstBlipInfoId(840)
+    if blip ~= 0 then
+        local entity = self.GetBlipInfoIdEntityIndex(blip)
+        if entity ~= 0 then
+            local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
+            local lab = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 5)
+            self.WriteInt(lab, self.ReadInt(lab) | (1 << 26))
+            self.WriteInt(g, self.ReadInt(g) & ~(1 << 0))
+            self.WriteInt(g, self.ReadInt(g) | 0x100002)
+
+            self.DeleteByHandle(entity)
+        end
+    end
+end
+
+function Shared:IsAcidLabBeingUsed()
+    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
+    return self.ReadInt(g) & (1 << 0) == (1 << 0)
+end
+
+function Shared:ReturnKosatka()
+    local g = self.ScriptGlobal(2672524 + 62 + 9)
+    self.WriteInt(g, 2)
+    self.WriteInt(g + 0x8, 17)
+end
+
+function Shared:IsKosatkaBeingUsed()
+    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 4)
+    return self.ReadInt(g) & (1 << 31) == (1 << 31)
+end
+
+function Shared:ReturnTerrorbyte()
+    local blip = self.GetFirstBlipInfoId(632)
+    if blip ~= 0 then
+        local entity = self.GetBlipInfoIdEntityIndex(blip)
+        if entity ~= 0 then
+            local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 3)
+            self.WriteInt(g, self.ReadInt(g) | 0x18000090)
+            self.WriteInt(g, self.ReadInt(g) & ~(1 << 11))
+
+            self.DeleteByHandle(entity)
+        end
+    end
+end
+
+function Shared:IsTerrorbyteBeingUsed()
+    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 3)
+    return self.ReadInt(g) & (1 << 4) ~= (1 << 4)
+end
+
+function Shared:ReturnMOC()
+    -- credit to Acjoker for helping with figuring out how to return the MOC
+    local blip = self.GetFirstBlipInfoId(564)
+    if blip ~= 0 then
+        local entity = self.GetBlipInfoIdEntityIndex(blip)
+        if entity ~=- 0 then
+            local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321)
+            self.WriteInt(g, self.ReadInt(g) | 0x100040)
+            self.WriteInt(g, self.ReadInt(g) & ~(1 << 5))
+            self.WriteInt(g + 0x8, self.ReadInt(g) & ~0x2100001)
+            self.WriteInt(g + 0x8, self.ReadInt(g) | (1 << 8))
+
+            self.DeleteByHandle(entity)
+        end
+    end
+end
+
+function Shared:ReturnAvengerDev()
+    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
+    self.WriteInt(g, self.ReadInt(g) | (1 << 20))
+    util.yield(10)
+    self.WriteInt(g, self.ReadInt(g) & ~(1 << 20))
+    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) | (1 << 6))
+    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) | (1 << 3))
+    self.WriteInt(g, self.ReadInt(g) | (1 << 16))
+    util.yield(10)
+    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) & ~(1 << 3))
 end
 
 return Shared

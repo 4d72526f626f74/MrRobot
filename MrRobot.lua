@@ -1,11 +1,19 @@
 local SCRIPT_START = os.clock()
-local SCRIPT_VERSION <constexpr> = '0.0.1-alpha'
-local GTAO_VERSION <const> = '1.66'
+local SCRIPT_VERSION <constexpr> = '0.1.2-alpha'
+local GTAO_VERSION <const> = '1.67'
 local sha256 = require('crypto').sha256
 
 -- implementing natives as local functions instead of requiring natives which is slower, adds more overhead and wastes a lot 
 -- of memory for 6400+ functions that you don't even use 10% of
 --[[string]] local function GetOnlineVersion()native_invoker.begin_call()native_invoker.end_call_2(0xFCA9373EF340AC0A)return native_invoker.get_return_value_string()end
+
+do
+    local GAME_VERSION = GetOnlineVersion()
+
+    if GTAO_VERSION ~= GetOnlineVersion() then
+        util.toast($'Version mismatch some features may not work! Script version: {GTAO_VERSION} | GTAO version: {GAME_VERSION}')
+    end
+end
 
 -- localising these functions makes accessing them 'faster'
 -- 'the access to local variables is faster than to global ones' - https://www.lua.org/pil/4.2.html

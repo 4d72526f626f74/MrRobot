@@ -17,8 +17,8 @@ local PLAYER_ID = Shared.PLAYER_ID
 local GetEntityCanBeDamaged = Shared.GetEntityCanBeDamaged
 local IsPedInAnyVehicle = Shared.IsPedInAnyVehicle
 
-local VEHICLE_KICK_PRIMARY <constexpr> = 2793046 + 852
-local VEHICLE_KICK_SECONDARY <constexpr> = 2793046 + 853
+local VEHICLE_KICK_PRIMARY <constexpr> = 2794162 + 857 -- Global_2793046.f_852
+local VEHICLE_KICK_SECONDARY <constexpr> = 2793046 + 858 -- Global_2793046.f_853
 --local TRANSITION_STATE <const> = 2657589 + 1 + (PLAYER_ID * 466) -- Global_2657589[PLAYER::PLAYER_ID() /*466*/]
 
 local ScriptGlobal = Shared.ScriptGlobal
@@ -40,11 +40,11 @@ local settings = 0
 local pkick, pkick, local_nethash
 
 local function GetNetworkId(pid)
-    return ReadInt(ScriptGlobal(2657589 + 1 + (pid * 466) + 38))
+    return ReadInt(ScriptGlobal(2657704 + 1 + (pid * 463) + 38))
 end
 
 local function SetNetworkId(pid, net_id)
-    WriteInt(ScriptGlobal(2657589 + 1 + (pid * 466) + 38), net_id)
+    WriteInt(ScriptGlobal(2657704 + 1 + (pid * 463) + 38), net_id)
 end
 
 local function GetVehicleFromNetId(pid)
@@ -57,10 +57,11 @@ pluto_class Protections
         local protections = self.root
         local vehicle_protections = protections:list(T'Vehicle', {}, T'Vehicle protections')
         local player_protections = protections:list(T'Player', {}, T'Player protections')
+        local notif_protections = protections:list(T'Notifications', {}, T'Notification protections')
         local vehicle_spoofing = vehicle_protections:list(T'Vehicle Spoofing', {}, T'Vehicle spoofing')
         local detections = root:list(T'Detections', {}, T'Detections')
     
-        local veh_kick_ref
+        --[[local veh_kick_ref
         veh_kick_ref = vehicle_protections:toggle(T'Vehicle Kick', {}, T'Prevents you from being kicked from any vehicle (this protection is NOT the same as Stand\'s kick from vehicle protection)', function(state)
             pkick = pkick ?? ScriptGlobal(VEHICLE_KICK_PRIMARY)
             skick = skick ?? ScriptGlobal(VEHICLE_KICK_SECONDARY)
@@ -85,7 +86,7 @@ pluto_class Protections
                     veh_kick_ref.value = false
                 end
             end
-        end)
+        end)]]
     
         vehicle_protections:toggle_loop(T'Anti-Oppressor MKII', {}, T'Delete broomsticks so shitbags cannot use them', function()
             for Shared.GetAllVehiclesAsPointers() as entity do
@@ -123,16 +124,6 @@ pluto_class Protections
                                             end
                                         end
                                     end
-                                elseif Shared.RefByRelPath(vehicle_spoofing, 'Ban Kick').value then
-                                    if proot:isValid() then
-                                        local kick = Shared.RefByRelPath(proot, 'Kick')
-                                        if kick:isValid() then
-                                            local kick = Shared.RefByRelPath(kick, 'Ban')
-                                            if kick:isValid() then
-                                                kick:trigger()
-                                            end
-                                        end
-                                    end
                                 elseif Shared.RefByRelPath(vehicle_spoofing, 'Crash').value then
                                     if proot:isValid() then
                                         local crash = Shared.RefByRelPath(proot, 'Crash')
@@ -154,7 +145,6 @@ pluto_class Protections
         vehicle_spoofing:divider(T'Reactions')
     
         vehicle_spoofing:toggle(T'Kick', {}, T'Kick the player who is spoofing your personal vehicle', function() end)
-        vehicle_spoofing:toggle(T'Ban Kick', {}, T'Ban kick the player who is spoofing your personal vehicle', function() end)
         vehicle_spoofing:toggle(T'Crash', {}, T'Crash the player who is spoofing your personal vehicle', function() end)
     
         player_protections:toggle_loop(T'Anti Orbital Cannon', {}, T'Prevents you from being targeted by the orbital cannon, players can still manually target you but it will be very unlikely that they will find you', function()
@@ -178,8 +168,8 @@ pluto_class Protections
     
         player_protections:toggle_loop(T'Anti-Attacker', {T'antiattacker'}, 'Prevents you from being attacked by a mugger, mercenaries, hit squad or strike team', function()
             SpoofScript('am_gang_call', function()
-                local sender = ScriptLocal('am_gang_call', 287)
-                local target = ScriptLocal('am_gang_call', 288)
+                local sender = ScriptLocal('am_gang_call', 286)
+                local target = ScriptLocal('am_gang_call', 287)
     
                 if sender ~= 0 and target ~= 0 then
                     WriteByte(sender, PLAYER_ID)
@@ -190,19 +180,6 @@ pluto_class Protections
     
         player_protections:toggle_loop(T'Anti-Beast', {}, T'Prevents you from becoming the beast', function()
             SpoofScript('am_hunt_the_beast', Shared.TerminateThisThread)
-        end)
-    
-        player_protections:toggle(T'Block Mugger Notification', {}, 'Block mugger notification spam', function(state)
-            local block = ScriptGlobal(1670314 + 154)
-            WriteByte(block, state ? 1 : 0)
-        end)
-    
-        player_protections:toggle(T'Block Stand Notification Spam', {}, 'Block stand notification spam', function(state)
-            Shared:BlockStandNotificationSpam(state)
-        end)
-    
-        player_protections:toggle(T'Block All Notifications', {}, 'Block all notifications', function(state)
-            Shared:BlockAllNotifications(state)
         end)
     
         player_protections:toggle_loop(T'Bounty', {}, T'Prevents bounties from being set on you', function()
@@ -235,30 +212,25 @@ pluto_class Protections
                 end
             end
         end)
+
+        notif_protections:toggle(T'Block Mugger Notification', {}, 'Block mugger notification spam', function(state)
+            Shared:BlockMuggerEvent(state)
+        end)
+    
+        notif_protections:toggle(T'Block Stand Notification Spam', {}, 'Block stand notification spam', function(state)
+            Shared:BlockStandNotificationSpam(state)
+        end)
+    
+        notif_protections:toggle(T'Block All Notifications', {}, 'Block all notifications', function(state)
+            Shared:BlockAllNotifications(state)
+        end)
     
         detections:toggle_loop(T'Vehicle Spoofing', {}, T'Detects when a player is spoofing your personal vehicle', function()
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) and pid ~= PLAYER_ID then
                     if GetNetworkId(pid) == GetNetworkId(PLAYER_ID) then
-                        Shared:TriggerDetection(pid, 'Vehicle Spoofing')
-                    end
-                end
-            end
-        end)
-    
-        local desync_detect
-        desync_detect = detections:toggle_loop(T'Desync Kick', {}, T'Detects when another player in the session is desync kicked by a modder (may not be accurate 100% of the time)', function()
-            for i = 0, Shared.GetNumberOfEvents(1) do
-                local event = Shared.GetEventAtIndex(1, i)
-                if event == 154 and Shared.GetEventData(1, i, Shared.EventData, 56) then
-                    local args = {}
-                    for i = 0, 56 do
-                        table.insert(args, Shared.ReadInt(Shared.EventData + i * 8))                
-                    end
-    
-                    if args[56] == -32765 then
-                        Shared.DesyncData.Active = desync_detect.value
-                        Shared.DesyncData.Detected = true
+                        --Shared:TriggerDetection(pid, 'Vehicle Spoofing')
+                        players.add_detection(pid, 'Vehicle Spoofing')
                     end
                 end
             end

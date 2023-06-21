@@ -404,9 +404,9 @@ pluto_class Heists
         cayo:toggle_loop(T'Setup Heist', {}, T'Setup the heist and skip all the prep missions etc', function()
             if SCRIPT_CAN_CONTINUE then
                 GHeists.AutomatedPreset()
-                for i = 29983, 29983 + 4 do
+                --[[for i = 30189, 30194 do
                     WriteInt(ScriptGlobal(262145 + i), GHeists.CalculateValue(2550000))
-                end
+                end]]
             end
         end)
     

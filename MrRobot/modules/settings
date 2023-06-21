@@ -33,10 +33,15 @@ pluto_class Settings
                 end
             end
         end)
+
+        -- this setting is inspired by AcjokerScript
+        self.show_alerts = self.root:toggle(T'Show Alerts', {}, T'Should alerts be shown', function(state)
+            Shared.Settings = Shared.Settings & ~(1 << 0) | (state ? 1 << 0 : 0)
+        end, Shared.Settings & (1 << 0) == (1 << 0))
     end
 
     function ErrorIsActive()
-        local banner = ScriptGlobal(4536673) -- global is from UnknownCheats
+        local banner = ScriptGlobal(4536678) -- global is from UnknownCheats (updated by me)
         return ReadInt(banner) ~= 0 or ReadInt(banner + 0x8) ~= 0
     end
 end

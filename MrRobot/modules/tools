@@ -29,18 +29,18 @@ pluto_class Tools
         root = self.root
 
         root:action(T'Unlock Arcades', {T'unlockarcades'}, T'Unlock arcades on mazebank foreclosure without going to Lester', function()
-            local arcade = ScriptGlobal(1970832 + 22)
+            local arcade = ScriptGlobal(1971633 + 22)
             local bitfield = Bitfield.new(ReadShort(arcade))
         
             bitfield:BitSet(0x14E) -- set multiple bits using a bitmask instead of doing it like a noob and setting each individually
             WriteShort(arcade, bitfield.value)
         
-            arcade = ScriptGlobal(1853910 + 1 + (Shared.PLAYER_ID * 862) + 267 + 428)
-            WriteByte(arcade, 1)
+            --[[arcade = ScriptGlobal(1853910 + 1 + (Shared.PLAYER_ID * 862) + 267 + 428)
+            WriteByte(arcade, 1)]]
         end)
         
         root:action(T'Deposit Wallet Money', {T'depositwalletall'}, T'Deposit all money from your wallet', function()
-            local wallet = ReadInt(Scan('') + 0x1D42AC0)
+            local wallet = ReadInt(Scan('') + 0x1D59BC0)
             NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
         end)
         

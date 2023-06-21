@@ -45,9 +45,9 @@ local settings = 0x3
 -- then we can add the relative offset to that result giving us the same result as ScriptGlobal(base + offset)
 -- but without having to call ScriptGlobal repeatedly making this more efficient and faster by eliminating the
 -- need to call ScriptGlobal multiple times which is just completely unnecessary
-local REQUEST_NANO_DRONE <const> = 1962996
-local REQUEST_BASE <const> = ScriptGlobal(2793046)
-local REQUEST_MOONPOOL_BASE <const> = ScriptGlobal(2766495)
+local REQUEST_NANO_DRONE <const> = 1963795
+local REQUEST_BASE <const> = ScriptGlobal(2794162)
+local REQUEST_MOONPOOL_BASE <const> = ScriptGlobal(2766633)
 
 enum Bits begin
     ExcludeSelf = 0,
@@ -56,19 +56,20 @@ enum Bits begin
 end
 
 enum Offsets begin
-    Bandito = 0xD6D0,
-    Tank = 0xD6D8,
-    MOC = 0x1CE8,
-    Avenger = 0x1D28,
-    AcidLab = 0x1D50,
-    Terrorbyte = 0x1D48,
-    Dinghy = 0x1E30,
-    Kosatka = 0x1DD0,
+    Bandito = 0xD6F8,
+    Tank = 0xD700,
+    MOC = 0x1D10,
+    Avenger = 0x1D50,
+    AcidLab = 0x1D80,
+    Terrorbyte = 0x1D78,
+    Dinghy = 0x1E60,
+    Kosatka = 0x1E00,
     Sparrow = 0x0,
     Avisa = 0x8,
-    BallisticArmor = 0x1C00,
-    AmmoDrop = 0x1BB0,
-    Helicopter = 0x1BC0,
+    BallisticArmor = 0x1C28,
+    AmmoDrop = 0x1BD8,
+    Helicopter = 0x1BE8,
+    DeliveryBike = 0x1F10
 end
 
 local tune_ref = RefByPath('Vehicle>Los Santos Customs>Upgrade')
@@ -111,6 +112,8 @@ local function RequestService(service)
         WriteByte(REQUEST_BASE + Offsets.AmmoDrop, 1)
     elseif service == 'helicopter' then
         WriteByte(REQUEST_BASE + Offsets.Helicopter, 1)
+    elseif service == 'delivery_bike' then
+        WriteByte(REQUEST_BASE + Offsets.DeliveryBike, 1)
     end
 end
 
@@ -127,7 +130,6 @@ pluto_class Online
         local organisation = trolling:list(T'Organisation', {}, T'Organisation')
         local ghosting = online:list(T'Ghosting', {}, T'Ghosting')
         local other = online:list(T'Other', {}, T'Other')
-        local toxic = online:list(T'Toxic', {}, T'Toxic')
 
         nightclub:toggle(T'Clear Nightclub', {}, 'Empty your nightclub', function(state)
             if SCRIPT_CAN_CONTINUE then
@@ -240,6 +242,7 @@ pluto_class Online
         services:action(T'Request Kosatka', {T'requestkosatka'}, T'Request your Kosatka, what else?', Shared:Partial(RequestService, 'kosatka'))
         services:action(T'Request Sparrow', {T'requestsparrow'}, T'Request your Sparrow, what else?', Shared:Partial(RequestService, 'sparrow'))
         services:action(T'Request Avisa', {T'requestavisa'}, T'Request your Avisa, what else?', Shared:Partial(RequestService, 'avisa'))
+        services:action(T'Request Delivery Bike', {T'requestdeliverybike'}, T'Request a delivery bike, what else?', Shared:Partial(RequestService, 'delivery_bike'))
         services:action(T'Request Ballistic Armor', {T'requestballisticarmor'}, T'Request Ballistic Armor, what else?', Shared:Partial(RequestService, 'ballisticarmor'))
         services:action(T'Request Ammo Drop', {T'requestammodrop'}, T'Request Ammo Drop, what else?', Shared:Partial(RequestService, 'ammodrop'))
         services:action(T'Request Helicopter', {T'requestheli'}, T'Request a helicopter, what else?', Shared:Partial(RequestService, 'heli'))
@@ -256,6 +259,46 @@ pluto_class Online
             if Shared:IsAvisaBeingUsed() then
                 Shared:ReturnAvisa()
             end
+        end)
+
+        services:action(T'Return Avenger (Hangar)' , {T'returnavengerhangar'}, T'Return your avenger to the hangar, what else?', function()
+            if Shared:IsAvengerBeingUsed() then
+                Shared:ReturnAvenger('hangar')
+            end
+        end)
+
+        services:action(T'Return Avenger (Facility)' , {T'returnavengerfacility'}, T'Return your avenger to the facility, what else?', function()
+            if Shared:IsAvengerBeingUsed() then
+                Shared:ReturnAvenger('facility')
+            end
+        end)
+
+        services:action(T'Return Delivery Bike', {T'returndeliverybike'}, T'Return your delivery bike, what else?', function()
+            if Shared:IsDeliveryBikeBeingUsed() then
+                Shared:ReturnDeliveryBike()
+            end
+        end)
+
+        services:action(T'Return Acid Lab', {T'returnacidlab'}, T'Return your acid lab, what else?', function()
+            if Shared:IsAcidLabBeingUsed() then
+                Shared:ReturnAcidLab()
+            end
+        end)
+
+        services:action(T'Return Kosatka', {T'returnkosatka'}, T'Return your kosatka, what else?', function()
+            if Shared:IsKosatkaBeingUsed() then
+                Shared:ReturnKosatka()
+            end
+        end)
+
+        services:action(T'Return Terrorbyte', {T'returnterrorbyte'}, T'Return terrorbyte, what else?', function()
+            if Shared:IsTerrorbyteBeingUsed() then
+                Shared:ReturnTerrorbyte()
+            end
+        end)
+
+        services:action(T'Return MOC', {T'returnmoc'}, T'Return MOC, what else?', function()
+            Shared:ReturnMOC() -- no check because got the bit required for the check
         end)
 
         services:divider('')
@@ -335,12 +378,12 @@ pluto_class Online
 
         organisation:toggle_loop(T'Random Name', {}, T'Set your organisation name to something completely random', function()
             -- 0x398
-            org_name = org_name ?? ScriptGlobal(1894573 + 1 + PLAYER_ID * 608)
+            org_name = org_name ?? ScriptGlobal(1895156 + 1 + PLAYER_ID * 609)
             WriteString(org_name + 0x398, Shared:RandomOrgName(math.random(0, 98)))
         end)
 
         organisation:toggle_loop(T'Random Player As Name', {}, T'Set your organisation name to a random player\'s name', function()
-            org_name = org_name ?? ScriptGlobal(1894573 + 1 + PLAYER_ID * 608)
+            org_name = org_name ?? ScriptGlobal(1895156 + 1 + PLAYER_ID * 609)
             WriteString(org_name + 0x398, players.get_name(Shared:GetRandomPlayer()))
         end)
 
@@ -348,7 +391,7 @@ pluto_class Online
 
         organisation:action(T'Set Name', {}, T'Set your organisation name', function()
             local name = Shared.DisplayOnscreenKeyboard()
-            org_name = org_name ?? ScriptGlobal(1894573 + 1 + PLAYER_ID * 608)
+            org_name = org_name ?? ScriptGlobal(1895156 + 1 + PLAYER_ID * 609)
             
             pcall(function()
                 WriteString(org_name + 0x398, name)
@@ -356,35 +399,35 @@ pluto_class Online
         end)
 
         organisation:action(T'Random Name', {}, T'Set your organisation name to something completely random', function()
-            org_name = org_name ?? ScriptGlobal(1894573 + 1 + PLAYER_ID * 608)
+            org_name = org_name ?? ScriptGlobal(1895156 + 1 + PLAYER_ID * 609)
             WriteString(org_name + 0x398, Shared:RandomOrgName(math.random(0, 98)))
         end)
 
-        spoofing:list_select(T'Interior', {T'interiorchoice'}, '', properties, 1, function(index) end)
+        -- spoofing:list_select(T'Interior', {T'interiorchoice'}, '', properties, 1, function(index) end)
 
-        spoofing:action(T'Spoof Interior', {}, T'Spoofs your current interior to another interior, you must be inside of an interior for other players to see this)', function()
-            interior = interior ?? ScriptGlobal(1853910 + 1 + (PLAYER_ID * 862) + 267 + 33)
-            local choice_ref = RefByRelPath(spoofing, 'Interior')
-            local index = choice_ref.value
-            local interior_id = Shared.Data.PropertyIds[properties[index]]
-            -- reading a byte makes sense here, since there is only about 125 valid interior ids, so we don't need to read or write more
-            -- than a byte
-            local curr_interior = ReadByte(interior)
-            Shared.Refs.BecomeInterior.value = false
-            util.yield(700)
-            Shared.Refs.BecomeInterior.value = true
+        -- spoofing:action(T'Spoof Interior', {}, T'Spoofs your current interior to another interior, you must be inside of an interior for other players to see this)', function()
+        --     interior = interior ?? ScriptGlobal(1853988 + 1 + (PLAYER_ID * 867) + 267 + 33)
+        --     local choice_ref = RefByRelPath(spoofing, 'Interior')
+        --     local index = choice_ref.value
+        --     local interior_id = Shared.Data.PropertyIds[properties[index]]
+        --     -- reading a byte makes sense here, since there is only about 125 valid interior ids, so we don't need to read or write more
+        --     -- than a byte
+        --     local curr_interior = ReadByte(interior)
+        --     Shared.Refs.BecomeInterior.value = false
+        --     util.yield(700)
+        --     Shared.Refs.BecomeInterior.value = true
 
-            if curr_interior ~= -1 and curr_interior ~= interior_id then
-                WriteByte(interior, -1)
-                util.yield(50)
-                WriteByte(interior, interior_id)
-            end
-        end)
+        --     if curr_interior ~= -1 and curr_interior ~= interior_id then
+        --         WriteByte(interior, -1)
+        --         util.yield(50)
+        --         WriteByte(interior, interior_id)
+        --     end
+        -- end)
 
-        spoofing:divider('')
+        -- spoofing:divider('')
 
         spoofing:action(T'Spoof Ownership Of Special Property', {}, T'Spoof ownership of special properties like Kosatka, Terrorbyte etc, this allows you to invite players to someone elses kosatka, terrorbyte', function()
-            local spoof = ScriptGlobal(2657589 + 1 + (PLAYER_ID * 466) + 321 + 10)
+            local spoof = ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 321 + 10)
             WriteInt(spoof, PLAYER_ID)
         end)
 
@@ -399,17 +442,6 @@ pluto_class Online
         end)
 
         ghosting:divider('')
-
-        toxic:toggle_loop(T'FMSD', {}, 'Causes freemode script to die for everyone', function()
-            local fmsd = ScriptGlobal(2657589 + 1 + (PLAYER_ID * 466) + 321 + 7)
-            WriteInt(fmsd, (1 << 31) - 1)
-            util.yield(3000)
-            WriteInt(fmsd, -1)
-        end,
-        function()
-            local fmsd = ScriptGlobal(2657589 + 1 + (PLAYER_ID * 466) + 321 + 7)
-            WriteInt(fmsd, -1)
-        end)
 
         players.add_command_hook(function(pid, root)
             local name = players.get_name(pid)
@@ -434,6 +466,22 @@ pluto_class Online
             end, |err| -> nil)
         end)
 
+        other:action(T'Toast The Beast', {}, T'', function()
+            SpoofScript('am_hunt_the_beast', function()
+                for pid = 0, 32 do
+                    if Shared:PlayerInList(pid) then
+                        if pid ~= PLAYER_ID then
+                            if Shared:IsPlayerTheBeast(pid) then
+                                util.toast(players.get_name(pid) .. ' is the beast')
+                            end
+                        end
+                    end
+                end
+            end)
+        end)
+
+        other:divider('')
+
         local beast_blips = {}
 
         other:toggle(T'Reveal The Beast', {}, T'Reveal the location of the player that is the beast', function(state)
@@ -441,7 +489,7 @@ pluto_class Online
                 local blip = 0
 
                 if state then
-                    for pid = 0, 32 do
+                    for pid = 0, 32  do
                         if Shared:PlayerInList(pid) then
                             if pid ~= PLAYER_ID then
                                 if Shared:IsPlayerTheBeast(pid) then

@@ -23,7 +23,7 @@ pluto_class Unlocks
         local achievements = unlocks:list(T'Achievements', {}, T'Achievements')
         local bunker_research = unlocks:list(T'Bunker Research', {}, T'Bunker Research')
         local vehicle_trade_in_prices = unlocks:list(T'Vehicle Trade-In Prices', {}, T'Vehicle Trade-In Prices')
-        local crewrank = unlocks:list(T'Crew Rank', {}, T'Change or spoof your crew rank')
+        --local crewrank = unlocks:list(T'Crew Rank', {}, T'Change or spoof your crew rank')
         local clothing = unlocks:list(T'Clothing', {}, T'Some clothing unlocks')
         local kosatka = unlocks:list(T'Kosatka', {}, T'Kosatka unlocks, this does not just unlock them, it also sets them as owned')
         local interaction_menu = unlocks:list(T'Interaction Menu', {}, T'Interaction Menu')
@@ -33,8 +33,8 @@ pluto_class Unlocks
         local autoshop = unlocks:list(T'Autoshop', {}, T'Autoshop')
         local arena_workshop = unlocks:list(T'Arena Workshop', {}, T'Arena Workshop')
         local facility = unlocks:list(T'Facility', {}, T'Facility')
-        local bunker = unlocks:list(T'Bunker', {}, T'Bunker')
-        local hangar = unlocks:list(T'Hangar', {}, T'Hangar')
+        --[[local bunker = unlocks:list(T'Bunker', {}, T'Bunker')
+        local hangar = unlocks:list(T'Hangar', {}, T'Hangar')]]
     
         achievements:action(T'Unlock All', {}, T'Unlock All', function()
             Shared:UnlockAllAchievements()
@@ -76,7 +76,7 @@ pluto_class Unlocks
             end)
         end
     
-        local spoof_crewrank
+        --[[local spoof_crewrank
         spoof_crewrank = crewrank:toggle(T'Spoof Crew Rank', {}, T'Spoof your crew rank', function(state) end)
     
         crewrank:text_input(T'Crew Rank', {T'rsetcrewrank'}, T'Change your crew rank, if setting it without spoofing does nothing then change your rank with spoofing and drop a figurine on yourself and it will change permanently', function(value)
@@ -90,7 +90,7 @@ pluto_class Unlocks
     
                 Shared.CrewRank:SetRank(tonumber(value), spoof_crewrank.value)
             end
-        end)
+        end)]]
     
         local unlock_kosatka, unlock_sonar, unlock_guidedmissiles, 
         unlock_weaponworkshop, unlock_sparrow, unlock_avisa
@@ -450,7 +450,7 @@ pluto_class Unlocks
             end
         end, Shared:IsFacilitySleepingQuartersPremierUnlocked())
     
-        hangar:toggle(T'Unlock Hangar', {}, T'Unlock hangar without having to buy it', function(state)
+        --[[hangar:toggle(T'Unlock Hangar', {}, T'Unlock hangar without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockHangar(state)
             end
@@ -460,7 +460,7 @@ pluto_class Unlocks
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockBunker(state)
             end
-        end, Shared:IsBunkerUnlocked())
+        end, Shared:IsBunkerUnlocked())]]
     end
 end
 

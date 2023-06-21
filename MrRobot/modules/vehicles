@@ -230,7 +230,7 @@ local function GetNeonLayout(slot)
 end
 
 local function GetNeonColour(slot)
-    local data <const> = ScriptGlobal(1586468 + 1 + (slot * 142)) -- Global_1586468[func_1155() /*142*/].f_103
+    local data <const> = ScriptGlobal(1586488 + 1 + (slot * 142)) -- Global_1586468[func_1155() /*142*/].f_103
 
     return {
         r = ReadByte(data + Offsets.VehicleNeonColourRed) / 0xFF,
@@ -241,14 +241,14 @@ local function GetNeonColour(slot)
 end
 
 local function ToggleOwnerCheck(state)
-    WriteByte(ScriptGlobal(78558), state and 1 or 0) -- Global_78558
+    WriteByte(ScriptGlobal(78689), state and 1 or 0) -- Global_78558
 end
 
 local function GetPersonalVehicleData(slot=0)
     local pv_slot = ScriptGlobal(PV_SLOT)
     slot = slot ?? ReadInt(ScriptGlobal(PV_SLOT))
 
-    return ScriptGlobal(1586468 + 1 + (slot * 142)) -- Global_1586468[func_1155() /*142*/].f_103
+    return ScriptGlobal(1586488 + 1 + (slot * 142)) -- Global_1586468[func_1155() /*142*/].f_103
 end
 
 local function ClaimVehicle(slot, respawn=false)
@@ -271,7 +271,7 @@ local function ClaimVehicle(slot, respawn=false)
 end
 
 local function GetNetworkId(pid)
-    return ReadInt(ScriptGlobal(2657589 + 1 + (pid * 466) + 38)) -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_38
+    return ReadInt(ScriptGlobal(2657704 + 1 + (pid * 463) + 38)) -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_38
 end
 
 local function GetVehicleFromNetId(pid)
@@ -317,7 +317,7 @@ pluto_class Vehicles
             local nethash = NetworkHashFromPlayerHandle(PLAYER_ID)
             local player_veh = get_user_vehicle_as_pointer()
     
-            local bitset = DecorSetInt(veh, 'MPBitset', DecorGetInt(veh, 'MPBitset') | 0x1000008)
+            DecorSetInt(veh, 'MPBitset', DecorGetInt(veh, 'MPBitset') | 0x1000008)
             ToggleOwnerCheck(false)
             for {'Player_Vehicle', 'Veh_Modded_By_Player'} as decor do DecorSetInt(veh, decor, nethash) end
             for {'Previous_Owner', 'PV_Slot'} as decor do DecorSetInt(veh, decor, 0) end
@@ -350,6 +350,8 @@ pluto_class Vehicles
                 util.yield_once()
                 ref:trigger()
             end
+
+            ToggleOwnerCheck(true)
         end)
     
         Shared.Refs.GiftingDeleteVeh = gifting:action(T'Delete Obstructing Vehicle', {}, T'Delete the invisible vehicle that is left behind when gifting', function()
@@ -955,7 +957,7 @@ pluto_class Vehicles
     
         veh_cm:action(T'Fire Chaff', {}, T'Fire chaff countermeasure', function()
             if IsPedInAnyVehicle(players.user_ped()) then
-                Shared:RequestNamedPtfxAsset ('scr_sm_counter')
+                Shared:RequestNamedPtfxAsset('scr_sm_counter')
                 local veh = GetVehiclePedIsIn(players.user_ped(), false)
                 local timeout = os.time() + 15
                 

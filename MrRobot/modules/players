@@ -89,15 +89,22 @@ enum Bits begin
 end
 
 local function GetNetworkId(pid)
-    return ReadInt(ScriptGlobal(2657589 + 1 + (pid * 466) + 38))
+    return ReadInt(ScriptGlobal(2657704 + 1 + (pid * 463) + 38))
 end
 
 local function SetNetworkId(pid, net_id)
-    WriteInt(ScriptGlobal(2657589 + 1 + (pid * 466) + 38), net_id)
+    WriteInt(ScriptGlobal(2657704 + 1 + (pid * 463) + 38), net_id)
 end
 
 local function GetVehicleFromNetId(pid)
-    return NetToVeh(GetNetworkId(pid))
+    local netid = GetNetworkId(pid)
+    local status, err = pcall(NetToVeh, netid)
+    if not status then
+        return 0
+    else
+        return err
+    end
+    --return NetToVeh(GetNetworkId(pid))
 end
 
 local function DisplayRangeMessage(pid=-1)
@@ -112,7 +119,7 @@ local function GetPersonalVehicleData(slot=0)
     local pv_slot = ScriptGlobal(PV_SLOT)
     slot = slot ?? ReadInt(ScriptGlobal(PV_SLOT))
 
-    return ScriptGlobal(1586468 + 1 + (slot * 142))
+    return ScriptGlobal(1586488 + 1 + (slot * 142))
 end
 
 local function SetPersonalVehicleSlot(slot)
@@ -275,10 +282,11 @@ pluto_class Players
                         end)
                     end)
             
-                    local bounty_active, bounty_amount, bounty_reward
+                    local bounty_active, bounty_amount, bounty_reward, bounty_modded
             
                     local script_events = shadow_root:list(T'Script Events', {}, T'Script Events')
                     local trolling = proot:list(T'Trolling', {}, T'Trolling options')
+                    local friendly = proot:list(T'Friendly', {}, T'Friendly options')
                     local organisation = shadow_root:list(T'Organisation', {}, T'Organisation')
                     local bounty = shadow_root:list(T'Bounty', {}, T'Bounty', function()
                         local ref = ref_by_rel_path(trolling, T'Bounty')
@@ -294,6 +302,7 @@ pluto_class Players
                             bounty_active.menu_name = T'Active' .. ': ' .. (ReadByte(bounty_data) ~= 0)
                             bounty_amount.menu_name = T'Amount' .. ': ' .. (ReadShort(bounty_data + 0x8))
                             bounty_reward.menu_name = T'Reward' .. ': ' .. (ReadShort(reward_data))
+                            bounty_modded.menu_name = T'Modded' .. ': ' .. (ReadByte(bounty_data) ~= 0 and Shared:IsModdedBounty(ReadShort(bounty_data + 0x8)))
                         end)
                     end)
                     local toxic = shadow_root:list(T'Toxic', {}, T'Toxic')
@@ -612,6 +621,7 @@ pluto_class Players
                     bounty_active = bounty:readonly(T'Bounty')
                     bounty_amount = bounty:readonly(T'Amount')
                     bounty_reward = bounty:readonly(T'Reward')
+                    bounty_modded = bounty:readonly(T'Modded')
                     bounty:divider('')
             
                     bounty:action(T'Set Bounty', {}, T'Set an anonymous undetectable bounty on the player, they will never even know that they have a bounty on them', function()
@@ -682,7 +692,7 @@ pluto_class Players
                             local veh = GetVehiclePedIsIn(ped, false)
                             if veh ~= 0 then
                                 local ptr = handle_to_pointer(veh)
-                                Shared:RequestControl_cb(veh, function(control)
+                                Shared:RequestControlCB(veh, function(control)
                                     if control then
                                         for i = 0, 7 do
                                             detach_wheel(ptr, i)
@@ -711,7 +721,7 @@ pluto_class Players
                                 local veh = GetVehiclePedIsIn(ped, false)
                                 if veh ~= 0 then
                                     local ptr = handle_to_pointer(veh)
-                                    Shared:RequestControl_cb(veh, function(control)
+                                    Shared:RequestControlCB(veh, function(control)
                                         if control then
                                             detach_wheel(ptr, wheel_data.index)
                                         else
@@ -729,7 +739,7 @@ pluto_class Players
                             local veh = GetVehiclePedIsIn(ped, false)
                             if veh ~= 0 then
                                 local ptr = handle_to_pointer(veh)
-                                Shared:RequestControl_cb(veh, function(control)
+                                Shared:RequestControlCB(veh, function(control)
                                     if control then
                                         for i = 0, 7 do
                                             detach_wheel(ptr, i)
@@ -748,7 +758,7 @@ pluto_class Players
                         if IsPedInAnyVehicle(ped) then
                             local veh = GetVehiclePedIsIn(ped, false)
                             if veh ~= 0 then
-                                Shared:RequestControl_cb(veh, function(control)
+                                Shared:RequestControlCB(veh, function(control)
                                     if control then
                                         if not IsVehicleAlarmActivated(veh) then
                                             SetVehicleAlarm(veh, true)
@@ -767,7 +777,7 @@ pluto_class Players
                         if IsPedInAnyVehicle(ped) then
                             local veh = GetVehiclePedIsIn(ped, false)
                             if veh ~= 0 then
-                                Shared:RequestControl_cb(veh, function(control)
+                                Shared:RequestControlCB(veh, function(control)
                                     if control then
                                         SetInvertVehicleControls(veh, true)
                                         SetVehicleLightMultiplier(veh, 0.0)
@@ -880,6 +890,26 @@ pluto_class Players
                     function()
                         if Shared:PlayerHasBounty(pid) then
                             Shared:SetPlayerBounty(pid, 0, false)
+                        end
+                    end)
+
+                    local friendly_bounty = friendly:list(T'Bounty', {}, T'Friendly bounty options')
+                    friendly_bounty:toggle_loop(T'Anti-Bounty', {}, T'Prevent other players from placing a bounty on them', function()
+                        if Shared:GetPlayerBounty(pid) > 0 then
+                            Shared:SetPlayerBounty(pid, 0, false)
+                            Shared:SetPlayerBountyReward(pid, 0)
+                        end
+                    end)
+
+                    friendly_bounty:toggle_loop(T'Anti-Modded Bounty', {}, T'Prevent other players from placing a modded bounty on them', function()
+                        local amount = Shared:GetPlayerBounty(pid)
+                        if amount > 0 then
+                            if Shared:IsModdedBounty(amount) then
+                                Shared:SetPlayerBounty(pid, 0, false)
+                                Shared:SetPlayerBountyReward(pid, 0)
+
+                                util.toast(T'Removed $' .. amount .. T' bounty from ' .. name)
+                            end
                         end
                     end)
                 end

@@ -17,7 +17,7 @@ Step 1: Download MrRobot.lua
 Step 2: Open %appdata%\Stand\Lua Scripts
 Step 3: Copy MrRobot.lua into this directory and you're done
 
-When you run the script all the that are needed are downloaded for you
+When you run the script all the files that are needed will be downloaded for you
 ```
     
 ## Support

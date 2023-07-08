@@ -51,10 +51,9 @@ local SetPackedStatBoolCode = Shared.SetPackedStatBoolCode
 
 pluto_class Collectables
     function __construct()
-        self.root = root:list(T'Collectables', {}, T'Collectables collectibles make up your fucking mind Rockstar')
-        local collectables = self.root
+        self.root = root:list(T'Collectables', {T'rcollectables'}, T'Collectables')
 
-        collectables:action(T'Find All', {}, T'Finds most collectables not all of them', function()
+        self.root:action(T'Find All', {}, T'Finds most collectables not all of them', function()
             for i = 26811, 26910 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
             for i = 28099, 28148 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
             for i = 30241, 30250 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
@@ -72,21 +71,21 @@ pluto_class Collectables
         -- 34262 - 34361 = ld organics
         -- 36630 - 36654 = snowmen
     
-        local casino = collectables:list(T'Casino', {}, T'Casino')
-        local jammers = collectables:list(T'Signal Jammers', {}, T'Signal Jammers')
-        local figures = collectables:list(T'Figurines', {}, T'Figurines')
-        local ld_organics = collectables:list(T'LD Organics', {}, T'LD Organics')
-        local snowmen = collectables:list(T'Snowmen', {}, T'Snowmen')
-    
-        figures:action(T'Find All Actions Figures', {}, T'Instantly find all action figures', function()
-            for i = 26811, 26910 do
-                SetPackedStatBoolCode(i, true, CHAR_SLOT)
-            end
-    
-            Toast('Join a new session to apply the changes!')
-        end)
-    
-        casino:action(T'Find All Cards', {}, T'Instantly find all the cards', function()
+        self.casino = self.root:list(T'Casino', {}, T'Casino')
+        self.jammers = self.root:list(T'Signal Jammers', {}, T'Signal Jammers')
+        self.figures = self.root:list(T'Figurines', {}, T'Figurines')
+        self.ld_organics = self.root:list(T'LD Organics', {}, T'LD Organics')
+        self.snowmen = self.root:list(T'Snowmen', {}, T'Snowmen')
+
+        self:CreateCasino()
+        self:CreateJammers()
+        self:CreateFigurines()
+        self:CreateLdOrganics()
+        self:CreateSnowmen()
+    end
+
+    function CreateCasino()
+        self.casino:action(T'Find All Cards', {}, T'Instantly find all the cards', function()
             for i = 26911, 26964 do
                 SetPackedStatBoolCode(i, true, CHAR_SLOT)
             end
@@ -94,7 +93,7 @@ pluto_class Collectables
             Toast('Join a new session to apply the changes!')
         end)
     
-        casino:toggle(T'Show All Cards', {}, T'Adds a blip at location of each card', function(state)
+        self.casino:toggle(T'Show All Cards', {}, T'Adds a blip at location of each card', function(state)
             if state then
                 for i, vector in pairs(Shared.Data.CasinoCards) do
                     local blip = AddBlipForCoord(vector.x, vector.y, vector.z)
@@ -109,7 +108,7 @@ pluto_class Collectables
             end
         end)
     
-        casino:toggle_loop(T'Collect Nearby Cards', {}, T'Automatically collect casino cards when they\'re within range', function()
+        self.casino:toggle_loop(T'Collect Nearby Cards', {}, T'Automatically collect casino cards when they\'re within range', function()
             local pos = GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
     
             for i, entity in pairs(GetAllPickupsAsPointers()) do
@@ -121,7 +120,7 @@ pluto_class Collectables
             end
         end)
     
-        casino:action(T'Teleport To Cards', {}, T'Teleports you to each card location and collects it for you', function()
+        self.casino:action(T'Teleport To Cards', {}, T'Teleports you to each card location and collects it for you', function()
             local ref = RefByRelPath(casino, T'Collect Nearby Cards')
             local ped = players.user_ped()
             
@@ -140,8 +139,10 @@ pluto_class Collectables
     
             if ref:isValid() then ref.value = false end
         end)
-    
-        jammers:action(T'Unlock Avi Schwartzman', {}, T'Unlocks Avi Schwartzman', function()
+    end
+
+    function CreateJammers()
+        self.jammers:action(T'Unlock Avi Schwartzman', {}, T'Unlocks Avi Schwartzman', function()
             for i = 28099, 28148 do
                 SetPackedStatBoolCode(i, true, CHAR_SLOT)
             end
@@ -149,7 +150,7 @@ pluto_class Collectables
             Toast('Join a new session to apply the changes!')
         end)
     
-        jammers:toggle(T'Show All Jammers', {}, T'Adds a blip showing the location of each jammer on the map', function(state)
+        self.jammers:toggle(T'Show All Jammers', {}, T'Adds a blip showing the location of each jammer on the map', function(state)
             if state then
                 for i, vector in pairs(Shared.Data.SignalJammers) do
                     local blip = AddBlipForCoord(vector.x, vector.y, vector.z)
@@ -165,7 +166,7 @@ pluto_class Collectables
             end
         end)
     
-        jammers:action(T'Destroy The Jammers', {}, T'Teleports you to each jammer and makes it go kaboom', function()
+        self.jammers:action(T'Destroy The Jammers', {}, T'Teleports you to each jammer and makes it go kaboom', function()
             godmode_ref.value = true
             local ped = players.user_ped()
     
@@ -179,16 +180,30 @@ pluto_class Collectables
     
             godmode_ref.value = false
         end)
+    end
+
+    function CreateFigurines()
+        self.figures:action(T'Find All Actions Figures', {}, T'Instantly find all action figures', function()
+            for i = 26811, 26910 do
+                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+            end
     
-        ld_organics:action(T'Find All LD Organics', {}, T'Instantly find all LD organics', function()
+            Toast('Join a new session to apply the changes!')
+        end)
+    end
+
+    function CreateLdOrganics()
+        self.ld_organics:action(T'Find All LD Organics', {}, T'Instantly find all LD organics', function()
             for i = 34262, 34361 do
                 SetPackedStatBoolCode(i, true, CHAR_SLOT)
             end
     
             Toast('Join a new session to apply the changes!')
         end)
-    
-        snowmen:action(T'Find All Snowmen', {}, T'Instantly find all snowmen', function()
+    end
+
+    function CreateSnowmen()
+        self.snowmen:action(T'Find All Snowmen', {}, T'Instantly find all snowmen', function()
             for i = 36630, 36654 do
                 SetPackedStatBoolCode(i, true, CHAR_SLOT)
             end

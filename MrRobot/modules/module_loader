@@ -11,7 +11,7 @@ pluto_class ModuleLoader
     function __construct()
         self.root = root:list(
             T'Module Loader', 
-            {}, 
+            {T'rmodloader'}, 
             T'Load custom modules into the script, within your custom module you can extend the functionality of the script and add things that you want into it with very little effort, this cannot be used for loading scripts like AcjokerScript, NovaScript, LanceScript, Kepler, SoulScript, HexaScript',
             function()
                 self:ModuleListUpdater()
@@ -24,16 +24,14 @@ pluto_class ModuleLoader
         self.total_files = #fs.list_files(script_custom)
         self.flag = false
 
-        local custom = self.root
-
-        custom:action(T'Open Folder', {}, T'Open custom modules folder', function()
+        self.root:action(T'Open Folder', {}, T'Open custom modules folder', function()
             util.open_folder(script_custom)
         end)
 
         self:CreateRepo()
         self:UpdateModulesList()
 
-        custom:divider('')
+        self.root:divider('')
         self:FindModules()
     end
 
@@ -68,7 +66,7 @@ pluto_class ModuleLoader
         local custom = self.root
         for fs.list_files(script_custom) as file do
             local name = file:match('^.+/(.+)$'):gsub('\\', '/'):sub(8)
-            local mod_list = custom:list(name, {}, '')
+            local mod_list = self.root:list(name, {}, '')
             mod_list:action(T'Load', {}, T'Load the module', function()
                 local loading_start = util.current_time_millis()
                 menu.my_root = || -> mod_list

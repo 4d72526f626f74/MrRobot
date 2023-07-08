@@ -212,6 +212,7 @@ local handling_get_subhandling = entities.handling_get_subhandling
 local set_can_migrate = entities.set_can_migrate
 
 local GetPlayerPed = Shared.GetPlayerPed
+local SpoofScript = Shared.SpoofScript
 
 local function GetNeonLayout(slot)
     local data <const> = ScriptGlobal(1586468 + 1 + (slot * 142))
@@ -255,12 +256,12 @@ local function ClaimVehicle(slot, respawn=false)
     local data = GetPersonalVehicleData(slot)
     local bitfield = Bitfield.new(ReadByte(data + Offsets.VehicleBitfield))
 
-    if bitfield:BitTest(1 << 1) or bitfield:BitTest(1 << 6) then
-        bitfield:BitClear(0x23)
+    if bitfield:IsSet(Shared.VehicleBitfield.Destroyed) or bitfield:IsSet(Shared.VehicleBitfield.Impounded) then
+        bitfield:Clear(0x23)
         if not respawn then
-            bitfield:BitSet(1 << 2)
+            bitfield:Set(Shared.VehicleBitfield.Insured)
         else
-            bitfield:BitSet(0x5)
+            bitfield:Set(0x5)
         end
 
         bitfield(data + Offsets.VehicleBitfield, 8)
@@ -296,11 +297,335 @@ end
 
 pluto_class Vehicles
     function __construct()
-        local vehicles = root:list(T'Vehicles', {}, T'Vehicles options')
-        local gifting = vehicles:list(T'Gifting', {}, T'Gifting options')
-        local mors = vehicles:list(T'Mors Mutual', {}, T'Mors Mutual Insurance')
+        self.vehicles = root:list(T'Vehicles', {T'rvehicles'}, T'Vehicles options')
+        self.gifting = self.vehicles:list(T'Gifting', {}, T'Gifting options')
+        self.mors = self.vehicles:list(T'Mors Mutual', {}, T'Mors Mutual Insurance')
+
+        self:CreateGiftingOptions()
+        self:CreateMorsOptions()
+        self:CreatePVManager()
+        self:CreateCounterMeasures()
+        self:CreateTunableOptions()
+        self:CreateHandlingEditor()
     
-        gifting:action(T'Gift Vehicle', {T'giftself'}, T'Improved version of Stand\'s native vehicle gifting option', function()
+        local AIHandling = {
+            'AVERAGE',
+            'TRUCK',
+            'CRAP',
+            'SPORTS_CAR'
+        }
+    
+        self.vehicles:toggle_loop(T'Improved Wheelie', {T'rimprovedwheelie'}, T'Improves the wheelie handling of bikes, allowing you to wheelie at high speeds and lean back pretty far', function(state)
+            if IsPedInAnyVehicle(players.user_ped()) then
+                local veh = get_user_vehicle_as_pointer()
+                if veh ~= 0 then
+                    local CHandlingData = vehicle_get_handling(veh)
+                    local CBikeHandlingData = handling_get_subhandling(CHandlingData, 0)
+
+                    if CBikeHandlingData ~= 0 then
+                        if ReadFloat(CBikeHandlingData + 0x14) ~= 25.0 then
+                            WriteFloat(CBikeHandlingData + 0x14, 25.0)
+                        end
+
+                        if ReadFloat(CBikeHandlingData + 0x3C) ~= -60.0 then
+                            WriteFloat(CBikeHandlingData + 0x3C, -60.0)
+                        end
+
+                        if ReadFloat(CBikeHandlingData + 0x40) ~= 70.0 then
+                            WriteFloat(CBikeHandlingData + 0x40, 70.0)
+                        end
+                    end
+                end
+            end
+        end,
+        function()
+            if IsPedInAnyVehicle(players.user_ped()) then
+                local veh = get_user_vehicle_as_pointer()
+                if veh ~= 0 then
+                    local CHandlingData = vehicle_get_handling(veh)
+                    local CBikeHandlingData = handling_get_subhandling(CHandlingData, 0)
+
+                    if CBikeHandlingData ~= 0 then
+                        WriteFloat(CBikeHandlingData + 0x14, 13.0)
+                        WriteFloat(CBikeHandlingData + 0x3C, -1.0)
+                        WriteFloat(CBikeHandlingData + 0x40, 60.0)
+                    end
+                end
+            end
+        end)
+    
+        self.vehicles:toggle_loop(T'BMX Superjump', {T'rbmxsuperjump'}, T'Jump higher on a BMX', function()
+            if IsPedInAnyVehicle(players.user_ped()) then
+                local veh = get_user_vehicle_as_pointer()
+                if veh ~= 0 then
+                    local CHandlingData = vehicle_get_handling(veh)
+                    local CBikeHandlingData = handling_get_subhandling(CHandlingData, 0)
+
+                    if CBikeHandlingData ~= 0 then
+                        if ReadFloat(CBikeHandlingData + 0x58) ~= 20.0 then
+                            WriteFloat(CBikeHandlingData + 0x58, 20.0)
+                        end
+                    end
+                end
+            end
+        end,
+        function()
+            if IsPedInAnyVehicle(players.user_ped()) then
+                local veh = get_user_vehicle_as_pointer()
+                if veh ~= 0 then
+                    local CHandlingData = vehicle_get_handling(veh)
+                    local CBikeHandlingData = handling_get_subhandling(CHandlingData, 0)
+
+                    if CBikeHandlingData ~= 0 then
+                        WriteFloat(CBikeHandlingData + 0x58, 5.0)
+                    end
+                end
+            end
+        end)
+    
+        self.vehicles:toggle(T'Enable Kers', {}, T'Enables kers on the vehicle', function(state)
+            if IsPedInAnyVehicle(players.user_ped()) then
+                local veh = get_user_vehicle_as_pointer()
+                if veh ~= 0 then
+                    local CHandlingData = vehicle_get_handling(veh)
+                    local CCarHandlingData = handling_get_subhandling(CHandlingData, 8)
+                    WriteInt(CHandlingData + 0x128, state and ReadInt(CHandlingData + 0x128) | (1 << 2) or ReadInt(CHandlingData + 0x128) & ~(1 << 2))
+                    SetVehicleKersAllowed(pointer_to_handle(veh), true)
+                end
+            else
+                local ref = ref_by_rel_path(vehicles, 'Enable Kers')
+                ref.value = false
+            end
+        end)
+    
+        self.vehicles:toggle_loop(T'Horn Boost', {T'rhornboost'}, T'Boost your vehicle by honking', function(state)
+            local veh = GetPedVehicle(players.user_ped())
+    
+            if veh ~= 0 then
+                local speed = ref_by_rel_path(vehicles, 'Horn Boost Speed')
+                local relative = ref_by_rel_path(vehicles, 'Horn Boost Speed Relative')
+                if IsPlayerPressingHorn(PLAYER_ID) then
+                    if not relative.value then
+                        SetVehicleForwardSpeed(veh, speed.value)
+                    else
+                        SetVehicleForwardSpeed(veh, GetEntitySpeed(veh) + speed.value)
+                    end
+                end
+            else
+                local ref = ref_by_rel_path(vehicles, 'Horn Boost')
+                ref.value = false
+            end
+        end)
+    
+        self.vehicles:toggle(T'Nitrous', {}, T'Enable nitrous for your current vehicle', function()
+            local power = ref_by_rel_path(vehicles, 'Nitrous Power').value / 100
+            local level = ref_by_rel_path(vehicles, 'Nitrous Level').value / 100
+            local toggle = false
+    
+            if IsPedInAnyVehicle(players.user_ped()) then
+                local veh = GetPedVehicle(players.user_ped())
+                if veh ~= 0 then
+                    local nitro = ref_by_rel_path(vehicles, 'Nitrous')
+                    util.create_tick_handler(function()
+                        if not nitro.value then
+                            SetOverrideNitrousLevel(veh, false, level, power, 1.0, false)
+                            return false
+                        end
+    
+                        if is_key_down(0x58) then
+                            toggle = not toggle
+                        end
+    
+                        if toggle then
+                            SetOverrideNitrousLevel(veh, true, level, power, 1.0, false)
+                        end
+    
+                        SetOverrideNitrousLevel(veh, toggle, level, power, 1.0, false)
+    
+                        util.yield(150)
+                    end)
+                end
+            end
+        end)
+    
+        self.vehicles:toggle_loop(T'Drift', {}, T'Hold shift to drift', function()
+            local veh = GetPedVehicle(players.user_ped())
+                if veh ~= 0 then
+                    if is_key_down(0xA0) then
+                        SetDriftTyres(veh, true)
+                    else
+                        SetDriftTyres(veh, false)
+                    end
+                end
+    
+            util.yield(120)
+        end,
+        function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~+ 0 then
+                SetDriftTyres(veh, false)
+            end
+        end)
+    
+        self.vehicles:toggle(T'Interior Light', {}, T'Enables the dashboard light within your vehicle', function(state)
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                SetVehicleInteriorlight(veh, state)
+                SetVehicleForceInteriorlight(veh, state)
+            end
+        end)
+    
+        self.vehicles:toggle_loop(T'Set Torque Multiplier', {}, T'Set the torque multiplier of your vehicle', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                local torque = ref_by_rel_path(vehicles, 'Torque Multiplier')
+                SetVehicleCheatPowerIncrease(veh, torque.value / 100)
+            end
+    
+            util.yield(120)
+        end)
+    
+        self.vehicles:toggle(T'Inverted Controls', {}, T'Inverts the controls of your vehicle', function(state)
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                SetInvertVehicleControls(veh, state)
+            end
+        end)
+    
+        self.vehicles:toggle(T'Vehicle No Migrate', {}, T'Prevents anyone else in the session from taking control of your vehicle ever (even when you are not using it)', function(state)
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                local ptr = handle_to_pointer(veh)
+                set_can_migrate(ptr, not state)
+            end
+        end)
+
+        self.vehicles:divider('')
+    
+        self.vehicles:action(T'Change License Plate', {}, T'Change the license plate of your vehicle', function()
+            local veh = GetPedVehicle(players.user_ped())
+            local personal = GetVehicleFromNetId(PLAYER_ID)
+    
+            if veh ~= personal then
+                local plate = Shared.DisplayOnscreenKeyboard()
+                SetVehicleNumberPlateText(veh, plate)
+            else
+                local pv_slot = ScriptGlobal(PV_SLOT)
+                local data = GetPersonalVehicleData(ReadInt(pv_slot))
+                local plate = Shared.DisplayOnscreenKeyboard()
+                WriteString(data + Offsets.LicensePlate, plate)
+            end
+        end)
+    
+    
+    
+        self.vehicles:list_select(T'AIHandling', {}, T'Change the vehicles handling meta', AIHandling, 1, function(index)
+            local value = AIHandling[index]
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                SetVehicleHandlingOverride(veh, joaat(value))
+                util.toast(T'Changed handling to ' .. value)
+            end
+        end)
+    
+        self.vehicles:action(T'Detach Windscreen', {}, T'Detach the windscreen of your vehicle', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                PopOutVehicleWindscreen(veh)
+            end
+        end)
+    
+        self.vehicles:action(T'Pop Off Roof', {}, T'Pops off the roof, does not work for all vehicles', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                PopOffVehicleRoofWithImpulse(veh, 0.0, 0.0, 0.0)
+            end
+        end)
+    
+        self.vehicles:action(T'Smash Windows', {}, T'Smash all the windows of your vehicle', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                for i = 0, 7 do
+                    SmashVehicleWindow(veh, i)
+                end
+            end
+        end)
+    
+        self.vehicles:action(T'Roll Down Windows', {}, T'Roll down all the windows of your vehicle', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                RollDownWindows(veh)
+            end
+        end)
+    
+        self.vehicles:action(T'Roll Up Windows', {}, T'Roll up all the windows of your vehicle', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                for i = 0, 7 do
+                    RollUpWindow(veh, i)
+                end
+            end
+        end)
+    
+        self.vehicles:action(T'Fix Windows', {}, T'Fix all the windows of your vehicle', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                for i = 0, 7 do
+                    FixVehicleWindow(veh, i)
+                end
+            end
+        end)
+    
+        self.vehicles:action(T'Remove Windows', {}, T'Remove all the windows of your vehicle', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                for i = 0, 7 do
+                    RemoveVehicleWindow(veh, i)
+                end
+            end
+        end)
+    
+        self.vehicles:action(T'Fix Vehicle', {}, T'Fixes the vehicle, what else?', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                SetVehicleFixed(veh)
+            end
+        end)
+    
+        self.vehicles:action(T'Fix Deformation', {}, T'Fixes deformation but doesn\'t restore the vehicles health', function()
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                SetVehicleDeformationFixed(veh)
+            end
+        end)
+    
+        self.vehicles:divider('')
+    
+        self.vehicles:slider(T'Horn Boost Speed', {T'rhornboostspeed'}, T'Set the speed of the Horn Boost', 0, Shared.MAX_INT, 100, 1, function(value) end)
+        self.vehicles:toggle(T'Horn Boost Speed Relative', {T'rhornboostrelspeed'}, T'Make the horn boost speed be added relative to your current speed', function() end)
+        self.vehicles:slider_float(T'Nitrous Level', {T'rnitrouslevel'}, T'Set the nitrous level', 0.0, Shared.MAX_FLOAT, 5.0 * 100, 1.0 * 100, function(value) end)
+        self.vehicles:slider_float(T'Nitrous Power', {T'rnitrouspower'}, T'Set the power of the nitrous', 0.0, Shared.MAX_FLOAT, 5.0 * 100, 1.0 * 100, function(value) end)
+    
+        self.vehicles:slider_float(T'Vehicle Headlight Multiplier', {T'rvehlightmultiplier'}, T'Set the multiplier for vehicle lights', 0.0, Shared.MAX_FLOAT, 1.0 * 100, 1.0 * 100, function(value) 
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                SetVehicleLightMultiplier(veh, value / 100)
+            end
+        end)
+    
+        self.vehicles:slider_float(T'Set Max Speed', {T'rmaxspeed'}, T'Set the max speed of the vehicle', 0.0, Shared.MAX_FLOAT, 0.0, 1.0 * 100, function(value) 
+            local veh = GetPedVehicle(players.user_ped())
+            if veh ~= 0 then
+                SetVehicleMaxSpeed(veh, value / 100)
+                SetEntityMaxSpeed(veh, value / 100)
+            end
+        end)
+    
+        self.vehicles:slider_float(T'Torque Multiplier', {T'rtorquemultiplier'}, T'Set the torque multiplier of the vehicle', 0.0, Shared.MAX_FLOAT, 1.0 * 100, 1.0 * 100, function(value) end)
+    end
+
+    function CreateGiftingOptions()
+        self.gifting:action(T'Gift Vehicle', {T'giftself'}, T'Improved version of Stand\'s native vehicle gifting option', function()
             local ped = players.user_ped()
             
             if not IsPedInAnyVehicle(ped, false) then
@@ -354,7 +679,7 @@ pluto_class Vehicles
             ToggleOwnerCheck(true)
         end)
     
-        Shared.Refs.GiftingDeleteVeh = gifting:action(T'Delete Obstructing Vehicle', {}, T'Delete the invisible vehicle that is left behind when gifting', function()
+        Shared.Refs.GiftingDeleteVeh = self.gifting:action(T'Delete Obstructing Vehicle', {}, T'Delete the invisible vehicle that is left behind when gifting', function()
             for get_all_vehicles_as_pointers() as entity do
                 local handle = pointer_to_handle(entity)
                 local veh_pos = get_position(entity)
@@ -365,33 +690,35 @@ pluto_class Vehicles
                 end
             end
         end)
+    end
+
+    function CreateMorsOptions()
+        self.mors:divider(T'Settings')
     
-        mors:divider(T'Settings')
+        self.mors:toggle(T'Respawn Next To You', {}, T'Respawns your vehicle next to you after it is claimed', function(state) end)
     
-        mors:toggle(T'Respawn Next To You', {}, T'Respawns your vehicle next to you after it is claimed', function(state) end)
+        self.mors:divider('')
     
-        mors:divider('')
-    
-        mors:action(T'Claim All Personal Vehicles', {}, T'Claims all your personal vehicles from mors mutual', function()
+        self.mors:action(T'Claim All Personal Vehicles', {}, T'Claims all your personal vehicles from mors mutual', function()
             for slot = 0, 415 do
                 ClaimVehicle(slot)
             end
         end)
     
-        mors:action(T'Claim Personal Vehicle', {}, T'Claim your current active personal vehicle', function()
+        self.mors:action(T'Claim Personal Vehicle', {}, T'Claim your current active personal vehicle', function()
             ClaimVehicle(ReadShort(ScriptGlobal(PV_SLOT)), ref_by_rel_path(mors, T'Respawn Next To You').value)
         end)
     
-        mors:action(T'Add Temp Insurance', {}, T'Temporarily insures your personal vehicle, you need to goto ls customs and change any upgrade for this to stick', function()
+        self.mors:action(T'Add Temp Insurance', {}, T'Temporarily insures your personal vehicle, you need to goto ls customs and change any upgrade for this to stick', function()
             local data = GetPersonalVehicleData(slot)
             local bitfield = Bitfield.new(ReadInt(data + Offsets.VehicleBitfield))
             
-            if bitfield:BitTest(1 << 2) then
+            if bitfield:IsSet(1 << 2) then
                 local model = get_label_text(reverse_joaat(ReadInt(data + Offsets.VehicleModel)))
                 util.toast(T'Your ' .. model .. T' is already insured')
                 model = nil
             else
-                bitfield:BitSet(0x400904)
+                bitfield:Set(0x400904)
                 bitfield(data + Offsets.VehicleBitfield, 32)
                 util.toast(T'WARNING: You need to goto ls customs and change any upgrade for this to stick')
             end
@@ -400,26 +727,26 @@ pluto_class Vehicles
             data = nil
         end)
     
-        mors:divider('')
+        self.mors:divider('')
     
-        mors:toggle_loop(T'Auto Claim All', {}, T'Automatically claims all your personal vehicles from mors mutual', function()
+        self.mors:toggle_loop(T'Auto Claim All', {}, T'Automatically claims all your personal vehicles from mors mutual', function()
             ref_by_rel_path(mors, T'Claim All Personal Vehicles'):trigger()
         end)
     
-        mors:toggle_loop(T'Auto Claim', {}, T'Automatically claims your current active personal vehicle', function()
+        self.mors:toggle_loop(T'Auto Claim', {}, T'Automatically claims your current active personal vehicle', function()
             ref_by_rel_path(mors, T'Claim Personal Vehicle'):trigger()
         end)
     
-        mors:toggle_loop(T'Auto Add Temp Insurance', {}, T'Automatically insures your personal vehicle, you need to goto ls customs and change any upgrade for this to stick', function()
+        self.mors:toggle_loop(T'Auto Add Temp Insurance', {}, T'Automatically insures your personal vehicle, you need to goto ls customs and change any upgrade for this to stick', function()
             local data = GetPersonalVehicleData(slot)
             local bitfield = Bitfield.new(ReadInt(data + Offsets.VehicleBitfield))
             
-            if bitfield:BitTest(1 << 2) then
+            if bitfield:IsSet(1 << 2) then
                 local model = get_label_text(reverse_joaat(ReadInt(data + Offsets.VehicleModel)))
                 util.toast(T'Your ' .. model .. T' is already insured')
                 model = nil
             else
-                bitfield:BitSet(0x400904)
+                bitfield:Set(0x400904)
                 bitfield(data + Offsets.VehicleBitfield, 32)
                 util.toast(T'WARNING: You need to goto ls customs and change any upgrade for this to stick')
             end
@@ -431,10 +758,12 @@ pluto_class Vehicles
         -- just like in online and self_options we are using relative offsets instead of excessively calling ScriptGlobal
         -- we are doing this to avoid the overhead of calling ScriptGlobal when we can just add a relative offset to the base address
         -- which is faster and more efficient
-    
-        local pv_manager = vehicles:list(T'Personal Vehicle Manager', {}, T'Personal Vehicle Manager', function()
+    end
+
+    function CreatePVManager()
+        local pv_manager = self.vehicles:list(T'Personal Vehicle Manager', {}, T'Personal Vehicle Manager', function()
             local pv_slot = ScriptGlobal(PV_SLOT)
-            local ref = ref_by_rel_path(vehicles, T'Personal Vehicle Manager')
+            local ref = ref_by_rel_path(self.vehicles, T'Personal Vehicle Manager')
     
             for ref:getChildren() as child do
                 if child:isValid() then child:delete() end
@@ -473,12 +802,12 @@ pluto_class Vehicles
                             bitfield.value = ReadInt(data + Offsets.VehicleBitfield)
                             v_slot.menu_name = T'Slot' .. ': ' .. slot
                             pv_plate.menu_name = T'Plate' .. ': ' .. ReadString(data + Offsets.LicensePlate)
-                            is_active.menu_name = T'Active' .. ': ' .. (bitfield:BitTest(1 << 0) ? 'Yes' : 'No')
-                            is_destroyed.menu_name = T'Destroyed' .. ': ' .. (bitfield:BitTest(1 << 1) ? 'Yes' : 'No')
-                            is_insured.menu_name = T'Insured' .. ': ' .. (bitfield:BitTest(1 << 2) ? 'Yes' : 'No')
-                            is_impounded.menu_name = T'Impounded' .. ': ' .. (bitfield:BitTest(1 << 6) ? 'Yes' : 'No')
-                            is_delivered.menu_name = T'Delivered' .. ': ' .. (not bitfield:BitTest(1 << 10) ? 'Yes' : 'No')
-                            is_mors_spawn.menu_name = T'Mors Spawn' .. ': ' .. (bitfield:BitTest(1 << 11) ? 'Yes' : 'No')
+                            is_active.menu_name = T'Active' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.Active) ? 'Yes' : 'No')
+                            is_destroyed.menu_name = T'Destroyed' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.Destroyed) ? 'Yes' : 'No')
+                            is_insured.menu_name = T'Insured' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.Insured) ? 'Yes' : 'No')
+                            is_impounded.menu_name = T'Impounded' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.Impounded) ? 'Yes' : 'No')
+                            is_delivered.menu_name = T'Delivered' .. ': ' .. (not bitfield:IsSet(Shared.VehicleBitfield.Delivered) ? 'Yes' : 'No')
+                            is_mors_spawn.menu_name = T'Mors Spawn' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.SpawnMorsMutual) ? 'Yes' : 'No')
                             pv_bitfield.menu_name = T'Bitfield' .. ': ' .. string.format('0x%X', bitfield.value)
                             pv_radio.menu_name = T'Radio' .. ': ' .. ReadString(data + Offsets.VehicleRadio)
                         end)
@@ -486,49 +815,58 @@ pluto_class Vehicles
     
                     v_slot = pv:readonly(T'Slot' .. ': ' .. slot, '')
                     pv_plate = pv:readonly(T'Plate' .. ': ' .. ReadString(data + Offsets.LicensePlate), '')
-                    is_active = pv:readonly(T'Active' .. ': ' .. (bitfield:BitTest(1 << 0) ? 'Yes' : 'No'), '')
-                    is_destroyed = pv:readonly(T'Destroyed' .. ': ' .. (bitfield:BitTest(1 << 1) ? 'Yes' : 'No'), '')
-                    is_insured = pv:readonly(T'Insured' .. ': ' .. (bitfield:BitTest(1 << 2) ? 'Yes' : 'No'), '')
-                    is_impounded = pv:readonly(T'Impounded' .. ': ' .. (bitfield:BitTest(1 << 6) ? 'Yes' : 'No'), '')
-                    is_delivered = pv:readonly(T'Delivered' .. ': ' .. (not (bitfield:BitTest(1 << 10)) ? 'Yes' : 'No'), '')
-                    is_mors_spawn = pv:readonly(T'Mors Spawn' .. ': ' .. (bitfield:BitTest(1 << 11) ? 'Yes' : 'No'), '')
+                    is_active = pv:readonly(T'Active' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.Active) ? 'Yes' : 'No'), '')
+                    is_destroyed = pv:readonly(T'Destroyed' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.Destroyed) ? 'Yes' : 'No'), '')
+                    is_insured = pv:readonly(T'Insured' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.Insured) ? 'Yes' : 'No'), '')
+                    is_impounded = pv:readonly(T'Impounded' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.Impounded) ? 'Yes' : 'No'), '')
+                    is_delivered = pv:readonly(T'Delivered' .. ': ' .. (not (bitfield:IsSet(Shared.VehicleBitfield.Delivered)) ? 'Yes' : 'No'), '')
+                    is_mors_spawn = pv:readonly(T'Mors Spawn' .. ': ' .. (bitfield:IsSet(Shared.VehicleBitfield.SpawnMorsMutual) ? 'Yes' : 'No'), '')
                     pv_bitfield = pv:readonly(T'Bitfield' .. ': ' .. string.format('0x%X', bitfield.value), '')
                     pv_radio = pv:readonly(T'Radio' .. ': ' .. ReadString(data + Offsets.VehicleRadio), '')
     
                     pv:divider('')
                     pv:action(T'Request', {}, '', function()
                         WriteByte(pv_slot, slot)
-                        if bitfield:BitTest(1 << 1) or bitfield:BitTest(1 << 6) then
-                            bitfield:BitClear(0x23)
+                        
+                        if bitfield:IsSet(Shared.VehicleBitfield.Destroyed) or bitfield:IsSet(Shared.VehicleBitfield.Impounded) then
+                            bitfield:Clear(0x23)
                             bitfield(data + Offsets.VehicleBitfield, 32)
                         end
-                        bitfield:BitSet(1 << 0)
+                        
+                        bitfield:Set(Shared.VehicleBitfield.Request)
                         bitfield(data + Offsets.VehicleBitfield, 32)
+                    end)
+
+                    pv:action(T'Request As Pegasus', {}, '', function()
+                        Shared:RequestPegasusVehicle(Shared.ReadInt(data + Offsets.VehicleModel))
                     end)
     
                     local return_ref
                     return_ref = pv:action(T'Return', {}, '', function()
                         WriteByte(pv_slot, slot)
-                        bitfield:BitClear(1 << 0)
+                        bitfield:Clear(Shared.VehicleBitfield.Request)
                         bitfield(data + Offsets.VehicleBitfield, 32)
                     end)
     
                     pv:action(T'Instant Delivery', {}, '', function()
-                        bitfield:BitClear(1 << 10)
+                        bitfield:Clear(Shared.VehicleBitfield.Delivered)
                         bitfield(data + Offsets.VehicleBitfield, 32)
                     end)
     
                     pv:action(T'Claim', {}, '', function()
-                        if bitfield:BitTest(1 << 1) or bitfield:BitTest(1 << 6) then
-                            bitfield:BitClear(0x23)
+                        if bitfield:IsSet(Shared.VehicleBitfield.Destroyed) or bitfield:IsSet(Shared.VehicleBitfield.Impounded) then
+                            bitfield:Clear(0x23)
                             bitfield(data + Offsets.VehicleBitfield, 32)
                         end
                     end)
     
                     pv:action(T'Delete', {}, '', function()
-                        bitfield:BitClear(0xFFFFFFFF)
+                        bitfield:Clear(Shared.VehicleBitfield.Request)
                         bitfield(data + Offsets.VehicleBitfield, 32)
-                        bitfield:BitSet(0x10041)
+                        util.yield_once()
+                        bitfield:Clear(0xFFFFFFFF)
+                        bitfield(data + Offsets.VehicleBitfield, 32)
+                        bitfield:Set(0x10041)
                         bitfield(data + Offsets.VehicleBitfield, 32)
                         util.yield(1000)
                         return_ref:trigger()
@@ -916,19 +1254,21 @@ pluto_class Vehicles
                     for i = 0, 32 do
                         veh_bitfield:toggle('Bit ' .. i, {}, '', function(state)
                             if state then
-                                bitfield:BitSet(1 << i)
+                                bitfield:Set(1 << i)
                             else
-                                bitfield:BitClear(1 << i)
+                                bitfield:Clear(1 << i)
                             end
     
                             bitfield(data + Offsets.VehicleBitfield, 32)
-                        end, bitfield:BitTest(1 << i))
+                        end, bitfield:IsSet(1 << i))
                     end
                 end
             end
         end)
-    
-        local veh_cm = vehicles:list(T'Countermeasures', {}, T'Vehicle counter measures')
+    end
+
+    function CreateCounterMeasures()
+        local veh_cm = self.vehicles:list(T'Countermeasures', {}, T'Vehicle counter measures')
         veh_cm:action(T'Fire Flares', {}, T'Fire flare countermeasure', function()
             if IsPedInAnyVehicle(players.user_ped()) then
                 local veh = GetVehiclePedIsIn(players.user_ped(), false)
@@ -988,22 +1328,10 @@ pluto_class Vehicles
                 end
             end
         end)
-    
-        veh_cm:divider('')
-    
-        veh_cm:toggle_loop(T'Auto Flares', {}, T'Automatically fire flares when there is a hostile projectile closing in', function()
-            for get_all_objects_as_pointers() as entity do
-                local model = reverse_joaat(get_model_hash(entity))
-                if model:find('rocket') or model:find('homing') or model:find('missile') or model:find('rpg') then
-                    ref_by_rel_path(veh_cm, T'Fire Flares'):trigger()
-                    if model:find('flare') then
-                        Shared.DeleteByPointer(entity)
-                    end
-                end
-            end
-        end)
-    
-        local tunables = vehicles:list(T'Tunables', {}, T'Vehicle tunables')
+    end
+
+    function CreateTunableOptions()
+        local tunables = self.vehicles:list(T'Tunables', {}, T'Vehicle tunables')
     
         tunables:action(T'Remove Vehicle Sell Timer', {}, T'Remove sell timer so you can sell as many vehicles as you want', function()
             StatSetInt(util.joaat('MPPLY_VEHICLE_SELL_TIME'), 0)
@@ -1017,9 +1345,11 @@ pluto_class Vehicles
             WriteInt(TUNABLE_BASE + 0x27648, state and 1 or 0)
             WriteInt(TUNABLE_BASE + 0xDCE8, state and Shared.MAX_INT or 1)
         end)
-    
+    end
+
+    function CreateHandlingEditor()
         local handling = nil
-        handling = vehicles:list(T'Handling Flags & Editor', {}, T'Edit vehicle flags and handling', function()
+        handling = self.vehicles:list(T'Handling Flags & Editor', {}, T'Edit vehicle flags and handling', function()
             local vehicle_handling = require('vehicle_handling')
             
             for i, child in pairs(handling:getChildren()) do
@@ -1209,282 +1539,7 @@ pluto_class Vehicles
             end
         end)
     
-        vehicles:divider('')
-    
-        local AIHandling = {
-            'AVERAGE',
-            'TRUCK',
-            'CRAP',
-            'SPORTS_CAR'
-        }
-    
-        vehicles:toggle(T'Improved Wheelie', {T'rimprovedwheelie'}, T'Improves the wheelie handling of bikes, allowing you to wheelie at high speeds and lean back pretty far', function(state)
-            if IsPedInAnyVehicle(players.user_ped()) then
-                local veh = get_user_vehicle_as_pointer()
-                if veh ~= 0 then
-                    local CHandlingData = vehicle_get_handling(veh)
-                    local CBikeHandlingData = handling_get_subhandling(CHandlingData, 0)
-                    WriteFloat(CBikeHandlingData + 0x14, state and 25.0 or 13.0)
-                    WriteFloat(CBikeHandlingData + 0x3C, state and -60.0 or -1.0)
-                    WriteFloat(CBikeHandlingData + 0x40, state and 70.0 or 60.0)
-                end
-            else
-                local ref = ref_by_rel_path(vehicles, 'Improved Wheelie')
-                ref.value = false
-            end
-        end)
-    
-        vehicles:toggle(T'BMX Superjump', {T'rbmxsuperjump'}, T'Jump higher on a BMX', function(state)
-            if IsPedInAnyVehicle(players.user_ped()) then
-                local veh = get_user_vehicle_as_pointer()
-                if veh ~= 0 then
-                    local CHandlingData = vehicle_get_handling(veh)
-                    local CBikeHandlingData = handling_get_subhandling(CHandlingData, 0)
-                    WriteFloat(CBikeHandlingData + 0x58, state and 20.0 or 5.0)
-                end
-            else
-                local ref = ref_by_rel_path(vehicles, 'BMX Superjump')
-                ref.value = false
-            end
-        end)
-    
-        vehicles:toggle(T'Enable Kers', {}, T'Enables kers on the vehicle', function(state)
-            if IsPedInAnyVehicle(players.user_ped()) then
-                local veh = get_user_vehicle_as_pointer()
-                if veh ~= 0 then
-                    local CHandlingData = vehicle_get_handling(veh)
-                    local CCarHandlingData = handling_get_subhandling(CHandlingData, 8)
-                    WriteInt(CHandlingData + 0x128, state and ReadInt(CHandlingData + 0x128) | (1 << 2) or ReadInt(CHandlingData + 0x128) & ~(1 << 2))
-                    SetVehicleKersAllowed(pointer_to_handle(veh), true)
-                end
-            else
-                local ref = ref_by_rel_path(vehicles, 'Improved Wheelie')
-                ref.value = false
-            end
-        end)
-    
-        vehicles:toggle_loop(T'Horn Boost', {T'rhornboost'}, T'Boost your vehicle by honking', function(state)
-            local veh = GetPedVehicle(players.user_ped())
-    
-            if veh ~= 0 then
-                local speed = ref_by_rel_path(vehicles, 'Horn Boost Speed')
-                local relative = ref_by_rel_path(vehicles, 'Horn Boost Speed Relative')
-                if IsPlayerPressingHorn(PLAYER_ID) then
-                    if not relative.value then
-                        SetVehicleForwardSpeed(veh, speed.value)
-                    else
-                        SetVehicleForwardSpeed(veh, GetEntitySpeed(veh) + speed.value)
-                    end
-                end
-            else
-                local ref = ref_by_rel_path(vehicles, 'Horn Boost')
-                ref.value = false
-            end
-        end)
-    
-        vehicles:toggle(T'Nitrous', {}, T'Enable nitrous for your current vehicle', function()
-            local power = ref_by_rel_path(vehicles, 'Nitrous Power').value / 100
-            local level = ref_by_rel_path(vehicles, 'Nitrous Level').value / 100
-            local toggle = false
-    
-            if IsPedInAnyVehicle(players.user_ped()) then
-                local veh = GetPedVehicle(players.user_ped())
-                if veh ~= 0 then
-                    local nitro = ref_by_rel_path(vehicles, 'Nitrous')
-                    util.create_tick_handler(function()
-                        if not nitro.value then
-                            SetOverrideNitrousLevel(veh, false, level, power, 1.0, false)
-                            return false
-                        end
-    
-                        if is_key_down(0x58) then
-                            toggle = not toggle
-                        end
-    
-                        if toggle then
-                            SetOverrideNitrousLevel(veh, true, level, power, 1.0, false)
-                        end
-    
-                        SetOverrideNitrousLevel(veh, toggle, level, power, 1.0, false)
-    
-                        util.yield(150)
-                    end)
-                end
-            end
-        end)
-    
-        vehicles:toggle_loop(T'Drift', {}, T'Hold shift to drift', function()
-            local veh = GetPedVehicle(players.user_ped())
-                if veh ~= 0 then
-                    if is_key_down(0xA0) then
-                        SetDriftTyres(veh, true)
-                    else
-                        SetDriftTyres(veh, false)
-                    end
-                end
-    
-            util.yield(120)
-        end,
-        function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~+ 0 then
-                SetDriftTyres(veh, false)
-            end
-        end)
-    
-        vehicles:toggle(T'Interior Light', {}, T'Enables the dashboard light within your vehicle', function(state)
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                SetVehicleInteriorlight(veh, state)
-                SetVehicleForceInteriorlight(veh, state)
-            end
-        end)
-    
-        vehicles:toggle_loop(T'Set Torque Multiplier', {}, T'Set the torque multiplier of your vehicle', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                local torque = ref_by_rel_path(vehicles, 'Torque Multiplier')
-                SetVehicleCheatPowerIncrease(veh, torque.value / 100)
-            end
-    
-            util.yield(120)
-        end)
-    
-        vehicles:toggle(T'Inverted Controls', {}, T'Inverts the controls of your vehicle', function(state)
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                SetInvertVehicleControls(veh, state)
-            end
-        end)
-    
-        vehicles:toggle(T'Vehicle No Migrate', {}, T'Prevents anyone else in the session from taking control of your vehicle ever (even when you are not using it)', function(state)
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                local ptr = handle_to_pointer(veh)
-                set_can_migrate(ptr, not state)
-            end
-        end)
-    
-        vehicles:action(T'Change License Plate', {}, T'Change the license plate of your vehicle', function()
-            local veh = GetPedVehicle(players.user_ped())
-            local personal = GetVehicleFromNetId(PLAYER_ID)
-    
-            if veh ~= personal then
-                local plate = Shared.DisplayOnscreenKeyboard()
-                SetVehicleNumberPlateText(veh, plate)
-            else
-                local pv_slot = ScriptGlobal(PV_SLOT)
-                local data = GetPersonalVehicleData(ReadInt(pv_slot))
-                local plate = Shared.DisplayOnscreenKeyboard()
-                WriteString(data + Offsets.LicensePlate, plate)
-            end
-        end)
-    
-    
-    
-        vehicles:list_select(T'AIHandling', {}, T'Change the vehicles handling meta', AIHandling, 1, function(index)
-            local value = AIHandling[index]
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                SetVehicleHandlingOverride(veh, joaat(value))
-                util.toast(T'Changed handling to ' .. value)
-            end
-        end)
-    
-        vehicles:action(T'Detach Windscreen', {}, T'Detach the windscreen of your vehicle', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                PopOutVehicleWindscreen(veh)
-            end
-        end)
-    
-        vehicles:action(T'Pop Off Roof', {}, T'Pops off the roof, does not work for all vehicles', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                PopOffVehicleRoofWithImpulse(veh, 0.0, 0.0, 0.0)
-            end
-        end)
-    
-        vehicles:action(T'Smash Windows', {}, T'Smash all the windows of your vehicle', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                for i = 0, 7 do
-                    SmashVehicleWindow(veh, i)
-                end
-            end
-        end)
-    
-        vehicles:action(T'Roll Down Windows', {}, T'Roll down all the windows of your vehicle', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                RollDownWindows(veh)
-            end
-        end)
-    
-        vehicles:action(T'Roll Up Windows', {}, T'Roll up all the windows of your vehicle', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                for i = 0, 7 do
-                    RollUpWindow(veh, i)
-                end
-            end
-        end)
-    
-        vehicles:action(T'Fix Windows', {}, T'Fix all the windows of your vehicle', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                for i = 0, 7 do
-                    FixVehicleWindow(veh, i)
-                end
-            end
-        end)
-    
-        vehicles:action(T'Remove Windows', {}, T'Remove all the windows of your vehicle', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                for i = 0, 7 do
-                    RemoveVehicleWindow(veh, i)
-                end
-            end
-        end)
-    
-        vehicles:action(T'Fix Vehicle', {}, T'Fixes the vehicle, what else?', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                SetVehicleFixed(veh)
-            end
-        end)
-    
-        vehicles:action(T'Fix Deformation', {}, T'Fixes deformation but doesn\'t restore the vehicles health', function()
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                SetVehicleDeformationFixed(veh)
-            end
-        end)
-    
-        vehicles:divider('')
-    
-        vehicles:slider(T'Horn Boost Speed', {T'rhornboostspeed'}, T'Set the speed of the Horn Boost', 0, Shared.MAX_INT, 100, 1, function(value) end)
-        vehicles:toggle(T'Horn Boost Speed Relative', {T'rhornboostrelspeed'}, T'Make the horn boost speed be added relative to your current speed', function() end)
-        vehicles:slider_float(T'Nitrous Level', {T'rnitrouslevel'}, T'Set the nitrous level', 0.0, Shared.MAX_FLOAT, 5.0 * 100, 1.0 * 100, function(value) end)
-        vehicles:slider_float(T'Nitrous Power', {T'rnitrouspower'}, T'Set the power of the nitrous', 0.0, Shared.MAX_FLOAT, 5.0 * 100, 1.0 * 100, function(value) end)
-    
-        vehicles:slider_float(T'Vehicle Headlight Multiplier', {T'rvehlightmultiplier'}, T'Set the multiplier for vehicle lights', 0.0, Shared.MAX_FLOAT, 1.0 * 100, 1.0 * 100, function(value) 
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                SetVehicleLightMultiplier(veh, value / 100)
-            end
-        end)
-    
-        vehicles:slider_float(T'Set Max Speed', {T'rmaxspeed'}, T'Set the max speed of the vehicle', 0.0, Shared.MAX_FLOAT, 0.0, 1.0 * 100, function(value) 
-            local veh = GetPedVehicle(players.user_ped())
-            if veh ~= 0 then
-                SetVehicleMaxSpeed(veh, value / 100)
-                SetEntityMaxSpeed(veh, value / 100)
-            end
-        end)
-    
-        vehicles:slider_float(T'Torque Multiplier', {T'rtorquemultiplier'}, T'Set the torque multiplier of the vehicle', 0.0, Shared.MAX_FLOAT, 1.0 * 100, 1.0 * 100, function(value) end)
+        self.vehicles:divider('')
     end
 end
 

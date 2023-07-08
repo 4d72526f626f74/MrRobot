@@ -11,91 +11,71 @@ local Toast = Shared.Toast
 
 pluto_class Unlocks
     function __construct()
-        self.root = root:list(T'Unlocks', {}, T'Unlocks')
-        local unlocks = self.root
+        self.root = root:list(T'Unlocks', {T'runlocks'}, T'Unlocks')
 
-        unlocks:action(T'Unlock All', {}, T'Unlocks loads of shit clothes, hats, masks etc', function()
-        menu.trigger_commands('unlockall')
+        self.root:action(T'Unlock All', {}, T'Unlocks loads of shit clothes, hats, masks etc', function()
+            menu.trigger_commands('unlockall')
         end)
     
-        unlocks:divider('')
+        self.root:divider('')
     
-        local achievements = unlocks:list(T'Achievements', {}, T'Achievements')
-        local bunker_research = unlocks:list(T'Bunker Research', {}, T'Bunker Research')
-        local vehicle_trade_in_prices = unlocks:list(T'Vehicle Trade-In Prices', {}, T'Vehicle Trade-In Prices')
-        --local crewrank = unlocks:list(T'Crew Rank', {}, T'Change or spoof your crew rank')
-        local clothing = unlocks:list(T'Clothing', {}, T'Some clothing unlocks')
-        local kosatka = unlocks:list(T'Kosatka', {}, T'Kosatka unlocks, this does not just unlock them, it also sets them as owned')
-        local interaction_menu = unlocks:list(T'Interaction Menu', {}, T'Interaction Menu')
-        local agency = unlocks:list(T'Agency', {}, T'Agency')
-        local penthouse = unlocks:list(T'Casino Penthouse', {}, T'Casino Penthouse')
-        local arcade = unlocks:list(T'Arcade', {}, T'Arcade')
-        local autoshop = unlocks:list(T'Autoshop', {}, T'Autoshop')
-        local arena_workshop = unlocks:list(T'Arena Workshop', {}, T'Arena Workshop')
-        local facility = unlocks:list(T'Facility', {}, T'Facility')
-        --[[local bunker = unlocks:list(T'Bunker', {}, T'Bunker')
-        local hangar = unlocks:list(T'Hangar', {}, T'Hangar')]]
+        self.achievements = self.root:list(T'Achievements', {}, T'Achievements')
+        self.bunker_research = self.root:list(T'Bunker Research', {}, T'Bunker Research')
+        self.vehicle_trade_in_prices = self.root:list(T'Vehicle Trade-In Prices', {}, T'Vehicle Trade-In Prices')
+        self.kosatka = self.root:list(T'Kosatka', {}, T'Kosatka unlocks, this does not just unlock them, it also sets them as owned')
+        self.interaction_menu = self.root:list(T'Interaction Menu', {}, T'Interaction Menu')
+        self.agency = self.root:list(T'Agency', {}, T'Agency')
+        self.penthouse = self.root:list(T'Casino Penthouse', {}, T'Casino Penthouse')
+        self.arcade = self.root:list(T'Arcade', {}, T'Arcade')
+        self.autoshop = self.root:list(T'Autoshop', {}, T'Autoshop')
+        self.arena_workshop = self.root:list(T'Arena Workshop', {}, T'Arena Workshop')
+        self.facility = self.root:list(T'Facility', {}, T'Facility')
+        self.other = self.root:list(T'Other', {}, T'Other')
     
-        achievements:action(T'Unlock All', {}, T'Unlock All', function()
+        self.achievements:action(T'Unlock All', {}, T'Unlock All', function()
             Shared:UnlockAllAchievements()
         end)
     
-        achievements:divider('')
+        self.achievements:divider('')
     
         for Shared:SortTable(Shared.Data.Achievements, function(a, b) return a < b end) as name do
-            achievements:action(name, {}, 'Unlock ' .. name, function()
+            self.achievements:action(name, {}, 'Unlock ' .. name, function()
                 Shared:UnlockAchievement(name)
             end)
         end
     
-        bunker_research:action('Unlock All', {}, 'Unlock All', function()
+        self.bunker_research:action('Unlock All', {}, 'Unlock All', function()
             for Shared.Data.BunkerResearch as offset do
                 WriteByte(ScriptGlobal(262145 + offset), 1)
             end
         end)
     
-        bunker_research:divider('')
+        self.bunker_research:divider('')
     
         for name, offset in pairs(Shared.Data.BunkerResearch) do
-            bunker_research:action(name, {}, 'Unlock ' .. name, function()
+            self.bunker_research:action(name, {}, 'Unlock ' .. name, function()
                 WriteByte(ScriptGlobal(262145 + offset), 1)
             end)
         end
     
-        vehicle_trade_in_prices:action('Unlock All', {}, 'Unlock All', function()
+        self.vehicle_trade_in_prices:action('Unlock All', {}, 'Unlock All', function()
             for Shared.Data.AircraftTradeIn as offset do
                 WriteByte(ScriptGlobal(262145 + offset), 0)
             end
         end)
     
-        vehicle_trade_in_prices:divider('')
+        self.vehicle_trade_in_prices:divider('')
     
         for name, offset in pairs(Shared.Data.AircraftTradeIn) do
-            vehicle_trade_in_prices:action(name, {}, 'Unlock ' .. name .. ' trade-in price', function()
+            self.vehicle_trade_in_prices:action(name, {}, 'Unlock ' .. name .. ' trade-in price', function()
                 WriteByte(ScriptGlobal(262145 + offset), 0)
             end)
         end
     
-        --[[local spoof_crewrank
-        spoof_crewrank = crewrank:toggle(T'Spoof Crew Rank', {}, T'Spoof your crew rank', function(state) end)
-    
-        crewrank:text_input(T'Crew Rank', {T'rsetcrewrank'}, T'Change your crew rank, if setting it without spoofing does nothing then change your rank with spoofing and drop a figurine on yourself and it will change permanently', function(value)
-            if SCRIPT_CAN_CONTINUE then
-                if not spoof_crewrank.value then
-                    util.show_corner_help(T'If changing your crew rank does nothing then enable spoofing and change it again, then drop a figurine on yourself and it will change permanently :)')
-                else
-                    util.show_corner_help('Drop a figurine on yourself to change your crew rank permanently :)')
-                end
-    
-    
-                Shared.CrewRank:SetRank(tonumber(value), spoof_crewrank.value)
-            end
-        end)]]
-    
         local unlock_kosatka, unlock_sonar, unlock_guidedmissiles, 
         unlock_weaponworkshop, unlock_sparrow, unlock_avisa
     
-        kosatka:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
+        self.kosatka:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
             if SCRIPT_CAN_CONTINUE then
                 unlock_kosatka.value = state
                 unlock_sonar.value = state
@@ -106,37 +86,37 @@ pluto_class Unlocks
             end
         end)
     
-        unlock_kosatka = kosatka:toggle(T'Unlock Kosatka', {}, T'Unlock kosatka without having to buy it', function(state)
+        unlock_kosatka = self.kosatka:toggle(T'Unlock Kosatka', {}, T'Unlock kosatka without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockKosatka(state)
             end
         end, Shared:IsKosatkaUnlocked())
     
-        unlock_sonar = kosatka:toggle(T'Unlock Sonar', {}, T'Own Sonar on your kosatka without buying it', function(state)
+        unlock_sonar = self.kosatka:toggle(T'Unlock Sonar', {}, T'Own Sonar on your kosatka without buying it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockSonar(state)
             end
         end, Shared:IsSonarUnlocked())
     
-        unlock_guidedmissiles = kosatka:toggle(T'Unlock Guided Missiles', {}, T'Own Guided Missiles on your kosatka without buying it', function(state)
+        unlock_guidedmissiles = self.kosatka:toggle(T'Unlock Guided Missiles', {}, T'Own Guided Missiles on your kosatka without buying it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockGuidedMissiles(state)
             end
         end, Shared:IsGuidedMissilesUnlocked())
     
-        unlock_weaponworkshop = kosatka:toggle(T'Unlock Weapon Workshop', {}, T'Own Weapon Workshop on your kosatka without buying it', function(state)
+        unlock_weaponworkshop = self.kosatka:toggle(T'Unlock Weapon Workshop', {}, T'Own Weapon Workshop on your kosatka without buying it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockWeaponWorkshop(state)
             end
         end, Shared:IsWeaponWorkshopUnlocked())
     
-        unlock_sparrow = kosatka:toggle(T'Unlock Sparrow', {}, T'Unlock sparrow without having to buy it', function(state)
+        unlock_sparrow = self.kosatka:toggle(T'Unlock Sparrow', {}, T'Unlock sparrow without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockSparrow(state)
             end
         end, Shared:IsSparrowUnlocked())
     
-        unlock_avisa = kosatka:toggle(T'Unlock Avisa', {}, T'Unlock avisa without having to buy it', function(state)
+        unlock_avisa = self.kosatka:toggle(T'Unlock Avisa', {}, T'Unlock avisa without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAvisa(state)
             end
@@ -145,7 +125,7 @@ pluto_class Unlocks
         local unlock_acidlab, unlock_ballisticequipment, unlock_nanodrone, unlock_rcbandito,
         unlock_rctank
     
-        interaction_menu:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
+        self.interaction_menu:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
             if SCRIPT_CAN_CONTINUE then
                 unlock_acidlab.value = state
                 unlock_ballisticequipment.value = state
@@ -155,19 +135,19 @@ pluto_class Unlocks
             end
         end)
     
-        unlock_acidlab = interaction_menu:toggle(T'Unlock Acid Lab', {}, T'Unlock acid lab without having to buy it', function(state)
+        unlock_acidlab = self.interaction_menu:toggle(T'Unlock Acid Lab', {}, T'Unlock acid lab without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAcidLab(state)
             end
         end, Shared:IsAcidLabUnlocked())
     
-        unlock_ballisticequipment = interaction_menu:toggle(T'Unlock Ballistic Equipment', {}, T'Unlock ballistic equipment', function(state)
+        unlock_ballisticequipment = self.interaction_menu:toggle(T'Unlock Ballistic Equipment', {}, T'Unlock ballistic equipment', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockBallisticEquipment(state)
             end
         end, Shared:IsBallisticEquipmentUnlocked())
     
-        unlock_nanodrone = interaction_menu:toggle(T'Unlock Nano Drone', {}, T'Unlock nano drone', function(state)
+        unlock_nanodrone = self.interaction_menu:toggle(T'Unlock Nano Drone', {}, T'Unlock nano drone', function(state)
             if SCRIPT_CAN_CONTINUE and not Shared:IsEightBitArcadeUnlocked() and not Shared:IsWonderamaArcadeUnlocked() then
                 Shared:UnlockNanoDrone(state)
             else
@@ -176,13 +156,13 @@ pluto_class Unlocks
             end
         end, Shared:IsNanoDroneUnlocked())
     
-        unlock_rcbandito = interaction_menu:toggle(T'Unlock RC Bandito', {}, T'Unlock rc bandito without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
+        unlock_rcbandito = self.interaction_menu:toggle(T'Unlock RC Bandito', {}, T'Unlock rc bandito without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockRCBandito(state)
             end
         end, Shared:IsRCBanditoUnlocked())
     
-        unlock_rctank = interaction_menu:toggle(T'Unlock RC Tank', {}, T'Unlock rc tank without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
+        unlock_rctank = self.interaction_menu:toggle(T'Unlock RC Tank', {}, T'Unlock rc tank without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockRCTank(state)
                 local g = memory.script_local('freemode', 15561)
@@ -192,7 +172,7 @@ pluto_class Unlocks
     
         local unlock_agencyarmoury, unlock_agencyaccommodation, unlock_agencyvehicleworkshop
     
-        agency:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
+        self.agency:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
             if SCRIPT_CAN_CONTINUE then
                 unlock_agencyarmoury.value = state
                 unlock_agencyaccommodation.value = state
@@ -200,27 +180,27 @@ pluto_class Unlocks
             end
         end)
     
-        unlock_agencyarmoury = agency:toggle(T'Unlock Agency Armoury', {}, T'Unlock agency armoury without having to buy it', function(state)
+        unlock_agencyarmoury = self.agency:toggle(T'Unlock Agency Armoury', {}, T'Unlock agency armoury without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAgencyArmoury(state)
             end
         end, Shared:IsAgencyArmouryUnlocked())
     
-        unlock_agencyaccommodation = agency:toggle(T'Unlock Agency Accommodation', {}, T'Unlock agency accommodation without having to buy it', function(state)
+        unlock_agencyaccommodation = self.agency:toggle(T'Unlock Agency Accommodation', {}, T'Unlock agency accommodation without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAgencyAccommodation(state)
             end
         end, Shared:IsAgencyAccommodationUnlocked())
     
-        unlock_agencyvehicleworkshop = agency:toggle(T'Unlock Agency Vehicle Workshop', {}, T'Unlock agency vehicle workshop without having to buy it', function(state)
+        unlock_agencyvehicleworkshop = self.agency:toggle(T'Unlock Agency Vehicle Workshop', {}, T'Unlock agency vehicle workshop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAgencyVehicleWorkshop(state)
             end
         end, Shared:IsAgencyVehicleWorkshopUnlocked())
     
-        agency:divider('')
+        self.agency:divider('')
     
-        agency:list_select(T'Agency Art', {}, T'Change art in your agency', Shared.AgencyArt, 1, function(index)
+        self.agency:list_select(T'Agency Art', {}, T'Change art in your agency', Shared.AgencyArt, 1, function(index)
             if SCRIPT_CAN_CONTINUE then
                 index = index - 2
                 if index >= 0 then
@@ -231,7 +211,7 @@ pluto_class Unlocks
             end
         end)
     
-        agency:list_select(T'Agency Wallpaper', {}, T'Change wallpaper in your agency', Shared.AgencyWallpaper, 1, function(index)
+        self.agency:list_select(T'Agency Wallpaper', {}, T'Change wallpaper in your agency', Shared.AgencyWallpaper, 1, function(index)
             if SCRIPT_CAN_CONTINUE then
                 index = index - 2
                 if index >= 0 then
@@ -242,7 +222,7 @@ pluto_class Unlocks
             end
         end)
     
-        agency:list_select(T'Agency Highlight', {}, T'Change highlight in your agency', Shared.AgencyHighlight, 1, function(index)
+        self.agency:list_select(T'Agency Highlight', {}, T'Change highlight in your agency', Shared.AgencyHighlight, 1, function(index)
             if SCRIPT_CAN_CONTINUE then
                 index = index - 2
                 if index >= 0 then
@@ -257,7 +237,7 @@ pluto_class Unlocks
         unlock_penthouse_sparebedroom, unlock_penthouse_media, unlock_penthouse_spa, 
         unlock_penthouse_office, unlock_penthouse_garage
     
-        penthouse:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
+        self.penthouse:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
             if SCRIPT_CAN_CONTINUE then
                 unlock_penthouse.value = state
                 unlock_penthouse_lounge.value = state
@@ -271,55 +251,55 @@ pluto_class Unlocks
             end
         end)
     
-        unlock_penthouse = penthouse:toggle(T'Unlock Penthouse', {}, T'Unlock penthouse without having to buy it', function(state)
+        unlock_penthouse = self.penthouse:toggle(T'Unlock Penthouse', {}, T'Unlock penthouse without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockPenthouse(state)
             end
         end, Shared:IsPenthouseUnlocked())
     
-        unlock_penthouse_lounge = penthouse:toggle(T'Unlock Lounge', {}, T'Unlock lounge without having to buy it', function(state)
+        unlock_penthouse_lounge = self.penthouse:toggle(T'Unlock Lounge', {}, T'Unlock lounge without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockPenthouseLounge(state)
             end
         end, Shared:IsPenthouseLoungeUnlocked())
     
-        unlock_penthouse_bar = penthouse:toggle(T'Unlock Bar', {}, T'Unlock bar without having to buy it', function(state)
+        unlock_penthouse_bar = self.penthouse:toggle(T'Unlock Bar', {}, T'Unlock bar without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockPenthouseBar(state)
             end
         end, Shared:IsPenthouseBarUnlocked())
     
-        unlock_penthouse_dealer = penthouse:toggle(T'Unlock Dealer Room', {}, T'Unlock dealer room without having to buy it', function(state)
+        unlock_penthouse_dealer = self.penthouse:toggle(T'Unlock Dealer Room', {}, T'Unlock dealer room without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockPenthouseDealerRoom(state)
             end
         end, Shared:IsPenthouseDealerRoomUnlocked())
     
-        unlock_penthouse_sparebedroom = penthouse:toggle(T'Unlock Spare Bedroom', {}, T'Unlock spare bedroom without having to buy it', function(state)
+        unlock_penthouse_sparebedroom = self.penthouse:toggle(T'Unlock Spare Bedroom', {}, T'Unlock spare bedroom without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockPenthouseSpareBedroom(state)
             end
         end, Shared:IsPenthouseSpareBedroomUnlocked())
     
-        unlock_penthouse_media = penthouse:toggle(T'Unlock Media Room', {}, T'Unlock media room without having to buy it', function(state)
+        unlock_penthouse_media = self.penthouse:toggle(T'Unlock Media Room', {}, T'Unlock media room without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockPenthouseMediaRoom(state)
             end
         end, Shared:IsPenthouseMediaRoomUnlocked())
     
-        unlock_penthouse_spa = penthouse:toggle(T'Unlock Spa', {}, T'Unlock spa without having to buy it', function(state)
+        unlock_penthouse_spa = self.penthouse:toggle(T'Unlock Spa', {}, T'Unlock spa without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockPenthouseSpa(state)
             end
         end, Shared:IsPenthouseSpaUnlocked())
     
-        unlock_penthouse_office = penthouse:toggle(T'Unlock Office', {}, T'Unlock office without having to buy it', function(state)
+        unlock_penthouse_office = self.penthouse:toggle(T'Unlock Office', {}, T'Unlock office without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockPenthouseOffice(state)
             end
         end, Shared:IsPenthouseOfficeUnlocked())
     
-        unlock_penthouse_garage = penthouse:toggle(T'Unlock Garage', {}, T'Unlock garage without having to buy it', function(state)
+        unlock_penthouse_garage = self.penthouse:toggle(T'Unlock Garage', {}, T'Unlock garage without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockPenthouseGarage(state)
             end
@@ -327,25 +307,25 @@ pluto_class Unlocks
     
         local unlock_arcadegarage, unlock_arcademct, unlock_arcade_weaponworkshop
     
-        arcade:toggle(T'Bypass Setup', {}, T'Bypass arcade setup missions', function(state)
+        self.arcade:toggle(T'Bypass Setup', {}, T'Bypass arcade setup missions', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:BypassArcadeSetup(state)
             end
         end, Shared:IsArcadeSetup())
     
-        arcade:toggle(T'Wonderama', {}, T'Unlock Wonderama arcade', function(state)
+        self.arcade:toggle(T'Wonderama', {}, T'Unlock Wonderama arcade', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockArcade(1, state)
             end
         end, Shared:IsWonderamaArcadeUnlocked())
     
-        arcade:toggle(T'Eight Bit', {}, T'Unlock Eight Bit arcade', function(state)
+        self.arcade:toggle(T'Eight Bit', {}, T'Unlock Eight Bit arcade', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockArcade(2, state)
             end
         end, Shared:IsEightBitArcadeUnlocked())
     
-        unlock_arcadegarage = arcade:toggle(T'Unlock Garage', {}, T'Unlock garage without having to buy it', function(state)
+        unlock_arcadegarage = self.arcade:toggle(T'Unlock Garage', {}, T'Unlock garage without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 if not Shared:IsArcadeSetup() then
                     unlock_arcadegarage.value = false
@@ -356,7 +336,7 @@ pluto_class Unlocks
             end
         end, Shared:IsArcadeGarageUnlocked())
     
-        unlock_arcademct = arcade:toggle(T'Unlock Master Control Terminal', {}, T'Unlock master control terminal without having to buy it', function(state)
+        unlock_arcademct = self.arcade:toggle(T'Unlock Master Control Terminal', {}, T'Unlock master control terminal without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 if not Shared:IsArcadeSetup() then
                     unlock_arcademct.value = false
@@ -367,7 +347,7 @@ pluto_class Unlocks
             end
         end, Shared:IsArcadeMasterControlTerminalUnlocked())
     
-        unlock_arcade_weaponworkshop = arcade:toggle(T'Unlock Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
+        unlock_arcade_weaponworkshop = self.arcade:toggle(T'Unlock Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 if not Shared:IsArcadeSetup() then
                     unlock_arcade_weaponworkshop.value = false
@@ -378,89 +358,103 @@ pluto_class Unlocks
             end
         end, Shared:IsArcadeWeaponWorkshopUnlocked())
     
-        autoshop:toggle(T'Unlock La Mesa Auto Shop', {}, T'Unlock La Mesa auto shop without having to buy it', function(state)
+        self.autoshop:toggle(T'Unlock La Mesa Auto Shop', {}, T'Unlock La Mesa auto shop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAutoShop(0, state)
             end
         end, Shared:IsLaMesaAutoShopUnlocked())
     
-        autoshop:toggle(T'Unlock Strawberry Auto Shop', {}, T'Unlock Strawberry auto shop without having to buy it', function(state)
+        self.autoshop:toggle(T'Unlock Strawberry Auto Shop', {}, T'Unlock Strawberry auto shop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAutoShop(1, state)
             end
         end, Shared:IsStrawberryAutoShopUnlocked())
     
-        autoshop:toggle(T'Unlock Rancho Auto Shop', {}, T'Unlock Rancho auto shop without having to buy it', function(state)
+        self.autoshop:toggle(T'Unlock Rancho Auto Shop', {}, T'Unlock Rancho auto shop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAutoShop(2, state)
             end
         end, Shared:IsRanchoAutoShopUnlocked())
     
-        arena_workshop:toggle(T'Unlock Workshop', {}, T'Unlock arena workshop without having to buy it', function(state)
+        self.arena_workshop:toggle(T'Unlock Workshop', {}, T'Unlock arena workshop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockArenaWorkshop(state)
             end
         end, Shared:IsArenaWorkshopUnlocked())
     
-        arena_workshop:toggle(T'Unlock Benny Mechanic', {}, T'Unlock benny mechanic without having to buy it', function(state)
+        self.arena_workshop:toggle(T'Unlock Benny Mechanic', {}, T'Unlock benny mechanic without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAWBennyMechanic(state)
             end
         end, Shared:IsAWBennyMechanicUnlocked())
     
-        arena_workshop:toggle(T'Unlock Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
+        self.arena_workshop:toggle(T'Unlock Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockAWWeaponWorkshop(state)
             end
         end, Shared:IsAWWeaponWorkshopUnlocked())
     
-        facility:toggle(T'Unlock Facility', {}, T'Unlock facility without having to buy it', function(state)
+        self.facility:toggle(T'Unlock Facility', {}, T'Unlock facility without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockFacility(state)
             end
         end, Shared:IsFacilityUnlocked())
     
-        facility:toggle(T'Unlock Orbital Cannon', {}, T'Unlock orbital cannon without having to buy it', function(state)
+        self.facility:toggle(T'Unlock Orbital Cannon', {}, T'Unlock orbital cannon without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockFacilityOrbitalCannon(state)
             end
         end, Shared:IsFacilityOrbitalCannonUnlocked())
     
-        facility:toggle(T'Unlock Security Room', {}, T'Unlock security room without having to buy it', function(state)
+        self.facility:toggle(T'Unlock Security Room', {}, T'Unlock security room without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockFacilitySecurityRoom(state)
             end
         end, Shared:IsFacilitySecurityRoomUnlocked())
     
-        facility:toggle(T'Unlock Sleeping Quarters (Utility)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
+        self.facility:toggle(T'Unlock Sleeping Quarters (Utility)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockFacilitySleepingQuarters(0, state)
             end
         end, Shared:IsFacilitySleepingQuartersUtilityUnlocked())
     
-        facility:toggle(T'Unlock Sleeping Quarters (Prestige)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
+        self.facility:toggle(T'Unlock Sleeping Quarters (Prestige)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockFacilitySleepingQuarters(1, state)
             end
         end, Shared:IsFacilitySleepingQuartersPrestigeUnlocked())
     
-        facility:toggle(T'Unlock Sleeping Quarters (Premier)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
+        self.facility:toggle(T'Unlock Sleeping Quarters (Premier)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockFacilitySleepingQuarters(2, state)
             end
         end, Shared:IsFacilitySleepingQuartersPremierUnlocked())
-    
-        --[[hangar:toggle(T'Unlock Hangar', {}, T'Unlock hangar without having to buy it', function(state)
+
+        self.other:action(T'Unlock WM 29 Pistol', {}, T'Unlock WM 29 pistol, you do not get to keep the pistol!', function()
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockHangar(state)
+                Shared.SetPackedStatBoolCode(36785, true, Shared.CHAR_SLOT)
+                Shared:GiveWeaponToSelf(465894841, 9999, true)
+                util.toast('WM 29 is now in your weapon wheel, you do not get to keep the pistol!')
             end
-        end, Shared:IsHangarUnlocked())
-    
-        bunker:toggle(T'Unlock Bunker', {}, T'Unlock bunker without having to buy it', function(state)
+        end)
+
+        self.other:action(T'Unlock Double Action Revolver', {}, T'Unlock Double Action Revolver', function()
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockBunker(state)
+                Shared:UnlockDoubleActionRevolver()
             end
-        end, Shared:IsBunkerUnlocked())]]
+        end)
+
+        self.other:action(T'Unlock Stone Hatchet', {}, T'Unlock Stone Hatchet', function()
+            if SCRIPT_CAN_CONTINUE then
+                Shared:UnlockStoneHatchet()
+            end
+        end)
+
+        self.other:action(T'Unlock Navy Revolver', {}, T'Unlock Navy Revolver', function()
+            if SCRIPT_CAN_CONTINUE then
+                Shared:UnlockNavyRevolver()
+            end
+        end)
     end
 end
 

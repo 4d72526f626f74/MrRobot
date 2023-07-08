@@ -1,0 +1,20 @@
+local root = menu.my_root()
+local shadow_root = menu.shadow_root()
+local T = require('translations')
+local Shared = require('shared')
+
+pluto_class Dev
+    function __construct()
+        self.is_dev = Shared.Settings:IsSet(Shared.SettingsOffsets.DevMode)
+        if self.is_dev then
+            self.root = root:list(T'Developer', {}, T'Dev')
+            self:CreateMenu()
+        end
+    end
+
+    function CreateMenu()
+        
+    end
+end
+
+return Dev

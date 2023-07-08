@@ -44,6 +44,7 @@ local SetEntityVisible = Shared.SetEntityVisible
 local NetworkIsFriend = Shared.NetworkIsFriend
 local NetworkHandleFromPlayer = Shared.NetworkHandleFromPlayer
 local DecorGetInt = Shared.DecorGetInt
+local TriggerScriptEvent = Shared.TriggerScriptEvent
 
 -- others
 local ScriptGlobal = memory.script_global
@@ -65,7 +66,6 @@ local create_tick_handler = util.create_tick_handler
 local get_current_menu_list = menu.get_current_menu_list
 local reverse_joaat = util.reverse_joaat
 local get_label_text = util.get_label_text
-local trigger_script_event = util.trigger_script_event
 local get_all_vehicles_as_pointers = entities.get_all_vehicles_as_pointers
 local get_position = entities.get_position
 local detach_wheel = entities.detach_wheel
@@ -137,7 +137,7 @@ local function SpoofVehicle(target, localplayer, state)
             local bitfield = Bitfield.new(ReadInt(veh_data + Offsets.VehicleBitfield))
 
             SetPersonalVehicleSlot(0)
-            bitfield:BitSet(1 << 0)
+            bitfield:Set(1 << 0)
             bitfield(veh_data + Offsets.VehicleBitfield, 32)
             SetNetworkId(localplayer, GetNetworkId(target))
 
@@ -151,7 +151,7 @@ local function SpoofVehicle(target, localplayer, state)
             DecorSetInt(remote_veh, 'Previous_Owner', remote_hash)
 
             SetPersonalVehicleSlot(0)
-            bitfield:BitClear(1 << 0)
+            bitfield:Clear(1 << 0)
             bitfield(veh_data + Offsets.VehicleBitfield, 32)
             SetNetworkId(localplayer, -1)
         end
@@ -173,7 +173,7 @@ local function SoftSpoof(target, localplayer, state)
 end
 
 local function GetTheFuckOut(remote_target)
-    trigger_script_event(1 << remote_target, {1718315579, 1, 0, 1, 0})
+    TriggerScriptEvent(1 << remote_target, {1718315579, 1, 0, 1, 0})
 end
 
 local function TakeoverKick(remote_target)
@@ -211,16 +211,16 @@ local function ForceVehRespawn(remote_player)
 end
 
 local function SetOrgId(target)
-    local target_org = ScriptGlobal(1894573 + 1 + (target * 608) + 10)
-    local localplayer_org = ScriptGlobal(1894573 + 1 + (PLAYER_ID * 608) + 10)
+    local target_org = ScriptGlobal(1895156 + 1 + (target * 609) + 10) -- Global_1895156[player /*609*/].f_10
+    local localplayer_org = ScriptGlobal(1895156 + 1 + (PLAYER_ID * 609) + 10)
 
     WriteInt(localplayer_org, ReadInt(target_org))
 end
 
 local function GetOrgVehicleNetId(target)
-    local target_org = ScriptGlobal(1894573 + 1 + (target * 608) + 10) -- Global_1894571[PLAYER::PLAYER_ID() /*608*/].f_10
+    local target_org = ScriptGlobal(1895156 + 1 + (target * 609) + 10) -- Global_1894571[PLAYER::PLAYER_ID() /*608*/].f_10
     local org_id = ScriptGlobal(ReadInt(target_org))
-    local veh_netid = ScriptGlobal(1894573 + 1 + (ReadInt(org_id) * 608) + 10 + 75)
+    local veh_netid = ScriptGlobal(1895156 + 1 + (ReadInt(org_id) * 609) + 10 + 75)
 
     return veh_netid
 end
@@ -259,7 +259,7 @@ pluto_class Players
                     local proot = root
                     local veh = nil
             
-                    proot:divider('MrRobot')
+                    proot:divider('Mr.Robot')
             
                     local veh_menu = nil
                     local model_ref = nil

@@ -58,7 +58,7 @@ local impact_coords = v3()
 
 pluto_class PedManager
     function __construct()
-        self.root = root:list(T'Peds', {}, T'Ped Manager', Shared:Partial(PedManager.OnClick, self))
+        self.root = root:list(T'Peds', {T'rpeds'}, T'Ped Manager', Shared:Partial(PedManager.OnClick, self))
         self.ar_beacons = {}
         self.blips = {}
 

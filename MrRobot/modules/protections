@@ -53,25 +53,30 @@ end
 
 pluto_class Protections
     function __construct()
-        self.root = root:list(T'Protections', {}, T'Protections')
-        local protections = self.root
-        local vehicle_protections = protections:list(T'Vehicle', {}, T'Vehicle protections')
-        local player_protections = protections:list(T'Player', {}, T'Player protections')
-        local notif_protections = protections:list(T'Notifications', {}, T'Notification protections')
-        local vehicle_spoofing = vehicle_protections:list(T'Vehicle Spoofing', {}, T'Vehicle spoofing')
-        local detections = root:list(T'Detections', {}, T'Detections')
-    
-        --[[local veh_kick_ref
-        veh_kick_ref = vehicle_protections:toggle(T'Vehicle Kick', {}, T'Prevents you from being kicked from any vehicle (this protection is NOT the same as Stand\'s kick from vehicle protection)', function(state)
-            pkick = pkick ?? ScriptGlobal(VEHICLE_KICK_PRIMARY)
-            skick = skick ?? ScriptGlobal(VEHICLE_KICK_SECONDARY)
-    
-            WriteByte(pkick, state ? 0 : 1)
-            WriteByte(skick, state ? 1 : 0)
+        self.root = root:list(T'Protections', {T'rprotections'}, T'Protections')
+        self.vehicle_protections = self.root:list(T'Vehicle', {}, T'Vehicle protections')
+        self.player_protections = self.root:list(T'Player', {}, T'Player protections')
+        self.events = self.root:list(T'Events', {}, T'Events')
+        self.notif_protections = self.root:list(T'Notifications', {}, T'Notification protections')
+        self.vehicle_spoofing = self.vehicle_protections:list(T'Vehicle Spoofing', {}, T'Vehicle spoofing')
+        self.detections = root:list(T'Detections', {}, T'Detections')
+
+        self:CreateVehicleProtections()
+        self:CreatePlayerProtections()
+        self:CreateNotifProtections()
+        self:CreateDetections()
+        self:CreateEvents()
+    end
+
+    function CreateVehicleProtections()
+        local veh_kick_ref
+        veh_kick_ref = self.vehicle_protections:toggle(T'Vehicle Kick', {}, T'Prevents you from being kicked from any vehicle (this protection is NOT the same as Stand\'s kick from vehicle protection)', function(state)
+            local protect = ScriptGlobal(1669211 + 54)
+            WriteByte(protect, state ? 1 : 0)
         end)
     
         local veh_smartkick_ref
-        veh_smartkick_ref = vehicle_protections:toggle_loop(T'Smart Vehicle Kick', {}, T'Vehicle kick protection will only be enabled when you are in a personal vehicle, this will prevent any negative side effects like breaking missions', function()
+        veh_smartkick_ref = self.vehicle_protections:toggle_loop(T'Smart Vehicle Kick', {}, T'Vehicle kick protection will only be enabled when you are in a personal vehicle, this will prevent any negative side effects like breaking missions', function()
             local veh = GetVehicleFromNetId(PLAYER_ID)
             local ped = players.user_ped()
     
@@ -86,9 +91,9 @@ pluto_class Protections
                     veh_kick_ref.value = false
                 end
             end
-        end)]]
+        end)
     
-        vehicle_protections:toggle_loop(T'Anti-Oppressor MKII', {}, T'Delete broomsticks so shitbags cannot use them', function()
+        self.vehicle_protections:toggle_loop(T'Anti-Oppressor MKII', {}, T'Delete broomsticks so shitbags cannot use them', function()
             for Shared.GetAllVehiclesAsPointers() as entity do
                 local model = Shared.ReverseJoaat(Shared.GetModelHash(entity))
                 if model:find('oppressor2') then
@@ -97,7 +102,7 @@ pluto_class Protections
             end
         end)
     
-        vehicle_spoofing:toggle_loop(T'Vehicle Spoofing', {}, T'Revert other players attempts at trying to spoof your personal vehicle', function()
+        self.vehicle_spoofing:toggle_loop(T'Vehicle Spoofing', {}, T'Revert other players attempts at trying to spoof your personal vehicle', function()
             local_nethash = local_nethash ?? NetworkHashFromPlayerHandle(PLAYER_ID)
     
             for pid = 0, 32 do
@@ -142,12 +147,14 @@ pluto_class Protections
             end
         end)
     
-        vehicle_spoofing:divider(T'Reactions')
+        self.vehicle_spoofing:divider(T'Reactions')
     
-        vehicle_spoofing:toggle(T'Kick', {}, T'Kick the player who is spoofing your personal vehicle', function() end)
-        vehicle_spoofing:toggle(T'Crash', {}, T'Crash the player who is spoofing your personal vehicle', function() end)
-    
-        player_protections:toggle_loop(T'Anti Orbital Cannon', {}, T'Prevents you from being targeted by the orbital cannon, players can still manually target you but it will be very unlikely that they will find you', function()
+        self.vehicle_spoofing:toggle(T'Kick', {}, T'Kick the player who is spoofing your personal vehicle', function() end)
+        self.vehicle_spoofing:toggle(T'Crash', {}, T'Crash the player who is spoofing your personal vehicle', function() end)
+    end
+
+    function CreatePlayerProtections()
+        self.player_protections:toggle_loop(T'Anti Orbital Cannon', {}, T'Prevents you from being targeted by the orbital cannon, players can still manually target you but it will be very unlikely that they will find you', function()
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) and pid ~= PLAYER_ID then
                     Shared:SetPassiveMode(Shared:IsUsingOrbitalCannon(pid))
@@ -158,7 +165,7 @@ pluto_class Protections
             Shared:SetPassiveMode(false)
         end)
     
-        player_protections:toggle_loop(T'Ghost Godmode Trash', {}, T'Automatically become ghosted to trash players that are using godmode', function()
+        self.player_protections:toggle_loop(T'Ghost Godmode Trash', {}, T'Automatically become ghosted to trash players that are using godmode', function()
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) and pid ~= PLAYER_ID then
                     SetRemotePlayerAsGhost(pid, Shared.IsGodmode(pid))
@@ -166,7 +173,7 @@ pluto_class Protections
             end
         end)
     
-        player_protections:toggle_loop(T'Anti-Attacker', {T'antiattacker'}, 'Prevents you from being attacked by a mugger, mercenaries, hit squad or strike team', function()
+        self.player_protections:toggle_loop(T'Anti-Attacker', {T'antiattacker'}, 'Prevents you from being attacked by a mugger, mercenaries, hit squad or strike team', function()
             SpoofScript('am_gang_call', function()
                 local sender = ScriptLocal('am_gang_call', 286)
                 local target = ScriptLocal('am_gang_call', 287)
@@ -178,17 +185,17 @@ pluto_class Protections
             end)
         end)
     
-        player_protections:toggle_loop(T'Anti-Beast', {}, T'Prevents you from becoming the beast', function()
+        self.player_protections:toggle_loop(T'Anti-Beast', {}, T'Prevents you from becoming the beast', function()
             SpoofScript('am_hunt_the_beast', Shared.TerminateThisThread)
         end)
     
-        player_protections:toggle_loop(T'Bounty', {}, T'Prevents bounties from being set on you', function()
+        self.player_protections:toggle_loop(T'Bounty', {}, T'Prevents bounties from being set on you', function()
             if Shared:GetPlayerBounty(PLAYER_ID) > 0 then
                 Shared:SetPlayerBounty(PLAYER_ID, -1, false)
             end
         end)
     
-        player_protections:toggle_loop(T'Bounty (Session-Wide)', {}, T'Prevent bounties from being set on other players in the session', function()
+        self.player_protections:toggle_loop(T'Bounty (Session-Wide)', {}, T'Prevent bounties from being set on other players in the session', function()
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) then
                     if Shared:GetPlayerBounty(pid) > 0 then
@@ -199,7 +206,7 @@ pluto_class Protections
             end
         end)
     
-        player_protections:toggle_loop(T'Modded Bounties (Session-Wide)', {}, T'Detects and fixes modded bounties for the entire session', function()
+        self.player_protections:toggle_loop(T'Modded Bounties (Session-Wide)', {}, T'Detects and fixes modded bounties for the entire session', function()
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) then
                     local bounty = Shared:GetPlayerBounty(pid)
@@ -212,28 +219,53 @@ pluto_class Protections
                 end
             end
         end)
+    end
 
-        notif_protections:toggle(T'Block Mugger Notification', {}, 'Block mugger notification spam', function(state)
+    function CreateNotifProtections()
+        self.notif_protections:toggle(T'Block Mugger Notification', {}, 'Block mugger notification spam', function(state)
             Shared:BlockMuggerEvent(state)
         end)
     
-        notif_protections:toggle(T'Block Stand Notification Spam', {}, 'Block stand notification spam', function(state)
+        self.notif_protections:toggle(T'Block Stand Notification Spam', {}, 'Block stand notification spam', function(state)
             Shared:BlockStandNotificationSpam(state)
         end)
     
-        notif_protections:toggle(T'Block All Notifications', {}, 'Block all notifications', function(state)
+        self.notif_protections:toggle(T'Block All Notifications', {}, 'Block all notifications', function(state)
             Shared:BlockAllNotifications(state)
         end)
-    
-        detections:toggle_loop(T'Vehicle Spoofing', {}, T'Detects when a player is spoofing your personal vehicle', function()
+    end
+
+    function CreateDetections()
+        self.detections:toggle_loop(T'Vehicle Spoofing', {}, T'Detects when a player is spoofing your personal vehicle', function()
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) and pid ~= PLAYER_ID then
                     if GetNetworkId(pid) == GetNetworkId(PLAYER_ID) then
-                        --Shared:TriggerDetection(pid, 'Vehicle Spoofing')
                         players.add_detection(pid, 'Vehicle Spoofing')
                     end
                 end
             end
+        end)
+    end
+
+    function CreateEvents()
+        self.events:toggle(T'Block CEO/MC Invites', {}, T'Block CEO/MC invites from other players in the session', function(state)
+            Shared:BlockCEOMCInvites(state)
+        end)
+
+        self.events:toggle(T'Block Island Heist Invite', {}, T'Block island heist invites from other players in the session', function(state)
+            Shared:BlockIslandHeistInvite(state)
+        end)
+
+        self.events:toggle(T'Block Remove Wanted Level', {}, T'Block remove wanted level from other players in the session', function(state)
+            Shared:BlockRemoveWantedLevel(state)
+        end)
+
+        self.events:toggle(T'Block Property Invite', {}, T'Block property invites from other players in the session', function(state)
+            Shared:BlockPropertyInvite(state)
+        end)
+
+        self.events:toggle(T'Block Off The Radar', {}, T'Block remote off the radar from other players in the session', function(state)
+            Shared:BlockRemoteOffTheRadar(state)
         end)
     end
 end

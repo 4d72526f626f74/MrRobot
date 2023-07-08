@@ -7,8 +7,6 @@ local BitModule = require('bit')
 local Bit, BitMask, Pack = BitModule.Bit, BitModule.BitMask, BitModule.Pack
 local Shared = require('shared')
 
-root:divider('')
-
 local ClearAllPedProps = Shared.ClearAllPedProps
 local TaskPlayAnim = Shared.TaskPlayAnim
 local SetCurrWeatherState = Shared.SetCurrWeatherState
@@ -234,19 +232,18 @@ end
 
 pluto_class SelfOptions
     function __construct()
-        self.root = root:list(T'Self', {T'rself'}, '')
-        local root = self.root
-        local healing = root:list(T'Healing', {T'healing'}, T'Healing options')
-        local healthmod = root:list(T'Health', {T'health'}, T'Modded health options')
-        local superpunch = root:list(T'Super Punch', {T'superpunch'}, T'Super Punch options')
-        local hiding = root:list(T'Hiding', {T'hiding'}, T'Hiding options')
-        local mental_state = root:list(T'Mental State', {T'mentalstate'}, T'Mental State options')
-        local noclip = root:list(T'No Clip', {T'noclip'}, T'No Clip options')
-        local bounty = root:list(T'Bounty', {T'bounty'}, T'Bounty options')
-        local model_changer = root:list(T'Model Changer', {T'modelchanger'}, T'Model Changer options')
-        local cutscene = root:list(T'Cutscenes', {T'cutscene'}, T'Cutscene options')
-        local pvp_helper = root:list(T'PvP Helper', {T'pvphelper'}, T'PvP Helper options')
-        root:divider('')
+        self.root = root:list(T'Self', {T'rself'}, 'Self options')
+        local healing = self.root:list(T'Healing', {T'healing'}, T'Healing options')
+        local healthmod = self.root:list(T'Health', {T'health'}, T'Modded health options')
+        local superpunch = self.root:list(T'Super Punch', {T'superpunch'}, T'Super Punch options')
+        local hiding = self.root:list(T'Hiding', {T'hiding'}, T'Hiding options')
+        local mental_state = self.root:list(T'Mental State', {T'mentalstate'}, T'Mental State options')
+        local noclip = self.root:list(T'No Clip', {T'noclip'}, T'No Clip options')
+        local bounty = self.root:list(T'Bounty', {T'bounty'}, T'Bounty options')
+        local model_changer = self.root:list(T'Model Changer', {T'modelchanger'}, T'Model Changer options')
+        local cutscene = self.root:list(T'Cutscenes', {T'cutscene'}, T'Cutscene options')
+        local pvp_helper = self.root:list(T'PvP Helper', {T'pvphelper'}, T'PvP Helper options')
+        self.root:divider('')
     
         healing:toggle_loop(T'Auto Heal', {T'autoheal'}, T'Automatically heal when your health falls below a certain threshold', function()
             local ped = players.user_ped()
@@ -297,14 +294,14 @@ pluto_class SelfOptions
             end
         end)
     
-        otr_ref = root:toggle(T'Stealth', {T'stealthmode'}, T'Removes your player blip from the minimap so others players in the session cannot see where you are on the map', function(state)
+        otr_ref = self.root:toggle(T'Stealth', {T'stealthmode'}, T'Removes your player blip from the minimap so others players in the session cannot see where you are on the map', function(state)
             otr ??= ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 321)
             local v = ReadByte(otr)
             WriteByte(otr, state ? (BitMask:Set(v, Bits.StealthMode)) : (BitMask:Clear(v, Bits.StealthMode))) 
         end)
     
         local bribe_authorities_ref
-        bribe_authorities_ref = root:toggle_loop(T'Bribe Authorities', {T'bribeauthorities'}, T'Bribes the authorities so you can get away with anything', function()
+        bribe_authorities_ref = self.root:toggle_loop(T'Bribe Authorities', {T'bribeauthorities'}, T'Bribes the authorities so you can get away with anything', function()
             bribe ??= ScriptGlobal(BRIBE_AUTHORITIES)
             WriteByte(bribe, BitMask:Set(ReadByte(bribe), Bits.BribeAuthorities))
         end,
@@ -325,7 +322,7 @@ pluto_class SelfOptions
             WriteByte(orbital_cannon, 0)
         end)
     
-        invis_ref = root:toggle_loop(T'Invisibility', {T'ezinvisibility'}, T'Makes your player completely invisible, not even Stands reveal invisible players can make you visible again', function()
+        invis_ref = self.root:toggle_loop(T'Invisibility', {T'ezinvisibility'}, T'Makes your player completely invisible, not even Stands reveal invisible players can make you visible again', function()
             invis ??= ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 254)
     
             if not IsEntityDead(players.user_ped()) then
@@ -338,7 +335,7 @@ pluto_class SelfOptions
             WriteByte(invis, 0)
         end)
     
-        interior_state_ref = root:toggle(T'Spoof Interior State', {T'spoofinteriorstate'}, T'Spoofs your position on the map to show you as being inside of an invalid interior when you are not', function(state)
+        interior_state_ref = self.root:toggle(T'Spoof Interior State', {T'spoofinteriorstate'}, T'Spoofs your position on the map to show you as being inside of an invalid interior when you are not', function(state)
             interior_state ??= ScriptGlobal(1853988 + 1 + (PLAYER_ID * 867) + 863)
             local bitfield = ReadShort(interior_state)
             WriteShort(interior_state, state ? (Bit:Set(bitfield, Bits.SpoofInteriorState)) : (Bit:Clear(bitfield, Bits.SpoofInteriorState)))
@@ -354,12 +351,12 @@ pluto_class SelfOptions
             invis_ref.value = state
         end)
     
-        root:toggle(T'Harden Player', {T'hardplayer'}, T'Hardens your player', function(state)
+        self.root:toggle(T'Harden Player', {T'hardplayer'}, T'Hardens your player', function(state)
             SetPedSuffersCriticalHits(players.user_ped(), not state)
             SetPedUpperBodyDamageOnly(players.user_ped(), state)
         end)
     
-        root:toggle_loop(T'Fast Respawn', {T'fastrespawn'}, T'Respawns you instantly', function()
+        self.root:toggle_loop(T'Fast Respawn', {T'fastrespawn'}, T'Respawns you instantly', function()
             respawn ??= ScriptGlobal(FAST_RESPAWN)
             respawn_state ??= ScriptGlobal(RESPAWN_STATE)
     
@@ -370,7 +367,7 @@ pluto_class SelfOptions
             end
         end)
     
-        root:toggle_loop(T'Killer Karma', {T'killerkarma'}, T'Karma the player that killed you', function()
+        self.root:toggle_loop(T'Killer Karma', {T'killerkarma'}, T'Karma the player that killed you', function()
             killer_karma ??= ScriptGlobal(PLAYER_KILLER)
             respawn_state ??= ScriptGlobal(RESPAWN_STATE)
             respawn ??= ScriptGlobal(FAST_RESPAWN)
@@ -502,19 +499,19 @@ pluto_class SelfOptions
     
         noclip_speed = noclip:slider(T'Speed', {}, T'Speed multiplier', 1, 100, 1, 1, function(value) end)
     
-        root:toggle_loop(T'Infinite OTR / Ghost Org', {T'infiniteotr'}, T'Freezes the timer so it never decreases', function()
+        self.root:toggle_loop(T'Infinite OTR / Ghost Org', {T'infiniteotr'}, T'Freezes the timer so it never decreases', function()
             otrghost_timer ??= ScriptGlobal(OTR_GHOST_TIMER)
             WriteInt(otrghost_timer, GetNetworkTime())
         end)
     
-        root:toggle_loop(T'Force Ghost Org', {T'forceghostorg'}, T'When in an org with this enabled using off the radar will force you to go ghost org instead of off the radar allowing you to remain hidden for longer', function()
+        self.root:toggle_loop(T'Force Ghost Org', {T'forceghostorg'}, T'When in an org with this enabled using off the radar will force you to go ghost org instead of off the radar allowing you to remain hidden for longer', function()
             forceghostorg ??= ScriptGlobal(ABILITIES_BITFIELD)
             WriteByte(forceghostorg, BitMask:Set(ReadByte(forceghostorg), Bits.ForceGhostOrg)) 
         end, function()
             WriteByte(forceghostorg, BitMask:Clear(ReadByte(forceghostorg), Bits.ForceGhostOrg))
         end)
     
-        root:toggle(T'Snacks Instant Restore', {T'snacksinstantrestore'}, T'Eating any snacks will instantly restore all your health', function(state)
+        self.root:toggle(T'Snacks Instant Restore', {T'snacksinstantrestore'}, T'Eating any snacks will instantly restore all your health', function(state)
             for i = 113, 119 do
                 if state then
                     WriteFloat(ScriptGlobal(262145 + i), 100.0)
@@ -524,7 +521,7 @@ pluto_class SelfOptions
             end
         end)
     
-        root:toggle(T'Beast Mode', {T'beastmode'}, T'Enables beast mode which makes you stronger, faster and more durable than normal', function(state)
+        self.root:toggle(T'Beast Mode', {T'beastmode'}, T'Enables beast mode which makes you stronger, faster and more durable than normal', function(state)
             local ped = players.user_ped()
             local ref = ref_by_rel_path(root, T'Beast Mode')
             if not is_session_started() then
@@ -600,13 +597,13 @@ pluto_class SelfOptions
             end
         end)
     
-        root:toggle_loop(T'Crouch Strafe', {}, T'Make your player strafe a crouched position (only works in first person)', function()
+        self.root:toggle_loop(T'Crouch Strafe', {}, T'Make your player strafe a crouched position (only works in first person)', function()
             SetPedStrafeClipset(players.user_ped(), 'move_ped_crouched_strafing')
         end, function()
             ResetPedStrafeClipset(players.user_ped())
         end)
     
-        root:toggle_loop(T'Tbag', {}, T'Make you tbag the ground (only works in first person)', function()
+        self.root:toggle_loop(T'Tbag', {}, T'Make you tbag the ground (only works in first person)', function()
             local ped = players.user_ped()
             SetPedStrafeClipset(ped, 'move_ped_crouched_strafing')
             util.yield_once()
@@ -615,13 +612,13 @@ pluto_class SelfOptions
             ResetPedStrafeClipset(players.user_ped())
         end)
     
-        Shared.Refs.BecomeInterior = root:toggle(T'Become An Interior', {}, T'Makes your blip look like you\'re inside of an interior when you are not', function(state)
+        Shared.Refs.BecomeInterior = self.root:toggle(T'Become An Interior', {}, T'Makes your blip look like you\'re inside of an interior when you are not', function(state)
             become_interior ??= ScriptGlobal(1853988 + 1 + (PLAYER_ID * 867) + 267 + 31)
             local bitfield = ReadByte(become_interior)
             WriteByte(become_interior, state ? (Bit:Set(bitfield, Bits.BecomeInterior)) : (Bit:Clear(bitfield, Bits.BecomeInterior)))
         end)
     
-        root:toggle(T'Delete All Players', {}, T'Delete all players from existence, this does not kick them', function(state)
+        self.root:toggle(T'Delete All Players', {}, T'Delete all players from existence, this does not kick them', function(state)
             local list = Shared.PlayerList
     
             for pid = 0, 32 do
@@ -633,13 +630,33 @@ pluto_class SelfOptions
             end
         end)
     
-        root:toggle(T'Pause Menu Active', {}, T'Make it look like you\'re in the pause menu when you are not', function(state)
+        self.root:toggle(T'Pause Menu Active', {}, T'Make it look like you\'re in the pause menu when you are not', function(state)
             pause_menu ??= ScriptGlobal(1853988 + 1 + (PLAYER_ID * 867) + 192)
             WriteByte(pause_menu, state and 1 or 0)
         end)
     
-        root:toggle_loop(T'Bypass On Call', {}, T'Bypass the game preventing you leave interiors due to being on call (untested because cannot seem to force the requirements to test it)', function()
+        self.root:toggle_loop(T'Bypass On Call', {}, T'Bypass the game preventing you leave interiors due to being on call (untested because cannot seem to force the requirements to test it)', function()
             WriteByte(ScriptGlobal(1057409), -1) -- Global_1057409
+        end)
+
+        self.root:toggle_loop(T'Out Of Sight', {}, T'Enable out of sight, what else?', function()
+            local g = ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 456)
+            local g1 = g + 0x8
+
+            local coords = GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
+            local x, y, z = coords.x, coords.y, coords.z
+
+            if ReadByte(g) == 0 then
+                WriteByte(g, 1)
+            else
+                WriteFloat(g1, x)
+                WriteFloat(g1 + 0x8, y)
+                WriteFloat(g1 + 0x10, z)
+            end
+        end,
+        function()
+            local g = ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 456)
+            WriteByte(g, 0)
         end)
     
         model_changer:action(T'Custom Ped', {}, T'Choose a custom ped model', function()
@@ -672,19 +689,19 @@ pluto_class SelfOptions
             end)
         end
     
-        root:divider('')
+        self.root:divider('')
     
-        root:action(T'Max Health', {T'maxhealth'}, T'Set your health to max', function()
+        self.root:action(T'Max Health', {T'maxhealth'}, T'Set your health to max', function()
             local ped = players.user_ped()
             SetEntityHealth(ped, GetEntityMaxHealth(ped))
         end)
     
-        root:action(T'Max Armour', {T'maxarmour'}, T'Set your armour to max', function()
+        self.root:action(T'Max Armour', {T'maxarmour'}, T'Set your armour to max', function()
             local ped = players.user_ped()
             SetPedArmour(ped, GetPlayerMaxArmour(PLAYER_ID))
         end)
     
-        root:action(T'Infinite Snacks and Armor', {T'infiniteinventory'}, T'Gives you infinite snacks and armor in your inventory', function()
+        self.root:action(T'Infinite Snacks and Armor', {T'infiniteinventory'}, T'Gives you infinite snacks and armor in your inventory', function()
             local value = Shared.MAX_INT
             StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'NO_BOUGHT_YUM_SNACKS'), value)
             StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_'.. 'NO_BOUGHT_HEALTH_SNACKS'), value)
@@ -702,7 +719,7 @@ pluto_class SelfOptions
             StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'BREATHING_APPAR_BOUGHT'), value)
         end)
     
-        Shared.Refs.InstantBST = root:action(T'Instant BST', {T'instantbst'}, T'Instantly reap the reward of bst', function()
+        Shared.Refs.InstantBST = self.root:action(T'Instant BST', {T'instantbst'}, T'Instantly reap the reward of bst', function()
             bst_local ??= ScriptLocal('freemode', INSTANT_BST_LOCAL)
             WriteByte(bst ?? ScriptGlobal(INSTANT_BST), 1)
     
@@ -711,7 +728,7 @@ pluto_class SelfOptions
             end
         end)
     
-        root:action(T'Teleport To Nearest Hospital', {T'tpnearbyhospital'}, T'Teleport you to the nearest hospital as if someone just used the orbital cannon on you', function()
+        self.root:action(T'Teleport To Nearest Hospital', {T'tpnearbyhospital'}, T'Teleport you to the nearest hospital as if someone just used the orbital cannon on you', function()
             tp_hospital ??= ScriptGlobal(TELEPORT_NEAREST_HOSPITAL)
     
             WriteByte(tp_hospital, 1)
@@ -719,7 +736,7 @@ pluto_class SelfOptions
             WriteByte(tp_hospital, 0)
         end)
     
-        root:action(T'Equip Ballistic Armor', {T'equiparmor'}, T'Equip ballistic armor', function()
+        self.root:action(T'Equip Ballistic Armor', {T'equiparmor'}, T'Equip ballistic armor', function()
             ballistic_armor ??= ScriptGlobal(EQUIP_BALLISTIC_ARMOR)
     
             if ReadByte(ballistic_armor) == 0 then
@@ -740,7 +757,7 @@ pluto_class SelfOptions
             WriteByte(bounty_local, -1)
         end)
     
-        root:action(T'Cops Turn Blind Eye', {T'copsturnblindeye'}, T'Makes the cops turn a blind eye to you', function()
+        self.root:action(T'Cops Turn Blind Eye', {T'copsturnblindeye'}, T'Makes the cops turn a blind eye to you', function()
             blindeye ??= ScriptGlobal(BRIBE_AUTHORITIES)
             WriteByte(blindeye, BitMask:Set(ReadByte(blindeye), Bits.BribeAuthorities))
             util.yield(100)
@@ -751,29 +768,29 @@ pluto_class SelfOptions
             WriteByte(blindeye, Bit:Set(ReadByte(blindeye), Bits.CopsTurnBlindEye))
         end)
     
-        root:action(T'Off The Radar', {T'selfotr'}, T'Makes you off the radar using the same method the game does', function()
+        self.root:action(T'Off The Radar', {T'selfotr'}, T'Makes you off the radar using the same method the game does', function()
             OffTheRadar(false)
         end)
     
-        root:action(T'Ghost Org', {T'selfghostorg'}, T'Makes you ghost org using the same method the game does', function()
+        self.root:action(T'Ghost Org', {T'selfghostorg'}, T'Makes you ghost org using the same method the game does', function()
             OffTheRadar(true)
         end)
     
-        root:action(T'Reset OTR/Ghost Org Timer', {T'resetotrghostorgtimer'}, T'Reset the timer for off the radar/ghost org', function()
+        self.root:action(T'Reset OTR/Ghost Org Timer', {T'resetotrghostorgtimer'}, T'Reset the timer for off the radar/ghost org', function()
             otrghost_timer ??= ScriptGlobal(OTR_GHOST_TIMER)
             WriteInt(otrghost_timer, GetNetworkTime())
         end)
     
-        root:action(T'Disable Ghost Org / OTR', {T'stophiding'}, T'Disable off the radar / ghost org', function()
+        self.root:action(T'Disable Ghost Org / OTR', {T'stophiding'}, T'Disable off the radar / ghost org', function()
             DisableOffTheRadar()
         end)
     
-        root:action(T'Disable Blind Eye', {T'stopblindeye'}, T'Disable the cops turning a blind eye to you', function()
+        self.root:action(T'Disable Blind Eye', {T'stopblindeye'}, T'Disable the cops turning a blind eye to you', function()
             blindeye ??= ScriptGlobal(BRIBE_AUTHORITIES)
             WriteByte(blindeye, Bit:Clear(ReadByte(blindeye), 0))
         end)
     
-        root:action(T'Disable BST', {T'disablebst'}, T'Disable bst', function()
+        self.root:action(T'Disable BST', {T'disablebst'}, T'Disable bst', function()
             local g = ScriptGlobal(2672524 + 3690)
             if ReadByte(g) == 1 then
                 WriteByte(g, BitMask:Set(g, BitMask:Create(0, 1, 2)))

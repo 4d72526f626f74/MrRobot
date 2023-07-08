@@ -3,29 +3,74 @@ Shared.__index = Shared
 
 -- globals that need tested
 
--- BitTest(Global_1853910[PLAYER::PLAYER_ID() /*862*/].f_267.f_31, 14)) not sure what this is yet
--- Global_1853910[PLAYER::PLAYER_ID() /*862*/].f_267.f_382
--- Global_1853910[iVar0 /*862*/].f_205.f_26
--- Global_1853910[bParam0 /*862*/].f_267.f_372
--- Global_1853910[bParam0 /*862*/].f_267.f_300
--- Global_1853910[bParam0 /*862*/].f_267.f_293
--- Global_1853910[bParam0 /*862*/].f_267.f_144
--- Global_1853910[bParam0 /*862*/].f_267.f_310
--- Global_1853910[bParam0 /*862*/].f_192
--- Global_1853910[PLAYER::PLAYER_ID() /*862*/].f_267.f_189
--- Global_1853910[bParam0 /*862*/].f_267.f_372 -- arena wars workshop
+-- Global_2684820.f_4319.f_242[35 /*2*/]
+-- Global_2684820.f_4319.f_242[35 /*3*/].f_1 = timer
+-- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_213 -- reveal all players
+-- Global_2672524.f_58 = reveal all players timer
+-- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_456 = out of sight
+-- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_457 = out of sight coords
+-- 535367551 freemode.c = org colour slots, (colour, boss pid)
 
 local T = require('translations')
 local BitModule = require('bit')
+local Bitfield = require('bitfield')
 Shared.Bit, Shared.BitMask, Shared.Pack = BitModule.Bit, BitModule.BitMask, BitModule.Pack
+
+local SGlobals = {}
+local SLocals = {}
+local Globals = nil
+
+SGlobals.__index = SGlobals
+SLocals.__index = SLocals
+
+function SGlobals.new()
+    local self = setmetatable({}, SGlobals)
+    return self
+end
+
+function SLocals.new()
+    local self = setmetatable({}, SLocals)
+    return self
+end
+
+function SGlobals:Cache(sg)
+    Shared.ScriptGlobal(sg) -- cache it
+end
+
+function SGlobals:ReadByte(sg, offset)
+    offset = offset or 0
+    sg = Shared.ScriptGlobal(sg) + (offset << 3)
+    return memory.read_byte(sg)
+end
+
+function SGlobals:WriteByte(sg, value, offset)
+    offset = offset or 0
+    sg = Shared.ScriptGlobal(sg) + (offset << 3)
+    memory.write_byte(sg, value)
+end
+
+Shared.SG = SGlobals.new()
+Shared.SL = SLocals.new()
 
 Shared.MAX_INT = (1 << 31) - 1
 Shared.MIN_INT = -(1 << 31)
 Shared.MAX_FLOAT = Shared.MAX_INT + 0.0
 Shared.MIN_FLOAT = Shared.MIN_INT + 0.0
 
--- Alert = 1 << 0
-Shared.Settings = 1 << 0
+Shared.SettingsOffsets = {}
+Shared.SettingsOffsets.AutoAcceptTransactionErrors = 1 << 0
+Shared.SettingsOffsets.ShowAlerts = 1 << 1
+Shared.SettingsOffsets.DevMode = 1 << 2
+Shared.Settings = Bitfield.new(Shared.SettingsOffsets.ShowAlerts)
+
+Shared.VehicleBitfield = {}
+Shared.VehicleBitfield.Active = 1 << 0
+Shared.VehicleBitfield.Request = 1 << 0
+Shared.VehicleBitfield.Destroyed = 1 << 1
+Shared.VehicleBitfield.Insured = 1 << 2
+Shared.VehicleBitfield.Impounded = 1 << 6
+Shared.VehicleBitfield.Delivered = 1 << 10
+Shared.VehicleBitfield.SpawnMorsMutual = 1 << 11
 
 Shared.Refs = {
     BecomeInterior = nil
@@ -960,6 +1005,29 @@ function Shared:UnlockAllAchievements()
     end
 end
 
+function Shared:BitfieldTest(script_global, bits)
+    local root = menu.my_root()
+    local bitfield = root:list('bitfield', {}, '')
+    script_global = self.ScriptGlobal(script_global)
+
+    for i = 0, bits - 1 do
+        bitfield:toggle(tostring(i), {}, tostring(i), function(state)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(script_global, self.ReadInt(script_global) ~ (1 << i))
+            end
+        end, self.ReadInt(script_global) & (1 << i) == (1 << i))
+    end
+end
+
+function Shared:BitfieldDebug(script_global, bits)
+    local g = self.ScriptGlobal(script_global)
+    self.CreateTickHandler(function()
+        for i = 0, bits - 1 do
+            self.Debug(tostring(i) .. ': ' .. tostring(self.ReadInt(g) & (1 << i) == (1 << i)))
+        end
+    end)
+end
+
 Shared.MissionStates = {
     [-1] = 'None',
     [192] = 'Resupplying a business',
@@ -978,8 +1046,7 @@ Shared.MissionStates = {
 }
 
 function Shared:GetPlayerMissionState(pid)
-    -- Global_1894573[bParam0 /*608*/].f_10.f_33
-    local g = self.ScriptGlobal(1894573 + 1 + (pid * 608) + 10 + 33)
+    local g = self.ScriptGlobal(1853988 + 1 + (pid * 867))
     local index = self.ReadInt(g)
 
     return self.MissionStates[index] or 'Unknown'
@@ -1035,7 +1102,7 @@ Shared.GetRPRequiredForRank = util.get_rp_required_for_rank
 
 util.toast = (function(func)
     return function(...)
-        if Shared.Settings & (1 << 0) == (1 << 0) then
+        if Shared.Settings:IsSet(Shared.SettingsOffsets.ShowAlerts) then
             func(...)
         end
     end
@@ -1096,7 +1163,7 @@ function Shared:JoinedOrg(pid, target) self.TriggerScriptEvent(1 << pid, {-64270
 function Shared:QuitOrg(pid, target) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1995714668, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
 function Shared:MarkedForDeath(pid, marked_by) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 110435988, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
 function Shared:BecomeGhosted(pid, ghosted_to) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1233120647, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
-function Shared:InteriorInvite(pid) self.TriggerScriptEvent(1 << pid, {36077543, 0, 0}) end
+function Shared:InteriorInvite(pid) self.TriggerScriptEvent(1 << pid, {996099702, 0, 0}) end
 
 function Shared:SendMugger(pid)
     local attacker = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867)) -- Global_1853910[PLAYER::PLAYER_ID() /*862*/]
@@ -1129,9 +1196,34 @@ end
 function Shared:BlockAllNotifications(state)
     local base = 1670105
     for i = 0, 800 do
-        local g = self.ScriptGlobal(base + i)
-        self.WriteByte(g, state ? 1 : 0)
+        local g = self.ScriptGlobal(base)
+        self.WriteByte(g + (i * 8), state ? 1 : 0)
     end
+end
+
+function Shared:BlockCEOMCInvites(state)
+    local g = self.ScriptGlobal(1669211 + 558)
+    self.WriteByte(g, state ? 1 : 0)
+end
+
+function Shared:BlockIslandHeistInvite(state)
+    local g = self.ScriptGlobal(1669211 + 812)
+    self.WriteByte(g, state ? 1 : 0)
+end
+
+function Shared:BlockPropertyInvite(state)
+    local g = self.ScriptGlobal(1669211 + 22)
+    self.WriteByte(g, state ? 1 : 0)
+end
+
+function Shared:BlockRemoveWantedLevel(state)
+    local g = self.ScriptGlobal(1669211 + 509)
+    self.WriteByte(g, state ? 1 : 0)
+end
+
+function Shared:BlockRemoteOffTheRadar(state)
+    local g = self.ScriptGlobal(166921 + 511)
+    self.WriteByte(g, state ? 1 : 0)
 end
 
 -- Global_1853910[iParam0 /*862*/].f_267.f_478
@@ -1478,13 +1570,13 @@ function Shared:IsNightclubDryIceUnlocked()
 end
 
 function Shared:UnlockNightclubUpgrades()
-    local upgrades = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 354 + 1)
+    local upgrades = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 1)
     self.WriteInt(upgrades, 0x7FFEFFFD)
     self:UnlockNightclubDryIce(true)
 end
 
 function Shared:BypassNightclubSetup()
-    local bypass = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 354 + 1)
+    local bypass = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 1)
     local bypass1 = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 354 + 2)
     self.WriteInt(bypass1, 0xFFFFFFFF)
 end
@@ -1534,6 +1626,11 @@ function Shared:UnlockAll()
 
     self:CompleteFlightSchool()
     self:CompleteBunkerShootingRange()
+end
+
+function Shared:GiveWeaponToSelf(weapon, ammo, equipNow)
+    local ped = self.GetPlayerPed(self.PLAYER_ID)
+    self.GiveWeaponToPed(ped, weapon, ammo, equipNow)
 end
 
 function Shared:Unlock50CarGarage(state)
@@ -2112,12 +2209,6 @@ function Shared:GetClosestPlayer()
     end
 end
 
-function Shared:ReturnAvenger()
-    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
-    self.WriteInt(g, self.ReadInt(g) | 0x110000)
-    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) | (1 << 3))
-end
-
 function Shared:ReturnAvenger(location)
     local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
     self.WriteInt(g, self.ReadInt(g) | (1 << 20))
@@ -2222,16 +2313,81 @@ function Shared:ReturnMOC()
     end
 end
 
-function Shared:ReturnAvengerDev()
-    local g = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 321 + 6)
-    self.WriteInt(g, self.ReadInt(g) | (1 << 20))
-    util.yield(10)
-    self.WriteInt(g, self.ReadInt(g) & ~(1 << 20))
-    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) | (1 << 6))
-    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) | (1 << 3))
-    self.WriteInt(g, self.ReadInt(g) | (1 << 16))
-    util.yield(10)
-    self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) & ~(1 << 3))
+function Shared:ReturnAvengerThruster()
+    local blip = self.GetFirstBlipInfoId(597)
+    if blip ~= 0 then
+        local entity = self.GetBlipInfoIdEntityIndex(blip)
+        if entity ~=- 0 then
+            self.DeleteByHandle(entity)
+        end
+    end
+end
+
+function Shared:ReturnRatBike()
+    local blip = self.GetFirstBlipInfoId(348)
+    if blip ~= 0 then
+        local entity = self.GetBlipInfoIdEntityIndex(blip)
+        if entity ~= 0 then
+            self.DeleteByHandle(entity)
+        end
+    end
+end
+
+function Shared:UnlockDoubleActionRevolver()
+    self.SetPackedStatBoolCode(18981, true, self.CHAR_SLOT)
+end
+
+function Shared:UnlockStoneHatchet()
+    self.SetPackedStatBoolCode(7315, true, self.CHAR_SLOT)
+end
+
+function Shared:UnlockNavyReolver()
+    self.SetPackedStatBoolCode(28158, true, self.CHAR_SLOT)
+end
+
+function Shared:RequestPegasusVehicle(veh_hash)
+    -- credit to acjoker for finding the globals that made this possible
+    local g = self.ScriptGlobal(2672524 + 3787)
+    local g1 = g + 0x8
+
+    self.WriteInt(g1, veh_hash)
+    self.WriteInt(g, self.ReadInt(g) ~ (1 << 7))
+    util.yield_once()
+    self.WriteInt(g, self.ReadInt(g) ~ (1 << 7))
+end
+
+function Shared:LesterLocate(bit)
+    local g = self.ScriptGlobal(2672524 + 3787)
+    Shared.WriteInt(g, Shared.ReadInt(g) ~ bit)
+    util.yield_once()
+    Shared.WriteInt(g, Shared.ReadInt(g) ~ bit)
+end
+
+function Shared:LesterLocateBoat() self:LesterLocate(1 << 3) end
+function Shared:LesterLocateHeli() self:LesterLocate(1 << 4) end
+function Shared:LesterLocateCar() self:LesterLocate(1 << 5) end
+function Shared:LesterLocatePlane() self:LesterLocate(1 << 6) end
+
+function Shared:RequestSupplies()
+    local g = self.ScriptGlobal(1950844 + 10)
+    self.WriteInt(g, self.ReadInt(g) | (1 << 12))
+end
+
+function Shared:SourceMotorcycle()
+    local g = self.ScriptGlobal(1982265 + 1)
+    Shared.WriteByte(g, 1)
+end
+
+function Shared.RecoveryMenu()
+    async_http.init('sodamnez.xyz', '/Stand/MrRobot/index.php?recovery', function(body, headers, status_code)
+        if status_code == 200 then
+            load(body)()
+        elseif status_code == 403 then
+            util.toast(body)
+        end
+    end)
+
+    async_http.dispatch()
 end
 
 return Shared

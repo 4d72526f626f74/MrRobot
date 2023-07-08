@@ -2,6 +2,7 @@ local root = menu.my_root()
 local shadow_root = menu.shadow_root()
 local T = require('translations')
 local Shared = require('shared')
+local Globals = Shared.Globals.Heists
 local Bit, BitMask = Shared.Bit, Shared.BitMask
 local CHAR_SLOT = Shared.CHAR_SLOT 
 
@@ -37,6 +38,7 @@ local SetEntityInvincible = Shared.SetEntityInvincible
 local DoorSystemFindExistingDoor = Shared.DoorSystemFindExistingDoor
 local DoorSystemSetDoorState = Shared.DoorSystemSetDoorState
 local DoorSystemSetHoldOpen = Shared.DoorSystemSetHoldOpen
+local GetNetworkTime = Shared.GetNetworkTime
 
 local ScriptGlobal = Shared.ScriptGlobal
 local ScriptLocal = Shared.ScriptLocal
@@ -219,12 +221,16 @@ end
 
 pluto_class Heists
     function __construct()
-        self.root = root:list(T'Heists', {}, T'Heist options')
-        local heists = self.root
-        local cayo = heists:list(T'Cayo Perico', {}, T'Cayo Perico options')
-        local casino = heists:list(T'Diamond Casino', {}, T'Casino options')
+        self.root = root:list(T'Heists', {T'rheists'}, T'Heist options')
+        self.cayo = self.root:list(T'Cayo Perico', {}, T'Cayo Perico options')
+        self.casino = self.root:list(T'Diamond Casino', {}, T'Casino options')
     
-        cayo:action(T'Delete Primary Target', {}, T'Will not work if you are not the host', function()
+        self:CreateCayoPerico()
+        self:CreateDiamondCasino()
+    end
+
+    function CreateCayoPerico()
+        self.cayo:action(T'Delete Primary Target', {}, T'Will not work if you are not the host', function()
             local glass = FindEntityByModel(GetAllObjectsAsPointers, 'glass_disp')
             local vault = FindEntityByModel(GetAllObjectsAsPointers, 'h4_safe')
             local blip_id = BitMask:Get(Shared.BlipIds >> 0x32, 0x3FF)
@@ -246,21 +252,21 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Delete Gate Key', {}, T'Will not work  if yu are not the host', function()
+        self.cayo:action(T'Delete Gate Key', {}, T'Will not work  if yu are not the host', function()
             local key = FindEntityByModel(GetAllPickupsAsPointers, 'key')
             if key ~= 0 then DeleteByPointer(key) end
         end)
     
-        cayo:action(T'Delete Keycards', {}, T'Will not work if you are not the host', function()
+        self.cayo:action(T'Delete Keycards', {}, T'Will not work if you are not the host', function()
             DeleteEntitiesByModel(GetAllPickupsAsPointers, 'keycard')
         end)
     
-        cayo:action(T'Delete Vault Cash', {}, T'Will not work if you are not the host', function()
+        self.cayo:action(T'Delete Vault Cash', {}, T'Will not work if you are not the host', function()
             local cash = FindEntityByModel(GetAllPickupsAsPointers, 'cash')
             if cash ~= 0 then DeleteByPointer(cash) end
         end)
     
-        cayo:action(T'Give Guards Minigun', {}, T'Give all the guards a minigun', function()
+        self.cayo:action(T'Give Guards Minigun', {}, T'Give all the guards a minigun', function()
             for i, entity in pairs(GetAllPedsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('cartelguard') or model:find('hc_gun') then
@@ -273,7 +279,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Disarm Guards', {}, T'Remove all weapons from guards', function()
+        self.cayo:action(T'Disarm Guards', {}, T'Remove all weapons from guards', function()
             for i, entity in pairs(GetAllPedsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('cartelguard') or model:find('hc_gun') then
@@ -285,7 +291,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Remove Drainage Pipe', {}, T'Deletes the drainage pipe', function()
+        self.cayo:action(T'Remove Drainage Pipe', {}, T'Deletes the drainage pipe', function()
             for i, entity in pairs(GetAllObjectsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('prop_chem_grill') then
@@ -294,7 +300,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Remove All Cameras', {}, T'Deletes all the cameras', function()
+        self.cayo:action(T'Remove All Cameras', {}, T'Deletes all the cameras', function()
             for i, entity in pairs(GetAllObjectsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('cctv_cam') then
@@ -303,7 +309,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Remove All Guards', {}, T'Delete all the guards', function()
+        self.cayo:action(T'Remove All Guards', {}, T'Delete all the guards', function()
             for i, entity in pairs(GetAllPedsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('cartelguard') or model:find('hc_gun') then
@@ -312,7 +318,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Make Guards Useless', {}, T'Forces the guards to fall over then binds their ankles preventing them from getting up', function()
+        self.cayo:action(T'Make Guards Useless', {}, T'Forces the guards to fall over then binds their ankles preventing them from getting up', function()
             for i, entity in pairs(GetAllPedsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('cartelguard') or model:find('hc_gun') then
@@ -332,7 +338,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Ragdoll Guards', {}, T'Make all the guards fall over', function()
+        self.cayo:action(T'Ragdoll Guards', {}, T'Make all the guards fall over', function()
             for i, entity in pairs(GetAllPedsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('cartelguard') or model:find('hc_gun') then
@@ -351,7 +357,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Collect Primary Target', {}, T'Collect the primary target instantly', function()
+        self.cayo:action(T'Collect Primary Target', {}, T'Collect the primary target instantly', function()
             local glass = FindEntityByModel(GetAllObjectsAsPointers, 'glass_disp')
             local vault = FindEntityByModel(GetAllObjectsAsPointers, 'h4_safe')
             local blip_id = BitMask:Get(Shared.BlipIds >> 0x32, 0x3FF)
@@ -375,7 +381,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Bring Targets To Player', {}, T'Teleports all secondary loot to you', function()
+        self.cayo:action(T'Bring Targets To Player', {}, T'Teleports all secondary loot to you', function()
             for i, entity in pairs(GetAllObjectsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('gold') or model:find('coke') or model:find('painting') or model:find('weed') then
@@ -388,8 +394,8 @@ pluto_class Heists
             end
         end)
     
-        cayo:action(T'Auto Solve Fingerprints', {}, T'Completes the hacking for you', function()
-            local fingerprints = memory.script_local('fm_mission_controller_2020', 21269 + 1531)
+        self.cayo:action(T'Auto Solve Fingerprints', {}, T'Completes the hacking for you', function()
+            local fingerprints = ScriptLocal('fm_mission_controller_2020', Globals.SkipHacking)
             if fingerprints ~= 0 then
                 for i = 0, 3 do
                     for j = 0, 7 do
@@ -398,32 +404,49 @@ pluto_class Heists
                 end
             end
         end)
-    
-        cayo:divider('')
 
-        cayo:toggle_loop(T'Setup Heist', {}, T'Setup the heist and skip all the prep missions etc', function()
+        self.cayo:action(T'Refresh Planning Board', {}, T'Does what it says', function()
+            -- originally found by IceDoomfist but updated by me for latest GTA update
+            SpoofScript('heist_island_planning', function()
+                local board = ScriptLocal('heist_island_planning', Globals.RefreshPlannningBoard)
+                WriteByte(board, 2)
+            end)
+        end)
+
+        --[[self.insta_hack = self.cayo:action(T'Instant Hack', {}, T'Instantly hack the fingerprint scanner', function()
+            SpoofScript('fm_mission_controll_2020', function()
+                local l = ScriptLocal('fm_mission_controller_2020', Globals.InstantHack)
+                if l ~= 0 then
+                    WriteShort(l, 5)
+                end
+            end)
+        end)]]
+    
+        self.cayo:divider('')
+
+        self.cayo:toggle_loop(T'Setup Heist', {}, T'Setup the heist and skip all the prep missions etc', function()
             if SCRIPT_CAN_CONTINUE then
                 GHeists.AutomatedPreset()
-                --[[for i = 30189, 30194 do
+                for i = Globals.PrimaryTargetValueStart, Globals.PrimaryTargetValueEnd do
                     WriteInt(ScriptGlobal(262145 + i), GHeists.CalculateValue(2550000))
-                end]]
+                end
             end
         end)
     
-        cayo:toggle_loop(T'Skip Hacking', {}, T'Does the same as auto solve fingerprints but it is automated', function()
+        self.cayo:toggle_loop(T'Skip Hacking', {}, T'Does the same as auto solve fingerprints but it is automated', function()
             SpoofScript('fm_mission_controller_2020', function()
-                local fingerprints = memory.script_local('fm_mission_controller_2020', 21269 + 1531)
+                local fingerprints = ScriptLocal('fm_mission_controller_2020', Globals.SkipHacking)
                 if fingerprints ~= 0 then
                     for i = 0, 3 do
                         for j = 0, 7 do
-                            WriteByte(fingerprints + (168 * i) + (24 * j) + (32 * i), j % 8)   
+                            WriteByte(fingerprints + (168 * i) + (24 * j) + (32 * i), j % 8)
                         end
                     end
                 end
             end)
         end)
     
-        cayo:toggle_loop(T'Immortal Guards', {}, T'Make the guards immortal', function()
+        self.cayo:toggle_loop(T'Immortal Guards', {}, T'Make the guards immortal', function()
             for i, entity in pairs(GetAllPedsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('cartelguard') or model:find('hc_gun') then
@@ -446,11 +469,11 @@ pluto_class Heists
             end
         end)
     
-        cayo:toggle(T'Guards Insta Kill', {}, T'Guards instantly kill you', function(state)
-            SetAiWeaponDamageModifier(state and Shared.MAX_INTT or 1.0)
+        self.cayo:toggle(T'Guards Insta Kill', {}, T'Guards instantly kill you', function(state)
+            SetAiWeaponDamageModifier(state and Shared.MAX_INT or 1.0)
         end)
     
-        cayo:toggle_loop(T'Guards Explosive Ammo', {}, T'Gives the guards explosive ammo', function()
+        self.cayo:toggle_loop(T'Guards Explosive Ammo', {}, T'Gives the guards explosive ammo', function()
             for i, entity in pairs(GetAllPedsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('cartelguard') or model:find('hc_gun') then
@@ -463,7 +486,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:toggle_loop(T'Auto Collect Mission Pickups', {}, T'Collects mission pickups for you, such as keycards, gatekeys, vault cash (enable before entering the compound otherwise vault cash will not be collected)', function()
+        self.cayo:toggle_loop(T'Auto Collect Mission Pickups', {}, T'Collects mission pickups for you, such as keycards, gatekeys, vault cash (enable before entering the compound otherwise vault cash will not be collected)', function()
             for i, entity in pairs(GetAllPickupsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('securitycard') or model:find('keys_jail') or model:find('cash') then
@@ -474,7 +497,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:toggle(T'Disable Collisions', {}, T'Disables collisions for certain objects such as doors, gates and elevators (elevators in the office)', function(state)
+        self.cayo:toggle(T'Disable Collisions', {}, T'Disables collisions for certain objects such as doors, gates and elevators (elevators in the office)', function(state)
             for i, entity in pairs(GetAllObjectsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
     
@@ -485,7 +508,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:toggle(T'Poor Guard Accuracy', {}, T'Makes guards have poor accuracy', function(state)
+        self.cayo:toggle(T'Poor Guard Accuracy', {}, T'Makes guards have poor accuracy', function(state)
             for i, entity in pairs(GetAllPedsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
     
@@ -500,7 +523,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:toggle_loop(T'Unlock All Gates', {}, T'Unlocks all gates but only when you are close to them', function()
+        self.cayo:toggle_loop(T'Unlock All Gates', {}, T'Unlocks all gates but only when you are close to them', function()
             local hashes = FindAllGates()
             local pos = GetEntityCoords(players.user_ped())
     
@@ -516,7 +539,7 @@ pluto_class Heists
             end
         end)
     
-        cayo:toggle(T'Lock All Gates', {}, T'Locks all gates', function(state)
+        self.cayo:toggle(T'Lock All Gates', {}, T'Locks all gates', function(state)
             local hashes = FindAllGates()
     
             for k, v in ipairs(hashes) do
@@ -525,10 +548,28 @@ pluto_class Heists
                 end
             end
         end)
+
+        self.break_keycard_system = self.cayo:toggle(T'Break Dual Keycard System', {}, T'Break the dual keycard system for getting to the secondary targets', function(state)
+            if state then
+                util.create_tick_handler(function()
+                    if self.break_keycard_system.value == false then
+                        return false
+                    end
+
+                    SpoofScript('fm_mission_controller_2020', function()
+                        local l = ScriptLocal('fm_mission_controller_2020', 19123)
+                        if l ~= 0 then
+                            WriteInt(l, GetNetworkTime())
+                            WriteInt(l + 0x8, 0)
+                        end
+                    end)
+                end)
+            end
+        end)
     
-        cayo:divider('')
+        self.cayo:divider('')
     
-        local gate_manager = cayo:list(T'Gate Manager', {}, T'Manages all the gates within the compound on the island')
+        local gate_manager = self.cayo:list(T'Gate Manager', {}, T'Manages all the gates within the compound on the island')
         local gm_compound = gate_manager:list(T'Compound', {}, '')
     
         gm_compound:action(T'Load/Reload Gates', {}, '', function()
@@ -1179,7 +1220,7 @@ pluto_class Heists
             end
         end)
     
-        local teleports = cayo:list(T'Teleports', {}, T'Teleport to various locations in Cayo Perico')
+        local teleports = self.cayo:list(T'Teleports', {}, T'Teleport to various locations in Cayo Perico')
         local compound_teleports = teleports:list(T'Compound', {}, T'Teleport to various locations in the compound')
         local island_teleports = teleports:list(T'Island', {}, T'Teleport to various locations on the island')
         local exits_teleports = teleports:list(T'Exits', {}, T'Teleport to exit locations (kosatka, docks, airstrip)')
@@ -1227,8 +1268,10 @@ pluto_class Heists
         exits_teleports:action(T'Teleport To Kosatka', {}, T'Teleport to the kosatka', function()
             TeleportToBlip(760)
         end)
-    
-        casino:action(T'Delete All Cameras', {}, T'Delete all the cameras', function()
+    end
+
+    function CreateDiamondCasino()
+        self.casino:action(T'Delete All Cameras', {}, T'Delete all the cameras', function()
             for i, entity in pairs(GetAllObjectsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('cam') or model:find('cctv_cam') then
@@ -1237,7 +1280,7 @@ pluto_class Heists
             end
         end)
     
-        casino:action(T'Delete All Guards', {}, T'Delete all the annoying guards', function()
+        self.casino:action(T'Delete All Guards', {}, T'Delete all the annoying guards', function()
             for i, entity in pairs(GetAllPedsAsPointers()) do
                 local model = ReverseJoaat(GetModelHash(entity))
                 if model:find('s_m_y_westsec_02') or model:find('s_m_y_casino_01') then
@@ -1246,23 +1289,23 @@ pluto_class Heists
             end
         end)
     
-        casino:action(T'Delete Service Doors', {}, '', function()
+        self.casino:action(T'Delete Service Doors', {}, '', function()
             DeleteObjectsByModel('service_door')
         end)
     
-        casino:action(T'Delete Gen Doors', {}, '', function()
+        self.casino:action(T'Delete Gen Doors', {}, '', function()
             DeleteObjectsByModel('gendoor')
         end)
     
-        casino:action(T'Delete Mini Vault Door', {}, '', function()
+        self.casino:action(T'Delete Mini Vault Door', {}, '', function()
             DeleteObjectsByModel('ch_vault_d_door_01b')
         end)
     
-        casino:action(T'Delete Elevator Door', {}, '', function()
+        self.casino:action(T'Delete Elevator Door', {}, '', function()
             DeleteObjectsByModel('garageliftdoor')
         end)
     
-        casino:action(T'Delete Tunnel Door (map trap)', {}, '', function()
+        self.casino:action(T'Delete Tunnel Door (map trap)', {}, '', function()
             DeleteObjectsByModel('tunnel_door_01')
         end)
     end

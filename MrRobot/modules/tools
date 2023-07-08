@@ -3,6 +3,7 @@ local shadow_root = menu.shadow_root()
 local T = require('translations')
 local Bitfield = require('bitfield')
 local Shared = require('shared')
+local Globals = Shared.Globals.Tools
 local CHAR_SLOT = Shared.CHAR_SLOT
 
 local GetEntityModel = Shared.GetEntityModel
@@ -25,33 +26,39 @@ local Joaat = util.joaat
 
 pluto_class Tools
     function __construct()
-        self.root = root:list(T'Tools', {T'tools'}, T'Tools')
-        root = self.root
+        self.root = root:list(T'Tools', {T'rtools'}, T'Tools')
+        self:CreateMenu()
+    end
 
-        root:action(T'Unlock Arcades', {T'unlockarcades'}, T'Unlock arcades on mazebank foreclosure without going to Lester', function()
-            local arcade = ScriptGlobal(1971633 + 22)
+    function CreateMenu()
+        self.root:action(T'Unlock Arcades', {T'unlockarcades'}, T'Unlock arcades on mazebank foreclosure without going to Lester', function()
+            local arcade = ScriptGlobal(Globals.UnlockArcades)
             local bitfield = Bitfield.new(ReadShort(arcade))
         
-            bitfield:BitSet(0x14E) -- set multiple bits using a bitmask instead of doing it like a noob and setting each individually
-            WriteShort(arcade, bitfield.value)
-        
-            --[[arcade = ScriptGlobal(1853910 + 1 + (Shared.PLAYER_ID * 862) + 267 + 428)
-            WriteByte(arcade, 1)]]
+            bitfield:Set(0x14E) -- set multiple bits using a bitmask instead of doing it like a noob and setting each individually
+            bitfield(arcade, 16)
         end)
         
-        root:action(T'Deposit Wallet Money', {T'depositwalletall'}, T'Deposit all money from your wallet', function()
+        self.root:action(T'Deposit Wallet Money', {T'depositwalletall'}, T'Deposit all money from your wallet', function()
             local wallet = ReadInt(Scan('') + 0x1D59BC0)
             NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
         end)
         
-        root:action(T'Instant $2000', {}, T'', function()
-            WriteInt(ScriptGlobal(262145 + 145), 1)
+        self.root:action(T'Instant $2000', {}, T'', function()
+            WriteInt(ScriptGlobal(Globals.GoodBoyTimer), 1)
             util.yield(1000)
-            WriteInt(ScriptGlobal(262145 + 145), 18000000)
+            WriteInt(ScriptGlobal(Globals.GoodBoyTimer), 18000000)
             util.yield(500)
         end)
         
-        root:divider('')
+        self.root:divider('')
+
+        self.root:toggle_loop(T'Auto Deposit Wallet Money', {T'autodepositwallet'}, T'Automatically deposit all money from your wallet', function()
+            local wallet = ReadInt(Scan('') + 0x1D59BC0)
+            if wallet > 0 then
+                NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
+            end
+        end)
     end
 end
 

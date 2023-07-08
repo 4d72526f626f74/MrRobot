@@ -40,9 +40,8 @@ local repopulate_timer = os.time() + 10
 
 pluto_class World
     function __construct()
-        self.root = root:list(T'World', {}, T'World')
-        local root = self.root
-        root:toggle(T'Black Out', {T'blackout'}, T'Turn off all artifical lights', function(state)
+        self.root = root:list(T'World', {T'rworld'}, T'World')
+        self.root:toggle(T'Black Out', {T'blackout'}, T'Turn off all artifical lights', function(state)
             SetArtificialLightsState(state)
             SetArtificialVehicleLightsState(state)
             stand_lock_time.value = state
@@ -61,7 +60,7 @@ pluto_class World
             end
         end)
         
-        root:toggle(T'Chams', {T'chamsall'}, T'Highlight everyone making them easier to see', function(state)
+        self.root:toggle(T'Chams', {T'chamsall'}, T'Highlight everyone making them easier to see', function(state)
             if state then
                 SetTimecycleModifier('mp_lad_night')
             else
@@ -69,7 +68,7 @@ pluto_class World
             end
         end)
         
-        root:toggle(T'Ghost Town', {T'ghosttown'}, T'Los Santos\'s becomes a ghost town', function(state)
+        self.root:toggle(T'Ghost Town', {T'ghosttown'}, T'Los Santos\'s becomes a ghost town', function(state)
             local ref = ref_by_rel_path(root, 'Ghost Town')
             stand_lock_time.value = state
             stand_smooth_transition.value = not state
@@ -99,7 +98,7 @@ pluto_class World
             end
         end)
         
-        root:toggle(T'Eternal Darkness', {}, '', function(state)
+        self.root:toggle(T'Eternal Darkness', {}, '', function(state)
             if state then
                 SetTimecycleModifierStrength(Shared.MAX_FLOAT)
                 SetTimecycleModifier('glasses_black')
@@ -108,11 +107,11 @@ pluto_class World
             end
         end)
         
-        root:toggle(T'Riot Mode', {T'riotmode'}, T'Turns on riot mode', function(state)
+        self.root:toggle(T'Riot Mode', {T'riotmode'}, T'Turns on riot mode', function(state)
             SetRiotModeEnabled(state)
         end)
         
-        root:toggle_loop(T'The Purge', {T'thepurge'}, T'Makes all peds hostile to each other', function()
+        self.root:toggle_loop(T'The Purge', {T'thepurge'}, T'Makes all peds hostile to each other', function()
             stand_lock_time.value = true
             stand_smooth_transition.value = false
             stand_time_midnight:trigger()

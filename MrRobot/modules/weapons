@@ -149,16 +149,16 @@ end
 
 pluto_class Weapons
     function __construct()
-        self.root = root:list(T'Weapons', {}, T'Weapons options')
-        local weapons = self.root
-        local weapons_mk2 = weapons:list(T'Weapons MK2', {}, T'Weapons MK2 options')
-        local thermal = weapons:list(T'Thermal', {}, T'Thermal')
-        local aimbot = weapons:list(T'Aimbot', {}, T'Aimbot')
+        self.root = root:list(T'Weapons', {T'rweapons'}, T'Weapons options')
+        self.weapons = self.root
+        self.weapons_mk2 = self.weapons:list(T'Weapons MK2', {}, T'Weapons MK2 options')
+        self.thermal = self.weapons:list(T'Thermal', {}, T'Thermal')
+        self.aimbot = self.weapons:list(T'Aimbot', {}, T'Aimbot')
     
-        weapons_mk2:list_select(T'Weapon', {}, T'Weapon to modify', weapons_names, 1, function(index)
+        self.weapons_mk2:list_select(T'Weapon', {}, T'Weapon to modify', weapons_names, 1, function(index)
             if not SCRIPT_CAN_CONTINUE then return end
     
-            for i, child in pairs(weapons_mk2:getChildren()) do
+            for i, child in pairs(self.weapons_mk2:getChildren()) do
                 if child.menu_name ~= 'Weapon' then
                     child:delete()
                 end
@@ -168,67 +168,67 @@ pluto_class Weapons
             local weapon_hash = weapons_hashmap[weapon]
     
             if weapon == 'SNS Pistol' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', sns_ammo_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', sns_ammo_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(sns_ammo_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Heavy Revolver' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', heavy_revolver_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', heavy_revolver_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(heavy_revolver_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Special Carbine' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', special_carbine_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', special_carbine_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(special_carbine_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Bullpup Rifle' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', bullpup_rifle_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', bullpup_rifle_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(bullpup_rifle_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Pump Shotgun' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', pump_shotgun_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', pump_shotgun_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(pump_shotgun_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Marksman Rifle' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', marksman_rifle_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', marksman_rifle_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(marksman_rifle_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Pistol' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', pistol_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', pistol_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(pistol_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'SMG' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', smg_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', smg_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(smg_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Assault Rifle' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', assault_rifle_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', assault_rifle_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(assault_rifle_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Carbine Rifle' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', carbine_rifle_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', carbine_rifle_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(carbine_rifle_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Combat MG' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', combat_mg_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', combat_mg_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(combat_mg_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
             elseif weapon == 'Heavy Sniper' then
-                local ammo = weapons_mk2:textslider('Ammo Type', {}, '', heavy_sniper_types, function(table_index)
+                local ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', heavy_sniper_types, function(table_index)
                     local ammo_type = ammo_type_to_hash(heavy_sniper_types[table_index], weapon_hash)
                     GiveComponent(weapon_hash, ammo_type)
                 end)
     
-                local scope = weapons_mk2:textslider('Scope', {}, '', heavy_sniper_scopes, function(table_index)
+                local scope = self.weapons_mk2:textslider('Scope', {}, '', heavy_sniper_scopes, function(table_index)
                     local weapon_hash = util.joaat('WEAPON_HEAVYSNIPER_MK2')
                     local scope = heavy_sniper_scopes[table_index]
                     local component_hash = ''
@@ -252,7 +252,7 @@ pluto_class Weapons
             end
         end)
     
-        thermal:toggle_loop(T'ESP Thermal', {}, T'Makes thermal more op than it already is', function()
+        self.thermal:toggle_loop(T'ESP Thermal', {}, T'Makes thermal more op than it already is', function()
             if GetUsingseethrough() then
                 SeethroughSetMaxThickness(SeethroughGetMaxThickness())
                 SeethroughSetNoiseMin(0.0)
@@ -269,8 +269,8 @@ pluto_class Weapons
         end)
     
         do
-            local a = pluto_new PlayerAimbot(aimbot)
-            local b = pluto_new PedAimbot(aimbot)
+            local _ = pluto_new PlayerAimbot(self.aimbot)
+            _ = pluto_new PedAimbot(self.aimbot)
         end
     end
 end

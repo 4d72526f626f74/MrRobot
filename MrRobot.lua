@@ -1,7 +1,8 @@
 local SCRIPT_START = os.clock()
-local SCRIPT_VERSION <constexpr> = '0.1.2-alpha'
+local SCRIPT_VERSION <constexpr> = '0.2.2-alpha'
 local GTAO_VERSION <const> = '1.67'
 local sha256 = require('crypto').sha256
+local inspect = require('inspect')
 
 -- implementing natives as local functions instead of requiring natives which is slower, adds more overhead and wastes a lot 
 -- of memory for 6400+ functions that you don't even use 10% of
@@ -79,7 +80,7 @@ pluto_class Requirements
         'settings', 'tools', 'credits', 'self_options', 'online',
         'stand_repo', 'vehicles', 'world', 'protections', 'cooldowns',
         'weapons',  'ped_manager', 'collectables', 'unlocks',
-        'tunables', 'heists', 'module_loader', 'players',
+        'tunables', 'heists', 'module_loader', 'players', 'dev'
     },
     utils = {
         'translations',
@@ -87,7 +88,8 @@ pluto_class Requirements
         'pedlist',
         'vehicle_models',
         'cutscenes',
-        'shared'
+        'shared',
+        'script_globals'
     },
     libs = {
         'bit',
@@ -302,6 +304,9 @@ package.path = package.path .. ';' .. fs.scripts_dir() .. '/lib/?.pluto'
 -- module for having shared variables between modules without having to use global variables
 local Shared = require('shared')
 local T = require('translations')
+local ScriptGlobals = require('script_globals')
+
+Shared.Globals = pluto_new ScriptGlobals()
 
 Shared.PLAYER_ID = players_user()
 Shared.CHAR_SLOT = get_char_slot()
@@ -342,7 +347,7 @@ util.execute_in_os_thread(function()
     for Requirements.modules as mod do
         package.loaded[mod] = nil
         if mod ~= 'players' then
-            -- this allows load modules whether or not they are a pluto class or not
+            -- this allows loading modules whether or not they are a pluto class or not
             local state, err = pcall(require, mod)
             if not state then
                 toast($'Failed to load module {mod}, check the console for more info')
@@ -362,5 +367,11 @@ util.execute_in_os_thread(function()
 end)
 
 Requirements = nil
+Shared.SG:Cache(2794162)
+Shared.SG:Cache(2766600)
 
 print('Loaded MrRobot in ' .. math.round((os.clock() - SCRIPT_START) * 1000, 0) .. ' ms')
+-- blackjack, 2273 = blackjet bet
+-- blackjack, 2277 = casino chips
+-- blackjack, 3790 = player cards total
+-- blackjack, 3789 = dealer cards total

@@ -4,7 +4,7 @@ local T = require('translations')
 
 pluto_class Credits
     function __construct()
-        self.root = root:list(T'Credits', {T'credits'}, T'Credits')
+        self.root = root:list(T'Credits', {T'rcredits'}, T'Credits')
 
         self.root:divider(T'Discord', T'discord')
         self.root:hyperlink(T'Discord', 'https://discord.gg/qYErTtzNXr', '')
@@ -15,6 +15,7 @@ pluto_class Credits
         self.root:hyperlink(T'UnknownCheats', 'https://www.unknowncheats.me/forum/grand-theft-auto-v/500059-globals-locals-discussion-read-page-1-a-5.html', 'Has a bunch of other useful globals and locals that didn\'t get around to finding myself')
         self.root:hyperlink(T'FiveM docs', 'https://docs.fivem.net/docs/game-references/', T'Has an extensive list with values for different things such as controls, blips, blip sprites and more')
         self.root:hyperlink(T'NativeDB', 'https://nativedb.dotindustries.dev/natives', T'Provides an enormous list of GTA natives that were used in the script')
+        root:divider('')
     end
 end
 

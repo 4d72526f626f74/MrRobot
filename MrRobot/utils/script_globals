@@ -1,0 +1,64 @@
+pluto_class ScriptGlobals
+    function __construct()
+        self:AddSettings()
+        self:AddTools()
+        self:AddCooldowns()
+        self:AddHeists()
+    end
+
+    function AddSettings()
+        self.Settings = {}
+        self.Settings.TransactionErrorBanner = 4536678 -- from UnknownCheats (updated by me)
+    end
+
+    function AddTools()
+        self.Tools = {}
+        self.Tools.UnlockArcades = 1971633 + 22 -- Global_1971633.f_22
+        self.Tools.GoodBoyTimer = 262145 + 145 -- Global_262145.f_145
+    end
+
+    function AddCooldowns()
+        self.Cooldowns = {}
+        self.Cooldowns.KosatkaMissileCooldown = 262145 + 30394 -- default 60000 (int)
+        self.Cooldowns.KosatkaMissileDistance = 262145 + 30395 -- default 4000 (float)
+
+        self.Cooldowns.KosatkaRequestCooldown = 2684820 + 4319 + 242 + 1 + (65 * 2)
+        self.Cooldowns.KosatkaDinghyCooldown = 2684820 + 4319 + 242 + 1 + (66 * 2)
+        self.Cooldowns.MOCRequestCooldown = 2684820 + 4319 + 242 + 1 + (46 * 2)
+        self.Cooldowns.AvengerRequestCooldown = 2684820 + 4319 + 242 + 1 + (49 * 2)
+        self.Cooldowns.TerrorbyteRequestCooldown = 2684820 + 4319 + 242 + 1 + (52 * 2)
+        self.Cooldowns.PersonalVehicleRequestCooldown = 2684820 + 4319 + 242 + 1 + (7 * 2)
+        
+        self.Cooldowns.TerrorbyteDroneCooldown = 262145 + 24845 -- default 60000 (int)
+        self.Cooldowns.TerrorbyteDistance = 262145 + 24845 -- default 500 (float)
+        self.Cooldowns.TerrorbyteHeight = 262145 + 24671 -- default 200 (float)
+        self.Cooldowns.TerrorbyteShockCooldown = 262145 + 24853 -- default 12000 (int)
+        self.Cooldowns.TerrorbyteBoostRechargeTime = 262145 + 24851 -- default 15000 (int)
+        self.Cooldowns.TerrorbyteDetonateCountdown = 262145 + 24849 -- default 7000 (int)
+        self.Cooldowns.TerrorbyteDroneDamagePlayers = 262145 + 24848 -- default 1 (int)
+        self.Cooldowns.TerrorbyteDroneDamagePeds = 262145 + 24847 -- default 1 (int)
+        self.Cooldowns.TerrorbyteDroneBoostTime = 262145 + 24850 -- default 4000 (int)
+        self.Cooldowns.TerrorbyteDroneForwardSpeed = 262145 + 24855 -- default 35 (float)
+
+        self.Cooldowns.MoonpoolCooldown = 262145 + 31116 -- default 120000 (int)
+        self.Cooldowns.Mk2Cooldown = 262145 + 28615 -- default 300000 (int)
+        self.Cooldowns.StrikeTeamCooldown = 262145 + 23967 -- default 300000 (int)
+        self.Cooldowns.AcidLabRequestCooldown = 262145 + 22046 -- default 300000 (int)
+
+        self.Cooldowns.Oppressor2FlareCooldown = 262145 + 22146 -- default 9000 (int)
+        self.Cooldowns.Oppressor2ChaffDuration = 262145 + 22147 -- default 6000 (int)
+        self.Cooldowns.Oppressor2ChaffCooldown = 262145 + 22148 -- default 15000 (int)
+    end
+
+    function AddHeists()
+        self.Heists = {}
+        
+        self.Heists.PrimaryTargetValueStart = 30189
+        self.Heists.PrimaryTargetValueEnd = 30194 
+        self.Heists.RefreshPlannningBoard = 1526 -- heist_island_planning.c
+        self.Heists.SkipHacking = 21269 + 3168 -- fm_mission_controller_2020.c
+        self.Heists.InstantHack = 23669 -- fm_mission_controller_2020.c
+    end
+end
+
+return ScriptGlobals

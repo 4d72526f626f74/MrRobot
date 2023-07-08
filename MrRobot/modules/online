@@ -2,6 +2,8 @@ local root = menu.my_root()
 local shadow_root = menu.shadow_root()
 local T = require('translations')
 local Shared = require('shared')
+local Bitfield = require('bitfield')
+local vehmodels = require('vehicle_models')
 local Bit, BitMask, Pack = Shared.Bit, Shared.BitMask, Shared.Pack
 
 local CHAR_INDEX = Shared.CHAR_INDEX
@@ -17,10 +19,12 @@ local WriteInt = Shared.WriteInt
 local ReadInt = Shared.ReadInt
 local ReadByte = Shared.ReadByte
 local WriteString = Shared.WriteString
+local WriteFloat = Shared.WriteFloat
 local ScriptGlobal = Shared.ScriptGlobal
 local RefByPath = Shared.RefByPath
 local RefByRelPath = Shared.RefByRelPath
 local SpoofScript = Shared.SpoofScript
+local ScriptLocal = Shared.ScriptLocal
 
 local GetNumberOfThreadsRunningTheScriptWithThisHash = Shared.GetNumberOfThreadsRunningTheScriptWithThisHash
 local SetRemotePlayerAsGhost = Shared.SetRemotePlayerAsGhost
@@ -33,13 +37,8 @@ local SetBlipColour = Shared.SetBlipColour
 local SetBlipScale = Shared.SetBlipScale
 local SetBlipNameToPlayerName = Shared.SetBlipNameToPlayerName
 local IsEntityAGhost = Shared.IsEntityAGhost
-
---[[
-    0x3 = 00000011
-    1 << 0 = exclude self
-    1 << 1 = exclude friends
-]]
-local settings = 0x3
+local SetPackedStatBoolCode = Shared.SetPackedStatBoolCode
+local GetRPRequiredForRank = Shared.GetRPRequiredForRank
 
 -- instead of doing ScriptGlobal(base + offset) we can just store the result of ScriptGlobal(base)
 -- then we can add the relative offset to that result giving us the same result as ScriptGlobal(base + offset)
@@ -47,13 +46,15 @@ local settings = 0x3
 -- need to call ScriptGlobal multiple times which is just completely unnecessary
 local REQUEST_NANO_DRONE <const> = 1963795
 local REQUEST_BASE <const> = ScriptGlobal(2794162)
-local REQUEST_MOONPOOL_BASE <const> = ScriptGlobal(2766633)
+local AM_PI_MENU_BASE <const> = ScriptGlobal(2766600)
 
 enum Bits begin
-    ExcludeSelf = 0,
-    ExcludeFriends = 1,
-    CustomBounty = 2
+    ExcludeSelf = 0x1, -- 1 << 0
+    ExcludeFriends = 0x2, -- 1 << 1
+    CustomBounty = 0x4 -- 1 << 2
 end
+
+local Settings = Bitfield.new(Bits.ExcludeSelf | Bits.ExcludeFriends)
 
 enum Offsets begin
     Bandito = 0xD6F8,
@@ -64,12 +65,28 @@ enum Offsets begin
     Terrorbyte = 0x1D78,
     Dinghy = 0x1E60,
     Kosatka = 0x1E00,
-    Sparrow = 0x0,
-    Avisa = 0x8,
+    Sparrow = 0x108,
+    Avisa = 0x110,
+    AvengerThruster = 0xF0,
+    RatBike = 0xD0,
     BallisticArmor = 0x1C28,
     AmmoDrop = 0x1BD8,
     Helicopter = 0x1BE8,
-    DeliveryBike = 0x1F10
+    DeliveryBike = 0x1F10,
+    Airstrike = 0x8C60,
+    BackupHeli = 0x8C58,
+    BullsharkTestosterone = 0x1C18,
+end
+
+enum SpoofingOffsets begin
+    HideFromPlayerList = 0x0,
+    RP = 0x8,
+    Rank = 0x30,
+    Wallet = 0x18,
+    TotalMoney = 0x1C0,
+    PlayerKD = 0xD0,
+    PlayerKills = 0xE0,
+    PlayerDeaths = 0xE8,
 end
 
 local tune_ref = RefByPath('Vehicle>Los Santos Customs>Upgrade')
@@ -80,9 +97,6 @@ local interior = nil
 local function RequestService(service)
     if service == 'drone' then
         local drone = ScriptGlobal(REQUEST_NANO_DRONE)
-        -- the bitmask that we are using here is 25 bits long, so writing a 32 bit int makes more sense
-        -- than writing a 64 bit int, which is more efficient and faster than writing a 64 bit int
-        -- which is completely unnecessary
         WriteInt(drone, ReadInt(drone) | 0x1C00000)
     elseif service == 'bandito' then
         WriteByte(REQUEST_BASE + Offsets.Bandito, 1)
@@ -103,9 +117,9 @@ local function RequestService(service)
     elseif service == 'kosatka' then
         WriteByte(REQUEST_BASE + Offsets.Kosatka, 1)
     elseif service == 'sparrow' then
-        WriteByte(REQUEST_MOONPOOL_BASE + Offsets.Sparrow, 1)
+        WriteByte(AM_PI_MENU_BASE + Offsets.Sparrow, 1)
     elseif service == 'avisa' then
-        WriteByte(REQUEST_MOONPOOL_BASE + Offsets.Avisa, 1)
+        WriteByte(AM_PI_MENU_BASE + Offsets.Avisa, 1)
     elseif service == 'ballisticarmor' then
         WriteByte(REQUEST_BASE + Offsets.BallisticArmor, 1)
     elseif service == 'ammodrop' then
@@ -114,70 +128,125 @@ local function RequestService(service)
         WriteByte(REQUEST_BASE + Offsets.Helicopter, 1)
     elseif service == 'delivery_bike' then
         WriteByte(REQUEST_BASE + Offsets.DeliveryBike, 1)
+    elseif service == 'ratbike' then
+        WriteByte(AM_PI_MENU_BASE + Offsets.RatBike, 1)
+    elseif service == 'avenger_thruster' then
+        WriteByte(AM_PI_MENU_BASE + Offsets.AvengerThruster, 1)
+    elseif service == 'oppressor_mk2' then
+        for slot = 0, 415 do
+            local data = ScriptGlobal(1586488 + 1 + (slot * 142))
+            local hash = ReadInt(data + 0x210) -- 0x210 = 66 = model
+
+            if hash == util.joaat('oppressor2') then
+                local bitfield = Bitfield.new(ReadInt(data + 0x338))
+                bitfield:BitClear(1 << 0)
+                bitfield(data + 0x338, 32)
+                util.yield_once()
+                bitfield:BitClear(0xFFFFFFFF)
+                bitfield(data + 0x338, 32)
+                bitfield:BitSet(0x10041)
+                bitfield(data + 0x338, 32)
+                util.yield(1000)
+                bitfield:BitSet(1 << 0)
+                bitfield(data + 0x338, 32)
+
+                util.toast('Spawned Oppressor MK2 into the dark void of non-existence')
+                break
+            end
+        end
+    elseif service == 'airstrike' then
+        SetPackedStatBoolCode(8, true, Shared.CHAR_SLOT)
+        WriteByte(REQUEST_BASE + Offsets.Airstrike, 1)
+    elseif service == 'backup_heli' then
+        SetPackedStatBoolCode(11, true, Shared.CHAR_SLOT)
+        WriteByte(REQUEST_BASE + Offsets.BackupHeli, 1)
+    elseif service == 'bullshark_testosterone' then
+        WriteByte(REQUEST_BASE + Offsets.BullsharkTestosterone, 1)
     end
 end
 
 pluto_class Online
     function __construct()
-        self.root = root:list(T'Online', {T'online'}, T'Online')
-        local online = self.root
-        local nightclub = online:list(T'Nightclub', {T'nightclub'}, T'Nightclub')
-        local fake_notifications = online:list(T'Fake Notifications', {T'fakenotifications'}, T'Fake notifications')
-        local services = online:list(T'Services', {}, T'Services')
-        local trolling = online:list(T'Trolling', {}, T'Trolling')
-        local spoofing = online:list(T'Spoofing', {}, T'Spoofing')
-        local bounty = trolling:list(T'Bounty', {}, T'Bounty')
-        local organisation = trolling:list(T'Organisation', {}, T'Organisation')
-        local ghosting = online:list(T'Ghosting', {}, T'Ghosting')
-        local other = online:list(T'Other', {}, T'Other')
+        self.root = root:list(T'Online', {T'ronline'}, T'Online')
+        self.nightclub = self.root:list(T'Nightclub', {T'rnightclub'}, T'Nightclub')
+        self.fake_notifications = self.root:list(T'Fake Notifications', {T'fakenotifications'}, T'Fake notifications')
+        self.services = self.root:list(T'Services', {}, T'Services')
+        self.trolling = self.root:list(T'Trolling', {}, T'Trolling')
+        self.spoofing = self.root:list(T'Spoofing', {}, T'Spoofing')
+        self.ghosting = self.root:list(T'Ghosting', {}, T'Ghosting')
+        self.other = self.root:list(T'Other', {}, T'Other')
+        self.toxic = self.root:list(T'Toxic', {}, T'Toxic')
+        self.casino = self.root:list(T'Casino', {}, T'Casino')
 
-        nightclub:toggle(T'Clear Nightclub', {}, 'Empty your nightclub', function(state)
+        self:CreateNightclub()
+        self:CreateFakeNotifications()
+        self:CreateServices()
+        self:CreateTrolling()
+        self:CreateSpoofing()
+        self:CreateGhosting()
+        self:CreateOther()
+        self:CreateToxic()
+        self:CreateCasino()
+    end
+
+    function CreateNightclub()
+        self.nightclub:toggle(T'Clear Nightclub', {}, 'Empty your nightclub', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:ClearNightclub(state)
             end
         end, Shared:IsNightclubCleared())
 
-        nightclub:toggle(T'Turn Off Office Lights', {}, 'Turn off the lights in your office', function(state)
+        self.nightclub:toggle(T'Turn Off Office Lights', {}, 'Turn off the lights in your office', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:DisableNightclubOfficeLights(state)
             end
         end, Shared:AreNightclubOfficeLightsDisabled())
 
-        nightclub:toggle(T'Dry Ice', {}, 'Enable dry ice in your nightclub', function(state)
+        self.nightclub:toggle(T'Dry Ice', {}, 'Enable dry ice in your nightclub', function(state)
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockNightclubDryIce(state)
             end
         end, Shared:IsNightclubDryIceUnlocked())
 
-        nightclub:action(T'Upgrade Everything', {}, 'Unlock all upgrades in your nightclub', function()
+        self.nightclub:action(T'Upgrade Everything', {}, 'Unlock all upgrades in your nightclub', function()
             if SCRIPT_CAN_CONTINUE then
                 Shared:UnlockNightclubUpgrades()
             end
         end)
 
-        nightclub:action(T'Bypass Setup', {}, 'Bypass setup missions in your nightclub (does not always work!)', function()
+        self.nightclub:action(T'Bypass Setup', {}, 'Bypass setup missions in your nightclub (does not always work!)', function()
             if SCRIPT_CAN_CONTINUE then
                 Shared:BypassNightclubSetup()
             end
         end)
+    end
 
-        fake_notifications:divider(T'Settings')
-        fake_notifications:toggle(T'Exclude Self', {T'excludeself'}, T'Exclude self from the fake notifications', function(state)
-            settings = state ? (Bit:Set(settings, Bits.ExcludeSelf)) : (Bit:Clear(settings, Bits.ExcludeSelf))
-        end, Bit:Check(settings, Bits.ExcludeSelf))
+    function CreateFakeNotifications()
+        self.fake_notifications:divider(T'Settings')
+        self.fake_notifications:toggle(T'Exclude Self', {T'excludeself'}, T'Exclude self from the fake notifications', function(state)
+            if state then
+                Settings:Set(Bits.ExcludeSelf)
+            else
+                Settings:Clear(Bits.ExcludeSelf)
+            end
+        end, Settings:IsSet(Bits.ExcludeSelf))
 
-        fake_notifications:toggle(T'Exclude Friends', {T'excludefriends'}, T'Exclude friends from the fake notifications', function(state)
-            settings = state ? (Bit:Set(settings, Bits.ExcludeFriends)) : (Bit:Clear(settings, Bits.ExcludeFriends))
-        end, Bit:Check(settings, Bits.ExcludeFriends))
+        self.fake_notifications:toggle(T'Exclude Friends', {T'excludefriends'}, T'Exclude friends from the fake notifications', function(state)
+            if state then
+                Settings:Set(Bits.ExcludeFriends)
+            else
+                Settings:Clear(Bits.ExcludeFriends)
+            end
+        end, Settings:IsSet(Bits.ExcludeFriends))
 
-        fake_notifications:divider('')
+        self.fake_notifications:divider('')
 
         local function SendNotification(notif_func, ...)
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) then
-                    if Bit:Check(settings, Bits.ExcludeSelf) and pid == PLAYER_ID then
+                    if Settings:IsSet(Bits.ExcludeSelf) and pid == PLAYER_ID then
                         goto continue
-                    elseif Bit:Check(settings, Bits.ExcludeFriends) and Shared:IsPlayerFriend(pid) then
+                    elseif Settings:IsSet(Bits.ExcludeFriends) and Shared:IsPlayerFriend(pid) then
                         goto continue
                     end
                     notif_func(pid, ...)
@@ -186,138 +255,212 @@ pluto_class Online
             end
         end
 
-        fake_notifications:toggle_loop(T'Register CEO', {}, T'Spam everyone with a fake registered as a CEO notification', function()
+        self.fake_notifications:toggle_loop(T'Register CEO', {}, T'Spam everyone with a fake registered as a CEO notification', function()
             SendNotification(Shared:Partial(Shared.RegisterCEO, Shared))
             util.yield(100)
         end)
 
-        fake_notifications:toggle_loop(T'Register MC', {}, T'Spam everyone with a fake registered as a MC notification', function()
+        self.fake_notifications:toggle_loop(T'Register MC', {}, T'Spam everyone with a fake registered as a MC notification', function()
             SendNotification(Shared:Partial(Shared.RegisterMC, Shared))
             util.yield(100)
         end)
 
-        fake_notifications:toggle_loop(T'Register VIP', {}, T'Spam everyone with a fake registered as a VIP notification', function()
+        self.fake_notifications:toggle_loop(T'Register VIP', {}, T'Spam everyone with a fake registered as a VIP notification', function()
             SendNotification(Shared:Partial(Shared.RegisterVIP, Shared))
             util.yield(100)
         end)
 
-        fake_notifications:toggle_loop(T'Off Radar', {}, T'Spam everyone with a fake off radar notification', function()
+        self.fake_notifications:toggle_loop(T'Off Radar', {}, T'Spam everyone with a fake off radar notification', function()
             SendNotification(Shared:Partial(Shared.OffRadar, Shared))
             util.yield(100)
         end)
 
-        fake_notifications:toggle_loop(T'Ghost Org', {}, T'Spam everyone with a fake ghost org notification', function()
+        self.fake_notifications:toggle_loop(T'Ghost Org', {}, T'Spam everyone with a fake ghost org notification', function()
             SendNotification(Shared:Partial(Shared.GhostOrg, Shared))
             util.yield(100)
         end)
 
-        fake_notifications:toggle_loop(T'Fake Mugger', {}, T'Spam everyone with a fake mugger notification', function()
+        self.fake_notifications:toggle_loop(T'Fake Mugger', {}, T'Spam everyone with a fake mugger notification', function()
             SendNotification(Shared:Partial(Shared.SuccessfullyMugged, Shared), math.random(Shared.MIN_INT, Shared.MAX_INT))
             util.yield(100)
         end)
 
-        fake_notifications:toggle_loop(T'Fake Ewo', {}, T'Spam everyone with a fake Ewo notification', function()
+        self.fake_notifications:toggle_loop(T'Fake Ewo', {}, T'Spam everyone with a fake Ewo notification', function()
             SendNotification(Shared:Partial(Shared.PlayerEwo, Shared))
             util.yield(100)
         end)
 
-        fake_notifications:toggle_loop(T'Fake Destroyed Vehicle Cargo', {}, T'Spam everyone with a fake destroyed vehicle cargo notification', function()
+        self.fake_notifications:toggle_loop(T'Fake Destroyed Vehicle Cargo', {}, T'Spam everyone with a fake destroyed vehicle cargo notification', function()
             SendNotification(Shared:Partial(Shared.DestroyedVehicleCargo, Shared))
             util.yield(100)
         end)
 
-        fake_notifications:toggle_loop(T'Fake Ghosted', {}, T'Spam everyone with a fake ghosted notification', function()
+        self.fake_notifications:toggle_loop(T'Fake Ghosted', {}, T'Spam everyone with a fake ghosted notification', function()
             SendNotification(Shared:Partial(Shared.BecomeGhosted, Shared))
             util.yield(100)
         end)
+    end
 
-        services:action(T'Request Nano Drone', {T'requestnanodrone'}, T'Request a nano drone, what else?', Shared:Partial(RequestService, 'drone'))
-        services:action(T'Request RC Bandito', {T'requestrcbandito'}, T'Request an RC Bandito, what else?', Shared:Partial(RequestService, 'bandito'))
-        services:action(T'Request RC Tank', {T'requestrctank'}, T'Request an RC Tank, what else?', Shared:Partial(RequestService, 'tank'))
-        services:action(T'Request MOC', {T'requestmoc'}, T'Request your MOC, what else?', Shared:Partial(RequestService, 'moc'))
-        services:action(T'Request Avenger', {T'requestavenger'}, T'Request your Avenger, what else?', Shared:Partial(RequestService, 'avenger'))
-        services:action(T'Request Acid Lab', {T'requestacidlab'}, T'Request your Acid Lab, what else?', Shared:Partial(RequestService, 'acidlab'))
-        services:action(T'Request Terrorbyte', {T'requestterrorbyte'}, T'Request your Terrorbyte, what else?', Shared:Partial(RequestService, 'terrorbyte'))
-        services:action(T'Request Dinghy', {T'requestdinghy'}, T'Request your Dinghy, what else?', Shared:Partial(RequestService, 'dinghy'))
-        services:action(T'Request Kosatka', {T'requestkosatka'}, T'Request your Kosatka, what else?', Shared:Partial(RequestService, 'kosatka'))
-        services:action(T'Request Sparrow', {T'requestsparrow'}, T'Request your Sparrow, what else?', Shared:Partial(RequestService, 'sparrow'))
-        services:action(T'Request Avisa', {T'requestavisa'}, T'Request your Avisa, what else?', Shared:Partial(RequestService, 'avisa'))
-        services:action(T'Request Delivery Bike', {T'requestdeliverybike'}, T'Request a delivery bike, what else?', Shared:Partial(RequestService, 'delivery_bike'))
-        services:action(T'Request Ballistic Armor', {T'requestballisticarmor'}, T'Request Ballistic Armor, what else?', Shared:Partial(RequestService, 'ballisticarmor'))
-        services:action(T'Request Ammo Drop', {T'requestammodrop'}, T'Request Ammo Drop, what else?', Shared:Partial(RequestService, 'ammodrop'))
-        services:action(T'Request Helicopter', {T'requestheli'}, T'Request a helicopter, what else?', Shared:Partial(RequestService, 'heli'))
+    function CreateServices()
+        local pegasus = nil
 
-        services:divider('')
+        self.services:action(T'Request Nano Drone', {T'requestnanodrone'}, T'Request a nano drone, what else?', Shared:Partial(RequestService, 'drone'))
+        self.services:action(T'Request RC Bandito', {T'requestrcbandito'}, T'Request an RC Bandito, what else?', Shared:Partial(RequestService, 'bandito'))
+        self.services:action(T'Request RC Tank', {T'requestrctank'}, T'Request an RC Tank, what else?', Shared:Partial(RequestService, 'tank'))
+        self.services:action(T'Request MOC', {T'requestmoc'}, T'Request your MOC, what else?', Shared:Partial(RequestService, 'moc'))
+        self.services:action(T'Request Avenger', {T'requestavenger'}, T'Request your Avenger, what else?', Shared:Partial(RequestService, 'avenger'))
+        self.services:action(T'Request Acid Lab', {T'requestacidlab'}, T'Request your Acid Lab, what else?', Shared:Partial(RequestService, 'acidlab'))
+        self.services:action(T'Request Terrorbyte', {T'requestterrorbyte'}, T'Request your Terrorbyte, what else?', Shared:Partial(RequestService, 'terrorbyte'))
+        self.services:action(T'Request Dinghy', {T'requestdinghy'}, T'Request your Dinghy, what else?', Shared:Partial(RequestService, 'dinghy'))
+        self.services:action(T'Request Kosatka', {T'requestkosatka'}, T'Request your Kosatka, what else?', Shared:Partial(RequestService, 'kosatka'))
+        self.services:action(T'Request Sparrow', {T'requestsparrow'}, T'Request your Sparrow, what else?', Shared:Partial(RequestService, 'sparrow'))
+        self.services:action(T'Request Avisa', {T'requestavisa'}, T'Request your Avisa, what else?', Shared:Partial(RequestService, 'avisa'))
+        self.services:action(T'Request Delivery Bike', {T'requestdeliverybike'}, T'Request a delivery bike, what else?', Shared:Partial(RequestService, 'delivery_bike'))
+        self.services:action(T'Request Ballistic Armor', {T'requestballisticarmor'}, T'Request Ballistic Armor, what else?', Shared:Partial(RequestService, 'ballisticarmor'))
+        self.services:action(T'Request Ammo Drop', {T'requestammodrop'}, T'Request Ammo Drop, what else?', Shared:Partial(RequestService, 'ammodrop'))
+        self.services:action(T'Request Helicopter', {T'requestheli'}, T'Request a helicopter, what else?', Shared:Partial(RequestService, 'heli'))
+        self.services:action(T'Request Rat Bike', {T'requestratbike'}, T'Request a rat bike, what else?', Shared:Partial(RequestService, 'ratbike')) 
+        self.services:action(T'Request Avenger Thruster', {T'requestavengerthruster'}, T'Request your avenger thruster, what else?', Shared:Partial(RequestService, 'avenger_thruster'))
+        self.services:action(T'Request Oppressor MKII', {T'requestoppressor'}, T'Request the deletion of your oppressor MKII, what else?', Shared:Partial(RequestService, 'oppressor_mk2'))
+        self.services:action(T'Request Airstrike', {T'requestairstrike'}, T'Request an airstrike, what else?', function() RequestService('airstrike') end)
+        self.services:action(T'Request Backup Heli', {T'requestbackupheli'}, T'Request a backup helicopter, what else?', function() RequestService('backup_heli') end)
+        self.services:action(T'Request Bullshark Testosterone', {T'requestbullsharktestosterone'}, T'Request Bullshark Testosterone, what else?', Shared:Partial(RequestService, 'bullshark_testosterone'))
 
-        services:action(T'Return Sparrow', {T'returnsparrow'}, T'Return your Sparrow, what else?', function()
+        self.services:action(T'Request Supplies', {T'requestsupplies'}, T'Request supplies to be stashed nearby', function()
+            Shared:RequestSupplies()
+        end)
+
+        self.services:action(T'Source Motorcycle', {T'sourcemotorcycle'}, T'Source a motorcycle', function()
+            Shared:SourceMotorcycle()
+        end)
+
+        self.services:divider('')
+
+        self.services:action(T'Return Sparrow', {T'returnsparrow'}, T'Return your Sparrow, what else?', function()
             if Shared:IsSparrowBeingUsed() then
                 Shared:ReturnSparrow()
             end
         end)
 
-        services:action(T'Return Avisa', {T'returnavisa'}, T'Return your Avisa, what else?', function()
+        self.services:action(T'Return Avisa', {T'returnavisa'}, T'Return your Avisa, what else?', function()
             if Shared:IsAvisaBeingUsed() then
                 Shared:ReturnAvisa()
             end
         end)
 
-        services:action(T'Return Avenger (Hangar)' , {T'returnavengerhangar'}, T'Return your avenger to the hangar, what else?', function()
+        self.services:action(T'Return Avenger (Hangar)' , {T'returnavengerhangar'}, T'Return your avenger to the hangar, what else?', function()
             if Shared:IsAvengerBeingUsed() then
                 Shared:ReturnAvenger('hangar')
             end
         end)
 
-        services:action(T'Return Avenger (Facility)' , {T'returnavengerfacility'}, T'Return your avenger to the facility, what else?', function()
+        self.services:action(T'Return Avenger (Facility)' , {T'returnavengerfacility'}, T'Return your avenger to the facility, what else?', function()
             if Shared:IsAvengerBeingUsed() then
                 Shared:ReturnAvenger('facility')
             end
         end)
 
-        services:action(T'Return Delivery Bike', {T'returndeliverybike'}, T'Return your delivery bike, what else?', function()
+        self.services:action(T'Return Avenger Thruster', {T'returnavengerthruster'}, T'Return your avenger thruster, what else?', function()
+            Shared:ReturnAvengerThruster()
+        end)
+
+        self.services:action(T'Return Delivery Bike', {T'returndeliverybike'}, T'Return your delivery bike, what else?', function()
             if Shared:IsDeliveryBikeBeingUsed() then
                 Shared:ReturnDeliveryBike()
             end
         end)
 
-        services:action(T'Return Acid Lab', {T'returnacidlab'}, T'Return your acid lab, what else?', function()
+        self.services:action(T'Return Acid Lab', {T'returnacidlab'}, T'Return your acid lab, what else?', function()
             if Shared:IsAcidLabBeingUsed() then
                 Shared:ReturnAcidLab()
             end
         end)
 
-        services:action(T'Return Kosatka', {T'returnkosatka'}, T'Return your kosatka, what else?', function()
+        self.services:action(T'Return Kosatka', {T'returnkosatka'}, T'Return your kosatka, what else?', function()
             if Shared:IsKosatkaBeingUsed() then
                 Shared:ReturnKosatka()
             end
         end)
 
-        services:action(T'Return Terrorbyte', {T'returnterrorbyte'}, T'Return terrorbyte, what else?', function()
+        self.services:action(T'Return Terrorbyte', {T'returnterrorbyte'}, T'Return terrorbyte, what else?', function()
             if Shared:IsTerrorbyteBeingUsed() then
                 Shared:ReturnTerrorbyte()
             end
         end)
 
-        services:action(T'Return MOC', {T'returnmoc'}, T'Return MOC, what else?', function()
+        self.services:action(T'Return MOC', {T'returnmoc'}, T'Return MOC, what else?', function()
             Shared:ReturnMOC() -- no check because got the bit required for the check
         end)
 
-        services:divider('')
-        services:text_input(T'Rename Acid Lab', {T'renameacidlab'}, T'Rename your Acid Lab, what else?', function(name)
+        self.services:action(T'Return Rat Bike', {T'returnratbike'}, T'Return your rat bike, what else?', function()
+            Shared:ReturnRatBike()
+        end)
+
+        self.services:divider('')
+        self.services:action(T'Locate Boat', {T'locateboat'}, T'Locate a boat through lester, what else?', function()
+            Shared:LesterLocateBoat()
+        end)
+
+        self.services:action(T'Locate Heli', {T'locateheli'}, T'Locate a helicopter through lester, what else?', function()
+            Shared:LesterLocateHeli()
+        end)
+
+        self.services:action(T'Locate Car', {T'locatecar'}, T'Locate a car through lester, what else?', function()
+            Shared:LesterLocateCar()
+        end)
+
+        self.services:action(T'Locate Plane', {T'locateplane'}, T'Locate a plane through lester, what else?', function()
+            Shared:LesterLocatePlane()
+        end)
+
+        pegasus = self.services:list(T'Pegasus', {T'pegasus'}, T'Request vehicles from pegasus')
+        pegasus:text_input(T'Custom Model', {T'pegasusmodel'}, T'Vehicle to request', function(name)
+            local hash = util.joaat(name)
+            if util.get_label_text(hash) ~= 'NULL' then
+                Shared:RequestPegasusVehicle(hash)
+            else
+                util.toast('Invalid model!')
+            end
+        end, 'adder')
+        pegasus:divider('')
+
+        for vehmodels as veh_model do
+            pegasus:action(veh_model, {}, '', function()
+                local hash = util.joaat(veh_model)
+                if util.get_label_text(hash) ~= 'NULL' then
+                    Shared:RequestPegasusVehicle(hash)
+                else
+                    util.toast('Invalid model!')
+                end
+            end)
+        end
+
+        self.services:divider('')
+        self.services:text_input(T'Rename Acid Lab', {T'renameacidlab'}, T'Rename your Acid Lab, what else?', function(name)
             Shared:RenameAcidLab(name)
         end, Shared:GetAcidLabName())
+    end
+
+    function CreateTrolling()
+        local bounty = self.trolling:list(T'Bounty', {}, T'Bounty')
+        local organisation = self.trolling:list(T'Organisation', {}, T'Organisation')
 
         bounty:divider('Options')
 
         bounty:toggle(T'Custom Bounty', {}, T'Set a custom bounty amount instead of 10k', function(state)
-            settings = Bit:Set(settings, Bits.CustomBounty)
-        end, Bit:Check(settings, Bits.CustomBounty))
+            if state then
+                Settings:Set(Bits.CustomBounty)
+            else
+                Settings:Clear(Bits.CustomBounty)
+            end
+        end, Settings:IsSet(Bits.CustomBounty))
 
         bounty:divider('')
 
         bounty:action(T'Set Bounty', {T'setbounty'}, T'Set a bounty on the entire session', function()
             local amount = 10000
         
-            if Bit:Check(settings, Bits.CustomBounty) then
+            if Settings:IsSet(Bits.CustomBounty) then
                 amount = tonumber(Shared.DisplayOnscreenKeyboard())
                 if amount < 0 or amount > 10000 then
                     amount = 10000
@@ -349,13 +492,15 @@ pluto_class Online
                 amount = 0
             end
 
-            settings = BitMask:Replace(settings, 3, 14, amount)
+            --Settings = BitMask:Replace(Settings, 3, 14, amount)
+            Settings:ModifyBits(3, 14, amount)
         end)
 
         bounty:toggle_loop(T'Force Reward', {T'forcesessionreward'}, T'Force bounty reward for everyone', function()
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) then
-                    Shared:SetPlayerBountyReward(pid, BitMask:Extract(settings, 3, 14))
+                    --Shared:SetPlayerBountyReward(pid, BitMask:Extract(Settings, 3, 14))
+                    Shared:SetPlayerBountyReward(pid, Settings:ExtractBits(3, 14))
                 end
             end
         end)
@@ -403,35 +548,204 @@ pluto_class Online
             WriteString(org_name + 0x398, Shared:RandomOrgName(math.random(0, 98)))
         end)
 
-        -- spoofing:list_select(T'Interior', {T'interiorchoice'}, '', properties, 1, function(index) end)
+        organisation:action(T'Invite All', {}, T'Invite everyone to your organisation', function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) then
+                    local g = Shared.ScriptGlobal(1924276 + 9)
+                    local event_args = {
+                        -245642440, PLAYER_ID, 1975684956162, 10000, 5989921060705796097, 1, 0, 0, Shared.ReadInt(g), Shared.ReadInt(g + 0x8)
+                    }
 
-        -- spoofing:action(T'Spoof Interior', {}, T'Spoofs your current interior to another interior, you must be inside of an interior for other players to see this)', function()
-        --     interior = interior ?? ScriptGlobal(1853988 + 1 + (PLAYER_ID * 867) + 267 + 33)
-        --     local choice_ref = RefByRelPath(spoofing, 'Interior')
-        --     local index = choice_ref.value
-        --     local interior_id = Shared.Data.PropertyIds[properties[index]]
-        --     -- reading a byte makes sense here, since there is only about 125 valid interior ids, so we don't need to read or write more
-        --     -- than a byte
-        --     local curr_interior = ReadByte(interior)
-        --     Shared.Refs.BecomeInterior.value = false
-        --     util.yield(700)
-        --     Shared.Refs.BecomeInterior.value = true
+                    for pid = 0, 32 do
+                        if pid ~= PLAYER_ID then
+                            Shared.TriggerScriptEvent(1 << pid, event_args)
+                        end
+                    end
+                end
+            end
+        end)
 
-        --     if curr_interior ~= -1 and curr_interior ~= interior_id then
-        --         WriteByte(interior, -1)
-        --         util.yield(50)
-        --         WriteByte(interior, interior_id)
-        --     end
-        -- end)
+        self.trolling:divider('')
 
-        -- spoofing:divider('')
+        self.trolling:toggle_loop(T'Anti-Ghosted', {}, T'Prevents anyone in your session from becoming ghosted to you', function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) then
+                    if pid ~= PLAYER_ID then
+                        local ped = GetPlayerPed(pid)
+                        if IsEntityAGhost(ped) then
+                            Shared:SetPlayerBounty(pid, 1, true)
+                            util.yield_once()
+                            Shared:SetPlayerBounty(pid, -1, false)
+                        end
+                    end
+                end
+            end
+        end)
 
-        spoofing:action(T'Spoof Ownership Of Special Property', {}, T'Spoof ownership of special properties like Kosatka, Terrorbyte etc, this allows you to invite players to someone elses kosatka, terrorbyte', function()
+        self.trolling:toggle_loop(T'Block Passive Mode', {}, T'Prevents anyone in your session from entering passive mode, this also blocks the player from becoming ghosted to you (tested and working against Stand, should work against most if not all other menus)', function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) then
+                    if pid ~= PLAYER_ID then
+                        if not Shared:PlayerHasBounty(pid) then
+                            Shared:SetPlayerBounty(pid, -1, true)
+                        end
+                    end
+                end
+            end
+        end,
+        function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) then
+                    if pid ~= PLAYER_ID then
+                        if Shared:PlayerHasBounty(pid) then
+                            Shared:SetPlayerBounty(pid, 0, false)
+                        end
+                    end
+                end
+            end
+        end)
+    end
+
+    function CreateSpoofing()
+        self.spoofing:list_select(T'Interior', {T'interiorchoice'}, '', properties, 1, function(index) end)
+
+        self.spoofing:action(T'Spoof Interior', {}, T'Spoofs your current interior to another interior, you must be inside of an interior for other players to see this)', function()
+            if SCRIPT_CAN_CONTINUE then
+                interior = interior ?? ScriptGlobal(1853988 + 1 + (PLAYER_ID * 867) + 267 + 33)
+                local choice_ref = RefByRelPath(self.spoofing, 'Interior')
+                local index = choice_ref.value
+                local interior_id = Shared.Data.PropertyIds[properties[index]]
+                -- reading a byte makes sense here, since there is only about 125 valid interior ids, so we don't need to read or write more
+                -- than a byte
+                local curr_interior = ReadByte(interior)
+                Shared.Refs.BecomeInterior.value = false
+                util.yield(700)
+                Shared.Refs.BecomeInterior.value = true
+
+                if curr_interior ~= -1 and curr_interior ~= interior_id then
+                    WriteByte(interior, -1)
+                    util.yield(50)
+                    WriteByte(interior, interior_id)
+                end
+            end
+        end)
+
+        self.spoofing:divider('')
+
+        self.spoofing:action(T'Spoof Ownership Of Special Property', {}, T'Spoof ownership of special properties like Kosatka, Terrorbyte etc, this allows you to invite players to someone elses kosatka, terrorbyte', function()
             local spoof = ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 321 + 10)
             WriteInt(spoof, PLAYER_ID)
         end)
 
-        ghosting:toggle(T'All Players', {}, T'Ghost everyone in the session', function(state)
+        self.hide_player_list = self.spoofing:toggle(T'Hide From Player List', {}, T'Hide from the player list', function(state)
+            if state then
+                util.create_tick_handler(function()
+                    local g = ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205)
+                    if self.hide_player_list.value == false then
+                        WriteByte(g + SpoofingOffsets.HideFromPlayerList, 9)
+                        return false
+                    end
+
+                    WriteByte(g + SpoofingOffsets.HideFromPlayerList, 8)
+                end)
+            end
+        end)
+
+        self.stat_spoofing = self.spoofing:list(T'Stat Spoofing', {}, T'Spoof your stats')
+
+        self:CreateStatSpoofing()
+    end
+
+    function CreateStatSpoofing()
+        local total_money = self.stat_spoofing:list(T'Total Money', {}, T'Spoof your total money')
+        local wallet_money = self.stat_spoofing:list(T'Wallet Money', {}, T'Spoof your wallet money')
+        local rp = self.stat_spoofing:list(T'RP', {}, T'Spoof your RP')
+        local rank = self.stat_spoofing:list(T'Rank', {}, T'Spoof your rank')
+        local player_kills = self.stat_spoofing:list(T'Player Kills', {}, T'Spoof your player kills')
+        local player_deaths = self.stat_spoofing:list(T'Player Deaths', {}, T'Spoof your player deaths')
+        local kd = self.stat_spoofing:list(T'K/D', {}, T'Spoof your K/D')
+
+        local total_money_amount = 0
+        local wallet_money_amount = 0
+        local rp_amount = 0
+        local rank_amount = 0
+        local player_kills_amount = 0
+        local player_deaths_amount = 0
+
+        total_money:toggle_loop(T'Enable', {}, T'Spoof your total money', function()
+            local g = ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205)
+            WriteInt(g + SpoofingOffsets.TotalMoney, total_money_amount)
+        end)
+
+        total_money:text_input(T'Value', {T'rtotalmoneyval'}, '', function(value)
+            total_money_amount = tonumber(value)
+        end, ReadInt(ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205) + SpoofingOffsets.TotalMoney))
+
+        wallet_money:toggle_loop(T'Enable', {}, T'Spoof your wallet money', function()
+            local g = ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205)
+            WriteInt(g + SpoofingOffsets.Wallet, wallet_money_amount)
+        end)
+
+        wallet_money:text_input(T'Value', {T'rwalletmoneyval'}, '', function(value)
+            wallet_money_amount = tonumber(value)
+        end, ReadInt(ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205) + SpoofingOffsets.Wallet))
+
+        rp:toggle_loop(T'Enable', {}, T'Spoof your RP', function()
+            local g = ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205)
+            WriteInt(g + SpoofingOffsets.RP, rp_amount)
+        end)
+
+        rp:text_input(T'Value', {T'rrpval'}, '', function(value)
+            rp_amount = tonumber(value)
+        end, ReadInt(ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205) + SpoofingOffsets.RP))
+
+        rank:toggle_loop(T'Enable', {}, T'Spoof your rank', function()
+            local g = ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205)
+            local rp = GetRPRequiredForRank(rank_amount)
+            WriteInt(g + SpoofingOffsets.RP, rp)
+            WriteInt(g + SpoofingOffsets.Rank, rank_amount)
+        end)
+
+        rank:text_input(T'Value', {T'rrankval'}, '', function(value)
+            rank_amount = tonumber(value)
+        end, ReadInt(ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205) + SpoofingOffsets.Rank))
+
+        player_kills:toggle_loop(T'Enable', {}, T'Spoof your player kills', function()
+            local g = ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205)
+            WriteInt(g + SpoofingOffsets.PlayerKills, player_kills_amount)
+        end)
+
+        player_kills:text_input(T'Value', {T'rplayerkillsval'}, '', function(value)
+            player_kills_amount = tonumber(value)
+        end, ReadInt(ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205) + SpoofingOffsets.PlayerKills))
+
+        player_deaths:toggle_loop(T'Enable', {}, T'Spoof your player deaths', function()
+            local g = ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205)
+            WriteInt(g + SpoofingOffsets.PlayerDeaths, player_deaths_amount)
+        end)
+
+        player_deaths:text_input(T'Value', {T'rplayerdeathsval'}, '', function(value)
+            player_deaths_amount = tonumber(value)
+        end, ReadInt(ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205) + SpoofingOffsets.PlayerDeaths))
+
+        local kd_toggle = nil
+        kd_toggle = kd:toggle(T'Enable', {}, T'Spoof your K/D', function(state)
+            if state then
+                local amount = tonumber(Shared:DisplayOnscreenKeyboard()) or 0.0
+                util.create_tick_handler(function()
+                    local g = ScriptGlobal(1853988 + 1 + (Shared.PLAYER_ID * 867) + 205)
+                    if kd_toggle.value == false then
+                        return false
+                    end
+
+                    WriteFloat(g + SpoofingOffsets.PlayerKD, amount)
+                end)
+            end
+        end)
+    end
+
+    function CreateGhosting()
+        self.ghosting:toggle(T'All Players', {}, T'Ghost everyone in the session', function(state)
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) then
                     if pid ~= PLAYER_ID then
@@ -441,7 +755,7 @@ pluto_class Online
             end
         end)
 
-        ghosting:divider('')
+        self.ghosting:divider('')
 
         players.add_command_hook(function(pid, root)
             local name = players.get_name(pid)
@@ -449,7 +763,7 @@ pluto_class Online
             xpcall(function()
                 if pid ~= PLAYER_ID then
                     if not RefByRelPath(ghosting, name):isValid() then
-                        ghosting:toggle(players.get_name(pid), {}, T'Become ghosted to this player', function(state)
+                        self.ghosting:toggle(players.get_name(pid), {}, T'Become ghosted to this player', function(state)
                             SetRemotePlayerAsGhost(pid, state)
                         end)
                     end
@@ -465,8 +779,10 @@ pluto_class Online
                 end
             end, |err| -> nil)
         end)
+    end
 
-        other:action(T'Toast The Beast', {}, T'', function()
+    function CreateOther()
+        self.other:action(T'Toast The Beast', {}, T'', function()
             SpoofScript('am_hunt_the_beast', function()
                 for pid = 0, 32 do
                     if Shared:PlayerInList(pid) then
@@ -480,11 +796,11 @@ pluto_class Online
             end)
         end)
 
-        other:divider('')
+        self.other:divider('')
 
         local beast_blips = {}
 
-        other:toggle(T'Reveal The Beast', {}, T'Reveal the location of the player that is the beast', function(state)
+        self.other:toggle(T'Reveal The Beast', {}, T'Reveal the location of the player that is the beast', function(state)
             SpoofScript('am_hunt_the_beast', function()
                 local blip = 0
 
@@ -509,45 +825,86 @@ pluto_class Online
                 end
             end)
         end)
+    end
 
-        trolling:divider('')
-
-        trolling:toggle_loop(T'Anti-Ghosted', {}, T'Prevents anyone in your session from becoming ghosted to you', function()
+    function CreateToxic()
+        self.toxic:action(T'Invite All (exclude friends)', {}, T'Send a corrupted invite to the entire session, anyone that accepts it will be stuck in an infinite loading screen', function()
             for pid = 0, 32 do
                 if Shared:PlayerInList(pid) then
-                    if pid ~= PLAYER_ID then
-                        local ped = GetPlayerPed(pid)
-                        if IsEntityAGhost(ped) then
-                            Shared:SetPlayerBounty(pid, 1, true)
-                            util.yield_once()
-                            Shared:SetPlayerBounty(pid, -1, false)
-                        end
+                    if pid ~= PLAYER_ID and not Shared:IsPlayerFriend(pid) then
+                        Shared:InteriorInvite(pid)
                     end
                 end
             end
         end)
+    
+        self.toxic:action(T'Invite All (include friends)', {}, T'Send a corrupted invite to the entire session, anyone that accepts it will be stuck in an infinite loading screen', function()
+            for pid = 0, 32 do
+                if Shared:PlayerInList(pid) then
+                    if pid ~= PLAYER_ID then
+                        Shared:InteriorInvite(pid)
+                    end
+                end
+            end
+        end)
+    end
 
-        trolling:toggle_loop(T'Block Passive Mode', {}, T'Prevents anyone in your session from entering passive mode, this also blocks the player from becoming ghosted to you (tested and working against Stand, should work against most if not all other menus)', function()
-            for pid = 0, 32 do
-                if Shared:PlayerInList(pid) then
-                    if pid ~= PLAYER_ID then
-                        if not Shared:PlayerHasBounty(pid) then
-                            Shared:SetPlayerBounty(pid, -1, true)
-                        end
-                    end
+    function CreateCasino()
+        -- TODO: Fix this
+        --[[local rig_value = 0
+
+        self.roulette = self.casino:list(T'Roulette', {}, T'')
+
+        self.roulette:toggle_loop(T'Enable', {}, T'Rig the casino roulette', function()
+            SpoofScript('casinoroulette', function()
+                local l = ScriptLocal('casinoroulette', 1635)
+                if l ~= 0 then
+                    Shared.Debug(Shared.ReadInt(l))
+                    WriteInt(l, rig_value)
                 end
+            end)
+        end)
+
+        self.roulette:text_input(T'Rig Roulette', {T'rrigroulette'}, T'', function(value)
+            local v = tonumber(value)
+            if v < -1 or v > 36 then
+                util.toast('Invalid value')
+                return
             end
-        end,
-        function()
-            for pid = 0, 32 do
-                if Shared:PlayerInList(pid) then
-                    if pid ~= PLAYER_ID then
-                        if Shared:PlayerHasBounty(pid) then
-                            Shared:SetPlayerBounty(pid, 0, false)
-                        end
-                    end
+
+            rig_value = v
+        end, '1')]]
+
+        self.blackjack = self.casino:list(T'Blackjack', {}, T'')
+        self.blackjack:toggle_loop(T'Show Dealer Cards', {}, T'Show the cards of the dealer', function()
+            SpoofScript('blackjack', function()
+                local dealer = ScriptLocal('blackjack', 3789)
+                local player = ScriptLocal('blackjack', 3790)
+                if dealer ~= 0 and player ~= 0 then
+                    local dealer_value = ReadInt(dealer)
+                    local player_value = ReadInt(player)
+                    Shared.Debug($'Dealer: {dealer_value} | Player: {player_value}')
                 end
-            end
+            end)
+        end)
+
+        self.blackjack:toggle_loop(T'Always Max Bet', {}, 'Always set your bet to max (bypasses limits on lower tables)', function()
+            SpoofScript('blackjack', function()
+                local bet = ScriptLocal('blackjack', 2273)
+                if bet ~= 0 then
+                    WriteInt(bet, 55000)
+                end
+            end)
+        end)
+
+        self.inside_track = self.casino:list(T'Inside Track', {}, T'')
+        self.inside_track:toggle_loop(T'Always Max Bet', {}, 'Always set your bet to max', function()
+            SpoofScript('inside_track', function()
+                local bet = Shared.ScriptLocal('freemode', -197350)
+                if bet ~= 0 then
+                    WriteInt(bet, 55000)
+                end
+            end)
         end)
     end
 end

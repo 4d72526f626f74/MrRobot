@@ -193,7 +193,7 @@ local stand_libs = {
     }
 }
 
-local repo = root:list(T'Stand Repository', {}, '')
+local repo = root:list(T'Stand Repository', {T'rstandrepo'}, '')
 local natives = repo:list(T'Natives', {}, T'Stand Natives ')
 local libs = repo:list(T'Libs', {}, T'Libs for other scripts like json, scaleformLib, etc.')
 

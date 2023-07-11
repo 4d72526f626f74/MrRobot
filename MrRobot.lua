@@ -1,7 +1,8 @@
 local SCRIPT_START = os.clock()
-local SCRIPT_VERSION <constexpr> = '0.2.3-alpha'
+local SCRIPT_VERSION <constexpr> = '0.2.5-alpha'
 local GTAO_VERSION <const> = '1.67'
 local sha256 = require('crypto').sha256
+inspect = require('inspect')
 
 -- implementing natives as local functions instead of requiring natives which is slower, adds more overhead and wastes a lot 
 -- of memory for 6400+ functions that you don't even use 10% of

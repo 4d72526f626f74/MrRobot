@@ -227,6 +227,13 @@ pluto_class Heists
     
         self:CreateCayoPerico()
         self:CreateDiamondCasino()
+
+        self.root:divider('')
+
+        self.root:toggle(T'Disable Heist Anti-Cheat', {}, T'???', function(state)
+            local g = ScriptGlobal(Globals.DisableHeistAntiCheat)
+            WriteByte(g, state ? 1 : 0)
+        end)
     end
 
     function CreateCayoPerico()
@@ -565,11 +572,6 @@ pluto_class Heists
                     end)
                 end)
             end
-        end)
-
-        self.cayo:toggle(T'Disable Heist Anti-Cheat', {}, T'???', function(state)
-            local g = ScriptGlobal(Globals.DisableHeistAntiCheat)
-            WriteByte(g, state ? 1 : 0)
         end)
     
         self.cayo:divider('')

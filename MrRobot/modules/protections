@@ -232,7 +232,9 @@ pluto_class Protections
         end)
     
         self.notif_protections:toggle(T'Block All Notifications', {}, 'Block all notifications', function(state)
-            Shared:BlockAllNotifications(state)
+            local block = ScriptGlobal(Globals.BlockAllNotifications)
+
+            WriteByte(block, state ? 1 : 0)
         end)
     end
 
@@ -266,19 +268,25 @@ pluto_class Protections
         end)
 
         self.ceo_kick_event = self.events:toggle(T'Block CEO/MC Kick', {}, T'Block CEO/MC kick event', function(state)
-            local ceo_kick = Globals.CeoKickProtection
-            local ceo_kick1 = Globals.CeoKickProtection1
+            local ceo_kick = ScriptGlobal(Globals.CeoKickProtection)
+            local ceo_kick1 = ScriptGlobal(Globals.CeoKickProtection1)
 
-            WriteInt(ceo_kick, state ? 1 : 0)
+            WriteByte(ceo_kick, state ? 1 : 0)
             if state then
                 util.create_tick_handler(function()
                     if self.ceo_kick_event.value == false then
                         return false
                     end
 
-                    WriteInt(ceo_kick1, ReadInt(ceo_kick1) & ~(1 << 5))
+                    WriteByte(ceo_kick1, ReadByte(ceo_kick1) & ~(1 << 5))
                 end)
             end
+        end)
+
+        self.bounty_event = self.events:toggle(T'Block Bounty', {}, T'Block bounty event', function(state)
+            local bounty = ScriptGlobal(Globals.Bounty)
+
+            WriteByte(bounty, state ? 1 : 0)
         end)
     end
 end

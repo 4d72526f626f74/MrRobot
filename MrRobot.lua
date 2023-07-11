@@ -1,5 +1,5 @@
 local SCRIPT_START = os.clock()
-local SCRIPT_VERSION <constexpr> = '0.2.2-alpha'
+local SCRIPT_VERSION <constexpr> = '0.2.3-alpha'
 local GTAO_VERSION <const> = '1.67'
 local sha256 = require('crypto').sha256
 

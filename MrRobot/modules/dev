@@ -26,9 +26,13 @@ pluto_class Dev
         end)
     end
 
-    function SourceCrate(index)
+    function SourceCrate(index, amount)
         -- Global_1853988[plParam1 /*867*/].f_267.f_116[i /*3*/] amount of crates in the warehouse
         GetPackedStatBoolCode(32359 + index, true, CHAR_SLOT)
+        local g = Shared.ScriptGlobal(1890714 + 12)
+        --WriteInt(g, 16)
+        --WriteInt(g + 0x8, 16)
+        --WriteInt(g + 0x18, 16)
     end
 end
 

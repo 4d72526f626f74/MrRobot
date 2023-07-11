@@ -51,7 +51,11 @@
 -- Global_1669211.f_2 = force camera forward protection
 -- Global_1669211.f_567 = block passive mode protection
 -- Global_1669211.f_568 = CEO/MC kick protection
+-- Global_1669211.f_65 = bounty protection
 -- freemode, 18717 + 1 how many times you have requested a personal vehicle
+-- joaat("HEIST_ANTI_CHEAT_OPERATING_MODE"), &(Global_262145.f_10772), true);
+-- Global_1853988[PLAYER::PLAYER_ID() /*867*/].f_267[i]?
+-- Global_1853988[PLAYER::PLAYER_ID() /*867*/].f_267.f_116[num2 /*3*/].f_1
 
 
 local Shared = require('shared')
@@ -137,6 +141,8 @@ pluto_class ScriptGlobals
         self.Protections.BlockPassiveMode = 1669211 + 567
         self.Protections.CeoKickProtection = 1669211 + 568
         self.Protections.CeoKickProtection2 = 2794162 + 5231 + 48
+        self.Protections.Bounty = 1669211 + 65
+        self.Protections.BlockAllNotifications = 1669211
     end
 end
 

@@ -292,12 +292,12 @@ pluto_class Players
                         local ref = ref_by_rel_path(trolling, T'Bounty')
                         util.create_tick_handler(function()
                             local item = get_current_menu_list()
-                            if item.menu_name ~= T'Bounty' then
+                            if item.menu_name ~= T'Bounty' and item:getParent().menu_name ~= T'Trolling' then
                                 return false
                             end
-            
+                            
                             local bounty_data = ScriptGlobal(1835504 + 4 + 1 + (pid * 3))
-                            local reward_data = ScriptGlobal(1894573 + 1 + (pid * 608) + 599)
+                            local reward_data = ScriptGlobal(1895156 + 1 + (pid * 609) + 600)
             
                             bounty_active.menu_name = T'Active' .. ': ' .. (ReadByte(bounty_data) ~= 0)
                             bounty_amount.menu_name = T'Amount' .. ': ' .. (ReadShort(bounty_data + 0x8))
@@ -643,6 +643,26 @@ pluto_class Players
             
                     bounty:action(T'Remove Bounty', {}, T'Remove the bounty on the player', function()
                         Shared:SetPlayerBounty(pid, 0, false)
+                    end)
+
+                    local loop_bounty
+                    loop_bounty = bounty:toggle(T'Bounty Loop', {}, 'Loop set a bounty on the player', function(state)
+                        if state then
+                            local amount = tonumber(Shared:DisplayOnscreenKeyboard())
+                            if amount < 0 or amount > 10000 then
+                                amount = 0
+                            end
+
+                            util.create_tick_handler(function()
+                                if loop_bounty.value == false then
+                                    return false
+                                end
+
+                                if not Shared:PlayerHasBounty(pid) then
+                                    Shared:SetPlayerBounty(pid, 10000, true)
+                                end
+                            end)
+                        end
                     end)
             
                     bounty:toggle(T'Set Bounty Reward', {}, T'Set the reward amount for the players bounty, this is how much the player that kills them will get', function(state)

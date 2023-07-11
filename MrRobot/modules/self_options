@@ -751,7 +751,7 @@ pluto_class SelfOptions
     
         bounty:action(T'Collect Bounty', {T'collectbounty'}, T'Collect your bounty, if this does not work then remove all bounties from the entire session and re-set them', function()
             bounty_timer ??= ScriptGlobal(BOUNTY_TIMER)
-            bounty_local ??= ScriptLocal('freemode', BOUNTY_LOCAL)
+            bounty_local ??= ScriptGlobal(BOUNTY_LOCAL)
             
             WriteInt(bounty_timer, 2880000)
             WriteByte(bounty_local, -1)

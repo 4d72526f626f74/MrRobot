@@ -182,6 +182,13 @@ local window_tints = { 'None', 'Limo', 'Dark Smoke','Light Smoke' }
 --[[BOOL (bool)]] local function IsThisModelAHeli(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xDCE4334788AF94EA)return native_invoker.get_return_value_bool()end
 --[[BOOL (bool)]] local function IsThisModelACar(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x7F6DB52EEFC96DF8)return native_invoker.get_return_value_bool()end
 --[[BOOL (bool)]] local function IsThisModelAnAmphibiousCar(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x633F6F44A537EBB6)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function IsThisModelABike(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xB50C0B0CEDC6CE84)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function IsThisModelABicycle(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xBF94DD42F63BDED2)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function IsThisModelAQuadbike(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x39DAC362EE65FA28)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function IsThisModelAnAmphibiousCar(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x633F6F44A537EBB6)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function IsThisModelAnAmphibiousQuadbike(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xA1A9FC1C76A6730D)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function IsThisModelABoat(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x45A9187928F4B9E3)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] local function IsThisModelAJetski(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x9537097412CF75FE)return native_invoker.get_return_value_bool()end
 
 -- other
 local ReadInt = memory.read_int
@@ -772,9 +779,6 @@ pluto_class Vehicles
             local self = setmetatable({}, PV)
             self.root = root:list(T'Personal Vehicle Manager', {}, T'Personal Vehicle Manager', function() self:OnClick() end)
             self.pv_slot = ScriptGlobal(PV_SLOT)
-            self.unused_slots = nil
-            self.cars = nil
-            self.aircraft = nil
             return self
         end
 
@@ -801,7 +805,8 @@ pluto_class Vehicles
 
                 if data.model == 'NULL' then
                     self:AddUnused(slot, self.unused_slots, data)
-                elseif IsThisModelACar(data.hash) then
+                elseif IsThisModelACar(data.hash) or IsThisModelABike(data.hash) or IsThisModelABoat(data.hash)
+                or IsThisModelAJetski(data.hash) or IsThisModelAnAmphibiousCar(data.hash) or IsThisModelAnAmphibiousQuadbike(data.hash) then
                     self:AddVehicle(slot, self.cars, data)
                 elseif IsThisModelAHeli(data.hash) or IsThisModelAPlane(data.hash) then
                     self:AddVehicle(slot, self.aircraft, data)

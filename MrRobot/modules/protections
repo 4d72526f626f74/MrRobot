@@ -3,6 +3,7 @@ local shadow_root = menu.shadow_root()
 local T = require('translations')
 local Shared = require('shared')
 local PLAYER_ID = Shared.PLAYER_ID
+local Globals = Shared.Globals.Protections
 
 --[[Hash (int)]] local function NetworkHashFromPlayerHandle(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0xBC1D768F2F5D6C05)return native_invoker.get_return_value_int()end
 --[[Vector3 (vector3)]] local function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
@@ -264,8 +265,20 @@ pluto_class Protections
             Shared:BlockPropertyInvite(state)
         end)
 
-        self.events:toggle(T'Block Off The Radar', {}, T'Block remote off the radar from other players in the session', function(state)
-            Shared:BlockRemoteOffTheRadar(state)
+        self.ceo_kick_event = self.events:toggle(T'Block CEO/MC Kick', {}, T'Block CEO/MC kick event', function(state)
+            local ceo_kick = Globals.CeoKickProtection
+            local ceo_kick1 = Globals.CeoKickProtection1
+
+            WriteInt(ceo_kick, state ? 1 : 0)
+            if state then
+                util.create_tick_handler(function()
+                    if self.ceo_kick_event.value == false then
+                        return false
+                    end
+
+                    WriteInt(ceo_kick1, ReadInt(ceo_kick1) & ~(1 << 5))
+                end)
+            end
         end)
     end
 end

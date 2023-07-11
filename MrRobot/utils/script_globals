@@ -1,9 +1,68 @@
+-- Global_1895156[plParam0 /*609*/].f_10.f_105 = organisation name
+-- Global_1895156[plParam0 /*609*/].f_10.f_355 = mc name
+-- Global_2794162.f_4500 passive mode end timer
+-- Global_1310720.f_4 business expenses timer
+-- Global_2805862.f_85[5] = good boy timer
+-- Global_1895156[PLAYER::PLAYER_ID() /*609*/].f_10.f_63 = ceo vehicle cooldown
+-- Global_1895156[PLAYER::PLAYER_ID() /*609*/].f_10.f_35 = player?
+-- Global_1895156[PLAYER::PLAYER_ID() /*609*/].f_10.f_32 = hash?
+-- Global_1895156[_GET_BOSS_OF_LOCAL_PLAYER() /*609*/].f_10.f_62 = ceo vehicle entity model
+-- Global_1895156[plParam1 /*609*/].f_10.f_75 = ceo vehicle network id
+-- Global_1895156[PLAYER::PLAYER_ID() /*609*/].f_10.f_303 = unknown?
+-- Global_1895156[PLAYER::PLAYER_ID() /*609*/].f_10.f_304 = unknown?
+-- Global_1669211.f_2 = force camera forward protection
+-- Global_1669211.f_567 = block passive mode protection
+-- Global_1669211.f_568 = CEO/MC kick protection
+
+-- blackjack, 2273 = blackjet bet
+-- blackjack, 2277 = casino chips
+-- blackjack, 3790 = player cards total
+-- blackjack, 3789 = dealer cards total
+
+-- Global_1853988[plParam0 /*867*/].f_267.f_144 tested and it's not it
+-- Global_1853988[plParam0 /*867*/].f_267.f_133 tested and it's not FUCKING IT GRR
+-- Global_1853988[plParam0 /*867*/].f_267.f_288 tested and it's not fucking it 
+-- Global_1853988[plParam0 /*867*/].f_267.f_435 tested and it's not fucking it
+-- Global_1853988[plParam0 /*867*/].f_267.f_368 tested and it's not fucking it
+-- Global_1853988[plParam0 /*867*/].f_267.f_479 tested and it's not fucking it
+-- Global_1853988[plParam0 /*867*/].f_267.f_387 tested adn it's not fucking it
+-- Global_1853988[plParam0 /*867*/].f_267.f_507 tested and it's not fucking it (unlocks 50 car garage)
+-- Global_1853988[plParam0 /*867*/].f_267.f_513 tested and it's not fucking it
+-- Global_1853988[plParam0 /*867*/].f_267.f_34 tested and it's not fucking it
+-- Global_1853988[plParam0 /*867*/].f_267.f_497 tested and it's not fucking it
+
+-- globals that are for invalid price transaction error
+-- Global_2794162.f_441 inventory price invald transaction error (set to 1)
+-- Global_2794162.f_442
+-- Global_2794162.f_443
+-- Global_2794162.f_444 timer for transaction error reappearing
+-- Global_2765084.f_613 (set bit 0)
+-- Global_1853988[PLAYER::PLAYER_ID() /*867*/].f_267.f_293 not sure what this does but it's related to the mechanic
+
+-- Global_262145.f_7190 = mechanic fee
+-- Global_1310720 pay mechanic timer
+-- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_235 changes when a player takes easy way out
+-- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_232 session state
+-- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_217
+-- freemode, 19516 + 1 = nightclub safe transaction
+
+-- Global_2794162.f_4655 pegasus reclaim
+-- Global_2672524.f_29
+-- Global_1669211.f_2 = force camera forward protection
+-- Global_1669211.f_567 = block passive mode protection
+-- Global_1669211.f_568 = CEO/MC kick protection
+-- freemode, 18717 + 1 how many times you have requested a personal vehicle
+
+
+local Shared = require('shared')
+
 pluto_class ScriptGlobals
     function __construct()
         self:AddSettings()
         self:AddTools()
         self:AddCooldowns()
         self:AddHeists()
+        self:AddProtections()
     end
 
     function AddSettings()
@@ -14,7 +73,14 @@ pluto_class ScriptGlobals
     function AddTools()
         self.Tools = {}
         self.Tools.UnlockArcades = 1971633 + 22 -- Global_1971633.f_22
-        self.Tools.GoodBoyTimer = 262145 + 145 -- Global_262145.f_145
+        self.Tools.GoodBoyTimer = 2805862 + 85 + 1 + 5 -- Global_2805862.f_85[5]
+        self.Tools.SinRemover = 2764426 + 36 -- Global_2764426.f_36
+        self.Tools.InsufficientFunds = 100885 + 1482 -- Global_100885.f_1482
+        self.Tools.GunVanWeaponsStart = 34095
+        self.Tools.GunVanWeaponsEnd = 34095 + 8
+        self.Tools.GunVanThrowablesStart = 34117
+        self.Tools.GunVanThrowablesEnd = 34117 + 2
+        self.Tools.DisableHeistAntiCheat = 262145 + 10761 -- Global_262145.f_10761
     end
 
     function AddCooldowns()
@@ -28,6 +94,7 @@ pluto_class ScriptGlobals
         self.Cooldowns.AvengerRequestCooldown = 2684820 + 4319 + 242 + 1 + (49 * 2)
         self.Cooldowns.TerrorbyteRequestCooldown = 2684820 + 4319 + 242 + 1 + (52 * 2)
         self.Cooldowns.PersonalVehicleRequestCooldown = 2684820 + 4319 + 242 + 1 + (7 * 2)
+        self.Cooldowns.CEOVehicleRequestCooldown = 1895156 + 1 + (Shared.PLAYER_ID * 609) + 10 + 63
         
         self.Cooldowns.TerrorbyteDroneCooldown = 262145 + 24845 -- default 60000 (int)
         self.Cooldowns.TerrorbyteDistance = 262145 + 24845 -- default 500 (float)
@@ -58,6 +125,18 @@ pluto_class ScriptGlobals
         self.Heists.RefreshPlannningBoard = 1526 -- heist_island_planning.c
         self.Heists.SkipHacking = 21269 + 3168 -- fm_mission_controller_2020.c
         self.Heists.InstantHack = 23669 -- fm_mission_controller_2020.c
+    end
+
+    function AddProtections()
+        -- Global_1669211.f_2 = force camera forward protection
+        -- Global_1669211.f_567 = block passive mode protection
+        -- Global_1669211.f_568 = CEO/MC kick protection
+        -- Global_2794162.f_5231.f_48 = CEO/MC kick protection (clear bit 5)
+        self.Protections = {}
+        self.Protections.ForceCameraForward = 1669211 + 2
+        self.Protections.BlockPassiveMode = 1669211 + 567
+        self.Protections.CeoKickProtection = 1669211 + 568
+        self.Protections.CeoKickProtection2 = 2794162 + 5231 + 48
     end
 end
 

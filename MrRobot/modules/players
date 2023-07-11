@@ -173,7 +173,7 @@ local function SoftSpoof(target, localplayer, state)
 end
 
 local function GetTheFuckOut(remote_target)
-    TriggerScriptEvent(1 << remote_target, {1718315579, 1, 0, 1, 0})
+    TriggerScriptEvent(1 << remote_target, {-306678306, 1, 0, 1, 0})
 end
 
 local function TakeoverKick(remote_target)

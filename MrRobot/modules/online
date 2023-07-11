@@ -39,6 +39,8 @@ local SetBlipNameToPlayerName = Shared.SetBlipNameToPlayerName
 local IsEntityAGhost = Shared.IsEntityAGhost
 local SetPackedStatBoolCode = Shared.SetPackedStatBoolCode
 local GetRPRequiredForRank = Shared.GetRPRequiredForRank
+local NetToVeh = Shared.NetToVeh
+local DeleteByHandle = Shared.DeleteByHandle
 
 -- instead of doing ScriptGlobal(base + offset) we can just store the result of ScriptGlobal(base)
 -- then we can add the relative offset to that result giving us the same result as ScriptGlobal(base + offset)
@@ -303,6 +305,7 @@ pluto_class Online
 
     function CreateServices()
         local pegasus = nil
+        local ceo_vehicle = nil
 
         self.services:action(T'Request Nano Drone', {T'requestnanodrone'}, T'Request a nano drone, what else?', Shared:Partial(RequestService, 'drone'))
         self.services:action(T'Request RC Bandito', {T'requestrcbandito'}, T'Request an RC Bandito, what else?', Shared:Partial(RequestService, 'bandito'))
@@ -413,25 +416,31 @@ pluto_class Online
             Shared:LesterLocatePlane()
         end)
 
+        self.services:divider('')
+
         pegasus = self.services:list(T'Pegasus', {T'pegasus'}, T'Request vehicles from pegasus')
         pegasus:text_input(T'Custom Model', {T'pegasusmodel'}, T'Vehicle to request', function(name)
             local hash = util.joaat(name)
-            if util.get_label_text(hash) ~= 'NULL' then
-                Shared:RequestPegasusVehicle(hash)
-            else
-                util.toast('Invalid model!')
-            end
+            Shared:RequestPegasusVehicle(hash)
         end, 'adder')
-        pegasus:divider('')
+        local predefined_pegasus = pegasus:list(T'Predefined', {}, T'Predefined vehicles')
+
+        ceo_vehicle = self.services:list(T'CEO Vehicles', {T'ceovehicles'}, T'CEO Vehicles')
+        ceo_vehicle:text_input(T'Custom Model', {T'ceovehiclesmodel'}, T'Vehicle to request', function(name)
+            local hash = util.joaat(name)
+            Shared:RequestCEOVehicle(hash)
+        end, 'adder')
+        local predefined_ceo_vehicle = ceo_vehicle:list(T'Predefined', {}, T'Predefined vehicles')
 
         for vehmodels as veh_model do
-            pegasus:action(veh_model, {}, '', function()
+            predefined_pegasus:action(veh_model, {}, '', function()
                 local hash = util.joaat(veh_model)
-                if util.get_label_text(hash) ~= 'NULL' then
-                    Shared:RequestPegasusVehicle(hash)
-                else
-                    util.toast('Invalid model!')
-                end
+                Shared:RequestPegasusVehicle(hash)
+            end)
+
+            predefined_ceo_vehicle:action(veh_model, {}, '', function()
+                local hash = util.joaat(veh_model)
+                Shared:RequestCEOVehicle(hash)
             end)
         end
 
@@ -439,6 +448,19 @@ pluto_class Online
         self.services:text_input(T'Rename Acid Lab', {T'renameacidlab'}, T'Rename your Acid Lab, what else?', function(name)
             Shared:RenameAcidLab(name)
         end, Shared:GetAcidLabName())
+
+        self.money_remover = self.services:list(T'Money Remover', {T'moneyremover'}, T'Remove money')
+        self.money_remover_amount = self.money_remover:text_input(T'Amount', {T'moneyremoveramount'}, T'Amount to remove', function(amount)
+            
+        end, '0')
+
+        self.money_remover:action(T'Remove', {T'moneyremoverremove'}, T'Remove money', function()
+            local amount = tonumber(self.money_remover_amount.value)
+            if amount == nil then
+                amount = 0
+            end
+            WriteInt(ScriptGlobal(Shared.Globals.Tools.SinRemover), amount)
+        end)
     end
 
     function CreateTrolling()
@@ -560,6 +582,26 @@ pluto_class Online
                         if pid ~= PLAYER_ID then
                             Shared.TriggerScriptEvent(1 << pid, event_args)
                         end
+                    end
+                end
+            end
+        end)
+
+        organisation:divider('')
+        local ceo_vehicle = organisation:list(T'CEO Vehicle', {}, T'')
+
+        ceo_vehicle:toggle_loop(T'Delete', {}, T'', function()
+            local g = ScriptGlobal(1895156 + 1 + (Shared.PLAYER_ID * 609) + 10)
+            if ReadInt(g) ~= -1 then
+                local entity_model = ReadInt(g + 0x1F0)
+                local network_id = ReadInt(g + 0x258)
+                
+                if network_id ~= 0 then
+                    local entity = NetToVeh(network_id)
+                    local model = util.reverse_joaat(entity_model)
+                    
+                    if entity ~= 0 then
+                        DeleteByHandle(entity)
                     end
                 end
             end
@@ -762,7 +804,7 @@ pluto_class Online
 
             xpcall(function()
                 if pid ~= PLAYER_ID then
-                    if not RefByRelPath(ghosting, name):isValid() then
+                    if not RefByRelPath(self.ghosting, name):isValid() then
                         self.ghosting:toggle(players.get_name(pid), {}, T'Become ghosted to this player', function(state)
                             SetRemotePlayerAsGhost(pid, state)
                         end)
@@ -773,7 +815,7 @@ pluto_class Online
 
         players.on_leave(function(pid, name)
             xpcall(function()
-                local ref = RefByRelPath(ghosting, name)
+                local ref = RefByRelPath(self.ghosting, name)
                 if ref:isValid() then
                     ref:delete()
                 end

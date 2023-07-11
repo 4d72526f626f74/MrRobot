@@ -16,41 +16,7 @@ local BitModule = require('bit')
 local Bitfield = require('bitfield')
 Shared.Bit, Shared.BitMask, Shared.Pack = BitModule.Bit, BitModule.BitMask, BitModule.Pack
 
-local SGlobals = {}
-local SLocals = {}
 local Globals = nil
-
-SGlobals.__index = SGlobals
-SLocals.__index = SLocals
-
-function SGlobals.new()
-    local self = setmetatable({}, SGlobals)
-    return self
-end
-
-function SLocals.new()
-    local self = setmetatable({}, SLocals)
-    return self
-end
-
-function SGlobals:Cache(sg)
-    Shared.ScriptGlobal(sg) -- cache it
-end
-
-function SGlobals:ReadByte(sg, offset)
-    offset = offset or 0
-    sg = Shared.ScriptGlobal(sg) + (offset << 3)
-    return memory.read_byte(sg)
-end
-
-function SGlobals:WriteByte(sg, value, offset)
-    offset = offset or 0
-    sg = Shared.ScriptGlobal(sg) + (offset << 3)
-    memory.write_byte(sg, value)
-end
-
-Shared.SG = SGlobals.new()
-Shared.SL = SLocals.new()
 
 Shared.MAX_INT = (1 << 31) - 1
 Shared.MIN_INT = -(1 << 31)
@@ -1195,7 +1161,7 @@ end
 
 function Shared:BlockAllNotifications(state)
     local base = 1670105
-    for i = 0, 800 do
+    for i = 0, 500 do
         local g = self.ScriptGlobal(base)
         self.WriteByte(g + (i * 8), state ? 1 : 0)
     end
@@ -1239,6 +1205,7 @@ end
 ]]
 
 function Shared:UnlockKosatka(state)
+    self.SetPackedStatBoolCode(30309, true, self.CHAR_SLOT)
     local unlock = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 479)
     self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 0)) : (Bit:Clear(self.ReadInt(unlock), 0)))
 end
@@ -2075,6 +2042,8 @@ function Shared:DisplayOnscreenKeyboard(text_length)
         local text = GetOnscreenKeyboardResult()
         return text
     end
+
+    return '0'
 end
 
 function Shared:GetRandomPlayer()
@@ -2356,6 +2325,12 @@ function Shared:RequestPegasusVehicle(veh_hash)
     self.WriteInt(g, self.ReadInt(g) ~ (1 << 7))
 end
 
+function Shared:RequestCEOVehicle(veh_hash)
+    local g = self.ScriptGlobal(1895156 + 1 + (self.PLAYER_ID * 609) + 10)
+    self.WriteInt(g + 0x1F0, veh_hash)
+    self.WriteByte(g + 0x1E0, 1)
+end
+
 function Shared:LesterLocate(bit)
     local g = self.ScriptGlobal(2672524 + 3787)
     Shared.WriteInt(g, Shared.ReadInt(g) ~ bit)
@@ -2388,6 +2363,23 @@ function Shared.RecoveryMenu()
     end)
 
     async_http.dispatch()
+end
+
+function Shared:SetOrgType(boss_type)
+    local g = self.ScriptGlobal(1895156 + 1 + (self.PLAYER_ID * 609) + 10 + 429)
+    self.WriteInt(g, boss_type)
+end
+
+function Shared:RegisterAsCEO()
+    local g = self.ScriptGlobal(1895156 + 1 + (self.PLAYER_ID * 609) + 10)
+    self.WriteInt(g, self.PLAYER_ID)
+    self:SetOrgType(0)
+end
+
+function Shared:RegisterAsMC()
+    local g = self.ScriptGlobal(1895156 + 1 + (self.PLAYER_ID * 609) + 10)
+    self.WriteInt(g, self.PLAYER_ID)
+    self:SetOrgType(1)
 end
 
 return Shared

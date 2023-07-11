@@ -24,36 +24,6 @@ local RefByRelPath = Shared.RefByRelPath
 local StatSetInt = Shared.StatSetInt
 
 pluto_class GCooldowns
-    --[[KosatkaMissileCooldown = 262145 + 30394 -- default 60000 (int)
-    KosatkaMissileDistance = 262145 + 30395 -- default 4000 (float)
-
-    KosatkaRequestCooldown = 2684820 + 4319 + 242 + 1 + (65 * 2)
-    KosatkaDinghyCooldown = 2684820 + 4319 + 242 + 1 + (66 * 2)
-    MOCRequestCooldown = 2684820 + 4319 + 242 + 1 + (46 * 2)
-    AvengerRequestCooldown = 2684820 + 4319 + 242 + 1 + (49 * 2)
-    TerrorbyteRequestCooldown = 2684820 + 4319 + 242 + 1 + (52 * 2)
-    PersonalVehicleRequestCooldown = 2684820 + 4319 + 242 + 1 + (7 * 2)
-
-    TerrorbyteDroneCooldown = 262145 + 24845 -- default 60000 (int)
-    TerrorbyteDistance = 262145 + 24845 -- default 500 (float)
-    TerrorbyteHeight = 262145 + 24671 -- default 200 (float)
-    TerrorbyteShockCooldown = 262145 + 24853 -- default 12000 (int)
-    TerrorbyteBoostRechargeTime = 262145 + 24851 -- default 15000 (int)
-    TerrorbyteDetonateCountdown = 262145 + 24849 -- default 7000 (int)
-    TerrorbyteDroneDamagePlayers = 262145 + 24848 -- default 1 (int)
-    TerrorbyteDroneDamagePeds = 262145 + 24847 -- default 1 (int)
-    TerrorbyteDroneBoostTime = 262145 + 24850 -- default 4000 (int)
-    TerrorbyteDroneForwardSpeed = 262145 + 24855 -- default 35 (float)
-
-    MoonpoolCooldown = 262145 + 31116 -- default 120000 (int)
-    Mk2Cooldown = 262145 + 28615 -- default 300000 (int)
-    StrikeTeamCooldown = 262145 + 23967 -- default 300000 (int)
-    AcidLabRequestCooldown = 262145 + 22046 -- default 300000 (int) 
-    
-    Oppressor2FlareCooldown = 262145 + 22146 -- default 9000 (int)
-    Oppressor2ChaffDuration = 262145 + 22147 -- default 6000 (int)
-    Oppressor2ChaffCooldown = 262145 + 22148 -- default 15000 (int)]]
-
     KosatkaMissileCooldown = Globals.KosatkaMissileCooldown
     KosatkaMissileDistance = Globals.KosatkaMissileDistance
 
@@ -63,6 +33,7 @@ pluto_class GCooldowns
     AvengerRequestCooldown = Globals.AvengerRequestCooldown
     TerrorbyteRequestCooldown = Globals.TerrorbyteRequestCooldown
     PersonalVehicleRequestCooldown = Globals.PersonalVehicleRequestCooldown
+    CEOVehicleRequestCooldown = Globals.CEOVehicleRequestCooldown
 
     TerrorbyteDroneCooldown = Globals.TerrorbyteDroneCooldown
     TerrorbyteDistance = Globals.TerrorbyteDistance
@@ -121,6 +92,11 @@ pluto_class GCooldowns
 
     function RemovePersonalVehicleRequestCooldown()
         local g = ScriptGlobal(self.PersonalVehicleRequestCooldown)
+        WriteInt(g, 0)
+    end
+
+    function RemoveCEOVehicleRequestCooldown()
+        local g = ScriptGlobal(self.CEOVehicleRequestCooldown)
         WriteInt(g, 0)
     end
 
@@ -271,6 +247,10 @@ pluto_class Cooldowns
 
         self.root:toggle_loop(T'Remove Personal Vehicle Cooldown', {}, T'Remove personal vehicle request cooldown', function(state)
             GCooldowns:RemovePersonalVehicleRequestCooldown()
+        end)
+
+        self.root:toggle_loop(T'Remove CEO Vehicle Cooldown', {}, T'Remove CEO vehicle request cooldown', function(state)
+            GCooldowns:RemoveCEOVehicleRequestCooldown()
         end)
     end
 

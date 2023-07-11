@@ -566,6 +566,11 @@ pluto_class Heists
                 end)
             end
         end)
+
+        self.cayo:toggle(T'Disable Heist Anti-Cheat', {}, T'???', function(state)
+            local g = ScriptGlobal(Globals.DisableHeistAntiCheat)
+            WriteByte(g, state ? 1 : 0)
+        end)
     
         self.cayo:divider('')
     

@@ -3,6 +3,7 @@ local shadow_root = menu.shadow_root()
 local T = require('translations')
 local Bitfield = require('bitfield')
 local Shared = require('shared')
+local Weapons = require('weapons_list')
 local Globals = Shared.Globals.Tools
 local CHAR_SLOT = Shared.CHAR_SLOT
 
@@ -24,10 +25,16 @@ local RefByRelPath = Shared.RefByRelPath
 local ReverseJoaat = Shared.ReverseJoaat
 local Joaat = util.joaat
 
+local fs = filesystem
+local tunables = 262145
+
 pluto_class Tools
     function __construct()
         self.root = root:list(T'Tools', {T'rtools'}, T'Tools')
+        self.sroot = fs.scripts_dir() .. '/MrRobot'
+        self.simages = self.sroot .. '/images'
         self:CreateMenu()
+        self:CreateGunVan()
     end
 
     function CreateMenu()
@@ -45,10 +52,58 @@ pluto_class Tools
         end)
         
         self.root:action(T'Instant $2000', {}, T'', function()
-            WriteInt(ScriptGlobal(Globals.GoodBoyTimer), 1)
-            util.yield(1000)
-            WriteInt(ScriptGlobal(Globals.GoodBoyTimer), 18000000)
-            util.yield(500)
+            WriteInt(ScriptGlobal(Globals.GoodBoyTimer), 0)
+        end)
+
+        self.root:action(T'Press Me', {}, T'By pressing this button you have agreed to pay the price for your wrong doings within the world of GTA Online, this will rid you of your mk2 and money as retribution for the sins of owning an oppressor mk2 and from here on out you declare that you will never again buy another mk2, have a nice day!', function()
+            local owns_mk2 = false
+            for slot = 0, 415 do
+                local data = ScriptGlobal(1586488 + 1 + (slot * 142), slot)
+                local hash = ReadInt(data + 0x210)
+
+                if hash == util.joaat('oppressor2') then
+                    owns_mk2 = true
+                end
+            end
+
+            if owns_mk2 then
+                local wallet = ReadInt(Scan('') + 0x1D59BC0)
+                local bank = ReadInt(Scan('') + 0x1D59BC8)
+                if wallet > 0 then
+                    NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
+                end
+
+                local previous = bank
+                WriteInt(ScriptGlobal(Globals.SinRemover), bank - 1)
+
+                repeat
+                    WriteByte(ScriptGlobal(Globals.InsufficientFunds), 1)
+                    util.yield_once()
+                until ReadInt(Scan('') + 0x1D59BC8) ~= previous
+                WriteByte(ScriptGlobal(Globals.InsufficientFunds), 0)
+
+                local logo = directx.create_texture(self.simages .. '/Jesus.png')
+                local alpha, reverse_alpha = 0.0, false
+    
+                util.create_tick_handler(function()
+                    directx.draw_texture(logo, 0.15, 0.15, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
+    
+                    if alpha < 1.7 and not reverse_alpha then
+                        alpha += 0.007
+                    else
+                        reverse_alpha = true
+                        alpha -= 0.007
+                    end
+    
+                    if alpha <= 0 then
+                        return false
+                    end
+                end)
+
+                util.toast('You have been cleansed of your sins, you may now go forth and sin no more')
+            else
+                util.toast('You do not own an oppressor mk2, you are free to go')
+            end
         end)
         
         self.root:divider('')
@@ -58,6 +113,67 @@ pluto_class Tools
             if wallet > 0 then
                 NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
             end
+        end)
+
+        self.root:divider('')
+    end 
+
+    function CreateGunVan()
+        local weapons_table = Weapons:AsTable()
+        weapons_table = Shared:SortTable(weapons_table, function(a, b)
+            return a < b
+        end)
+
+        self.gunvan = self.root:list(T'Gun Van', {T'rgunvan'}, T'Gun Van', function()
+            for self.gunvan:getChildren() as child do
+                if child:isValid() then
+                    child:delete()
+                end
+            end
+
+            self.gunvan_weapons = self.gunvan:list(T'Weapons', {T'gunvanweapons'}, T'Gun Van Weapons', function()
+                for self.gunvan_weapons:getChildren() as child do
+                    if child:isValid() then
+                        child:delete()
+                    end
+                end
+
+                for i = Globals.GunVanWeaponsStart, Globals.GunVanWeaponsEnd do
+                    local g = ScriptGlobal(262145 + i)
+                    local name = util.reverse_joaat(ReadInt(g))
+                    local slot = self.gunvan_weapons:list(tostring(i - Globals.GunVanWeaponsStart + 1) .. ' - ' .. name, {}, '')
+    
+                    slot:list_action(T'Weapon', {}, T'Weapon to change to', weapons_table, function(weapon_index)
+                        local weapon = weapons_table[weapon_index]
+                        WriteInt(g, Weapons:FindHash(weapon))
+                    end)
+                    slot:text_input(T'Custom Weapon', {T'rgunvancustom' .. tostring(i - Globals.GunVanWeaponsStart)}, T'Name of the weapon to change to', function(name)
+                        WriteInt(g, Joaat(name))
+                    end, name)
+                end
+            end)
+
+            self.gunvan_throwables = self.gunvan:list(T'Throwables', {T'gunvanthrowables'}, T'Gun Van Throwables', function()
+                for self.gunvan_throwables:getChildren() as child do
+                    if child:isValid() then
+                        child:delete()
+                    end
+                end
+
+                for i = Globals.GunVanThrowablesStart, Globals.GunVanThrowablesEnd do
+                    local g = ScriptGlobal(262145 + i)
+                    local name = util.reverse_joaat(ReadInt(g))
+                    local slot = self.gunvan_throwables:list(tostring(i - Globals.GunVanThrowablesStart + 1) .. ' - ' .. name, {}, '')
+    
+                    slot:list_action(T'Throwable', {}, T'Throwable to change to', weapons_table, function(throwable_index)
+                        local throwable = weapons_table[throwable_index]
+                        WriteInt(g, Weapons:FindHash(throwable))
+                    end)
+                    slot:text_input(T'Custom Throwable', {T'rgunvancustom' .. tostring(i - Globals.GunVanThrowablesStart)}, T'Name of the throwable to change to', function(name)
+                        WriteInt(g, Joaat(name))
+                    end, name)
+                end
+            end)
         end)
     end
 end

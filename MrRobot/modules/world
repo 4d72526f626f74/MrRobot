@@ -68,8 +68,8 @@ pluto_class World
             end
         end)
         
-        self.root:toggle(T'Ghost Town', {T'ghosttown'}, T'Los Santos\'s becomes a ghost town', function(state)
-            local ref = ref_by_rel_path(root, 'Ghost Town')
+        self.ghost_town = self.root:toggle(T'Ghost Town', {T'ghosttown'}, T'Los Santos\'s becomes a ghost town', function(state)
+            local ref = self.ghost_town
             stand_lock_time.value = state
             stand_smooth_transition.value = not state
             stand_time_midnight:trigger()

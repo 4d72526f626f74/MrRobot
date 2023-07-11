@@ -73,7 +73,7 @@ pluto_class PedAimbot
             self.visible_check = state
         end, self.visible_check)
 
-        self.root:textslider(T'Bone', {}, T'Bone to target', {'Head', 'Chest', 'Stomach', 'Left Foot', 'Right Leg', 'Left Hand', 'Right Hand', 'Pelvis', 'Left Leg', 'Left Knee', 'Left Arm'}, function(index)
+        self.root:list_select(T'Bone', {}, T'Bone to target', {'Head', 'Chest', 'Stomach', 'Left Foot', 'Right Leg', 'Left Hand', 'Right Hand', 'Pelvis', 'Left Leg', 'Left Knee', 'Left Arm'}, 1, function(index)
             self.bone = Shared.AimbotBones[index] or 31086
         end, self.bone)
 

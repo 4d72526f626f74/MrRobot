@@ -3,6 +3,14 @@ local shadow_root = menu.shadow_root()
 local T = require('translations')
 local Shared = require('shared')
 
+local CHAR_SLOT = Shared.CHAR_SLOT
+local PLAYER_ID = Shared.PLAYER_ID
+
+local GetPackedStatBoolCode = Shared.GetPackedStatBoolCode
+local ScriptGlobal = Shared.ScriptGlobal
+local WriteInt = Shared.WriteInt
+local ReadInt = Shared.ReadInt
+
 pluto_class Dev
     function __construct()
         self.is_dev = Shared.Settings:IsSet(Shared.SettingsOffsets.DevMode)
@@ -13,7 +21,14 @@ pluto_class Dev
     end
 
     function CreateMenu()
-        
+        self.root:action(T'Source A Crate', {}, T'', function()
+            self:SourceCrate(0)
+        end)
+    end
+
+    function SourceCrate(index)
+        -- Global_1853988[plParam1 /*867*/].f_267.f_116[i /*3*/] amount of crates in the warehouse
+        GetPackedStatBoolCode(32359 + index, true, CHAR_SLOT)
     end
 end
 

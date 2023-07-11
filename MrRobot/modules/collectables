@@ -108,7 +108,7 @@ pluto_class Collectables
             end
         end)
     
-        self.casino:toggle_loop(T'Collect Nearby Cards', {}, T'Automatically collect casino cards when they\'re within range', function()
+        self.casino_collect_nearby = self.casino:toggle_loop(T'Collect Nearby Cards', {}, T'Automatically collect casino cards when they\'re within range', function()
             local pos = GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
     
             for i, entity in pairs(GetAllPickupsAsPointers()) do
@@ -121,11 +121,12 @@ pluto_class Collectables
         end)
     
         self.casino:action(T'Teleport To Cards', {}, T'Teleports you to each card location and collects it for you', function()
-            local ref = RefByRelPath(casino, T'Collect Nearby Cards')
+            local ref = self.casino_collect_nearby
             local ped = players.user_ped()
             
             if StatGetInt(Joaat('MP' .. CHAR_SLOT .. '_' .. 'PLAYING_CARD_COLLECTED'), ptr, -1)  then
                 if ReadInt(ptr) >= 54 then
+                    util.toast('You have already collected all the cards!')
                     StopThread()
                 end
             end

@@ -2,7 +2,6 @@ local SCRIPT_START = os.clock()
 local SCRIPT_VERSION <constexpr> = '0.2.2-alpha'
 local GTAO_VERSION <const> = '1.67'
 local sha256 = require('crypto').sha256
-local inspect = require('inspect')
 
 -- implementing natives as local functions instead of requiring natives which is slower, adds more overhead and wastes a lot 
 -- of memory for 6400+ functions that you don't even use 10% of
@@ -75,6 +74,7 @@ pluto_class Requirements
     images = {
         'MrRobot.png',
         'Loser.png',
+        'Jesus.png'
     },
     modules = {
         'settings', 'tools', 'credits', 'self_options', 'online',
@@ -89,7 +89,8 @@ pluto_class Requirements
         'vehicle_models',
         'cutscenes',
         'shared',
-        'script_globals'
+        'script_globals',
+        'weapons_list'
     },
     libs = {
         'bit',
@@ -367,11 +368,5 @@ util.execute_in_os_thread(function()
 end)
 
 Requirements = nil
-Shared.SG:Cache(2794162)
-Shared.SG:Cache(2766600)
 
 print('Loaded MrRobot in ' .. math.round((os.clock() - SCRIPT_START) * 1000, 0) .. ' ms')
--- blackjack, 2273 = blackjet bet
--- blackjack, 2277 = casino chips
--- blackjack, 3790 = player cards total
--- blackjack, 3789 = dealer cards total

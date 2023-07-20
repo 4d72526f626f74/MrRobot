@@ -120,7 +120,7 @@ pluto_class ModuleLoader
                         fp:close()
 
                         if sha256(content) ~= m.hash then
-                            async_http.init('sodamnez.xyz', $'/Stand/MrRobot/ModulesRepository/{name}', function(body, headers, status_code)
+                            async_http.init('sodamnez.xyz', '/Stand/MrRobot/ModulesRepository/' .. name, function(body, headers, status_code)
                                 if status_code == 200 then
                                     local fp <close> = assert(io.open(script_custom .. '/' .. name, 'wb'))
                                     fp:write(body)
@@ -136,8 +136,8 @@ pluto_class ModuleLoader
                     local version = m.version
                     local author = m.author
 
-                    self.module_repo:action(tostring(name), {}, $'Author: {author}\nVersion: {version}', function()
-                        async_http.init('sodamnez.xyz', $'/Stand/MrRobot/ModulesRepository/{name}', function(body, headers, status_code)
+                    self.module_repo:action(tostring(name), {}, 'Author: ' .. author .. '\nVersion: ' .. version, function()
+                        async_http.init('sodamnez.xyz', '/Stand/MrRobot/ModulesRepository/' .. name, function(body, headers, status_code)
                             if status_code == 200 then
                                 local fp <close> = assert(io.open(script_custom .. '/' .. name, 'wb'))
                                 fp:write(body)

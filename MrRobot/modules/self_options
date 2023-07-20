@@ -404,7 +404,7 @@ pluto_class SelfOptions
             mentalstate_value ??= ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 268)
     
             local value = ReadFloat(mentalstate_value)
-            util.draw_debug_text($'Mental State: {value}')
+            util.draw_debug_text('Mental State: ' .. value)
         end)
     
         noclip:toggle_loop(T'No Clip', {}, T'Fly around the map', function()
@@ -751,7 +751,7 @@ pluto_class SelfOptions
     
         bounty:action(T'Collect Bounty', {T'collectbounty'}, T'Collect your bounty, if this does not work then remove all bounties from the entire session and re-set them', function()
             bounty_timer ??= ScriptGlobal(BOUNTY_TIMER)
-            bounty_local ??= ScriptLocal('freemode', BOUNTY_LOCAL)
+            bounty_local ??= ScriptGlobal(BOUNTY_LOCAL)
             
             WriteInt(bounty_timer, 2880000)
             WriteByte(bounty_local, -1)

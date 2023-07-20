@@ -7,6 +7,8 @@ local Weapons = require('weapons_list')
 local Globals = Shared.Globals.Tools
 local CHAR_SLOT = Shared.CHAR_SLOT
 
+local PV_SLOT <constexpr> = 2359296 + 1 + (0 * 5568) + 681 + 2 -- Global_2359296[func_876() /*5568*/].f_681.f_2
+
 local GetEntityModel = Shared.GetEntityModel
 local NetGameserverTransferWalletToBank = Shared.NetGameserverTransferWalletToBank
 
@@ -46,7 +48,7 @@ pluto_class Tools
             bitfield(arcade, 16)
         end)
         
-        self.root:action(T'Deposit Wallet Money', {T'depositwalletall'}, T'Deposit all money from your wallet', function()
+        self.deposit_money = self.root:action(T'Deposit Wallet Money', {T'depositwalletall'}, T'Deposit all money from your wallet', function()
             local wallet = ReadInt(Scan('') + 0x1D59BC0)
             NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
         end)
@@ -56,35 +58,64 @@ pluto_class Tools
         end)
 
         self.root:action(T'Press Me', {}, T'By pressing this button you have agreed to pay the price for your wrong doings within the world of GTA Online, this will rid you of your mk2 and money as retribution for the sins of owning an oppressor mk2 and from here on out you declare that you will never again buy another mk2, have a nice day!', function()
-            local owns_mk2 = false
+            local mk2s = {}
+            local module_base = Scan('')
+
+            local wallet = 0
+            self.deposit_money:trigger()
+
+            repeat
+                util.yield_once()
+                wallet = ReadInt(Scan('') + 0x1D59BC0)
+            until wallet == 0
+
+            local bank = ReadInt(module_base + 0x1D59BC8)
+
             for slot = 0, 415 do
                 local data = ScriptGlobal(1586488 + 1 + (slot * 142), slot)
                 local hash = ReadInt(data + 0x210)
+                WriteInt(data + 0x338, ReadInt(data) & ~Shared.VehicleBitfield.Request)
 
                 if hash == util.joaat('oppressor2') then
-                    owns_mk2 = true
+                    table.insert(mk2s, data)
                 end
             end
 
-            if owns_mk2 then
-                local wallet = ReadInt(Scan('') + 0x1D59BC0)
-                local bank = ReadInt(Scan('') + 0x1D59BC8)
-                if wallet > 0 then
-                    NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
+            if #mk2s <= 0 then
+                util.toast('You do not own an oppressor mk2, you are free to go')
+                util.stop_thread()
+            else
+                for mk2s as data do
+                    local bitfield = Bitfield.new(ReadInt(data + 0x338))
+                    bitfield:Clear(Shared.VehicleBitfield.Request)
+                    bitfield(data + 0x338, 32)
+                    util.yield_once()
+                    bitfield:Clear(0xFFFFFFFF)
+                    bitfield(data + 0x338, 32)
+                    bitfield:Set(0x10041)
+                    bitfield(data + 0x338, 32)
+                    util.yield(1000)
+                    bitfield:Clear(Shared.VehicleBitfield.Request)
+                    bitfield(data + 0x338, 32)
                 end
 
-                local previous = bank
-                WriteInt(ScriptGlobal(Globals.SinRemover), bank - 1)
+                WriteByte(ScriptGlobal(Globals.PriceTransactionError), 0)
 
-                repeat
-                    WriteByte(ScriptGlobal(Globals.InsufficientFunds), 1)
-                    util.yield_once()
-                until ReadInt(Scan('') + 0x1D59BC8) ~= previous
+                if bank > 0 then
+                    WriteInt(ScriptGlobal(Globals.SinRemover), bank)
+                    repeat
+                        util.yield_once()
+                        bank = ReadInt(module_base + 0x1D59BC8)
+                        WriteByte(ScriptGlobal(Globals.InsufficientFunds), 1)
+                    until bank == 0
+                end
+
                 WriteByte(ScriptGlobal(Globals.InsufficientFunds), 0)
+                util.yield(1000)
 
                 local logo = directx.create_texture(self.simages .. '/Jesus.png')
                 local alpha, reverse_alpha = 0.0, false
-    
+
                 util.create_tick_handler(function()
                     directx.draw_texture(logo, 0.15, 0.15, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
     
@@ -101,8 +132,6 @@ pluto_class Tools
                 end)
 
                 util.toast('You have been cleansed of your sins, you may now go forth and sin no more')
-            else
-                util.toast('You do not own an oppressor mk2, you are free to go')
             end
         end)
         
@@ -113,7 +142,7 @@ pluto_class Tools
             if wallet > 0 then
                 NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
             end
-        end)
+        end) 
 
         self.root:divider('')
     end 

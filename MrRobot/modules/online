@@ -505,25 +505,22 @@ pluto_class Online
             end
         end)
 
-        bounty:action(T'Set Bounty Reward', {T'setbountyrewardamount'}, T'Set bounty reward for the entire session', function()
-            local amount = Shared.DisplayOnscreenKeyboard()
-            if amount == nil then return end
-            amount = tonumber(amount)
+        self.set_bounty_reward = bounty:toggle(T'Set Bounty Reward', {T'setsessionbountyreward'}, T'Set the bounty reward for the entire session', function(state)
+            if state then
+                local amount = tonumber(Shared:DisplayOnscreenKeyboard())
+                if amount < 0 or amount > 10000 then amount = 0 end
 
-            if amount < 0 or amount > 10000 then
-                amount = 0
-            end
+                util.create_tick_handler(function()
+                    if self.set_bounty_reward.value == false then
+                        return false
+                    end
 
-            --Settings = BitMask:Replace(Settings, 3, 14, amount)
-            Settings:ModifyBits(3, 14, amount)
-        end)
-
-        bounty:toggle_loop(T'Force Reward', {T'forcesessionreward'}, T'Force bounty reward for everyone', function()
-            for pid = 0, 32 do
-                if Shared:PlayerInList(pid) then
-                    --Shared:SetPlayerBountyReward(pid, BitMask:Extract(Settings, 3, 14))
-                    Shared:SetPlayerBountyReward(pid, Settings:ExtractBits(3, 14))
-                end
+                    for pid = 0, 32 do
+                        if Shared:PlayerInList(pid) then
+                            Shared:SetPlayerBountyReward(pid, amount)
+                        end
+                    end
+                end)
             end
         end)
 
@@ -925,7 +922,8 @@ pluto_class Online
                 if dealer ~= 0 and player ~= 0 then
                     local dealer_value = ReadInt(dealer)
                     local player_value = ReadInt(player)
-                    Shared.Debug($'Dealer: {dealer_value} | Player: {player_value}')
+                    Shared.Debug('Dealer: {dealer_value} | Player: {player_value}')
+                    Shared.Debug('Dealer: ' .. delaer_value .. ' | Player: ' .. player_value)
                 end
             end)
         end)

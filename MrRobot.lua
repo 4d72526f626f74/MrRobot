@@ -1,5 +1,5 @@
 local SCRIPT_START = os.clock()
-local SCRIPT_VERSION <constexpr> = '0.2.3-alpha'
+local SCRIPT_VERSION <constexpr> = '0.2.6-alpha'
 local GTAO_VERSION <const> = '1.67'
 local sha256 = require('crypto').sha256
 
@@ -11,7 +11,7 @@ do
     local GAME_VERSION = GetOnlineVersion()
 
     if GTAO_VERSION ~= GetOnlineVersion() then
-        util.toast($'Version mismatch some features may not work! Script version: {GTAO_VERSION} | GTAO version: {GAME_VERSION}')
+        util.toast('Script has not been updated to the latest game version, some features may not work properly')
     end
 end
 
@@ -115,7 +115,7 @@ pluto_class Requirements
         for Requirements.dirs as dir do
             if not fs.exists(dir) then
                 if not io.makedir(dir) then
-                    print($'[MrRobot] Failed to create directory '{dir}'')
+                    print('[MrRobot] Failed to create directory ' .. dir .. '')
                 end
             end
         end
@@ -208,7 +208,7 @@ pluto_class Requirements
                 bytes = body
                 toast('Successfully downloaded missing files')
             else
-                print($'[MrRobot : {status_code}] Failed to request missing files')
+                print('[MrRobot : ' .. status_code .. '] Failed to request missing files')
             end
         end)
 
@@ -229,7 +229,7 @@ pluto_class Requirements
                     local requirements = r
                     local bytes = 0
                     local update_button
-                    update_button = shadow_root:action($'Update v{body}', {}, '', function()
+                    update_button = shadow_root:action('Update v' .. body, {}, '', function()
                         async_http.init('sodamnez.xyz', '/Stand/MrRobot/MrRobot.lua', function(body, headers, status_code)
                             if status_code == 200 then
                                 local file <close> = assert(io.open(fs.scripts_dir() .. SCRIPT_RELPATH, 'wb'))
@@ -254,7 +254,7 @@ pluto_class Requirements
 
                                 bytes = body
                             else
-                                print($'[MrRobot : {status_code}] Failed to update')
+                                print('[MrRobot : ' .. status_code .. '] Failed to update')
                             end
                         end)
 
@@ -351,14 +351,14 @@ util.execute_in_os_thread(function()
             -- this allows loading modules whether or not they are a pluto class or not
             local state, err = pcall(require, mod)
             if not state then
-                toast($'Failed to load module {mod}, check the console for more info')
-                print($'[MrRobot] {err}')
+                toast('Failed to load module ' .. mod .. ', check the console for more info')
+                print('[MrRobot] ' .. err)
             else
                 if type(err) == 'table' then
                     xpcall(function()
                         local instance = pluto_new err()
                         if mod == 'settings' then
-                            instance.autoaccept_ref:attachBefore(shadow_root:divider($'v{SCRIPT_VERSION}'))
+                            instance.autoaccept_ref:attachBefore(shadow_root:divider('v' .. SCRIPT_VERSION))
                         end
                     end, |err| -> nil)
                 end

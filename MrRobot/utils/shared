@@ -1159,14 +1159,6 @@ function Shared:BlockStandNotificationSpam(state)
     self.WriteByte(block + 0x10, state ? 1 : 0)
 end
 
-function Shared:BlockAllNotifications(state)
-    local base = 1670105
-    for i = 0, 500 do
-        local g = self.ScriptGlobal(base)
-        self.WriteByte(g + (i * 8), state ? 1 : 0)
-    end
-end
-
 function Shared:BlockCEOMCInvites(state)
     local g = self.ScriptGlobal(1669211 + 558)
     self.WriteByte(g, state ? 1 : 0)
@@ -1856,7 +1848,7 @@ function Shared.CrewRank:SetRank(rank, spoof)
         end
     else
         for i = 0, 4 do
-            Shared.StatSetInt(Shared.Joaat($'MPPLY_CREW_LOCAL_XP_{i}'), rank, true)
+            Shared.StatSetInt(Shared.Joaat('MPPLY_CREW_LOCAL_XP_' .. i), rank, true)
         end
     end
 end

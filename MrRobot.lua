@@ -216,7 +216,7 @@ pluto_class MrRobot
         async_http.dispatch()
 
         repeat
-            draw_text(0.5, 0.5, 'Downloading missing files ...', ALIGN_CENTRE, 0.8, (0xFF4DA6 >> 16 & 0xFF) / 255, (0xFF4DA6 >> 8 & 0xFF) / 255, (0xFF4DA6 & 0xFF) / 255, 1)
+            util.draw_debug_text(0.5, 0.5, 'Downloading missing files ...', ALIGN_CENTRE, 0.8, (0xFF4DA6 >> 16 & 0xFF) / 255, (0xFF4DA6 >> 8 & 0xFF) / 255, (0xFF4DA6 & 0xFF) / 255, 1)
             util.yield_once()
         until bytes ~= 0
     end

@@ -245,7 +245,7 @@ pluto_class SelfOptions
                     if util.is_key_down(0x41) then -- A
                         local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, -1 * self.noclip_speed.value, 0, 0)
                         self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
-                    elseif is_key_down(0x44) then -- D
+                    elseif util.is_key_down(0x44) then -- D
                         local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, 1 * self.noclip_speed.value, 0, 0)
                         self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
                     end

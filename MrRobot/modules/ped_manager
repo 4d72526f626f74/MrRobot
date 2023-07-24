@@ -1,81 +1,20 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
-local T = require('translations')
-local Shared = require('shared')
-
---[[void]] local function TaskSkyDive(--[[Ped (int)]] ped,--[[BOOL (bool)]] instant)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(instant)native_invoker.end_call_2(0x601736CFE536B0A0)end
---[[void]] local function SetEntityRotation(--[[Entity (int)]] entity,--[[float]] pitch,--[[float]] roll,--[[float]] yaw,--[[int]] rotationOrder,--[[BOOL (bool)]] p5)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(pitch)native_invoker.push_arg_float(roll)native_invoker.push_arg_float(yaw)native_invoker.push_arg_int(rotationOrder)native_invoker.push_arg_bool(p5)native_invoker.end_call_2(0x8524A8B0171D5E07)end
---[[Blip (int)]] local function AddBlipForEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x5CDE92C702A8FCE7)return native_invoker.get_return_value_int()end
---[[void]] local function AddOwnedExplosion(--[[Ped (int)]] ped,--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.end_call_2(0x172AA1B624FA1013)end
---[[int]] local function GetEntityHealth(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xEEF059FAD016D209)return native_invoker.get_return_value_int()end
---[[void]] local function SetEntityVisible(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0xEA1C610A04DB6BBB)end
---[[void]] local function TaskLeaveAnyVehicle(--[[Ped (int)]] ped,--[[int]] delayTime,--[[int]] flags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(delayTime)native_invoker.push_arg_int(flags)native_invoker.end_call_2(0x504D54DF3F6F2247)end
---[[Cam (int)]] local function GetRenderingCam()native_invoker.begin_call()native_invoker.end_call_2(0x5234F9F10919EABA)return native_invoker.get_return_value_int()end
---[[void]] local function SetPedCanRagdoll(--[[Ped (int)]] ped,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xB128377056A54E2A)end
---[[void]] local function SetCamActive(--[[Cam (int)]] cam,--[[BOOL (bool)]] active)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_bool(active)native_invoker.end_call_2(0x026FB97D0A425F84)end
---[[BOOL (bool)]] local function CanPedRagdoll(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x128F79EDCECE4FD5)return native_invoker.get_return_value_bool()end
---[[BOOL (bool)]] local function GetPedDiesInWater(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x65671A4FB8218930)return native_invoker.get_return_value_bool()end
---[[void]] local function SetEntityHealth(--[[Entity (int)]] entity,--[[int]] health,--[[int]] p2)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(health)native_invoker.push_arg_int(p2)native_invoker.end_call_2(0x6B76DC1F3AE6E6A3)end
---[[void]] local function LockMinimapPosition(--[[float]] x,--[[float]] y)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.end_call_2(0x1279E861A329E73F)end
---[[Vector3 (vector3)]] local function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
---[[Vector3 (vector3)]] local function GetEntityCoords(--[[Entity (int)]] entity,--[[BOOL (bool)]] alive)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(alive)native_invoker.end_call_2(0x3FEF770D40960D5A)return native_invoker.get_return_value_vector3()end
---[[float]] local function GetEntityHeading(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xE83D4F9BA2A38914)return native_invoker.get_return_value_float()end
---[[void]] local function SetEntityCoords(--[[Entity (int)]] entity,--[[float]] xPos,--[[float]] yPos,--[[float]] zPos,--[[BOOL (bool)]] xAxis,--[[BOOL (bool)]] yAxis,--[[BOOL (bool)]] zAxis,--[[BOOL (bool)]] clearArea)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xPos)native_invoker.push_arg_float(yPos)native_invoker.push_arg_float(zPos)native_invoker.push_arg_bool(xAxis)native_invoker.push_arg_bool(yAxis)native_invoker.push_arg_bool(zAxis)native_invoker.push_arg_bool(clearArea)native_invoker.end_call_2(0x06843DA7060A026B)end
---[[void]] local function TaskJump(--[[Ped (int)]] ped,--[[BOOL (bool)]] usePlayerLaunchForce,--[[BOOL (bool)]] doSuperJump,--[[BOOL (bool)]] useFullSuperJumpForce)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(usePlayerLaunchForce)native_invoker.push_arg_bool(doSuperJump)native_invoker.push_arg_bool(useFullSuperJumpForce)native_invoker.end_call_2(0x0AE4086104E067B1)end
---[[Player (int)]] local function NetworkGetPlayerIndexFromPed(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x6C0E2E0125610278)return native_invoker.get_return_value_int()end
---[[BOOL (bool)]] local function SetPedToRagdoll(--[[Ped (int)]] ped,--[[int]] time1,--[[int]] time2,--[[int]] ragdollType,--[[BOOL (bool)]] p4,--[[BOOL (bool)]] p5,--[[BOOL (bool)]] p6)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(time1)native_invoker.push_arg_int(time2)native_invoker.push_arg_int(ragdollType)native_invoker.push_arg_bool(p4)native_invoker.push_arg_bool(p5)native_invoker.push_arg_bool(p6)native_invoker.end_call_2(0xAE99FB955581844A)return native_invoker.get_return_value_bool()end
---[[void]] local function UnlockMinimapPosition()native_invoker.begin_call()native_invoker.end_call_2(0x3E93E06DB8EF1F30)end
---[[void]] local function TaskStandStill(--[[Ped (int)]] ped,--[[int]] time)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(time)native_invoker.end_call_2(0x919BE13EED931959)end
---[[Cam (int)]] local function CreateCam(--[[string]] camName,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_string(camName)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xC3981DCE61D9E13F)return native_invoker.get_return_value_int()end
---[[BOOL (bool)]] local function IsPedDeadOrDying(--[[Ped (int)]] ped,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0x3317DEDB88C95038)return native_invoker.get_return_value_bool()end
---[[Hash (int)]] local function GetEntityModel(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x9F47B058362C84B5)return native_invoker.get_return_value_int()end
---[[void]] local function SetEntityHeading(--[[Entity (int)]] entity,--[[float]] heading)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(heading)native_invoker.end_call_2(0x8E2530AA8ADA980E)end
---[[BOOL (bool)]] local function DoesEntityExist(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x7239B21A38F536BA)return native_invoker.get_return_value_bool()end
---[[void]] local function TaskPause(--[[Ped (int)]] ped,--[[int]] ms)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(ms)native_invoker.end_call_2(0xE73A266DB0CA9042)end
---[[BOOL (bool)]] local function IsEntityVisible(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x47D6F43D77935C75)return native_invoker.get_return_value_bool()end
---[[void]] local function TaskWrithe(--[[Ped (int)]] ped,--[[Ped (int)]] target,--[[int]] minFireLoops,--[[int]] startState,--[[BOOL (bool)]] forceShootOnGround,--[[int]] shootFromGroundTimer)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(target)native_invoker.push_arg_int(minFireLoops)native_invoker.push_arg_int(startState)native_invoker.push_arg_bool(forceShootOnGround)native_invoker.push_arg_int(shootFromGroundTimer)native_invoker.end_call_2(0xCDDC2B77CE54AC6E)end
---[[void]] local function TaskCombatPed(--[[Ped (int)]] ped,--[[Ped (int)]] targetPed,--[[int]] combatFlags,--[[int]] threatResponseFlags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(targetPed)native_invoker.push_arg_int(combatFlags)native_invoker.push_arg_int(threatResponseFlags)native_invoker.end_call_2(0xF166E48407BAC484)end
---[[void]] local function SetPedDiesInWater(--[[Ped (int)]] ped,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x56CEF0AC79073BDE)end
---[[void]] local function ClearPedTasksImmediately(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0xAAA34F8A7CB32098)end
---[[BOOL (bool)]] local function GetPedLastWeaponImpactCoord(--[[Ped (int)]] ped,--[[Vector3* (pointer)]] coords)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_pointer(coords)native_invoker.end_call_2(0x6C4D0409BA1A2BC2)return native_invoker.get_return_value_bool()end
---[[Hash (int)]] local function GetSelectedPedWeapon(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x0A6DB4965674D243)return native_invoker.get_return_value_int()end
---[[void]] local function SetEntityInvincible(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x3882114BDE571AD4)end
---[[Vector3 (vector3)]] local function GetEntityRotation(--[[Entity (int)]] entity,--[[int]] rotationOrder)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(rotationOrder)native_invoker.end_call_2(0xAFBD61CC738D9EB9)return native_invoker.get_return_value_vector3()end
---[[void]] local function RenderScriptCams(--[[BOOL (bool)]] render,--[[BOOL (bool)]] ease,--[[int]] easeTime,--[[BOOL (bool)]] p3,--[[BOOL (bool)]] p4,--[[Any (int)]] p5)native_invoker.begin_call()native_invoker.push_arg_bool(render)native_invoker.push_arg_bool(ease)native_invoker.push_arg_int(easeTime)native_invoker.push_arg_bool(p3)native_invoker.push_arg_bool(p4)native_invoker.push_arg_int(p5)native_invoker.end_call_2(0x07E5B515DB0636FC)end
---[[void]] local function FreezeEntityPosition(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x428CA6DBD1094446)end
---[[void]] local function PointCamAtEntity(--[[Cam (int)]] cam,--[[Entity (int)]] entity,--[[float]] p2,--[[float]] p3,--[[float]] p4,--[[BOOL (bool)]] p5)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(p2)native_invoker.push_arg_float(p3)native_invoker.push_arg_float(p4)native_invoker.push_arg_bool(p5)native_invoker.end_call_2(0x5640BFF86B16E8DC)end
---[[void]] local function HardAttachCamToEntity(--[[Cam (int)]] cam,--[[Entity (int)]] entity,--[[float]] xRot,--[[float]] yRot,--[[float]] zRot,--[[float]] xOffset,--[[float]] yOffset,--[[float]] zOffset,--[[BOOL (bool)]] isRelative)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xRot)native_invoker.push_arg_float(yRot)native_invoker.push_arg_float(zRot)native_invoker.push_arg_float(xOffset)native_invoker.push_arg_float(yOffset)native_invoker.push_arg_float(zOffset)native_invoker.push_arg_bool(isRelative)native_invoker.end_call_2(0x202A5ED9CE01D6E7)end
---[[void]] local function DestroyCam(--[[Cam (int)]] cam,--[[BOOL (bool)]] bScriptHostCam)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_bool(bScriptHostCam)native_invoker.end_call_2(0x865908C81A2C22E9)end
---[[BOOL (bool)]] local function IsPedAPlayer(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x12534C348C6CB68B)return native_invoker.get_return_value_bool()end
---[[void]] local function ChangePlayerPed(--[[Player (int)]] player,--[[Ped (int)]] ped,--[[BOOL (bool)]] p2,--[[BOOL (bool)]] resetDamage)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(p2)native_invoker.push_arg_bool(resetDamage)native_invoker.end_call_2(0x048189FAC643DEEE)end
---[[Vector3 (vector3)]] local function GetPedBoneCoords(--[[Ped (int)]] ped,--[[int]] boneId,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(boneId)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x17C07FC640E86B4E)return native_invoker.get_return_value_vector3()end
-
-local IsEntityDead = Shared.IsEntityDead
-
-local ref_by_rel_path = menu.ref_by_rel_path
-local get_current_menu_list = menu.get_current_menu_list
-local impact_coords = v3()
+local T, S = require('translations'), require('shared')
 
 pluto_class PedManager
-    function __construct()
-        self.root = root:list(T'Peds', {T'rpeds'}, T'Ped Manager', Shared:Partial(PedManager.OnClick, self))
+    function __construct(root)
+        self.root = root:list(T'Peds', {T'rpeds'}, T'Ped Manager', S:Partial(PedManager.OnClick, self))
         self.ar_beacons = {}
-        self.blips = {}
-
-        -- use a metatable to remove blips when the table is garbage collected
-        self.blips = setmetatable(self.blips, {
+        self.blips = setmetatable({}, {
             __gc = function(self)
                 for blip in pairs(self) do
                     util.remove_blip(blip)
                 end
             end
         })
-
-        self:CreateAllPedsMenu()
     end
 
     function MapPeds()
-        local player_pos = GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
+        local player_pos = self.GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
         local peds = {}
 
         for entities.get_all_peds_as_pointers() as ptr do
@@ -94,17 +33,15 @@ pluto_class PedManager
     end
 
     function OnClick()
-        local peds_ref = ref_by_rel_path(root, T'Peds')
-
-        for i, child in pairs(peds_ref:getChildren()) do
+        for self.root:getChildren() as child do
             if child:isValid() then
                 child:delete()
             end
         end
 
-        local ped_all = nil
-        ped_all = peds_ref:list(T'All', {}, T'Applies actions to all peds at the same time', function()
-            for i, child in pairs(ped_all:getChildren()) do
+        
+        self.peds_all = self.root:list(T'All', {}, T'Applies actions to all peds at the same time', function()
+            for self.peds_all:getChildren() as child do
                 if child:isValid() then
                     child:delete()
                 end
@@ -114,32 +51,32 @@ pluto_class PedManager
 
             ped_all:toggle(T'Invincible', {}, T'Makes all peds invincible', function(state)
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        SetEntityInvincible(entity, state)                             
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.SetEntityInvincible(entity, state)                             
                     end
                 end
             end)
 
             ped_all:toggle(T'Dies In Water', {}, T'Makes all peds die in water', function(state)
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        SetPedDiesInWater(entity, state)                             
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.SetPedDiesInWater(entity, state)                             
                     end
                 end
             end)
 
             ped_all:toggle(T'Freeze', {}, T'Freezes all peds', function(state)
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        FreezeEntityPosition(entity, state)                             
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.FreezeEntityPosition(entity, state)                             
                     end
                 end
             end)
 
             ped_all:toggle(T'Invisible', {}, T'Makes all peds invisible', function(state)
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        SetEntityVisible(entity, not state, false)                             
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.SetEntityVisible(entity, not state, false)                             
                     end
                 end
             end)
@@ -148,15 +85,15 @@ pluto_class PedManager
 
             ped_all:action(T'Kill', {}, T'Kills all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        SetEntityHealth(entity, 0)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.SetEntityHealth(entity, 0)
                     end
                 end
             end)
 
             ped_all:action(T'Delete', {}, T'Deletes all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         entities.delete_by_handle(entity)
                     end
                 end
@@ -164,8 +101,8 @@ pluto_class PedManager
 
             ped_all:action(T'Ragdoll', {}, T'Ragdolls all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        SetPedToRagdoll(entity, 1000, 1000, 0, true, true, false)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.SetPedToRagdoll(entity, 1000, 1000, 0, true, true, false)
                     end
                 end
             end)
@@ -174,72 +111,72 @@ pluto_class PedManager
 
             ped_all:action(T'Stop All Tasks', {}, T'Stops all tasks for all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        ClearPedTasksImmediately(entity)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.ClearPedTasksImmediately(entity)
                     end
                 end
             end)
 
             ped_all:action(T'Pause', {}, T'Pauses all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        TaskPause(entity, -1)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.TaskPause(entity, -1)
                     end
                 end
             end)
 
             ped_all:action(T'Stand Still', {}, T'Makes all peds stand still', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        TaskStandStill(entity, -1)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.TaskStandStill(entity, -1)
                     end
                 end
             end)
 
             ped_all:action(T'Sky Dive', {}, T'Makes all peds sky dive', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        TaskSkyDive(entity)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.TaskSkyDive(entity)
                     end
                 end
             end)
 
             ped_all:action(T'Writhe', {}, T'Makes all peds writhe', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        TaskWrithe(entity, -1, 0, 0)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.TaskWrithe(entity, -1, 0, 0)
                     end
                 end
             end)
 
             ped_all:action(T'Jump', {}, T'Makes all peds jump', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        TaskJump(entity, true, true, true)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.TaskJump(entity, true, true, true)
                     end
                 end
             end)
 
             ped_all:action(T'Super Splat', {}, T'Force all peds to super jump and ragdoll so they go splat', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        TaskJump(entity, true, true, true)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.TaskJump(entity, true, true, true)
                         util.yield(500)
-                        SetPedToRagdoll(entity, 1, 1, 0, true, true, false)
+                        self.SetPedToRagdoll(entity, 1, 1, 0, true, true, false)
                     end
                 end
             end)
 
             ped_all:action(T'Gtfo Of The Vehicle', {}, T'Makes all peds get the fuck out of their vehicle', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
-                    if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                        TaskLeaveAnyVehicle(entity, 0, 0)
+                    if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
+                        self.TaskLeaveAnyVehicle(entity, 0, 0)
                     end
                 end
             end)
         end)
 
-        peds_ref:divider('')
+        self.root:divider('')
 
         local mapped = self:MapPeds()
 
@@ -268,17 +205,17 @@ pluto_class PedManager
                 ped_menu = ref:list(tostring(dist), {}, tostring(entity), function()
                     if not self.ar_beacons[entity] then
                         self.ar_beacons[entity] = true
-                        blip = AddBlipForEntity(entity)
+                        blip = self.AddBlipForEntity(entity)
                         table.insert(self.blips, blip)
                     end
 
                     util.create_tick_handler(function()
-                        if not self.ar_beacons[entity] or IsEntityDead(entity) then
+                        if not self.ar_beacons[entity] or self.IsEntityDead(entity) then
                             util.remove_blip(blip)
                             return false
                         end
 
-                        local pos = GetPedBoneCoords(entity, 31086, 0.0, 0.0, 0.0)
+                        local pos = self.GetPedBoneCoords(entity, 31086, 0.0, 0.0, 0.0)
                         util.draw_ar_beacon(pos)
                     end)
                 end,
@@ -287,42 +224,50 @@ pluto_class PedManager
                 end)
 
                 ped_menu:onTickInViewport(function()
-                    local player_pos = GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
-                    local pos = GetOffsetFromEntityInWorldCoords(entity, 0.0, 0.0, 0.0)
+                    local player_pos = self.GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
+                    local pos = self.GetOffsetFromEntityInWorldCoords(entity, 0.0, 0.0, 0.0)
                     local dist = player_pos:distance(pos)
 
-                    ped_menu.menu_name = tostring(dist)
+                    if dist > 200.0 then
+                        if ped_menu:isValid() then
+                            ped_menu:delete()
+                        end
+                    end
+
+                    if ped_menu:isValid() then
+                        ped_menu.menu_name = tostring(dist)
+                    end
                     util.yield(3000)
                 end)
 
                 ped_menu:toggle(T'Invincible', {}, T'Makes the ped invincible', function(state)
-                    SetEntityInvincible(entity, state)
+                    self.SetEntityInvincible(entity, state)
                 end)
         
                 ped_menu:toggle(T'Dies In Water', {}, T'Set whether the ped dies in water or not', function(state)
-                    SetPedDiesInWater(entity, state)
-                end, GetPedDiesInWater(entity))
+                    self.SetPedDiesInWater(entity, state)
+                end, self.GetPedDiesInWater(entity))
         
                 ped_menu:toggle(T'Freeze', {}, T'Freeze the ped', function(state)
-                    FreezeEntityPosition(entity, state)
+                    self.FreezeEntityPosition(entity, state)
                 end)
         
                 ped_menu:toggle(T'Invisible', {}, T'Makes the ped invisible', function(state)
-                    SetEntityVisible(entity, not state, false)
-                end, not IsEntityVisible(entity))
+                    self.SetEntityVisible(entity, not state, false)
+                end, not self.IsEntityVisible(entity))
         
                 ped_menu:toggle(T'No Ragdoll', {}, 'TMakes the ped not ragdoll', function(state)
-                    SetPedCanRagdoll(entity, not state)
-                end, not CanPedRagdoll(entity))
+                    self.SetPedCanRagdoll(entity, not state)
+                end, not self.CanPedRagdoll(entity))
         
                 ped_menu:toggle(T'Auto Heal', {}, T'Heals the ped', function(state)
                     if state then
                         util.create_tick_handler(function()
-                            if not DoesEntityExist(entity) or not ref_by_rel_path(ped_menu, T'Auto Heal').value then
+                            if not self.DoesEntityExist(entity) or not menu.ref_by_rel_path(ped_menu, T'Auto Heal').value then
                                 return false
                             end
         
-                            SetEntityHealth(entity, 200)
+                            self.SetEntityHealth(entity, 200)
                         end)
                     end
                 end)
@@ -330,34 +275,34 @@ pluto_class PedManager
                 ped_menu:divider(T'Actions')
     
                 ped_menu:action(T'Soul Swap', {}, T'Become this ped', function()
-                    ChangePlayerPed(players.user(), entity, true, true)
+                    self.ChangePlayerPed(players.user(), entity, true, true)
                 end)
         
                 ped_menu:action(T'Teleport To Ped', {}, T'Teleports you to the ped', function()
-                    local pos = GetOffsetFromEntityInWorldCoords(entity, 0, -5, 0)
-                    local rot = GetEntityRotation(entity, 2)
-                    local heading = GetEntityHeading(entity)
-                    SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z)
-                    SetEntityRotation(players.user_ped(), rot.x, rot.y, rot.z, 2, true)
-                    SetEntityHeading(players.user_ped(), heading)
+                    local pos = self.GetOffsetFromEntityInWorldCoords(entity, 0, -5, 0)
+                    local rot = self.GetEntityRotation(entity, 2)
+                    local heading = self.GetEntityHeading(entity)
+                    self.SetEntityCoords(players.user_ped(), pos.x, pos.y, pos.z)
+                    self.SetEntityRotation(players.user_ped(), rot.x, rot.y, rot.z, 2, true)
+                    self.SetEntityHeading(players.user_ped(), heading)
                 end)
         
                 ped_menu:action(T'Teleport To Me', {}, T'Teleports the ped to you', function()
-                    local pos = GetEntityCoords(players.user_ped(), true)
-                    local rot = GetEntityRotation(players.user_ped(), 2)
-                    local heading = GetEntityHeading(players.user_ped())
-                    SetEntityCoords(entity, pos.x, pos.y, pos.z, true, true, true, true)
-                    SetEntityRotation(entity, rot.x, rot.y, rot.z, 2, true)
-                    SetEntityHeading(entity, heading)
+                    local pos = self.GetEntityCoords(players.user_ped(), true)
+                    local rot = self.GetEntityRotation(players.user_ped(), 2)
+                    local heading = self.GetEntityHeading(players.user_ped())
+                    self.SetEntityCoords(entity, pos.x, pos.y, pos.z, true, true, true, true)
+                    self.SetEntityRotation(entity, rot.x, rot.y, rot.z, 2, true)
+                    self.SetEntityHeading(entity, heading)
                 end)
         
                 ped_menu:action(T'Kill', {}, T'Kills the ped', function()
-                    SetEntityHealth(entity, 0)
+                    self.SetEntityHealth(entity, 0)
                 end)
         
                 ped_menu:action(T'Blame Kill', {}, T'Kills the ped as you', function()
-                    local pos = GetEntityCoords(entity, true)
-                    AddOwnedExplosion(players.user_ped(), pos.x, pos.y, pos.z, 17, 100, false, true, 0)
+                    local pos = self.GetEntityCoords(entity, true)
+                    self.AddOwnedExplosion(players.user_ped(), pos.x, pos.y, pos.z, 17, 100, false, true, 0)
                 end)
         
                 ped_menu:action(T'Delete', {}, T'Deletes the ped', function()
@@ -366,20 +311,20 @@ pluto_class PedManager
                         ped_menu:delete()
                         self.ar_beacons[entity] = false
         
-                        local render = GetRenderingCam()
-                        RenderScriptCams(false, false, 0, true, false)
-                        DestroyCam(render, false)
+                        local render = self.GetRenderingCam()
+                        self.RenderScriptCams(false, false, 0, true, false)
+                        self.DestroyCam(render, false)
                     end
                 end)
         
                 ped_menu:action(T'Ragdoll', {}, T'Ragdoll the ped', function()
-                    SetPedToRagdoll(entity, 1000, 1000, 0, true, true, false)
+                    self.SetPedToRagdoll(entity, 1000, 1000, 0, true, true, false)
                 end)
         
                 ped_menu:action(T'Peds Attack', {}, T'Makes all peds nearby attack the ped', function()
                     for i, ped in pairs(entities.get_all_peds_as_handles()) do
                         if ped ~= players.user_ped() then
-                            TaskCombatPed(ped, entity, 0, 16)
+                            self.TaskCombatPed(ped, entity, 0, 16)
                         end
                     end
                 end)
@@ -387,41 +332,89 @@ pluto_class PedManager
                 ped_menu:divider(T'Tasks')
         
                 ped_menu:action(T'Stop All Tasks', {}, T'Stops all tasks of the ped', function()
-                    ClearPedTasksImmediately(entity)
+                    self.ClearPedTasksImmediately(entity)
                 end)
         
                 ped_menu:action(T'Pause', {}, T'Pauses the ped', function()
-                    TaskPause(entity, -1)
+                    self.TaskPause(entity, -1)
                 end)
         
                 ped_menu:action(T'Stand Still', {}, T'Makes the ped stand still', function()
-                    TaskStandStill(entity, -1)
+                    self.TaskStandStill(entity, -1)
                 end)
         
                 ped_menu:action(T'Sky Dive', {}, T'Makes the ped sky dive', function()
-                    TaskSkyDive(entity, false)
+                    self.TaskSkyDive(entity, false)
                 end)
         
                 ped_menu:action(T'Writhe', {}, T'Makes the ped writhe', function()
-                    TaskWrithe(entity, players.user_ped(), 0, 0, 0, 0)
+                    self.TaskWrithe(entity, players.user_ped(), 0, 0, 0, 0)
                 end)
         
                 ped_menu:action(T'Jump', {}, T'Makes the ped jump', function()
-                    TaskJump(entity, true, true, true)
+                    self.TaskJump(entity, true, true, true)
                 end)
         
                 ped_menu:action(T'Super Splat', {}, T'Launch the ped', function()
-                    TaskJump(entity, true, true, true)
+                    self.TaskJump(entity, true, true, true)
                     util.yield(1000)
-                    SetPedToRagdoll(entity, 1, 1, 0, true, true, false)
+                    self.SetPedToRagdoll(entity, 1, 1, 0, true, true, false)
                 end)
         
                 ped_menu:action(T'Gtfo Of The Vehicle', {}, T'Makes the ped get out of the vehicle', function()
-                    TaskLeaveAnyVehicle(entity, 0, 0)
+                    self.TaskLeaveAnyVehicle(entity, 0, 0)
                 end)
             end
         end
     end
+
+    --[[void]] static function TaskSkyDive(--[[Ped (int)]] ped,--[[BOOL (bool)]] instant)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(instant)native_invoker.end_call_2(0x601736CFE536B0A0)end
+    --[[void]] static function SetEntityRotation(--[[Entity (int)]] entity,--[[float]] pitch,--[[float]] roll,--[[float]] yaw,--[[int]] rotationOrder,--[[BOOL (bool)]] p5)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(pitch)native_invoker.push_arg_float(roll)native_invoker.push_arg_float(yaw)native_invoker.push_arg_int(rotationOrder)native_invoker.push_arg_bool(p5)native_invoker.end_call_2(0x8524A8B0171D5E07)end
+    --[[Blip (int)]] static function AddBlipForEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x5CDE92C702A8FCE7)return native_invoker.get_return_value_int()end
+    --[[void]] static function AddOwnedExplosion(--[[Ped (int)]] ped,--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.end_call_2(0x172AA1B624FA1013)end
+    --[[int]] static function GetEntityHealth(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xEEF059FAD016D209)return native_invoker.get_return_value_int()end
+    --[[void]] static function SetEntityVisible(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0xEA1C610A04DB6BBB)end
+    --[[void]] static function TaskLeaveAnyVehicle(--[[Ped (int)]] ped,--[[int]] delayTime,--[[int]] flags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(delayTime)native_invoker.push_arg_int(flags)native_invoker.end_call_2(0x504D54DF3F6F2247)end
+    --[[Cam (int)]] static function GetRenderingCam()native_invoker.begin_call()native_invoker.end_call_2(0x5234F9F10919EABA)return native_invoker.get_return_value_int()end
+    --[[void]] static function SetPedCanRagdoll(--[[Ped (int)]] ped,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xB128377056A54E2A)end
+    --[[void]] static function SetCamActive(--[[Cam (int)]] cam,--[[BOOL (bool)]] active)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_bool(active)native_invoker.end_call_2(0x026FB97D0A425F84)end
+    --[[BOOL (bool)]] static function CanPedRagdoll(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x128F79EDCECE4FD5)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function GetPedDiesInWater(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x65671A4FB8218930)return native_invoker.get_return_value_bool()end
+    --[[void]] static function SetEntityHealth(--[[Entity (int)]] entity,--[[int]] health,--[[int]] p2)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(health)native_invoker.push_arg_int(p2)native_invoker.end_call_2(0x6B76DC1F3AE6E6A3)end
+    --[[void]] static function LockMinimapPosition(--[[float]] x,--[[float]] y)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.end_call_2(0x1279E861A329E73F)end
+    --[[Vector3 (vector3)]] static function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
+    --[[Vector3 (vector3)]] static function GetEntityCoords(--[[Entity (int)]] entity,--[[BOOL (bool)]] alive)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(alive)native_invoker.end_call_2(0x3FEF770D40960D5A)return native_invoker.get_return_value_vector3()end
+    --[[float]] static function GetEntityHeading(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xE83D4F9BA2A38914)return native_invoker.get_return_value_float()end
+    --[[void]] static function SetEntityCoords(--[[Entity (int)]] entity,--[[float]] xPos,--[[float]] yPos,--[[float]] zPos,--[[BOOL (bool)]] xAxis,--[[BOOL (bool)]] yAxis,--[[BOOL (bool)]] zAxis,--[[BOOL (bool)]] clearArea)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xPos)native_invoker.push_arg_float(yPos)native_invoker.push_arg_float(zPos)native_invoker.push_arg_bool(xAxis)native_invoker.push_arg_bool(yAxis)native_invoker.push_arg_bool(zAxis)native_invoker.push_arg_bool(clearArea)native_invoker.end_call_2(0x06843DA7060A026B)end
+    --[[void]] static function TaskJump(--[[Ped (int)]] ped,--[[BOOL (bool)]] usePlayerLaunchForce,--[[BOOL (bool)]] doSuperJump,--[[BOOL (bool)]] useFullSuperJumpForce)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(usePlayerLaunchForce)native_invoker.push_arg_bool(doSuperJump)native_invoker.push_arg_bool(useFullSuperJumpForce)native_invoker.end_call_2(0x0AE4086104E067B1)end
+    --[[Player (int)]] static function NetworkGetPlayerIndexFromPed(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x6C0E2E0125610278)return native_invoker.get_return_value_int()end
+    --[[BOOL (bool)]] static function SetPedToRagdoll(--[[Ped (int)]] ped,--[[int]] time1,--[[int]] time2,--[[int]] ragdollType,--[[BOOL (bool)]] p4,--[[BOOL (bool)]] p5,--[[BOOL (bool)]] p6)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(time1)native_invoker.push_arg_int(time2)native_invoker.push_arg_int(ragdollType)native_invoker.push_arg_bool(p4)native_invoker.push_arg_bool(p5)native_invoker.push_arg_bool(p6)native_invoker.end_call_2(0xAE99FB955581844A)return native_invoker.get_return_value_bool()end
+    --[[void]] static function UnlockMinimapPosition()native_invoker.begin_call()native_invoker.end_call_2(0x3E93E06DB8EF1F30)end
+    --[[void]] static function TaskStandStill(--[[Ped (int)]] ped,--[[int]] time)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(time)native_invoker.end_call_2(0x919BE13EED931959)end
+    --[[Cam (int)]] static function CreateCam(--[[string]] camName,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_string(camName)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xC3981DCE61D9E13F)return native_invoker.get_return_value_int()end
+    --[[BOOL (bool)]] static function IsPedDeadOrDying(--[[Ped (int)]] ped,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0x3317DEDB88C95038)return native_invoker.get_return_value_bool()end
+    --[[Hash (int)]] static function GetEntityModel(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x9F47B058362C84B5)return native_invoker.get_return_value_int()end
+    --[[void]] static function SetEntityHeading(--[[Entity (int)]] entity,--[[float]] heading)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(heading)native_invoker.end_call_2(0x8E2530AA8ADA980E)end
+    --[[BOOL (bool)]] static function DoesEntityExist(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x7239B21A38F536BA)return native_invoker.get_return_value_bool()end
+    --[[void]] static function TaskPause(--[[Ped (int)]] ped,--[[int]] ms)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(ms)native_invoker.end_call_2(0xE73A266DB0CA9042)end
+    --[[BOOL (bool)]] static function IsEntityVisible(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x47D6F43D77935C75)return native_invoker.get_return_value_bool()end
+    --[[void]] static function TaskWrithe(--[[Ped (int)]] ped,--[[Ped (int)]] target,--[[int]] minFireLoops,--[[int]] startState,--[[BOOL (bool)]] forceShootOnGround,--[[int]] shootFromGroundTimer)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(target)native_invoker.push_arg_int(minFireLoops)native_invoker.push_arg_int(startState)native_invoker.push_arg_bool(forceShootOnGround)native_invoker.push_arg_int(shootFromGroundTimer)native_invoker.end_call_2(0xCDDC2B77CE54AC6E)end
+    --[[void]] static function TaskCombatPed(--[[Ped (int)]] ped,--[[Ped (int)]] targetPed,--[[int]] combatFlags,--[[int]] threatResponseFlags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(targetPed)native_invoker.push_arg_int(combatFlags)native_invoker.push_arg_int(threatResponseFlags)native_invoker.end_call_2(0xF166E48407BAC484)end
+    --[[void]] static function SetPedDiesInWater(--[[Ped (int)]] ped,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x56CEF0AC79073BDE)end
+    --[[void]] static function ClearPedTasksImmediately(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0xAAA34F8A7CB32098)end
+    --[[BOOL (bool)]] static function GetPedLastWeaponImpactCoord(--[[Ped (int)]] ped,--[[Vector3* (pointer)]] coords)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_pointer(coords)native_invoker.end_call_2(0x6C4D0409BA1A2BC2)return native_invoker.get_return_value_bool()end
+    --[[Hash (int)]] static function GetSelectedPedWeapon(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x0A6DB4965674D243)return native_invoker.get_return_value_int()end
+    --[[void]] static function SetEntityInvincible(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x3882114BDE571AD4)end
+    --[[Vector3 (vector3)]] static function GetEntityRotation(--[[Entity (int)]] entity,--[[int]] rotationOrder)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(rotationOrder)native_invoker.end_call_2(0xAFBD61CC738D9EB9)return native_invoker.get_return_value_vector3()end
+    --[[void]] static function RenderScriptCams(--[[BOOL (bool)]] render,--[[BOOL (bool)]] ease,--[[int]] easeTime,--[[BOOL (bool)]] p3,--[[BOOL (bool)]] p4,--[[Any (int)]] p5)native_invoker.begin_call()native_invoker.push_arg_bool(render)native_invoker.push_arg_bool(ease)native_invoker.push_arg_int(easeTime)native_invoker.push_arg_bool(p3)native_invoker.push_arg_bool(p4)native_invoker.push_arg_int(p5)native_invoker.end_call_2(0x07E5B515DB0636FC)end
+    --[[void]] static function FreezeEntityPosition(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x428CA6DBD1094446)end
+    --[[void]] static function PointCamAtEntity(--[[Cam (int)]] cam,--[[Entity (int)]] entity,--[[float]] p2,--[[float]] p3,--[[float]] p4,--[[BOOL (bool)]] p5)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(p2)native_invoker.push_arg_float(p3)native_invoker.push_arg_float(p4)native_invoker.push_arg_bool(p5)native_invoker.end_call_2(0x5640BFF86B16E8DC)end
+    --[[void]] static function HardAttachCamToEntity(--[[Cam (int)]] cam,--[[Entity (int)]] entity,--[[float]] xRot,--[[float]] yRot,--[[float]] zRot,--[[float]] xOffset,--[[float]] yOffset,--[[float]] zOffset,--[[BOOL (bool)]] isRelative)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xRot)native_invoker.push_arg_float(yRot)native_invoker.push_arg_float(zRot)native_invoker.push_arg_float(xOffset)native_invoker.push_arg_float(yOffset)native_invoker.push_arg_float(zOffset)native_invoker.push_arg_bool(isRelative)native_invoker.end_call_2(0x202A5ED9CE01D6E7)end
+    --[[void]] static function DestroyCam(--[[Cam (int)]] cam,--[[BOOL (bool)]] bScriptHostCam)native_invoker.begin_call()native_invoker.push_arg_int(cam)native_invoker.push_arg_bool(bScriptHostCam)native_invoker.end_call_2(0x865908C81A2C22E9)end
+    --[[BOOL (bool)]] static function IsPedAPlayer(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x12534C348C6CB68B)return native_invoker.get_return_value_bool()end
+    --[[void]] static function ChangePlayerPed(--[[Player (int)]] player,--[[Ped (int)]] ped,--[[BOOL (bool)]] p2,--[[BOOL (bool)]] resetDamage)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(p2)native_invoker.push_arg_bool(resetDamage)native_invoker.end_call_2(0x048189FAC643DEEE)end
+    --[[Vector3 (vector3)]] static function GetPedBoneCoords(--[[Ped (int)]] ped,--[[int]] boneId,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(boneId)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x17C07FC640E86B4E)return native_invoker.get_return_value_vector3()end
+    --[[BOOL (bool)]] static function IsEntityDead(--[[Entity (int)]] entity,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0x5F9532F3B5CC2551)return native_invoker.get_return_value_bool()end
 end
 
 return PedManager

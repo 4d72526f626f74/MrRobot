@@ -1,22 +1,16 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
 local T = require('translations')
+local root = menu.my_root()
 
-pluto_class Credits
-    function __construct()
-        self.root = root:list(T'Credits', {T'rcredits'}, T'Credits')
+local self = {}
+self.root = root:list(T'Credits', {T'rcredits'}, '')
 
-        self.root:divider(T'Discord', T'discord')
-        self.root:hyperlink(T'Discord', 'https://discord.gg/qYErTtzNXr', '')
-        self.root:hyperlink('Mr.Robot#1019', 'https://github.com/4d72526f626f74/MrRobot', T'Script Developer')
-        self.root:hyperlink(T'IceDoomfist#0001', 'https://github.com/IceDoomfist/Stand-Heist-Control/', T'The stats for cayo automated preset are from Heist Control')
-        self.root:divider(T'Resources')
-        self.root:hyperlink(T'Root-Cause', 'https://github.com/root-cause/v-decompiled-scripts', T'Provided updated decomiled scripts for latest patch (1.66)')
-        self.root:hyperlink(T'UnknownCheats', 'https://www.unknowncheats.me/forum/grand-theft-auto-v/500059-globals-locals-discussion-read-page-1-a-5.html', 'Has a bunch of other useful globals and locals that didn\'t get around to finding myself')
-        self.root:hyperlink(T'FiveM docs', 'https://docs.fivem.net/docs/game-references/', T'Has an extensive list with values for different things such as controls, blips, blip sprites and more')
-        self.root:hyperlink(T'NativeDB', 'https://nativedb.dotindustries.dev/natives', T'Provides an enormous list of GTA natives that were used in the script')
-        root:divider('')
-    end
-end
-
-return Credits
+self.root:divider(T'Discord', T'discord')
+self.root:hyperlink(T'Discord', 'https://discord.gg/qYErTtzNXr', '')
+self.root:hyperlink('Mr.Robot#1019', 'https://github.com/4d72526f626f74/MrRobot', T'Script Developer')
+self.root:hyperlink(T'IceDoomfist#0001', 'https://github.com/IceDoomfist/Stand-Heist-Control/', T'The stats for cayo automated preset are from Heist Control')
+self.root:divider(T'Resources')
+self.root:hyperlink(T'Root-Cause', 'https://github.com/root-cause/v-decompiled-scripts', T'Provided updated decomiled scripts for latest patch (1.66)')
+self.root:hyperlink(T'UnknownCheats', 'https://www.unknowncheats.me/forum/grand-theft-auto-v/500059-globals-locals-discussion-read-page-1-a-5.html', 'Has a bunch of other useful globals and locals that didn\'t get around to finding myself')
+self.root:hyperlink(T'FiveM docs', 'https://docs.fivem.net/docs/game-references/', T'Has an extensive list with values for different things such as controls, blips, blip sprites and more')
+self.root:hyperlink(T'NativeDB', 'https://nativedb.dotindustries.dev/natives', T'Provides an enormous list of GTA natives that were used in the script')
+root:divider('')

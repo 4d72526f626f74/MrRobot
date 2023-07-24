@@ -1,165 +1,155 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
-local T = require('translations')
-local Shared = require('shared')
-
---[[void]] local function SetArtificialLightsState(--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_bool(state)native_invoker.end_call_2(0x1268615ACE24D504)end
---[[void]] local function SetArtificialVehicleLightsState(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xE2B187C0939B3D32)end
---[[float]] local function GetLightOverrideMaxIntensityScale()native_invoker.begin_call()native_invoker.end_call_2(0x393BD2275CEB7793)return native_invoker.get_return_value_float()end
---[[void]] local function SetLightOverrideMaxIntensityScale(--[[Any (int)]] p0)native_invoker.begin_call()native_invoker.push_arg_int(p0)native_invoker.end_call_2(0x9641588DAB93B4B5)end
---[[void]] local function SetTimecycleModifierStrength(--[[float]] strength)native_invoker.begin_call()native_invoker.push_arg_float(strength)native_invoker.end_call_2(0x82E7FFCD5B2326B3)end
---[[void]] local function SetTimecycleModifier(--[[string]] modifierName)native_invoker.begin_call()native_invoker.push_arg_string(modifierName)native_invoker.end_call_2(0x2C933ABF17A1DF41)end
---[[void]] local function ClearTimecycleModifier()native_invoker.begin_call()native_invoker.end_call_2(0x0F07E7745A236711)end
---[[void]] local function SetAmbientVehicleRangeMultiplierThisFrame(--[[float]] value)native_invoker.begin_call()native_invoker.push_arg_float(value)native_invoker.end_call_2(0x90B6DA738A9A25DA)end
---[[void]] local function SetScenarioPedDensityMultiplierThisFrame(--[[float]] p0,--[[float]] p1)native_invoker.begin_call()native_invoker.push_arg_float(p0)native_invoker.push_arg_float(p1)native_invoker.end_call_2(0x7A556143A1C03898)end
---[[void]] local function SetVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0x245A6883D966D537)end
---[[void]] local function SetRandomVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xB3B3359379FE77D3)end
---[[void]] local function SetParkedVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xEAE6DCC7EEE3DB1D)end
---[[void]] local function SetPedDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0x95E3D6257B166CF2)end
---[[void]] local function SetRiotModeEnabled(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x2587A48BC88DFADF)end
---[[void]] local function InstantlyFillPedPopulation()native_invoker.begin_call()native_invoker.end_call_2(0x4759CC730F947C81)end
---[[void]] local function SetPedCombatAttributes(--[[Ped (int)]] ped,--[[int]] attributeId,--[[BOOL (bool)]] enabled)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(attributeId)native_invoker.push_arg_bool(enabled)native_invoker.end_call_2(0x9F7794730795E019)end
---[[void]] local function SetPedCombatAbility(--[[Ped (int)]] ped,--[[int]] abilityLevel)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(abilityLevel)native_invoker.end_call_2(0xC7622C0D36B2FDA8)end
---[[void]] local function SetPedCombatRange(--[[Ped (int)]] ped,--[[int]] combatRange)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(combatRange)native_invoker.end_call_2(0x3C606747B23E497B)end
---[[void]] local function SetPedCombatMovement(--[[Ped (int)]] ped,--[[int]] combatMovement)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(combatMovement)native_invoker.end_call_2(0x4D9CA1009AFBD057)end
---[[void]] local function TaskLeaveAnyVehicle(--[[Ped (int)]] ped,--[[int]] delayTime,--[[int]] flags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(delayTime)native_invoker.push_arg_int(flags)native_invoker.end_call_2(0x504D54DF3F6F2247)end
---[[Vehicle (int)]] local function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
---[[BOOL (bool)]] local function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
---[[void]] local function TaskCombatPed(--[[Ped (int)]] ped,--[[Ped (int)]] targetPed,--[[int]] combatFlags,--[[int]] threatResponseFlags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(targetPed)native_invoker.push_arg_int(combatFlags)native_invoker.push_arg_int(threatResponseFlags)native_invoker.end_call_2(0xF166E48407BAC484)end
-
-local ref_by_path = menu.ref_by_path
-local ref_by_rel_path = menu.ref_by_rel_path
-local create_tick_handler = util.create_tick_handler
-local get_all_peds_as_handles = entities.get_all_peds_as_handles
-local delete_by_handle = entities.delete_by_handle
-local stand_lock_time = ref_by_path('World>Atmosphere>Clock>Lock Time')
-local stand_time_midnight = ref_by_path('World>Atmosphere>Clock>Midnight')
-local stand_smooth_transition = ref_by_path('World>Atmosphere>Clock>Smooth Transition')
-
-local repopulate_timer = os.time() + 10
+local T, S = require('translations'), require('shared')
 
 pluto_class World
-    function __construct()
+    function __construct(root)
         self.root = root:list(T'World', {T'rworld'}, T'World')
+        self.repopulate_timer = os.time() + 10
+        self.stand_lock_time = menu.ref_by_path('World>Atmosphere>Clock>Lock Time')
+        self.stand_time_midnight = menu.ref_by_path('World>Atmosphere>Clock>Midnight')
+        self.stand_smooth_transition = menu.ref_by_path('World>Atmosphere>Clock>Smooth Transition')
+
         self.root:toggle(T'Black Out', {T'blackout'}, T'Turn off all artifical lights', function(state)
-            SetArtificialLightsState(state)
-            SetArtificialVehicleLightsState(state)
-            stand_lock_time.value = state
-            stand_smooth_transition.value = not state
+            self.SetArtificialLightsState(state)
+            self.SetArtificialVehicleLightsState(state)
+            self.stand_lock_time.value = state
+            self.stand_smooth_transition.value = not state
         
-            local light_intensity = GetLightOverrideMaxIntensityScale()
+            local LightIntensity = self.GetLightOverrideMaxIntensityScale()
             
             if state then
-                stand_time_midnight:trigger()
-                SetLightOverrideMaxIntensityScale(0.0)
-                SetTimecycleModifierStrength(1.2)
-                SetTimecycleModifier('superDARK')
+                self.stand_time_midnight:trigger()
+                self.SetLightOverrideMaxIntensityScale(0.0)
+                self.SetTimecycleModifierStrength(1.2)
+                self.SetTimecycleModifier('superDARK')
             else
-                SetLightOverrideMaxIntensityScale(light_intensity)
-                ClearTimecycleModifier()
+                self.SetLightOverrideMaxIntensityScale(LightIntensity)
+                self.ClearTimecycleModifier()
             end
         end)
-        
+
         self.root:toggle(T'Chams', {T'chamsall'}, T'Highlight everyone making them easier to see', function(state)
             if state then
-                SetTimecycleModifier('mp_lad_night')
+                self.SetTimecycleModifier('mp_lad_night')
             else
-                ClearTimecycleModifier()
+                self.ClearTimecycleModifier()
             end
         end)
-        
+
         self.ghost_town = self.root:toggle(T'Ghost Town', {T'ghosttown'}, T'Los Santos\'s becomes a ghost town', function(state)
-            local ref = self.ghost_town
-            stand_lock_time.value = state
-            stand_smooth_transition.value = not state
-            stand_time_midnight:trigger()
+            self.stand_lock_time.value = state
+            self.stand_smooth_transition.value = not state
+            self.stand_time_midnight:trigger()
         
             if state then
-                SetTimecycleModifierStrength(1)
-                SetTimecycleModifier('superDARK')
-                SetArtificialLightsState(true)
-                SetArtificialVehicleLightsState(true)
-                create_tick_handler(function()
-                    if not ref.value then
+                self.SetTimecycleModifierStrength(1)
+                self.SetTimecycleModifier('superDARK')
+                self.SetArtificialLightsState(true)
+                self.SetArtificialVehicleLightsState(true)
+                util.create_tick_handler(function()
+                    if not self.ghost_town.value then
                         return false
                     end
         
-                    SetAmbientVehicleRangeMultiplierThisFrame(0.0)
-                    SetPedDensityMultiplierThisFrame(0.0)
-                    SetScenarioPedDensityMultiplierThisFrame(0.0, 0.0)
-                    SetVehicleDensityMultiplierThisFrame(0.0)
-                    SetRandomVehicleDensityMultiplierThisFrame(0.0)
-                    SetParkedVehicleDensityMultiplierThisFrame(0.0)
+                    self.SetAmbientVehicleRangeMultiplierThisFrame(0.0)
+                    self.SetPedDensityMultiplierThisFrame(0.0)
+                    self.SetScenarioPedDensityMultiplierThisFrame(0.0, 0.0)
+                    self.SetVehicleDensityMultiplierThisFrame(0.0)
+                    self.SetRandomVehicleDensityMultiplierThisFrame(0.0)
+                    self.SetParkedVehicleDensityMultiplierThisFrame(0.0)
                 end)
             else
-                SetArtificialLightsState(false)
-                SetArtificialVehicleLightsState(false)
-                ClearTimecycleModifier()
+                self.SetArtificialLightsState(false)
+                self.SetArtificialVehicleLightsState(false)
+                self.ClearTimecycleModifier()
             end
         end)
-        
-        self.root:toggle(T'Eternal Darkness', {}, '', function(state)
+
+        self.root:toggle(T'Eternal Darkness', {T'eternaldarkness'}, '', function(state)
             if state then
-                SetTimecycleModifierStrength(Shared.MAX_FLOAT)
-                SetTimecycleModifier('glasses_black')
+                self.SetTimecycleModifierStrength(S.MAX_FLOAT)
+                self.SetTimecycleModifier('glasses_black')
             else
-                ClearTimecycleModifier()
+                self.ClearTimecycleModifier()
             end
         end)
         
         self.root:toggle(T'Riot Mode', {T'riotmode'}, T'Turns on riot mode', function(state)
-            SetRiotModeEnabled(state)
+            self.SetRiotModeEnabled(state)
         end)
-        
+
         self.root:toggle_loop(T'The Purge', {T'thepurge'}, T'Makes all peds hostile to each other', function()
-            stand_lock_time.value = true
-            stand_smooth_transition.value = false
-            stand_time_midnight:trigger()
+            self.stand_lock_time.value = true
+            self.stand_smooth_transition.value = false
+            self.stand_time_midnight:trigger()
             
-            SetRiotModeEnabled(true)
-            SetTimecycleModifierStrength(1)
-            SetTimecycleModifier('superDARK')
-            SetArtificialLightsState(true)
-            SetArtificialVehicleLightsState(true)
+            self.SetRiotModeEnabled(true)
+            self.SetTimecycleModifierStrength(1)
+            self.SetTimecycleModifier('superDARK')
+            self.SetArtificialLightsState(true)
+            self.SetArtificialVehicleLightsState(true)
             
-            if os.time() > repopulate_timer then
-                InstantlyFillPedPopulation()
-                repopulate_timer = os.time() + 10
+            if os.time() > self.repopulate_timer then
+                self.InstantlyFillPedPopulation()
+                self.repopulate_timer = os.time() + 10
             end
         
-            for i, entity in pairs(get_all_peds_as_handles()) do
-                if entity == players.user_ped() then
+            for Index, Entity in pairs(entities.get_all_peds_as_handles()) do
+                if Entity == players.user_ped() then
                     goto continue
                 end
         
-                SetPedCombatAttributes(entity, 5, true)
-                SetPedCombatAttributes(entity, 46, true)
-                SetPedCombatAttributes(entity, 17, false)
-                SetPedCombatAttributes(entity, 13, true)
-                SetPedCombatAttributes(entity, 58, true)
-                SetPedCombatRange(entity, 2)
-                SetPedCombatAbility(entity, 2)
-                SetPedCombatMovement(entity, 2)
-                if IsPedInAnyVehicle(entity, false) then
-                    TaskLeaveAnyVehicle(entity, 0, 0)
-                    delete_by_handle(GetVehiclePedIsIn(entity, false))
+                self.SetPedCombatAttributes(Entity, 5, true)
+                self.SetPedCombatAttributes(Entity, 46, true)
+                self.SetPedCombatAttributes(Entity, 17, false)
+                self.SetPedCombatAttributes(Entity, 13, true)
+                self.SetPedCombatAttributes(Entity, 58, true)
+                self.SetPedCombatRange(Entity, 2)
+                self.SetPedCombatAbility(Entity, 2)
+                self.SetPedCombatMovement(Entity, 2)
+                if self.IsPedInAnyVehicle(Entity, false) then
+                    self.TaskLeaveAnyVehicle(Entity, 0, 0)
+                    entities.delete_by_handle(self.GetVehiclePedIsIn(Entity, false))
                 end
-                if i % 5 == 0 then
-                    TaskCombatPed(entity, players.user_ped(), 0, 16)
+                if Index % 5 == 0 then
+                    self.TaskCombatPed(Entity, players.user_ped(), 0, 16)
                 end
         
                 ::continue::
             end
         end,
         function()
-            SetRiotModeEnabled(false)
-            ClearTimecycleModifier()
-            SetArtificialLightsState(false)
-            SetArtificialVehicleLightsState(false)
-            stand_lock_time.value = false
-            stand_smooth_transition.value = true
+            self.SetRiotModeEnabled(false)
+            self.ClearTimecycleModifier()
+            self.SetArtificialLightsState(false)
+            self.SetArtificialVehicleLightsState(false)
+            self.stand_lock_time.value = false
+            self.stand_smooth_transition.value = true
         end)
     end
+
+    --[[void]] static function SetArtificialLightsState(--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_bool(state)native_invoker.end_call_2(0x1268615ACE24D504)end
+    --[[void]] static function SetArtificialVehicleLightsState(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xE2B187C0939B3D32)end
+    --[[float]] static function GetLightOverrideMaxIntensityScale()native_invoker.begin_call()native_invoker.end_call_2(0x393BD2275CEB7793)return native_invoker.get_return_value_float()end
+    --[[void]] static function SetLightOverrideMaxIntensityScale(--[[Any (int)]] p0)native_invoker.begin_call()native_invoker.push_arg_int(p0)native_invoker.end_call_2(0x9641588DAB93B4B5)end
+    --[[void]] static function SetTimecycleModifierStrength(--[[float]] strength)native_invoker.begin_call()native_invoker.push_arg_float(strength)native_invoker.end_call_2(0x82E7FFCD5B2326B3)end
+    --[[void]] static function SetTimecycleModifier(--[[string]] modifierName)native_invoker.begin_call()native_invoker.push_arg_string(modifierName)native_invoker.end_call_2(0x2C933ABF17A1DF41)end
+    --[[void]] static function ClearTimecycleModifier()native_invoker.begin_call()native_invoker.end_call_2(0x0F07E7745A236711)end
+    --[[void]] static function SetAmbientVehicleRangeMultiplierThisFrame(--[[float]] value)native_invoker.begin_call()native_invoker.push_arg_float(value)native_invoker.end_call_2(0x90B6DA738A9A25DA)end
+    --[[void]] static function SetScenarioPedDensityMultiplierThisFrame(--[[float]] p0,--[[float]] p1)native_invoker.begin_call()native_invoker.push_arg_float(p0)native_invoker.push_arg_float(p1)native_invoker.end_call_2(0x7A556143A1C03898)end
+    --[[void]] static function SetVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0x245A6883D966D537)end
+    --[[void]] static function SetRandomVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xB3B3359379FE77D3)end
+    --[[void]] static function SetParkedVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xEAE6DCC7EEE3DB1D)end
+    --[[void]] static function SetPedDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0x95E3D6257B166CF2)end
+    --[[void]] static function SetRiotModeEnabled(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x2587A48BC88DFADF)end
+    --[[void]] static function InstantlyFillPedPopulation()native_invoker.begin_call()native_invoker.end_call_2(0x4759CC730F947C81)end
+    --[[void]] static function SetPedCombatAttributes(--[[Ped (int)]] ped,--[[int]] attributeId,--[[BOOL (bool)]] enabled)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(attributeId)native_invoker.push_arg_bool(enabled)native_invoker.end_call_2(0x9F7794730795E019)end
+    --[[void]] static function SetPedCombatAbility(--[[Ped (int)]] ped,--[[int]] abilityLevel)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(abilityLevel)native_invoker.end_call_2(0xC7622C0D36B2FDA8)end
+    --[[void]] static function SetPedCombatRange(--[[Ped (int)]] ped,--[[int]] combatRange)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(combatRange)native_invoker.end_call_2(0x3C606747B23E497B)end
+    --[[void]] static function SetPedCombatMovement(--[[Ped (int)]] ped,--[[int]] combatMovement)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(combatMovement)native_invoker.end_call_2(0x4D9CA1009AFBD057)end
+    --[[void]] static function TaskLeaveAnyVehicle(--[[Ped (int)]] ped,--[[int]] delayTime,--[[int]] flags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(delayTime)native_invoker.push_arg_int(flags)native_invoker.end_call_2(0x504D54DF3F6F2247)end
+    --[[Vehicle (int)]] static function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
+    --[[BOOL (bool)]] static function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
+    --[[void]] static function TaskCombatPed(--[[Ped (int)]] ped,--[[Ped (int)]] targetPed,--[[int]] combatFlags,--[[int]] threatResponseFlags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(targetPed)native_invoker.push_arg_int(combatFlags)native_invoker.push_arg_int(threatResponseFlags)native_invoker.end_call_2(0xF166E48407BAC484)end
 end
 
 return World

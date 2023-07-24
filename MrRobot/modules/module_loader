@@ -1,14 +1,11 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
 local T = require('translations')
 local sha256 = require('crypto').sha256
-local fs = filesystem
-local script_custom = fs.scripts_dir() .. '/MrRobot/custom'
+local script_custom = filesystem.scripts_dir() .. '/MrRobot/custom'
 
 local json = soup.json
 
 pluto_class ModuleLoader
-    function __construct()
+    function __construct(root)
         self.root = root:list(
             T'Module Loader', 
             {T'rmodloader'}, 
@@ -21,7 +18,7 @@ pluto_class ModuleLoader
             end
         )
 
-        self.total_files = #fs.list_files(script_custom)
+        self.total_files = #filesystem.list_files(script_custom)
         self.flag = false
 
         self.root:action(T'Open Folder', {}, T'Open custom modules folder', function()
@@ -42,8 +39,8 @@ pluto_class ModuleLoader
                 return false
             end
 
-            if self.total_files ~= #fs.list_files(script_custom) then
-                self.total_files = #fs.list_files(script_custom)
+            if self.total_files ~= #filesystem.list_files(script_custom) then
+                self.total_files = #filesystem.list_files(script_custom)
                 local children = self.root:getChildren()
                 local custom = self.root
                 table.remove(children, 1)
@@ -64,12 +61,19 @@ pluto_class ModuleLoader
 
     function FindModules()
         local custom = self.root
-        for fs.list_files(script_custom) as file do
+        for filesystem.list_files(script_custom) as file do
             local name = file:match('^.+/(.+)$'):gsub('\\', '/'):sub(8)
             local mod_list = self.root:list(name, {}, '')
+            local settings_divider = mod_list:divider('Settings')
+            local redirect = mod_list:toggle(T'Root Redirect', {}, T'Redirect the root of the menu to module loader instead of the scripts root', function(state) end, true)
+            local invis_divider = mod_list:divider('')
             mod_list:action(T'Load', {}, T'Load the module', function()
+                settings_divider.visible = false
+                redirect.visible = false
+                invis_divider.visible = false
+
                 local loading_start = util.current_time_millis()
-                menu.my_root = || -> mod_list
+                if redirect.value then menu.my_root = || -> mod_list end
                 local load_module = true
                 local fp <close> = assert(io.open(file, 'rb'))
                 local content = fp:read('*all')
@@ -100,9 +104,12 @@ pluto_class ModuleLoader
                 else
                     util.toast(T'Wtf you doing? this module is using an auto-updater, aborting load')
                 end
-                menu.my_root = || -> root
+                if redirect then menu.my_root = || -> root end
                 local loading_end = util.current_time_millis()
                 print(T'Loaded module ' .. name .. ' in ' .. (loading_end - loading_start) .. 'ms')
+            end)
+            mod_list:action(T'Delete', {}, T'Delete the module', function()
+                io.remove(script_custom .. '/' .. name)
             end)
         end
     end
@@ -114,7 +121,7 @@ pluto_class ModuleLoader
                 local modules = json.decode(body)
                 for modules as m do
                     local name = m.name
-                    if fs.exists(script_custom .. '/' .. m.name) then
+                    if filesystem.exists(script_custom .. '/' .. m.name) then
                         local fp <close> = assert(io.open(script_custom .. '/' .. m.name, 'rb'))
                         local content = fp:read('*all')
                         fp:close()

@@ -1,0 +1,4 @@
+local Online = {}
+Online.__index = Online
+Online.EZ = true
+return Online

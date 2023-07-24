@@ -1,121 +1,84 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
-local T = require('translations')
-local Shared = require('shared')
-local CHAR_SLOT = Shared.CHAR_SLOT
+local T, S = require('translations'), require('shared')
+local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
 
-local RemoveBlip = Shared.RemoveBlip
-local OnPreStop = Shared.OnPreStop
-local GetAllPickupsAsPointers = Shared.GetAllPickupsAsPointers
-local GetPosition = Shared.GetPosition
-local ReverseJoaat = Shared.ReverseJoaat
-local RefByRelPath = Shared.RefByRelPath
-local RefByPath = Shared.RefByPath
-local StopThread = Shared.StopThread
-local GetModelHash = Shared.GetModelHash
-local PointerToHandle = Shared.PointerToHandle
-local Joaat = Shared.Joaat
-local godmode_ref = RefByPath('Self>Immortality')
-
-local ReadByte = Shared.ReadByte
-local ReadInt = Shared.ReadInt
-local Alloc = Shared.Alloc
+local Pointer = memory.alloc_int()
+local GodmodeRef = menu.ref_by_path('Self>Immortality')
 
 local blips = setmetatable({casino={}, jammers={}}, {
     __index = blips,
     __gc = function(self)
         for _, blip in pairs(self.casino) do
-            RemoveBlip(blip)
+            util.remove_blip(blip)
         end
 
         for _, blip in pairs(self.jammers) do
-            RemoveBlip(blip)
+            util.remove_blip(blip)
         end
     end
 })
 
-OnPreStop(function()
-    blips = nil
+util.on_pre_stop(function()
+    blips = nil 
 end)
 
-local ptr = Alloc(4)
-
-local SetEntityCoords = Shared.SetEntityCoords
-local AddOwnedExplosion = Shared.AddOwnedExplosion
-local AddBlipForCoord = Shared.AddBlipForCoord
-local SetBlipSprite = Shared.SetBlipSprite
-local GetOffsetFromEntityInWorldCoords = Shared.GetOffsetFromEntityInWorldCoords
-local StatGetInt = Shared.StatGetInt
-local Toast = Shared.Toast
-local SetPackedStatBoolCode = Shared.SetPackedStatBoolCode
-
 pluto_class Collectables
-    function __construct()
+    ReadInt = memory.read_int
+
+    function __construct(root)
         self.root = root:list(T'Collectables', {T'rcollectables'}, T'Collectables')
+        self.root:action(T'Find All', {}, T'Finds most of the collectables', function() self:FindAll() end)
 
-        self.root:action(T'Find All', {}, T'Finds most collectables not all of them', function()
-            for i = 26811, 26910 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
-            for i = 28099, 28148 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
-            for i = 30241, 30250 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
-            for i = 34262, 34361 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
-            for i = 36630, 36654 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
-            for i = 30297, 30307 do SetPackedStatBoolCode(i, true, CHAR_SLOT) end
-    
-            Toast('Join a new session to apply the changes!')
-        end)
-    
-        -- 30297 - 30306 = hidden cache
-        -- 30307 - 30308 = treasure chest
-        -- 25522 - 25531 = hidden stashes
-        -- 34252 - ? = trick or treat
-        -- 34262 - 34361 = ld organics
-        -- 36630 - 36654 = snowmen
-    
-        self.casino = self.root:list(T'Casino', {}, T'Casino')
-        self.jammers = self.root:list(T'Signal Jammers', {}, T'Signal Jammers')
-        self.figures = self.root:list(T'Figurines', {}, T'Figurines')
-        self.ld_organics = self.root:list(T'LD Organics', {}, T'LD Organics')
-        self.snowmen = self.root:list(T'Snowmen', {}, T'Snowmen')
-
-        self:CreateCasino()
+        self:CreateCasino() 
         self:CreateJammers()
         self:CreateFigurines()
         self:CreateLdOrganics()
         self:CreateSnowmen()
     end
 
+    function FindAll()
+        for i = 26811, 26910 do self.SetPackedStatBoolCode(i, true, CharSlot) end
+        for i = 28099, 28148 do self.SetPackedStatBoolCode(i, true, CharSlot) end
+        for i = 30241, 30250 do self.SetPackedStatBoolCode(i, true, CharSlot) end
+        for i = 34262, 34361 do self.SetPackedStatBoolCode(i, true, CharSlot) end
+        for i = 36630, 36654 do self.SetPackedStatBoolCode(i, true, CharSlot) end
+        for i = 30297, 30307 do self.SetPackedStatBoolCode(i, true, CharSlot) end
+
+        util.toast('Join a new session to apply the changes!')   
+    end
+
     function CreateCasino()
+        self.casino = self.root:list(T'Casino', {}, T'Casino')
         self.casino:action(T'Find All Cards', {}, T'Instantly find all the cards', function()
             for i = 26911, 26964 do
-                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+                self.SetPackedStatBoolCode(i, true, CharSlot)
             end
     
-            Toast('Join a new session to apply the changes!')
+            util.toast('Join a new session to apply the changes!')
         end)
     
         self.casino:toggle(T'Show All Cards', {}, T'Adds a blip at location of each card', function(state)
             if state then
-                for i, vector in pairs(Shared.Data.CasinoCards) do
-                    local blip = AddBlipForCoord(vector.x, vector.y, vector.z)
-                    SetBlipSprite(blip, 680)
+                for i, vector in pairs(S.Data.CasinoCards) do
+                    local blip = self.AddBlipForCoord(vector.x, vector.y, vector.z)
+                    self.SetBlipSprite(blip, 680)
                     table.insert(blips.casino, blip)
                     blip = nil
                 end
             else
                 for i, blip in pairs(blips.casino) do
-                    RemoveBlip(blip)
+                    util.remove_blip(blip)
                 end
             end
         end)
     
         self.casino_collect_nearby = self.casino:toggle_loop(T'Collect Nearby Cards', {}, T'Automatically collect casino cards when they\'re within range', function()
-            local pos = GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
+            local pos = self.GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
     
-            for i, entity in pairs(GetAllPickupsAsPointers()) do
-                local model = ReverseJoaat(GetModelHash(entity))
+            for i, entity in pairs(entities.get_all_pickups_as_pointers()) do
+                local model = util.reverse_joaat(entites.get_model_hash(entity))
     
                 if model:find('vw_prop_vw_lux_card_01a') then
-                    SetEntityCoords(PointerToHandle(entity), pos.x, pos.y, pos.z, true, true, true, true)
+                    self.SetEntityCoords(entities.pointer_to_handle(entity), pos.x, pos.y, pos.z, true, true, true, true)
                 end
             end
         end)
@@ -124,17 +87,17 @@ pluto_class Collectables
             local ref = self.casino_collect_nearby
             local ped = players.user_ped()
             
-            if StatGetInt(Joaat('MP' .. CHAR_SLOT .. '_' .. 'PLAYING_CARD_COLLECTED'), ptr, -1)  then
-                if ReadInt(ptr) >= 54 then
+            if self.StatGetInt(util.joaat('MP' .. CharSlot .. '_' .. 'PLAYING_CARD_COLLECTED'), Pointer, -1)  then
+                if self.ReadInt(Pointer) >= 54 then
                     util.toast('You have already collected all the cards!')
-                    StopThread()
+                    util.stop_thread()
                 end
             end
     
             if ref:isValid() then ref.value = true end
     
-            for i, vector in pairs(Shared.Data.CasinoCards) do
-                SetEntityCoords(ped, vector.x, vector.y, vector.z, true, true, true, true)
+            for i, vector in pairs(S.Data.CasinoCards) do
+                self.SetEntityCoords(ped, vector.x, vector.y, vector.z, true, true, true, true)
                 util.yield(4000)
             end
     
@@ -143,75 +106,87 @@ pluto_class Collectables
     end
 
     function CreateJammers()
+        self.jammers = self.root:list(T'Signal Jammers', {}, T'Signal Jammers')
         self.jammers:action(T'Unlock Avi Schwartzman', {}, T'Unlocks Avi Schwartzman', function()
             for i = 28099, 28148 do
-                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+                self.SetPackedStatBoolCode(i, true, CharSlot)
             end
     
-            Toast('Join a new session to apply the changes!')
+            util.toast('Join a new session to apply the changes!')
         end)
     
         self.jammers:toggle(T'Show All Jammers', {}, T'Adds a blip showing the location of each jammer on the map', function(state)
             if state then
-                for i, vector in pairs(Shared.Data.SignalJammers) do
-                    local blip = AddBlipForCoord(vector.x, vector.y, vector.z)
-                    SetBlipSprite(blip, 162)
+                for i, vector in pairs(S.Data.SignalJammers) do
+                    local blip = self.AddBlipForCoord(vector.x, vector.y, vector.z)
+                    self.SetBlipSprite(blip, 162)
                     table.insert(blips.jammers, blip)
                 end
             else
                 if blips ~= nil then
                     for i, blip in pairs(blips.jammers) do
-                        RemoveBlip(blip)
+                        util.remove_blip(blip)
                     end
                 end
             end
         end)
     
         self.jammers:action(T'Destroy The Jammers', {}, T'Teleports you to each jammer and makes it go kaboom', function()
-            godmode_ref.value = true
+            GodmodeRef.value = true
             local ped = players.user_ped()
     
-            for i, jammer in pairs(Shared.Data.SignalJammers) do
-                SetEntityCoords(ped, jammer.x, jammer.y, jammer.z, true, true, true, true)
+            for i, jammer in pairs(S.Data.SignalJammers) do
+                self.SetEntityCoords(ped, jammer.x, jammer.y, jammer.z, true, true, true, true)
                 util.yield(500)
-                AddOwnedExplosion(ped, jammer.x, jammer.y, jammer.z, 1, Shared.MAX_INT, false, true, 0.0)
-                AddOwnedExplosion(ped, jammer.x, jammer.y, jammer.z, 1, Shared.MAX_INT, false, true, 0.0)
+                self.AddOwnedExplosion(ped, jammer.x, jammer.y, jammer.z, 1, S.MAX_INT, false, true, 0.0)
+                self.AddOwnedExplosion(ped, jammer.x, jammer.y, jammer.z, 1, S.MAX_INT, false, true, 0.0)
                 util.yield(1000)
             end
     
-            godmode_ref.value = false
+            GodmodeRef.value = false
         end)
     end
 
     function CreateFigurines()
+        self.figures = self.root:list(T'Action Figures', {}, T'Action Figures')
         self.figures:action(T'Find All Actions Figures', {}, T'Instantly find all action figures', function()
             for i = 26811, 26910 do
-                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+                self.SetPackedStatBoolCode(i, true, CharSlot)
             end
     
-            Toast('Join a new session to apply the changes!')
+            util.toast('Join a new session to apply the changes!')
         end)
     end
 
     function CreateLdOrganics()
+        self.ld_organics = self.root:list(T'LD Organics', {}, T'LD Organics')
         self.ld_organics:action(T'Find All LD Organics', {}, T'Instantly find all LD organics', function()
             for i = 34262, 34361 do
-                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+                self.SetPackedStatBoolCode(i, true, CharSlot)
             end
     
-            Toast('Join a new session to apply the changes!')
+            util.toast('Join a new session to apply the changes!')
         end)
     end
 
     function CreateSnowmen()
+        self.snowmen = self.root:list(T'Snowmen', {}, T'Snowmen')
         self.snowmen:action(T'Find All Snowmen', {}, T'Instantly find all snowmen', function()
             for i = 36630, 36654 do
-                SetPackedStatBoolCode(i, true, CHAR_SLOT)
+                self.SetPackedStatBoolCode(i, true, CharSlot)
             end
     
-            Toast('Join a new session to apply the changes!')
+            util.toast('Join a new session to apply the changes!')
         end)
     end
+
+    --[[void]] static function SetEntityCoords(--[[Entity (int)]] entity,--[[float]] xPos,--[[float]] yPos,--[[float]] zPos,--[[BOOL (bool)]] xAxis,--[[BOOL (bool)]] yAxis,--[[BOOL (bool)]] zAxis,--[[BOOL (bool)]] clearArea)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xPos)native_invoker.push_arg_float(yPos)native_invoker.push_arg_float(zPos)native_invoker.push_arg_bool(xAxis)native_invoker.push_arg_bool(yAxis)native_invoker.push_arg_bool(zAxis)native_invoker.push_arg_bool(clearArea)native_invoker.end_call_2(0x06843DA7060A026B)end
+    --[[void]] static function AddOwnedExplosion(--[[Ped (int)]] ped,--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.end_call_2(0x172AA1B624FA1013)end
+    --[[Vector3 (vector3)]] static function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
+    --[[BOOL (bool)]] static function StatGetInt(--[[Hash (int)]] statHash,--[[int* (pointer)]] outValue,--[[int]] p2)native_invoker.begin_call()native_invoker.push_arg_int(statHash)native_invoker.push_arg_pointer(outValue)native_invoker.push_arg_int(p2)native_invoker.end_call_2(0x767FBC2AC802EF3D)return native_invoker.get_return_value_bool()end
+    --[[void]] static function SetPackedStatBoolCode(--[[int]] index,--[[BOOL (bool)]] value,--[[int]] characterSlot)native_invoker.begin_call()native_invoker.push_arg_int(index)native_invoker.push_arg_bool(value)native_invoker.push_arg_int(characterSlot)native_invoker.end_call_2(0xDB8A58AEAA67CD07)end
+    --[[Blip (int)]] static function AddBlipForCoord(--[[float]] x,--[[float]] y,--[[float]] z)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.end_call_2(0x5A039BB0BCA604B6)return native_invoker.get_return_value_int()end
+    --[[void]] static function SetBlipSprite(--[[Blip (int)]] blip,--[[int]] spriteId)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_int(spriteId)native_invoker.end_call_2(0xDF735600A4696DAF)end
 end
 
 return Collectables

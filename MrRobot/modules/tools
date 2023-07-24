@@ -1,210 +1,206 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
-local T = require('translations')
+local T, S = require('translations'), require('shared')
 local Bitfield = require('bitfield')
-local Shared = require('shared')
+local Globals = require('script_globals')
 local Weapons = require('weapons_list')
-local Globals = Shared.Globals.Tools
-local CHAR_SLOT = Shared.CHAR_SLOT
+local ScriptOffsets = require('offsets')
+local Masks = require('masks')
 
-local PV_SLOT <constexpr> = 2359296 + 1 + (0 * 5568) + 681 + 2 -- Global_2359296[func_876() /*5568*/].f_681.f_2
+local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
+local PersonalVehicleSlot = Globals.ActivePVSlot
 
-local GetEntityModel = Shared.GetEntityModel
-local NetGameserverTransferWalletToBank = Shared.NetGameserverTransferWalletToBank
+local Tunables = 262145
+local WalletOffset = 0x1D59BC0 
+local BankOffset = 0x1D59BC8 
 
-local ScriptGlobal = Shared.ScriptGlobal
-local WriteShort = Shared.WriteShort
-local WriteByte = Shared.WriteByte
-local WriteInt = Shared.WriteInt
-local ReadShort = Shared.ReadShort
-local ReadInt = Shared.ReadInt
-local ReadByte = Shared.ReadByte
-local Scan = Shared.Scan
-local Alloc = Shared.Alloc
-local CreateTickHandler = Shared.CreateTickHandler
-local IsSessionStarted = Shared.IsSessionStarted
-local RefByRelPath = Shared.RefByRelPath
-local ReverseJoaat = Shared.ReverseJoaat
-local Joaat = util.joaat
+local VehicleBitfield = ScriptOffsets.Vehicles.VehicleBitfield
+local VehicleData = ScriptOffsets.Vehicles.LSCustoms
 
-local fs = filesystem
-local tunables = 262145
+local VehicleClearAllBits = 0x7FFFFFFF
+local DestoryVehicleBits = 0x10041
 
 pluto_class Tools
-    function __construct()
+    NetGameserverTransferWalletToBank = S.NetGameserverTransferWalletToBank
+    ScriptGlobal = S.ScriptGlobal
+    WriteByte = memory.write_byte
+    WriteInt = memory.write_int
+    ReadInt = memory.read_int
+    WriteFloat = memory.write_float
+
+    function __construct(root)
         self.root = root:list(T'Tools', {T'rtools'}, T'Tools')
-        self.sroot = fs.scripts_dir() .. '/MrRobot'
+        self.base = ModuleBase
+        self.sroot = filesystem.scripts_dir() .. '/MrRobot'
         self.simages = self.sroot .. '/images'
-        self:CreateMenu()
+
+        self.root:action(T'Unlock Arcades', {T'toolsunlockarcades'}, T'Unlocks arcades on mazebank without having to goto Lester', function()
+            local Arcade = self.ScriptGlobal(Globals.UnlockArcades) 
+            local ArcadeBitfield = Bitfield.new(Arcade) 
+
+            ArcadeBitfield:Set(Masks.UnlockArcades) 
+            ArcadeBitfield(Arcade, 16) 
+        end)
+
+        self.deposit_wallet = self.root:action(T'Deposit Wallet', {T'toolsdepositwallet'}, T'Deposits your wallet into your bank', function()
+            local Wallet = self.ReadInt(self.base + WalletOffset) 
+            if Wallet > 0 then self.NetGameserverTransferWalletToBank(CharSlot, Wallet) end 
+        end)
+
+        self.press_me = self.root:action(T'Press Me', {}, T'By pressing this button you have agreed to pay the price for your wrong doings within the world of GTA Online, this will rid you of your mk2 and money as retribution for the sins of owning an oppressor mk2 and from here on out you declare that you will never again buy another mk2, have a nice day!', function()
+            local Oppressors = {} 
+            local Wallet = 0 
+
+            self.deposit_wallet:trigger() 
+            
+            repeat
+                util.yield_once()
+                Wallet = self.ReadInt(self.base + WalletOffset)
+            until Wallet == 0
+
+            local Bank = self.ReadInt(self.base + BankOffset) 
+
+            for Slot = 0, 415 do 
+                local Data = self.ScriptGlobal(Globals:PersonalVehicleData(Slot), Slot) 
+                local Hash = self.ReadInt(Data + VehicleData.VehicleModel) 
+                self.WriteByte(Data + VehicleData.VehicleBitfield, self.ReadInt(Data + VehicleData.VehicleBitfield) & ~(VehicleBitfield.Request)) 
+
+                if Hash == util.joaat('oppressor2') then 
+                    table.insert(Oppressors, Data) 
+                end
+            end
+
+            if #Oppressors <= 0 then 
+                util.toast('You do not own an oppressor, you are free to go!') 
+                util.stop_thread() 
+            else
+                for Oppressors as Data do 
+                    local VBitfield = Bitfield.new(self.ReadInt(Data + VehicleData.VehicleBitfield)) 
+                    VBitfield:Clear(VehicleBitfield.Request) 
+                    VBitfield(Data + VehicleData.VehicleBitfield, 8) 
+                    util.yield_once() 
+                    VBitfield:Clear(VehicleClearAllBits) 
+                    VBitfield(Data + VehicleData.VehicleBitfield, 32) 
+                    util.yield(1000) 
+                    VBitfield:Clear(VehicleBitfield.Request) 
+                    VBitfield(Data + VehicleData.VehicleBitfield, 32) 
+
+                    
+                end
+
+                self.WriteByte(self.ScriptGlobal(Globals.PriceTransactionError), 0) 
+                if Bank > 0 then 
+                    self.WriteByte(self.ScriptGlobal(Globals.SinRemover), 0) 
+                    repeat 
+                        util.yield_once()
+                        Bank = self.ReadInt(self.base + BankOffset) 
+                        self.WriteByte(self.ScriptGlobal(Globals.InsufficientFunds), 1) 
+                    until Bank == 0
+                    self.WriteByte(self.ScriptGlobal(Globals.InsufficientFunds), 0) 
+                    util.yield(1000) 
+
+                    
+                    do
+                        local Logo = directx.create_texture(self.simages .. '/Jesus.png') 
+                        local Alpha, ReverseAlpha = 0.0, false 
+
+                        util.create_tick_handler(function() 
+                            directx.draw_texture(logo, 0.15, 0.15, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha }) 
+ 
+                            if Alpha < 1.7 and not ReverseAlpha then
+                                Alpha += 0.007 
+                            else
+                                ReverseAlpha = true 
+                                Alpha -= 0.007 
+                            end
+            
+                            if Alpha <= 0 then 
+                                return false 
+                            end
+                        end)
+
+                        util.toast('You have been cleansed of your sins, you may now go forth and sin no more')
+                    end
+                end
+            end
+        end)
+
+        self.root:divider('')
+        self.root:toggle_loop(T'Auto Deposit Wallet', {T'toolsautowalletdeposit'}, T'Automatically deposit all money that is in your wallet', function() self.deposit_wallet:trigger() end)
         self:CreateGunVan()
     end
 
-    function CreateMenu()
-        self.root:action(T'Unlock Arcades', {T'unlockarcades'}, T'Unlock arcades on mazebank foreclosure without going to Lester', function()
-            local arcade = ScriptGlobal(Globals.UnlockArcades)
-            local bitfield = Bitfield.new(ReadShort(arcade))
-        
-            bitfield:Set(0x14E) -- set multiple bits using a bitmask instead of doing it like a noob and setting each individually
-            bitfield(arcade, 16)
-        end)
-        
-        self.deposit_money = self.root:action(T'Deposit Wallet Money', {T'depositwalletall'}, T'Deposit all money from your wallet', function()
-            local wallet = ReadInt(Scan('') + 0x1D59BC0)
-            NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
-        end)
-        
-        self.root:action(T'Instant $2000', {}, T'', function()
-            WriteInt(ScriptGlobal(Globals.GoodBoyTimer), 0)
-        end)
-
-        self.root:action(T'Press Me', {}, T'By pressing this button you have agreed to pay the price for your wrong doings within the world of GTA Online, this will rid you of your mk2 and money as retribution for the sins of owning an oppressor mk2 and from here on out you declare that you will never again buy another mk2, have a nice day!', function()
-            local mk2s = {}
-            local module_base = Scan('')
-
-            local wallet = 0
-            self.deposit_money:trigger()
-
-            repeat
-                util.yield_once()
-                wallet = ReadInt(Scan('') + 0x1D59BC0)
-            until wallet == 0
-
-            local bank = ReadInt(module_base + 0x1D59BC8)
-
-            for slot = 0, 415 do
-                local data = ScriptGlobal(1586488 + 1 + (slot * 142), slot)
-                local hash = ReadInt(data + 0x210)
-                WriteInt(data + 0x338, ReadInt(data) & ~Shared.VehicleBitfield.Request)
-
-                if hash == util.joaat('oppressor2') then
-                    table.insert(mk2s, data)
-                end
-            end
-
-            if #mk2s <= 0 then
-                util.toast('You do not own an oppressor mk2, you are free to go')
-                util.stop_thread()
-            else
-                for mk2s as data do
-                    local bitfield = Bitfield.new(ReadInt(data + 0x338))
-                    bitfield:Clear(Shared.VehicleBitfield.Request)
-                    bitfield(data + 0x338, 32)
-                    util.yield_once()
-                    bitfield:Clear(0xFFFFFFFF)
-                    bitfield(data + 0x338, 32)
-                    bitfield:Set(0x10041)
-                    bitfield(data + 0x338, 32)
-                    util.yield(1000)
-                    bitfield:Clear(Shared.VehicleBitfield.Request)
-                    bitfield(data + 0x338, 32)
-                end
-
-                WriteByte(ScriptGlobal(Globals.PriceTransactionError), 0)
-
-                if bank > 0 then
-                    WriteInt(ScriptGlobal(Globals.SinRemover), bank)
-                    repeat
-                        util.yield_once()
-                        bank = ReadInt(module_base + 0x1D59BC8)
-                        WriteByte(ScriptGlobal(Globals.InsufficientFunds), 1)
-                    until bank == 0
-                end
-
-                WriteByte(ScriptGlobal(Globals.InsufficientFunds), 0)
-                util.yield(1000)
-
-                local logo = directx.create_texture(self.simages .. '/Jesus.png')
-                local alpha, reverse_alpha = 0.0, false
-
-                util.create_tick_handler(function()
-                    directx.draw_texture(logo, 0.15, 0.15, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
-    
-                    if alpha < 1.7 and not reverse_alpha then
-                        alpha += 0.007
-                    else
-                        reverse_alpha = true
-                        alpha -= 0.007
-                    end
-    
-                    if alpha <= 0 then
-                        return false
-                    end
-                end)
-
-                util.toast('You have been cleansed of your sins, you may now go forth and sin no more')
-            end
-        end)
-        
-        self.root:divider('')
-
-        self.root:toggle_loop(T'Auto Deposit Wallet Money', {T'autodepositwallet'}, T'Automatically deposit all money from your wallet', function()
-            local wallet = ReadInt(Scan('') + 0x1D59BC0)
-            if wallet > 0 then
-                NetGameserverTransferWalletToBank(CHAR_SLOT, wallet)
-            end
-        end) 
-
-        self.root:divider('')
-    end 
-
     function CreateGunVan()
-        local weapons_table = Weapons:AsTable()
-        weapons_table = Shared:SortTable(weapons_table, function(a, b)
-            return a < b
-        end)
+        local WeaponsTable = S:SortTable(Weapons:AsTable(), |a, b| -> a < b)
 
-        self.gunvan = self.root:list(T'Gun Van', {T'rgunvan'}, T'Gun Van', function()
-            for self.gunvan:getChildren() as child do
+        self.gunvan_root = self.root:list(T'Gun Van', {T'rgunvan'}, T'Gun Van')
+
+        self.gunvan_weapons = self.gunvan_root:list(T'Weapons', {T'gunvanweapons'}, T'Gun Van Weapons', function()
+            for self.gunvan_weapons:getChildren() as child do
                 if child:isValid() then
                     child:delete()
                 end
             end
 
-            self.gunvan_weapons = self.gunvan:list(T'Weapons', {T'gunvanweapons'}, T'Gun Van Weapons', function()
-                for self.gunvan_weapons:getChildren() as child do
-                    if child:isValid() then
-                        child:delete()
-                    end
-                end
+            for Index = Globals.GunVanWeaponsStart, Globals.GunVanWeaponsEnd do
+                local G = self.ScriptGlobal(Tunables + Index)
+                local Name = util.reverse_joaat(self.ReadInt(G))
+                local Slot = self.gunvan_weapons:list(tostring(Index - Globals.GunVanWeaponsStart + 1) .. ' - ' .. Name, {}, '')
 
-                for i = Globals.GunVanWeaponsStart, Globals.GunVanWeaponsEnd do
-                    local g = ScriptGlobal(262145 + i)
-                    local name = util.reverse_joaat(ReadInt(g))
-                    local slot = self.gunvan_weapons:list(tostring(i - Globals.GunVanWeaponsStart + 1) .. ' - ' .. name, {}, '')
-    
-                    slot:list_action(T'Weapon', {}, T'Weapon to change to', weapons_table, function(weapon_index)
-                        local weapon = weapons_table[weapon_index]
-                        WriteInt(g, Weapons:FindHash(weapon))
-                    end)
-                    slot:text_input(T'Custom Weapon', {T'rgunvancustom' .. tostring(i - Globals.GunVanWeaponsStart)}, T'Name of the weapon to change to', function(name)
-                        WriteInt(g, Joaat(name))
-                    end, name)
+                Slot:list_action(T'Weapon', {}, T'Weapon to change to', WeaponsTable, function(WeaponIndex)
+                    local Weapon = WeaponsTable[WeaponIndex]
+                    self.WriteInt(G, Weapons:FindHash(Weapon))
+                end)
+                Slot:text_input(T'Custom Weapon', {T'rgunvancustom' .. tostring(Index - Globals.GunVanWeaponsStart)}, T'Name of the weapon to change to', function(CustomName)
+                    self.WriteInt(G, util.joaat(CustomName))
+                end, Name)
+            end
+        end)
+        
+        self.gunvan_throwables = self.gunvan_root:list(T'Throwables', {T'gunvanthrowables'}, T'Gun Van Throwables', function()
+            for self.gunvan_throwables:getChildren() as child do
+                if child:isValid() then
+                    child:delete()
                 end
-            end)
+            end
 
-            self.gunvan_throwables = self.gunvan:list(T'Throwables', {T'gunvanthrowables'}, T'Gun Van Throwables', function()
-                for self.gunvan_throwables:getChildren() as child do
-                    if child:isValid() then
-                        child:delete()
-                    end
-                end
+            for Index = Globals.GunVanThrowablesStart, Globals.GunVanThrowablesEnd do
+                local G = self.ScriptGlobal(262145 + Index)
+                local Name = util.reverse_joaat(self.ReadInt(G))
+                local Slot = self.gunvan_throwables:list(tostring(Index - Globals.GunVanThrowablesStart + 1) .. ' - ' .. Name, {}, '')
 
-                for i = Globals.GunVanThrowablesStart, Globals.GunVanThrowablesEnd do
-                    local g = ScriptGlobal(262145 + i)
-                    local name = util.reverse_joaat(ReadInt(g))
-                    local slot = self.gunvan_throwables:list(tostring(i - Globals.GunVanThrowablesStart + 1) .. ' - ' .. name, {}, '')
-    
-                    slot:list_action(T'Throwable', {}, T'Throwable to change to', weapons_table, function(throwable_index)
-                        local throwable = weapons_table[throwable_index]
-                        WriteInt(g, Weapons:FindHash(throwable))
-                    end)
-                    slot:text_input(T'Custom Throwable', {T'rgunvancustom' .. tostring(i - Globals.GunVanThrowablesStart)}, T'Name of the throwable to change to', function(name)
-                        WriteInt(g, Joaat(name))
-                    end, name)
-                end
-            end)
+                Slot:list_action(T'Throwable', {}, T'Throwable to change to', WeaponsTable, function(ThrowableIndex)
+                    local Throwable = WeaponsTable[ThrowableIndex]
+                    self.WriteInt(G, Weapons:FindHash(Throwable))
+                end)
+                Slot:text_input(T'Custom Throwable', {T'rgunvancustom' .. tostring(Index - Globals.GunVanThrowablesStart)}, T'Name of the throwable to change to', function(ThrowableName)
+                    self.WriteInt(G, util.joaat(ThrowableName))
+                end, Name)
+            end
+        end)
+
+        self.gunvan_root:divider('')
+        self.gunvan_pos = self.gunvan_root:list(T'Position', {}, T'Gun Van position')
+        self.gunvan_root:toggle(T'Remove Proximity', {}, T'Remove proximity radius so the gun van will appear on your map regardless of where you are', function(state)
+            local Proximity = self.ScriptGlobal(Globals.GunVanProximity)
+            self.WriteFloat(Proximity, state ? S.MAX_FLOAT : 500.0)
+        end)
+
+        local PositionList = {'Default', 'You'}
+        self.gunvan_pos:list_select(T'Location', {}, '', PositionList, 1, function(Index)
+            if not SCRIPT_CAN_CONTINUE then return end
+            local Choice = PositionList[Index]
+            local Coords = self.ScriptGlobal(Globals.GunVanPositionVectorStart)
+            if Choice == 'Default' then
+                self.WriteFloat(Coords, 0.0)
+                self.WriteFloat(Coords + 0x8, 0.0)
+                self.WriteFloat(Coords + 0x10, 0.0)
+            elseif Choice == 'You' then
+                local Pos = entities.get_pos(entities.handle_to_pointer(players.user_ped()))
+                self.WriteFloat(Coords, Pos.x)
+                self.WriteFloat(Coords + 0x8, Pos.y)
+                self.WriteFloat(Coords + 0x10, Pos.z)
+            end
         end)
     end
-end
+end 
 
 return Tools

@@ -1,0 +1,9 @@
+local Handler = {}
+Handler.PlayerLoop = nil
+Handler.GhostingLoop = nil
+Handler.GhostingRemovePlayer = nil
+Handler.PlayerAimbotBitfield = nil
+Handler.PlayerAimbotAddTarget = nil
+Handler.PlayerAimbotRemoveTarget = nil
+
+return Handler

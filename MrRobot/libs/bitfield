@@ -4,6 +4,7 @@ Bitfield.__index = Bitfield
 function Bitfield.new(value)
     local self = setmetatable({}, Bitfield)
     self.value = value
+    self.address = nil
     return self
 end
 
@@ -13,6 +14,11 @@ end
 
 function Bitfield:Set(mask) -- old BitSet
     self.value |= mask
+    if self.address ~= nil then
+        local bl = self.BitLength(mask)
+        local size = bl <= 8 and 8 or bl <= 16 and 16 or bl <= 32 and 32 or 64
+        self(self.address, size)
+    end
 end
 
 function Bitfield:Get(mask)
@@ -21,10 +27,20 @@ end
 
 function Bitfield:Clear(mask) -- old BitClear
     self.value &= ~mask
+    if self.address ~= nil then
+        local bl = self.BitLength(mask)
+        local size = bl <= 8 and 8 or bl <= 16 and 16 or bl <= 32 and 32 or 64
+        self(self.address, size)
+    end
 end
 
 function Bitfield:Toggle(mask) -- old BitToggle
     self.value = self.value ~ mask
+    if self.address ~= nil then
+        local bl = self.BitLength(mask)
+        local size = bl <= 8 and 8 or bl <= 16 and 16 or bl <= 32 and 32 or 64
+        self(self.address, size)
+    end
 end
 
 function Bitfield:ExtractBits(offset, length)
@@ -34,18 +50,25 @@ end
 function Bitfield:ModifyBits(offset, length, bits)
     local mask = ((1 << length) - 1) << offset
     self.value = (self.value & ~mask) | ((bits << offset) & mask)
+    if self.address ~= nil then
+        local bl = self.BitLength(mask)
+        local size = bl <= 8 and 8 or bl <= 16 and 16 or bl <= 32 and 32 or 64
+        self(self.address, size)
+    end
 end
 
 function Bitfield:Reset()
     self.value = 0
+    if self.address ~= nil then
+        self(self.address, 32)
+    end
 end
 
-function Bitfield:BitLength()
+function Bitfield.BitLength(value)
     local length = 0
-    local temp = 0
 
-    while temp > 0 do
-        temp >>= 1
+    while value > 0 do
+        value >>= 1
         length = length + 1
     end
 

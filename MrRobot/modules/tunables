@@ -1,79 +1,75 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
-local T = require('translations')
-
-local ScriptGlobal = memory.script_global
-local WriteByte = memory.write_byte
-local WriteInt = memory.write_int
-local WriteFloat = memory.write_float
-local WriteLong = memory.write_long
-local WriteShort = memory.write_short
-local WriteString = memory.write_string
-local ReadByte = memory.read_byte
-local ReadInt = memory.read_int
-local ReadFloat = memory.read_float
-local ReadLong = memory.read_long
-local ReadShort = memory.read_short
-local ReadString = memory.read_string
-
-local ref_by_rel_path = menu.ref_by_rel_path
+local T, S = require('translations'), require('shared')
 
 pluto_class Tunables
-    function __construct()
+    ScriptGlobal = S.ScriptGlobal
+    WriteByte = memory.write_byte
+    WriteShort = memory.write_short
+    WriteInt = memory.write_int
+    WriteFloat = memory.write_float
+    WriteLong = memory.write_long
+    WriteString = memory.write_string
+    ReadByte = memory.read_byte
+    ReadShort = memory.read_short
+    ReadInt = memory.read_int
+    ReadFloat = memory.read_float
+    ReadLong = memory.read_long
+    ReadString = memory.read_string
+
+    function __construct(root)
         self.root = root:list(T'Tunables', {T'rtunableseditor'}, T'Tunables editor')
-        self.tunable = self.root:text_input('Tunable', {'tunable'}, 'Tunable that you want to edit, you do not need to add 262145 as that is done for you', function(value) end, '0')
-        self.value = self.root:text_input('Value', {'value'}, 'Value that you want to set the tunable to', function(value) end, '0')
+        self.tunable = self.root:text_input(T'Tunable', {T'tunable'}, T'Tunable that you want to edit, you do not need to add 262145 as that is done for you', function(value) end, '0')
+        self.value = self.root:text_input(T'Value', {T'value'}, T'Value that you want to set the tunable to', function(value) end, '0')
     
         self.root:divider('Write Tunable')
     
         self.root:action('Write Int', {}, 'Write Int', function()
-            WriteInt(ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
+            self.WriteInt(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
         end)
     
         self.root:action('Write Float', {}, 'Write Float', function()
-            WriteFloat(ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
+            self.WriteFloat(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
         end)
     
         self.root:action('Write Byte', {}, 'Write Byte', function()
-            WriteByte(ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
+            self.WriteByte(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
         end)
     
         self.root:action('Write Short', {}, 'Write Short', function()
-            WriteShort(ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
+            self.WriteShort(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
         end)
     
         self.root:action('Write Long', {}, 'Write Long', function()
-            WriteLong(ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
+            self.WriteLong(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
         end)
     
         self.root:action('Write String', {}, 'Write String', function()
-            WriteString(ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
+            self. WriteString(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
         end)
     
         self.root:divider('Read Tunable')
     
         self.root:action('Read Int', {}, 'Read an int', function()
-            util.toast(ReadInt(ScriptGlobal(262145 + tonumber(self.tunable.value))))
+            util.toast(self.ReadInt(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
         end)
     
         self.root:action('Read Float', {}, 'Read a float', function()
-            util.toast(ReadFloat(ScriptGlobal(262145 + tonumber(self.tunable.value))))
+            util.toast(self.ReadFloat(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
         end)
     
         self.root:action('Read Byte', {}, 'Read a byte', function()
-            util.toast(ReadByte(ScriptGlobal(262145 + tonumber(self.tunable.value))))
+            util.toast(self.ReadByte(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
         end)
     
         self.root:action('Read Short', {}, 'Read a short (16 bits)', function()
-            util.toast(ReadShort(ScriptGlobal(262145 + tonumber(self.tunable.value))))
+            util.toast(self.ReadShort(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
         end)
     
         self.root:action('Read Long', {}, 'Read a long (64 bits)', function()
-            util.toast(ReadLong(ScriptGlobal(262145 + tonumber(self.tunable.value))))
+            util.toast(self.ReadLong(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
         end)
     
         self.root:action('Read String', {}, 'Read a string', function()
-            util.toast(ReadString(ScriptGlobal(262145 + tonumber(self.tunable.value))))
+            util.toast(self.ReadString(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
         end)
     end
 end

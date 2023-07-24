@@ -1,0 +1,741 @@
+local T, S = require('translations'), require('shared')
+local Globals = require('script_globals')
+local ScriptOffsets = require('offsets')
+local Bitfield = require('bitfield')
+local VehModels = require('vehicle_models')
+local shadow_root = menu.shadow_root()
+
+local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
+local PvSlot = Globals.ActivePVSlot
+local Offsets = ScriptOffsets.Vehicles.LSCustoms
+local VehicleBitfield = ScriptOffsets.Vehicles.VehicleBitfield
+
+enum VehicleAccess begin
+    Everyone = 0,
+    Crew = 1,
+    Friends = 2,
+    CrewFriends = 3,
+    Nobody = 4
+end
+
+local VehicleClasses = {
+    [0] = 'Compacts',
+    [1] = 'Sedans',
+    [2] = 'SUVs',
+    [3] = 'Coupes',
+    [4] = 'Muscle',
+    [5] = 'Sports Classics',
+    [6] = 'Sports',
+    [7] = 'Super',
+    [8] = 'Motorcycles',
+    [9] = 'Off-road',
+    [10] = 'Industrial',
+    [11] = 'Utility',
+    [12] = 'Vans',
+    [13] = 'Cycles',
+    [14] = 'Boats',
+    [15] = 'Helicopters',
+    [16] = 'Planes',
+    [17] = 'Service',
+    [18] = 'Emergency',
+    [19] = 'Military',
+    [20] = 'Commercial',
+    [21] = 'Trains',
+}
+
+local WheelsData = {
+    WheelType = {
+        'Sport',
+        'Muscle',
+        'Lowrider',
+        'SUV',
+        'Offroad',
+        'Tuner',
+        'NULL',
+        'High End',
+        'NULL',
+        'NULL',
+        'NULL',
+        'Street',
+        'Track'
+    },
+    WheelDesign = { 'None', 'Custom Tires' }
+}
+
+local NeonLayouts = { 'None', 'Front', 'Back', 'Sides', 'Front and Back', 'Front and Sides', 'Back and Sides', 'All' }
+local ImaniTechUpgrades = { 'None', 'Remote Control Unit', 'Missile Lock-On Jammer' }
+local WindowTints = { 'None', 'Limo', 'Dark Smoke','Light Smoke' }
+
+pluto_class PVM
+    ScriptGlobal = S.ScriptGlobal
+    ReadByte = memory.read_byte
+    ReadShort = memory.read_short
+    ReadInt = memory.read_int
+    ReadFloat = memory.read_float
+    ReadString = memory.read_string
+    WriteByte = memory.write_byte
+    WriteShort = memory.write_short
+    WriteInt = memory.write_int
+    WriteFloat = memory.write_float
+    WriteString = memory.write_string
+    StatSetInt = S.StatSetInt
+
+    function __construct(root)
+        self.root = root:list(T'Personal Vehicle Manager', {}, T'Personal Vehicle Manager', function() self:OnClick() end)
+        self.PvSlot = self.ScriptGlobal(Globals.ActivePVSlot)
+    end
+
+    function OnClick()
+        for self.root:getChildren() as child do
+            if child:isValid() then child:delete() end
+        end
+
+        local ActiveSlot = self.ReadShort(self.PvSlot)
+        local ActiveModel = util.get_label_text(util.reverse_joaat(self.ReadInt(self.ScriptGlobal(Globals:PersonalVehicleData(ActiveSlot)) + Offsets.VehicleModel)))
+        local ActivePlate = self.ReadString(self.ScriptGlobal(Globals:PersonalVehicleData(ActiveSlot)) + Offsets.LicensePlate)
+        local ActiveDisplay = self.root:readonly(ActiveModel .. ' - ' .. ActivePlate .. ' (Slot ' .. ActiveSlot .. ')', '')
+        self.root:divider('')
+        self.veh_access = self.root:list(T'Vehicle Access', {}, T'Vehicle Access')
+
+        self.veh_access:action(T'Everyone', {}, T'Allows everyone to access your vehicle', function()
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_PERSONAL_VEHICLE_ACCESS'), VehicleAccess.Everyone, true)
+        end)
+
+        self.veh_access:action(T'Crew', {}, T'Allows your crew to access your vehicle', function()
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_PERSONAL_VEHICLE_ACCESS'), VehicleAccess.Crew, true)
+        end)
+
+        self.veh_access:action(T'Friends', {}, T'Allows your friends to access your vehicle', function()
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_PERSONAL_VEHICLE_ACCESS'), VehicleAccess.Friends, true)
+        end)
+
+        self.veh_access:action(T'Crew + Friends', {}, T'Allows your crew and friends to access your vehicle', function()
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_PERSONAL_VEHICLE_ACCESS'), VehicleAccess.CrewFriends, true)
+        end)
+
+        self.veh_access:action(T'Nobody', {}, T'Allows nobody to access your vehicle', function()
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_PERSONAL_VEHICLE_ACCESS'), VehicleAccess.Nobody, true)
+        end)
+
+        self.unused_slots = self.root:list(T'Unused', {}, T'Unused')
+        self.cars = self.root:list(T'Personal Vehicles', {}, T'Personal Vehicles')
+        self.aircraft = self.root:list(T'Personal Aircraft', {}, T'Personal Aircraft')
+
+        local Cars = {}
+        local Aircraft = {}
+
+        for Slot = 0, 415 do
+            local Data = {}
+            Data.Data = self.ScriptGlobal(Globals:PersonalVehicleData(Slot))
+            Data.Hash = self.ReadInt(Data.Data + Offsets.VehicleModel)
+            Data.Model = util.get_label_text(util.reverse_joaat(Data.Hash))
+            Data.Bitfield = Bitfield.new(self.ReadInt(Data.Data + Offsets.VehicleBitfield))
+            Data.Bitfield.address = Data.Data + Offsets.VehicleBitfield
+
+            if Data.Model == 'NULL' then
+                self:AddUnused(Slot, self.unused_slots, Data)
+            elseif self.IsThisModelACar(Data.Hash) or self.IsThisModelABike(Data.Hash) or self.IsThisModelABoat(Data.Hash)
+            or self.IsThisModelAJetski(Data.Hash) or self.IsThisModelAnAmphibiousCar(Data.Hash) or self.IsThisModelAnAmphibiousQuadbike(Data.Hash) then
+                table.insert(Cars, { Slot = Slot, Data = Data, Hash = Data.Hash, Model = Data.Model, Bitfield = Data.Bitfield, root = self.cars })
+            elseif self.IsThisModelAHeli(Data.Hash) or self.IsThisModelAPlane(Data.Hash) then
+                table.insert(Aircraft, { Slot = Slot, Data = Data, Hash = Data.Hash, Model = Data.Model, Bitfield = Data.Bitfield, root = self.aircraft })
+            end
+        end
+
+        Cars = S:SortTable(Cars, |a, b| -> a.Model < b.Model)
+        Aircrafts = S:SortTable(Aircraft, |a, b| -> a.Model < b.Model)
+
+        for Cars as Car do
+            self:AddVehicle(Car.Slot, Car.root, Car.Data)
+        end
+
+        for Aircrafts as Aircraft do
+            self:AddVehicle(Aircraft.Slot, Aircraft.root, Aircraft.Data)
+        end
+    end
+
+    function AddVehicle(Slot, root, VehData)
+        local Data = VehData.Data
+        local Hash = VehData.Hash
+        local Model = VehData.Model
+        local VBitfield = VehData.Bitfield
+
+        local Info = {
+            Slot = nil,
+            Plate = nil,
+            Active = nil,
+            Destroyed = nil,
+            Insured = nil,
+            Impounded = nil,
+            Delivered = nil,
+            MorsSpawn = nil,
+            Bitfield = nil,
+            Radio = nil,
+        }
+
+        local PV = root:list(Model, {}, 'Slot ' .. Slot, function()
+            util.create_tick_handler(function()
+                local Item = menu.get_current_menu_list()
+                if Item.menu_name ~= Model then
+                    Item = nil
+                    return false
+                end
+
+                VBitfield.value = self.ReadInt(Data + Offsets.VehicleBitfield)
+                Info.Slot.menu_name = T'Slot' .. ': ' .. Slot
+                Info.Plate.menu_name = T'Plate' .. ': ' .. self.ReadString(Data + Offsets.LicensePlate)
+                Info.Active.menu_name = T'Active' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.Active) and 'Yes' or 'No')
+                Info.Destroyed.menu_name = T'Destroyed' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.Destroyed) and 'Yes' or 'No')
+                Info.Insured.menu_name = T'Insured' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.Insured) and 'Yes' or 'No')
+                Info.Impounded.menu_name = T'Impounded' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.Impounded) and 'Yes' or 'No')
+                Info.Delivered.menu_name = T'Delivered' .. ': ' .. (not VBitfield:IsSet(VehicleBitfield.Delivered) and 'Yes' or 'No')
+                Info.MorsSpawn.menu_name = T'Mors Spawn' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.SpawnMorsMutual) and 'Yes' or 'No')
+                Info.Bitfield.menu_name = T'Bitfield' .. ': ' .. string.format('0x%X', VBitfield.value)
+                Info.Radio.menu_name = T'Radio' .. ': ' .. self.ReadString(Data + Offsets.VehicleRadio)
+            end)
+        end)
+
+        Info.Slot = PV:readonly(T'Slot' .. ': ' .. Slot, '')
+        Info.Plate = PV:readonly(T'Plate' .. ': ' .. self.ReadString(Data + Offsets.LicensePlate), '')
+        Info.Active = PV:readonly(T'Active' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.Active) and 'Yes' or 'No'), '')
+        Info.Destroyed = PV:readonly(T'Destroyed' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.Destroyed) and 'Yes' or 'No'), '')
+        Info.Insured = PV:readonly(T'Insured' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.Insured) and 'Yes' or 'No'), '')
+        Info.Impounded = PV:readonly(T'Impounded' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.Impounded) and 'Yes' or 'No'), '')
+        Info.Delivered = PV:readonly(T'Delivered' .. ': ' .. (not VBitfield:IsSet(VehicleBitfield.Delivered) and 'Yes' or 'No'), '')
+        Info.MorsSpawn = PV:readonly(T'Mors Spawn' .. ': ' .. (VBitfield:IsSet(VehicleBitfield.SpawnMorsMutual) and 'Yes' or 'No'), '')
+        Info.Bitfield = PV:readonly(T'Bitfield' .. ': ' .. string.format('0x%X', VBitfield.value), '')
+        Info.Radio = PV:readonly(T'Radio' .. ': ' .. self.ReadString(Data + Offsets.VehicleRadio), '')
+
+        PV:divider('')
+
+        PV:toggle(T'Mors Mutual Spawn', {}, '', function(state)
+            if state then
+                VBitfield:Set(VehicleBitfield.SpawnMorsMutual)
+            else
+                VBitfield:Clear(VehicleBitfield.SpawnMorsMutual)
+            end
+        end, VBitfield:IsSet(VehicleBitfield.SpawnMorsMutual))
+
+        PV:toggle_loop(T'Auto Claim', {}, '', function()
+            if VBitfield:IsSet(VehicleBitfield.Destroyed) or VBitfield:IsSet(VehicleBitfield.Impounded) then
+                VBitfield:Clear(VehicleBitfield.Destroyed | VehicleBitfield.Impounded)
+            end
+        end)
+
+        PV:toggle_loop(T'Auto Insure', {}, '', function()
+            if not VBitfield:IsSet(VehicleBitfield.Insured) then
+                VBitfield:Set(VehicleBitfield.Insured)
+            end
+        end)
+
+        PV:divider('')
+
+        PV:action(T'Request', {}, T'', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            self.WriteByte(self.PvSlot, Slot)
+            
+            if VBitfield:IsSet(VehicleBitfield.Destroyed) or VBitfield:IsSet(VehicleBitfield.Impounded) then
+                VBitfield:Clear(VehicleBitfield.Destroyed | VehicleBitfield.Impounded)
+            end
+
+            VBitfield:Set(VehicleBitfield.Request)
+            util.yield(200)
+
+            local Base = self.ScriptGlobal(Globals.RequestBase)
+            if self.ReadInt(Base + 0x958) == -1 then
+                self.WriteInt(Base + 0x1EC8, Slot) -- 985
+                self.WriteByte(Base + 0x1D00, 1) -- 928
+            end
+        end)
+
+        PV:action(T'Request Safe', {}, '', function()
+            self.WriteShort(self.PvSlot, Slot)
+            local Base = self.ScriptGlobal(Globals.RequestBase)
+            if self.ReadInt(Base + 0x958) == -1 then
+                self.WriteInt(Base + 0x1EC8, Slot) -- 985
+                self.WriteByte(Base + 0x1D00, 1) -- 928
+            end
+        end)
+
+        PV:action(T'Request As Pegasus', {}, '', function()
+            local Hash = self.ReadInt(Data + Offsets.VehicleModel)
+            self:RequestPegasusVehicle(Hash)
+        end)
+
+        PV:action(T'Request As CEO Vehicle', {}, '', function()
+            local Hash = self.ReadInt(Data + Offsets.VehicleModel)
+            S:RegisterAsCEO()
+            self:RequestCEOVehicle(Hash)
+        end)
+
+        local return_ref = PV:action(T'Return', {}, '', function()
+            if VBitfield:IsSet(VehicleBitfield.Request) then
+                VBitfield:Clear(VehicleBitfield.Request)
+            end
+        end)
+
+        PV:action(T'Instant Delivery', {}, '', function()
+            VBitfield:Clear(VehicleBitfield.Delivered)
+        end)
+
+        PV:action(T'Claim', {}, '', function()
+            if VBitfield:IsSet(VehicleBitfield.Destroyed) or VBitfield:IsSet(VehicleBitfield.Impounded) then
+                VBitfield:Clear(VehicleBitfield.Destroyed | VehicleBitfield.Impounded)
+            end
+        end)
+
+        PV:action(T'Delete', {}, '', function()
+            VBitfield:Reset()
+            util.yield_once()
+            VBitfield:Clear(VehicleBitfield.Request)
+            VBitfield:Set(VehicleBitfield.Impounded | VehicleBitfield.DestroyedByPolice)
+            util.yield(1000)
+            VBitfield:Set(VehicleBitfield.Request)
+        end)
+
+        PV:divider('')
+        local Plate = PV:list(T'Plate', {}, T'Plate')
+        Plate:text_input(T'Plate', {T'pvmplate' .. tostring(Slot)}, T'The plate to set on this vehicle', function(Plate)
+            self.WriteString(Data + Offsets.LicensePlate, Plate)
+        end, self.ReadString(Data + Offsets.LicensePlate))
+
+        local ModelSpoofer = PV:list(T'Model Spoofer', {}, T'Model Spoofer')
+        local LSC = PV:list(T'Los Santos Customs', {}, T'Los Santos Customs')
+
+        ModelSpoofer:text_input(T'Model', {T'pvmmodelspoof' .. Slot}, T'Spoof your personal vehicles model, the vehicle must be in your garage for this to work', function(Model)
+            if not SCRIPT_CAN_CONTINUE then return end
+            local Hash = util.joaat(Model)
+            if self.IsModelValid(Hash) then
+                self.WriteInt(Data + Offsets.VehicleModel, Hash)
+            else
+                util.toast('Invalid model')
+            end
+        end, util.get_label_text(util.reverse_joaat(self.ReadInt(Data + Offsets.VehicleModel))))
+        local ModelSpooferVehList = ModelSpoofer:list(T'Models', {}, '')
+
+        for VehModels as Model do
+            ModelSpooferVehList:action(Model, {}, Model, function()
+                if not SCRIPT_CAN_CONTINUE then return end
+                local Model = util.joaat(Model)
+                if self.IsModelValid(Model) then
+                    self.WriteInt(Data + Offsets.VehicleModel, Model)
+                else
+                    util.toast('Invalid model')
+                end
+            end)
+        end
+
+        local Bumpers = shadow_root:list(T'Bumpers', {}, '')
+        local ImaniTech = shadow_root:list(T'Imani Tech', {}, '')
+        local Lights = shadow_root:list(T'Lights', {}, '')
+        local LicensePlate = shadow_root:list(T'License Plate', {}, '')
+        local Respray = shadow_root:list(T'Respray', {}, '')
+        local Wheels = shadow_root:list(T'Wheels', {}, '')
+
+        LSC:slider(T'Aerials', {}, '', 0, 4, self.ReadShort(Data + Offsets.VehicleAerials), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteShort(Data + Offsets.VehicleAerials, value)
+            end
+        end)
+
+        LSC:slider(T'Armour', {}, '', 0, 5, self.ReadInt(Data + Offsets.VehicleArmour), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleArmour, value)
+            end
+        end)
+
+        LSC:slider(T'Armour Plating / Primary Weapon', {}, '', 0, 1, self.ReadInt(Data + Offsets.VehicleArmourPlatingPrimaryWeapon), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleArmourPlatingPrimaryWeapon, value)
+            end
+        end)
+
+        LSC:slider(T'Brakes', {}, '', 0, 3, self.ReadInt(Data + Offsets.VehicleBrakes), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleBrakes, value)
+            end
+        end)
+
+        Bumpers = LSC:attach(Bumpers)
+
+        Bumpers:slider(T'Front', {}, '', 0, 17, self.ReadInt(Data + Offsets.VehicleFrontBumper), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleFrontBumper, value)
+            end
+        end)
+
+        Bumpers:slider(T'Rear', {}, '', 0, 17, self.ReadInt(Data + Offsets.VehicleRearBumper), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleRearBumper, value)
+            end
+        end)
+
+        LSC:slider(T'Engine', {}, '', 0, 3, self.ReadInt(Data + Offsets.VehicleEngine), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleEngine, value)
+            end
+        end)
+
+        LSC:slider(T'Canards', {}, '', 0, 3, self.ReadInt(Data + Offsets.VehicleCanards), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleCanards, value)
+            end
+        end)
+
+        LSC:slider(T'Horn', {}, '', 0, 58, self.ReadInt(Data + Offsets.VehicleHorn), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleHorn, value)
+            end
+        end)
+
+        ImaniTech = LSC:attach(ImaniTech)
+        local ImaniCurrent = self.ReadInt(Data + Offsets.VehicleImaniTech)
+        if ImaniCurrent < 0 or ImaniCurrent > 2 then
+            ImaniCurrent = 1
+        end
+
+        ImaniTech:list_select(T'Imani', {}, '', ImaniTechUpgrades, ImaniCurrent + 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleImaniTech, value - 1)
+            end
+        end)
+
+        Lights = LSC:attach(Lights)
+
+        Lights:slider(T'Headlights', {}, '', 0, 14, self.ReadInt(Data + Offsets.VehicleHeadLights), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self. WriteInt(Data + Offsets.VehicleHeadLights, value)
+            end
+        end)
+
+        Lights:list_select(T'Neon Layout', {}, '', NeonLayouts, self:GetNeonLayout(Slot) or 1, function(value)
+            local Layout = NeonLayouts[value]
+            local NLBitfield = Bitfield.new(self.ReadInt(Data + Offsets.VehicleNeonLayout))
+            NLBitfield.address = Data + Offsets.VehicleNeonLayout
+        
+            if SCRIPT_CAN_CONTINUE then
+                if Layout == 'None' then
+                    NLBitfield:Clear(0x1F0000000)
+                elseif Layout == 'Front' then
+                    NLBitfield:Clear(0x1F0000000)
+                    NLBitfield:Set(1 << 28)
+                elseif Layout == 'Back' then
+                    NLBitfield:Clear(0x1F0000000)
+                    NLBitfield:Set(1 << 29)
+                elseif Layout == 'Sides' then
+                    NLBitfield:Clear(0x1F0000000)
+                    NLBitfield:Set(0x1C0000000)
+                elseif Layout == 'Front and Back' then
+                    NLBitfield:Clear(0x1F0000000)
+                    NLBitfield:Set(0x30000000)
+                elseif Layout == 'Front and Sides' then
+                    NLBitfield:Clear(0x1F0000000)
+                    NLBitfield:Set(0x1D0000000)
+                elseif Layout == 'Back and Sides' then
+                    NLBitfield:Clear(0x1F0000000)
+                    NLBitfield:Set(0x1E0000000)
+                elseif Layout == 'All' then
+                    NLBitfield:Clear(0x1F0000000)
+                    NLBitfield:Set(0x1F0000000)
+                end
+            end
+        end)
+
+        local NeonCustom = Lights:colour(T'Neon Colour', {}, '', self:GetNeonColour(Slot), false, function(Colour)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleNeonColourRed, math.floor(Colour.r * 255))
+                self.WriteInt(Data + Offsets.VehicleNeonColourGreen, math.floor(Colour.g * 255))
+                self.WriteInt(Data + Offsets.VehicleNeonColourBlue, math.floor(Colour.b * 255))
+            end
+        end)
+        
+        NeonCustom:divider(T'Hex')
+        
+        NeonCustom:action(T'Enter Hex Code', {}, 'Do not include # or 0x', function()
+            local Hexa = S:DisplayOnscreenKeyboard()
+            Hexa = tonumber(Hexa, 16)
+        
+            if Hexa == nil then
+                util.toast(T'Invalid input has been provided')
+                return
+            end
+        
+            local Red, Green, Blue = (Hexa & 0xFF), ((Hexa >> 8) & 0xFF), ((Hexa >> 16) & 0xFF)
+        
+            self.WriteInt(Data + Offsets.VehicleNeonColourRed, Red)
+            self.WriteInt(Data + Offsets.VehicleNeonColourGreen, Green)
+            self.WriteInt(Data + Offsets.VehicleNeonColourBlue, Blue)
+        
+            local RedRef = menu.ref_by_rel_path(NeonCustom, T'Red')
+            local GreenRef = menu.ref_by_rel_path(NeonCustom, T'Green')
+            local BlueRef = menu.ref_by_rel_path(NeonCustom, T'Blue')
+        
+            RedRef.value = Red
+            GreenRef.value = Green
+            BlueRef.value = Blue
+        end)
+
+        LSC:slider(T'Livery', {}, '', 0, 10, self.ReadInt(Data + Offsets.VehicleLivery), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleLivery, value)
+            end
+        end)
+
+        LSC:slider(T'Mirrors', {}, '', 0, 3, self.ReadInt(Data + Offsets.VehicleMirrors), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleMirrors, value)
+            end
+        end)
+
+        LSC:slider(T'Roof / Secondary Weapon', {}, '', 0, 4, self.ReadInt(Data + Offsets.VehicleRoofSecondaryWeapon), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleRoofSecondaryWeapon, value)
+            end
+        end)
+
+        LSC:slider(T'Skirts', {}, '', 0, 12, self.ReadInt(Data + Offsets.VehicleSkirts), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleSkirts, value)
+            end
+        end)
+
+        LSC:slider(T'Louvers', {}, '', 0, 10, self.ReadInt(Data + Offsets.VehicleLouvers), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleLouvers, value)
+            end
+        end)
+
+        LicensePlate = LSC:attach(LicensePlate)
+
+        LicensePlate:slider(T'Type', {}, '', 0, 4, self.ReadInt(Data + Offsets.LicensePlateType), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.LicensePlateType, value)
+            end
+        end)
+
+        LicensePlate:text_input(T'Text', {'pvmanager' .. Slot .. 'plate'}, '', function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteString(Data + Offsets.LicensePlate, value)
+            end
+        end, self.ReadString(Data + Offsets.LicensePlate))
+
+        Respray = LSC:attach(Respray)
+        local PrimaryColour = Respray:list('Primary Colour', {}, 'Primary Colour')
+        local SecondaryColour = Respray:list('Secondary Colour', {}, 'Secondary Colour')
+
+        local DefaultColour = {
+            r = self.ReadInt(Data + Offsets.VehiclePrimaryColourRed) / 255,
+            g = self.ReadInt(Data + Offsets.VehiclePrimaryColourGreen) / 255,
+            b = self.ReadInt(Data + Offsets.VehiclePrimaryColourBlue) / 255,
+            a = 1
+        }
+
+        PrimaryColour:colour('Custom Primary Colour', {}, 'The custom colour of the primary colour', DefaultColour, false, function(Colour)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleNeonLayout, self.ReadInt(Data + Offsets.VehicleNeonLayout) | (1 << 13))
+                self.WriteInt(Data + Offsets.VehiclePrimaryColourRed, math.floor(Colour.r * 255))
+                self.WriteInt(Data + Offsets.VehiclePrimaryColourGreen, math.floor(Colour.g * 255))
+                self.WriteInt(Data + Offsets.VehiclePrimaryColourBlue, math.floor(Colour.b * 255))
+            end
+        end)
+
+        PrimaryColour:slider('Primary Colour', {}, '', 0, 159, self.ReadInt(Data + Offsets.VehiclePrimaryColour), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleNeonLayout, self.ReadInt(Data + Offsets.VehicleNeonLayout) & ~(1 << 13))
+                self.WriteInt(Data + Offsets.VehiclePrimaryColour, value)
+            end
+        end)
+
+        SecondaryColour:slider('Secondary Colour', {}, '', 0, 159, self.ReadInt(Data + Offsets.VehicleSecondaryColour), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleSecondaryColour, value)
+            end
+        end)
+
+        local TrimColour = Respray:slider('Trim Colour', {}, '', 0, 112, self.ReadInt(Data + Offsets.VehicleSecondaryColour), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleSecondaryColour, value)
+            end
+        end)
+
+        local CrewEmblem = Respray:toggle('Crew Emblem', {}, '', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                if state then
+                    VBitfield:Set(VehicleBitfield.CrewEmblem)
+                else
+                    VBitfield:Clear(VehicleBitfield.CrewEmblem)
+                end
+            end
+        end, VBitfield:IsSet(VehicleBitfield.CrewEmblem))
+
+        LSC:slider('Sunstrips', {}, '', 0, 2, self.ReadInt(Data + Offsets.VehicleRoofSecondaryWeapon), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleRoofSecondaryWeapon, value)
+            end
+        end)
+
+        LSC:slider('Spoiler', {}, '', 0, 9, self.ReadInt(Data + Offsets.VehicleSpoiler), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleSpoiler, value)
+            end
+        end)
+
+        LSC:slider('Suspension', {}, '', 0, 4, self.ReadInt(Data + Offsets.VehicleSuspension), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleSuspension, value)
+            end
+        end)
+
+        LSC:slider('Trunks', {}, '', 0, 2, self.ReadInt(Data + Offsets.VehicleTrunks), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleTrunks, value)
+            end
+        end)
+
+        LSC:slider(T'Transmission', {}, '', 0, 3, self.ReadInt(Data + Offsets.VehicleTransmission), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleTransmission, value)
+            end
+        end)
+
+        LSC:toggle('Turbo', {}, '', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleTurbo, state ? 1 : 0)
+            end
+        end, self.ReadInt(Data + Offsets.VehicleTurbo) ~= 0)
+
+        Wheels = LSC:attach(Wheels)
+
+        Wheels:slider(T'Wheel Type', {}, '', 0, 30, self.ReadInt(Data + Offsets.VehicleWheelType), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleWheelType, value)
+            end
+        end)
+
+        Wheels:slider(T'Rim Type', {}, '', 0, 12, self.ReadInt(Data + Offsets.VehicleRimType), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleRimType, value)
+            end
+        end)
+
+        Wheels:slider(T'Wheel Colour', {}, '', 0, 160, self.ReadInt(Data + Offsets.VehicleWheelColour), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleWheelColour, value)
+            end
+        end)
+
+        local Tires = Wheels:list(T'Tires', {}, '')
+
+        Tires:list_select(T'Design', {}, '', WheelsData.WheelDesign, self.ReadInt(Data + Offsets.VehicleTiresDesign) + 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleTiresDesign, value - 1)
+                self.WriteInt(Data + Offsets.VehicleTiresDesign1, 1)
+            end
+        end)
+
+        Tires:toggle(T'Bulletproof Tires', {}, '', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                local BTBitfield = Bitfield.new(self.ReadInt(Data + Offsets.VehicleNeonLayout))
+                BTBitfield.address = Data + Offsets.VehicleNeonLayout
+                if state then BTBitfield:Set(0xA00) else BTBitfield:Clear(0xA00) end
+                self.WriteInt(Data + Offsets.VehicleBulletProofTiresToggle, state ? 1 : 0)
+            end
+        end, self.ReadInt(Data + Offsets.VehicleBulletProofTiresToggle) ~= 0)
+
+        local Colour = {
+            r = self.ReadInt(Data + Offsets.VehicleTiresSmokeColourRed) / 255,
+            g = self.ReadInt(Data + Offsets.VehicleTiresSmokeColourGreen) / 255,
+            b = self.ReadInt(Data + Offsets.VehicleTriesSmokeColourBlue) / 255,
+            a = 1
+        }
+
+        Tires:colour(T'Smoke Colour', {}, '', Colour, false, function(Colour)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleTiresSmokeColourRed, math.floor(Colour.r * 255))
+                self.WriteInt(Data + Offsets.VehicleTiresSmokeColourGreen, math.floor(Colour.g * 255))
+                self.WriteInt(Data + Offsets.VehicleTriesSmokeColourBlue, math.floor(Colour.b * 255))
+            end
+        end)
+
+        LSC:slider(T'Windows', {}, '', 0, 3, self.ReadInt(Data + Offsets.VehicleWindows), 1, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                self.WriteInt(Data + Offsets.VehicleWindows, value)
+            end
+        end)
+    end
+
+    function AddUnused(Slot, root, VehData)
+        local Data = VehData.Data
+        local VehicleSlot = root:list(tostring(Slot), {}, 'Experimental feature')
+        local AddVehicle = VehicleSlot:list(T'Add Vehicle', {}, T'Add Vehicle')
+
+        AddVehicle:text_input(T'Model', {T'pvmmodel' .. tostring(Slot)}, T'The model to set in this slot', function(Model)
+            local Hash = util.joaat(Model)
+            if self.IsModelValid(Hash) then
+                self.WriteInt(Data + Offsets.VehicleModel, Hash)
+                VehicleSlot.menu_name = tostring(Slot) .. ': ' .. util.get_label_text(util.reverse_joaat(Hash))
+            else
+                util.toast('Invalid model')
+            end
+        end, 'adder')
+    end
+
+    function RequestCEOVehicle(VehicleHash)
+        local Request = self.ScriptGlobal(Globals.OrganisationBase + 10)
+        self.WriteInt(Request + 0x1F0, VehicleHash)
+        self.WriteByte(Request + 0x1E0, 1)
+    end
+
+    function RequestPegasusVehicle(VehicleHash)
+        -- credit to acjoker for finding the globals that made this possible
+        local Request = self.ScriptGlobal(Globals.PegasusRequest)
+        local Request1 = Request + 0x8
+    
+        self.WriteInt(Request1, VehicleHash)
+        self.WriteInt(Request, self.ReadInt(Request) ~ (1 << 7))
+        util.yield_once()
+        self.WriteInt(Request, self.ReadInt(Request) ~ (1 << 7))
+    end
+
+    function GetNeonLayout(Slot)
+        local Data = self.ScriptGlobal(Globals:PersonalVehicleData(Slot))
+        local Layout = self.ReadInt(Data + Offsets.VehicleNeonLayout + 1) >> 16
+
+        return ({
+            [0] = 1,
+            [0x10] = 2,
+            [0x20] = 3,
+            [0x1C] = 4,
+            [0x30] = 5,
+            [0xD0] = 6,
+            [0xE0] = 7,
+            [0xF0] = 8
+        })[layout] or 1
+    end
+
+    function GetNeonColour(Slot)
+        local Data = self.ScriptGlobal(Globals:PersonalVehicleData(Slot)) -- Global_1586468[func_1155() /*142*/].f_103
+
+        return {
+            r = self.ReadByte(Data + Offsets.VehicleNeonColourRed) / 0xFF,
+            g = self.ReadByte(Data + Offsets.VehicleNeonColourGreen) / 0xFF,
+            b = self.ReadByte(Data + Offsets.VehicleNeonColourBlue) / 0xFF,
+            a = 1
+        }
+    end
+
+    --[[BOOL (bool)]] static function IsThisModelAPlane(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xA0948AB42D7BA0DE)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelAHeli(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xDCE4334788AF94EA)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelACar(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x7F6DB52EEFC96DF8)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelAnAmphibiousCar(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x633F6F44A537EBB6)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelABike(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xB50C0B0CEDC6CE84)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelABicycle(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xBF94DD42F63BDED2)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelAQuadbike(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x39DAC362EE65FA28)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelAnAmphibiousCar(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x633F6F44A537EBB6)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelAnAmphibiousQuadbike(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xA1A9FC1C76A6730D)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelABoat(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x45A9187928F4B9E3)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsThisModelAJetski(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x9537097412CF75FE)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsModelValid(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xC0296A2EDF545E92)return native_invoker.get_return_value_bool()end
+end
+
+return PVM

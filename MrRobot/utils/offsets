@@ -1,0 +1,146 @@
+local Offsets = {}
+Offsets.Online = {}
+Offsets.Self = {}
+Offsets.Vehicles = {}
+Offsets.Players = {}
+
+Offsets.Online.RequestOffsets = {
+    Bandito = 0xD6F8,
+    Tank = 0xD700,
+    MOC = 0x1D10,
+    Avenger = 0x1D50,
+    AcidLab = 0x1D80,
+    Terrorbyte = 0x1D78,
+    Dinghy = 0x1E60,
+    Kosatka = 0x1E00,
+    Sparrow = 0x108,
+    Avisa = 0x110,
+    AvengerThruster = 0xF0,
+    RatBike = 0xD0,
+    BallisticArmor = 0x1C28,
+    AmmoDrop = 0x1BD8,
+    Helicopter = 0x1BE8,
+    DeliveryBike = 0x1F10,
+    Airstrike = 0x8C60,
+    BackupHeli = 0x8C58,
+    BullsharkTestosterone = 0x1C18
+}
+
+Offsets.Online.SpoofingOffsets = {
+    HideFromPlayerList = 0x0,
+    RP = 0x8,
+    Rank = 0x30,
+    Wallet = 0x18,
+    TotalMoney = 0x1C0,
+    PlayerKD = 0xD0,
+    PlayerKills = 0xE0,
+    PlayerDeaths = 0xE8
+}
+
+Offsets.Online.Bits = {
+    ExcludeSelf = 1 << 0,
+    ExcludeFriends = 1 << 1,
+    CustomBounty = 1 << 2
+}
+
+Offsets.Online.KosatkaStats = {
+	UnlockKosatka = 1 << 0,
+	UnlockSonar = 1 << 1,
+	UnlockGuidedMissiles = 1 << 2,
+	UnlockWeaponWorkshop = 1 << 3,
+	UnlockSparrow = 1 << 4,
+	UnlockAvisa = 1 << 5,
+	ReturnSparrow = 1 << 6,
+	ReturnAvisa = 1 << 7,
+	UnlockAcidLab = 1 << 14
+}
+
+Offsets.Online.LesterLocate = {
+	Boat = 1 << 3,
+	Heli = 1 << 4,
+	Car = 1 << 5,
+	Plane = 1 << 6
+}
+
+Offsets.Self.Bits = {
+    HealthThreshold = 0x7F,
+    ModdedHealth = 1 << 8,
+    ForceGhostOrg = 0x6,
+    OffRadar = 0x6,
+    StealthMode = 0xA,
+    BribeAuthorities = 0x51,
+    SpoofInteriorState = 1 << 12,
+    BecomeInterior = 1 << 0,
+    CopsTurnBlindEye = 0 
+}
+
+Offsets.Vehicles.LSCustoms = {
+    VehicleBitfield = 0x338,
+	LicensePlateType = 0x0,
+	LicensePlate = 0x8,
+	VehicleModel = 0x210,
+	VehicleRadio = 0x3D0,
+	VehicleAerials = 0x1A8,
+	VehicleArmour = 0xD0,
+	VehicleArmourPlatingPrimaryWeapon = 0x78,
+	VehicleBrakes = 0xB0,
+	VehicleFrontBumper = 0x58,
+	VehicleRearBumper = 0x60,
+	VehicleEngine = 0xA8,
+	VehicleCanards = 0x80,
+	VehicleHorn = 0xC0,
+	VehicleImaniTech = 0x1B0,
+	VehicleHeadLights = 0x100,
+	VehicleNeonLayout = 0x268,
+	VehicleNeonColourRed = 0x250,
+	VehicleNeonColourGreen = 0x258,
+	VehicleNeonColourBlue = 0x260,
+	VehicleLivery = 0x1D0,
+	VehicleMirrors = 0x90,
+	VehicleRoofSecondaryWeapon = 0xA0,
+	VehicleSkirts = 0x68,
+	VehicleLouvers = 0x80,
+	VehiclePrimaryColourRed = 0x238,
+	VehiclePrimaryColourGreen = 0x240,
+	VehiclePrimaryColourBlue = 0x248,
+	VehiclePrimaryColourToggle = 0x268,
+	VehiclePrimaryColour = 0x28,
+	VehicleSecondaryColour = 0x30,
+	VehicleTrimColour = 0x308,
+	VehicleCrewEmblem = 0x338,
+	VehicleSunStrips = 0xA0,
+	VehicleSpoiler = 0x50,
+	VehicleSuspension = 0xC8,
+	VehicleTrunks = 0x88,
+	VehicleTransmission = 0xB8,
+	VehicleTurbo = 0xE0,
+	VehicleWheelType = 0x108,
+	VehicleRimType = 0x230,
+	VehicleWheelColour = 0x40,
+	VehicleTiresDesign = 0x1E0,
+	VehicleTiresDesign1 = 0xF0,
+	VehicleBulletProofTires = 0x260,
+	VehicleBulletProofTiresToggle = 0x330,
+	VehicleTiresSmokeColourRed = 0x1F0,
+	VehicleTiresSmokeColourGreen = 0x1F8,
+	VehicleTriesSmokeColourBlue = 0x200,
+	VehicleWindows = 0x208
+}
+
+Offsets.Vehicles.VehicleBitfield = {
+	Active = 1 << 0,
+	Request = 1 << 0,
+	Destroyed = 1 << 1,
+	Insured = 1 << 2,
+	Impounded = 1 << 6,
+	CrewEmblem = 1 << 8,
+	Delivered = 1 << 10,
+	SpawnMorsMutual = 1 << 11,
+	DestroyedByPolice = 1 << 16
+}
+
+Offsets.Players.Bits = {
+    ForceScriptHost = 1 << 0
+}
+
+return Offsets

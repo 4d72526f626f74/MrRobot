@@ -1,837 +1,907 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
-local T = require('translations')
-local pedlist = require('pedlist')
-local cutscenes = require('cutscenes')
-local BitModule = require('bit')
-local Bit, BitMask, Pack = BitModule.Bit, BitModule.BitMask, BitModule.Pack
-local Shared = require('shared')
+local T, S = require('translations'), require('shared')
+local PedList = require('pedlist')
+local Cutscenes = require('cutscenes')
+local ScriptOffsets = require('offsets')
+local Globals = require('script_globals')
+local Bitfield = require('bitfield')
 
-local ClearAllPedProps = Shared.ClearAllPedProps
-local TaskPlayAnim = Shared.TaskPlayAnim
-local SetCurrWeatherState = Shared.SetCurrWeatherState
-local SetEntityInvincible = Shared.SetEntityInvincible
-local SetPedArmour = Shared.SetPedArmour
-local SetEntityCanBeDamaged = Shared.SetEntityCanBeDamaged
-local SetArtificialLightsState = Shared.SetArtificialLightsState
-local FreezeEntityPosition = Shared.FreezeEntityPosition
-local SetArtificialVehicleLightsState = Shared.SetArtificialVehicleLightsState
-local NetworkHasControlOfEntity = Shared.NetworkHasControlOfEntity
-local FinalizeHeadBlend = Shared.FinalizeHeadBlend
-local IsAudioSceneActive = Shared.IsAudioSceneActive
-local NetworkStartSynchronisedScene = Shared.NetworkStartSynchronisedScene
-local NetworkAddSynchronisedSceneCamera = Shared.NetworkAddSynchronisedSceneCamera
-local GetEntityMaxHealth = Shared.GetEntityMaxHealth
-local SetPlayerMeleeWeaponDamageModifier = Shared.SetPlayerMeleeWeaponDamageModifier
-local SetPedMaxHealth = Shared.SetPedMaxHealth
-local GiveWeaponToPed = Shared.GiveWeaponToPed
-local SetParkedVehicleDensityMultiplierThisFrame = Shared.SetParkedVehicleDensityMultiplierThisFrame
-local SetTimecycleModifierStrength = Shared.SetTimecycleModifierStrength
-local GetGameplayCamRot = Shared.GetGameplayCamRot
-local SetPlayerVehicleDamageModifier = Shared.SetPlayerVehicleDamageModifier
-local StartAudioScene = Shared.StartAudioScene
-local SetPlayerIsInAnimalForm = Shared.SetPlayerIsInAnimalForm
-local SetEntityRotation = Shared.SetEntityRotation
-local ShootSingleBulletBetweenCoords = Shared.ShootSingleBulletBetweenCoords
-local NetworkForceLocalUseOfSyncedSceneCamera = Shared.NetworkForceLocalUseOfSyncedSceneCamera
-local SetPedUpperBodyDamageOnly = Shared.SetPedUpperBodyDamageOnly
-local SetEntityAlpha = Shared.SetEntityAlpha
-local ClearTimecycleModifier = Shared.ClearTimecycleModifier
-local SetPlayerLeavePedBehind = Shared.SetPlayerLeavePedBehind
-local SetEntityHealth = Shared.SetEntityHealth
-local SetPedSuffersCriticalHits = Shared.SetPedSuffersCriticalHits
-local IsPedInAnyVehicle = Shared.IsPedInAnyVehicle
-local GetVehiclePedIsIn = Shared.GetVehiclePedIsIn
-local GetPedMaxHealth = Shared.GetPedMaxHealth
-local SetTransitionTimecycleModifier = Shared.SetTransitionTimecycleModifier
-local AddOwnedExplosion = Shared.AddOwnedExplosion
-local SetDisableHighFallDeath = Shared.SetDisableHighFallDeath
-local StopAudioScene = Shared.StopAudioScene
-local SetRandomVehicleDensityMultiplierThisFrame = Shared.SetRandomVehicleDensityMultiplierThisFrame
-local AnimpostfxIsRunning = Shared.AnimpostfxIsRunning
-local SetTimecycleModifier = Shared.SetTimecycleModifier
-local NetworkRequestControlOfEntity = Shared.NetworkRequestControlOfEntity
-local StatSetFloat = Shared.StatSetFloat
-local GetPlayerMaxArmour = Shared.GetPlayerMaxArmour
-local SetPedComponentVariation = Shared.SetPedComponentVariation
-local GetLightOverrideMaxIntensityScale = Shared.GetLightOverrideMaxIntensityScale
-local SetAmbientVehicleRangeMultiplierThisFrame = Shared.SetAmbientVehicleRangeMultiplierThisFrame
-local ForcePedAiAndAnimationUpdate = Shared.ForcePedAiAndAnimationUpdate
-local ForceLightningFlash = Shared.ForceLightningFlash
-local SetPedConfigFlag = Shared.SetPedConfigFlag
-local NetworkDisableLeaveRemotePedBehind = Shared.NetworkDisableLeaveRemotePedBehind
-local GetPedLastWeaponImpactCoord = Shared.GetPedLastWeaponImpactCoord
-local SetPlayerMaxExplosiveDamage = Shared.SetPlayerMaxExplosiveDamage
-local GetSelectedPedWeapon = Shared.GetSelectedPedWeapon
-local SetEntityCollision = Shared.SetEntityCollision
-local GetPlayerPed = Shared.GetPlayerPed
-local GetOffsetFromEntityInWorldCoords = Shared.GetOffsetFromEntityInWorldCoords
-local NetworkCreateSynchronisedScene = Shared.NetworkCreateSynchronisedScene
-local AnimpostfxStop = Shared.AnimpostfxStop
-local StatSetInt = Shared.StatSetInt
-local SetVehicleDensityMultiplierThisFrame = Shared.SetVehicleDensityMultiplierThisFrame
-local IsEntityDead = Shared.IsEntityDead
-local SetWeatherTypeNowPersist = Shared.SetWeatherTypeNowPersist
-local GetEntityHeading = Shared.GetEntityHeading
-local AnimpostfxStopAll = Shared.AnimpostfxStopAll
-local ClearPedTasksImmediately = Shared.ClearPedTasksImmediately
-local SetRunSprintMultiplierForPlayer = Shared.SetRunSprintMultiplierForPlayer
-local AnimpostfxPlay = Shared.AnimpostfxPlay
-local GetNetworkTime = Shared.GetNetworkTime
-local SetLightOverrideMaxIntensityScale = Shared.SetLightOverrideMaxIntensityScale
-local SetEntityVisible = Shared.SetEntityVisible
-local GetEntityHealth = Shared.GetEntityHealth
-local SetPedDensityMultiplierThisFrame = Shared.SetPedDensityMultiplierThisFrame
-local SetEntityProofs = Shared.SetEntityProofs
-local ClearPedStoredHatProp = Shared.ClearPedStoredHatProp
-local SetPlayerVehicleDefenseModifier = Shared.SetPlayerVehicleDefenseModifier
-local SetScenarioPedDensityMultiplierThisFrame = Shared.SetScenarioPedDensityMultiplierThisFrame
-local TogglePausedRenderphases = Shared.TogglePausedRenderphases
-local PlaySoundFrontend = Shared.PlaySoundFrontend
-local SetEntityCoordsNoOffset = Shared.SetEntityCoordsNoOffset
-local SetPedMoveRateOverride = Shared.SetPedMoveRateOverride
-local SetPedStrafeClipset = Shared.SetPedStrafeClipset
-local ResetPedStrafeClipset = Shared.ResetPedStrafeClipset
-local GetEntitySpeed = Shared.GetEntitySpeed
-local StartNetworkedParticleFxNonLoopedOnPedBone = Shared.StartNetworkedParticleFxNonLoopedOnPedBone
-local GetEntityRotation = Shared.GetEntityRotation
-local SetPlayerModel = Shared.SetPlayerModel
+PedList = S:SortTable(PedList, |a, b| -> a < b)
+Cutscenes = S:SortTable(Cutscenes, |a, b| -> a < b)
 
--- menu
-local ref_by_path = menu.ref_by_path
-local ref_by_rel_path = menu.ref_by_rel_path
-local is_session_started = util.is_session_started
-local create_tick_handler = util.create_tick_handler
-local stand_lock_time = ref_by_path('World>Atmosphere>Clock>Lock Time')
-local stand_time_midnight = ref_by_path('World>Atmosphere>Clock>Midnight')
-local stand_smooth_transition = ref_by_path('World>Atmosphere>Clock>Smooth Transition')
+local CharSlot, PlayerID = util.get_char_slot(), players.user()
+local Bits = ScriptOffsets.Self.Bits
+local Settings = Bitfield.new(100)
 
-local ReadByte = memory.read_byte
-local WriteByte = memory.write_byte
-local WriteInt = memory.write_int
-local ReadInt = memory.read_int
-local WriteFloat = memory.write_float
-local ReadFloat = memory.read_float
-local WriteShort = memory.write_short
-local ReadShort = memory.read_short
-local ScriptGlobal = memory.script_global
-local ScriptLocal = memory.script_local
-local is_key_down = util.is_key_down
-local joaat = util.joaat
-local ReverseJoaat = Shared.ReverseJoaat
-local GetModelHash = Shared.GetModelHash
-
-local settings = 100
-local PLAYER_ID = Shared.PLAYER_ID
-
-local INSTANT_BST <const> = 2672524 + 3690 -- Global_2672505.f_3690
-local INSTANT_BST_LOCAL <const> = 8340 + 1 -- func_12519(&iLocal_8285); (iParam0->f_1)
-local TELEPORT_NEAREST_HOSPITAL <const> = 2635560 + 2781 -- Global_2635559.f_2681
-local FAST_RESPAWN <const> = 1574964 -- Global_1574964
-local RESPAWN_STATE <const> = 2672524 + 1685 + 756 -- Global_2672505.f_1685.f_756
-local PLAYER_KILLER <const> = 2672524 + 1685 + 703 + 16 -- Global_2672505.f_1685.f_703.f_16
-local EQUIP_BALLISTIC_ARMOR <const> = 2794162 + 902 -- Global_2793046.f_897
-local MENTAL_STATE <const> = 2794162 + 4699 -- Global_2793046.f_4692
-local BRIBE_AUTHORITIES <const> = 2794162 + 4661 -- Global_2793046.f_4654
-local ABILITIES_BITFIELD <const> = 2794162 + 4667 -- Global_2793046.f_4660
-local OTR_GHOST_TIMER <const> = 2672524 + 57 -- Global_2672505.f_57
-local LEGIT_OFF_THE_RADAR <const> = 2657704 + 1 + (PLAYER_ID * 463) + 210 -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_210
-local BOUNTY_LOCAL <const> = 2794162 + 1893 + 17 -- Global_2793046.f_1886.f_17 new: Global_2794162.f_1893.f_17
-local BOUNTY_TIMER <const> = 2359296 + 1 + (0 * 5568) + 5150 + 13 -- Global_2359296[func_876() /*5568*/].f_5150.f_13
-local ORBITAL_CANNON <const> = 2657704 + 1 + (PLAYER_ID * 463) + 424 -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_427 new: Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_424
-
-enum Bits begin
-    HealthThreshold = 0x7F,
-    ModdedHealth = 8,
-    ForceGhostOrg = 0x6,
-    OffRadar = 0x6,
-    StealthMode = 0xA,
-    BribeAuthorities = 0x51,
-    SpoofInteriorState = 12,
-    BecomeInterior = 0,
-    CopsTurnBlindEye = 0
-end
-
-local impact_coords = nil
-local otr = nil
-local bribe = nil
-local blindeye = nil
-local invis = nil
-local interior_state = nil
-local respawn = nil
-local respawn_state = nil
-local killer_karma = nil
-local mentalstate = nil
-local mentalstate_value = nil
-local otrghost_timer = nil
-local forceghostorg = nil
-local bst = nil
-local bst_local = nil
-local tp_hospital = nil
-local ballistic_armor = nil
-local bounty_local = nil
-local bounty_timer = nil
-local legit_otr = nil
-local orbital_cannon = nil
-local become_interior = nil
-local pause_menu = nil
-
-local otr_ref = nil
-local interior_state_ref = nil
-local invis_ref = nil
-local noclip_speed = nil
-
-local function SuperPunch(explosion_type, damage, isAudible, isInvisible, cameraShake)
-    local ped = players.user_ped()
-    impact_coords = impact_coords ?? v3()
-
-    if util.reverse_joaat(GetSelectedPedWeapon(ped)) == 'WEAPON_UNARMED' then
-        if GetPedLastWeaponImpactCoord(ped, impact_coords) then 
-            SetEntityProofs(ped, true, true, true, true, true, true, true, true)
-            AddOwnedExplosion(ped, impact_coords.x, impact_coords.y, impact_coords.z, explosion_type, damage, isAudible, isInvisible, cameraShake)
-            util.yield(500)
-            SetEntityProofs(ped, false, false, false, false, false, false, false, false)
-        end
-    end
-end
-
-local function ShootPlayer(target, weapon_hash, damage)
-    local player = GetPlayerPed(target)
-    local pos = GetOffsetFromEntityInWorldCoords(player, 0.0, 0.0, 0.0)
-    ShootBulletBetweenCoords(pos.x, pos.y, pos.z, pos.x, pos.y, pos.z, damage or 100, true, weapon_hash, players.user_ped(), true, true, -1.0)
-end
-
-local function OffTheRadar(ghost_org=false)
-    legit_otr ??= ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 210) -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_210
-    otrghost_timer ??= ScriptGlobal(OTR_GHOST_TIMER)
-    forceghostorg ??= ScriptGlobal(ABILITIES_BITFIELD)
-
-    if ReadByte(legit_otr) == 0 then
-        local bitfield = ReadByte(forceghostorg)
-        if ghost_org then
-            if players.get_org_type(PLAYER_ID) == -1 then
-                ghost_org = false
-            end
-        end
-
-        WriteByte(forceghostorg, ghost_org ? (BitMask:Set(bitfield, Bits.OffRadar)) : (BitMask:Clear(bitfield, Bits.OffRadar)))
-        WriteByte(legit_otr, 1)
-        WriteInt(otrghost_timer, GetNetworkTime())
-    end
-end
-
-local function DisableOffTheRadar()
-    legit_otr ??= ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 210) -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_210
-    otrghost_timer ??= ScriptGlobal(OTR_GHOST_TIMER)
-
-    if ReadByte(legit_otr) == 1 then
-        WriteByte(legit_otr, 0)
-        WriteByte(otrghost_timer, 0)
-    end
-end
+local ScriptHostRef = menu.ref_by_path('Online>Session>Become Script Host')
+local SuicideRef = menu.ref_by_path('Self>Suicide')
 
 pluto_class SelfOptions
-    function __construct()
-        self.root = root:list(T'Self', {T'rself'}, 'Self options')
-        local healing = self.root:list(T'Healing', {T'healing'}, T'Healing options')
-        local healthmod = self.root:list(T'Health', {T'health'}, T'Modded health options')
-        local superpunch = self.root:list(T'Super Punch', {T'superpunch'}, T'Super Punch options')
-        local hiding = self.root:list(T'Hiding', {T'hiding'}, T'Hiding options')
-        local mental_state = self.root:list(T'Mental State', {T'mentalstate'}, T'Mental State options')
-        local noclip = self.root:list(T'No Clip', {T'noclip'}, T'No Clip options')
-        local bounty = self.root:list(T'Bounty', {T'bounty'}, T'Bounty options')
-        local model_changer = self.root:list(T'Model Changer', {T'modelchanger'}, T'Model Changer options')
-        local cutscene = self.root:list(T'Cutscenes', {T'cutscene'}, T'Cutscene options')
-        local pvp_helper = self.root:list(T'PvP Helper', {T'pvphelper'}, T'PvP Helper options')
+    ClearAllPedProps = S.ClearAllPedProps
+    TaskPlayAnim = S.TaskPlayAnim
+    SetCurrWeatherState = S.SetCurrWeatherState
+    SetEntityInvincible = S.SetEntityInvincible
+    SetPedArmour = S.SetPedArmour
+    SetEntityCanBeDamaged = S.SetEntityCanBeDamaged
+    SetArtificialLightsState = S.SetArtificialLightsState
+    FreezeEntityPosition = S.FreezeEntityPosition
+    SetArtificialVehicleLightsState = S.SetArtificialVehicleLightsState
+    NetworkHasControlOfEntity = S.NetworkHasControlOfEntity
+    FinalizeHeadBlend = S.FinalizeHeadBlend
+    IsAudioSceneActive = S.IsAudioSceneActive
+    NetworkStartSynchronisedScene = S.NetworkStartSynchronisedScene
+    NetworkAddSynchronisedSceneCamera = S.NetworkAddSynchronisedSceneCamera
+    GetEntityMaxHealth = S.GetEntityMaxHealth
+    SetPlayerMeleeWeaponDamageModifier = S.SetPlayerMeleeWeaponDamageModifier
+    SetPedMaxHealth = S.SetPedMaxHealth
+    GiveWeaponToPed = S.GiveWeaponToPed
+    SetParkedVehicleDensityMultiplierThisFrame = S.SetParkedVehicleDensityMultiplierThisFrame
+    SetTimecycleModifierStrength = S.SetTimecycleModifierStrength
+    GetGameplayCamRot = S.GetGameplayCamRot
+    SetPlayerVehicleDamageModifier = S.SetPlayerVehicleDamageModifier
+    StartAudioScene = S.StartAudioScene
+    SetPlayerIsInAnimalForm = S.SetPlayerIsInAnimalForm
+    SetEntityRotation = S.SetEntityRotation
+    ShootSingleBulletBetweenCoords = S.ShootSingleBulletBetweenCoords
+    NetworkForceLocalUseOfSyncedSceneCamera = S.NetworkForceLocalUseOfSyncedSceneCamera
+    SetPedUpperBodyDamageOnly = S.SetPedUpperBodyDamageOnly
+    SetEntityAlpha = S.SetEntityAlpha
+    ClearTimecycleModifier = S.ClearTimecycleModifier
+    SetPlayerLeavePedBehind = S.SetPlayerLeavePedBehind
+    SetEntityHealth = S.SetEntityHealth
+    SetPedSuffersCriticalHits = S.SetPedSuffersCriticalHits
+    IsPedInAnyVehicle = S.IsPedInAnyVehicle
+    GetVehiclePedIsIn = S.GetVehiclePedIsIn
+    GetPedMaxHealth = S.GetPedMaxHealth
+    SetTransitionTimecycleModifier = S.SetTransitionTimecycleModifier
+    AddOwnedExplosion = S.AddOwnedExplosion
+    SetDisableHighFallDeath = S.SetDisableHighFallDeath
+    StopAudioScene = S.StopAudioScene
+    SetRandomVehicleDensityMultiplierThisFrame = S.SetRandomVehicleDensityMultiplierThisFrame
+    AnimpostfxIsRunning = S.AnimpostfxIsRunning
+    SetTimecycleModifier = S.SetTimecycleModifier
+    NetworkRequestControlOfEntity = S.NetworkRequestControlOfEntity
+    StatSetFloat = S.StatSetFloat
+    GetPlayerMaxArmour = S.GetPlayerMaxArmour
+    SetPedComponentVariation = S.SetPedComponentVariation
+    GetLightOverrideMaxIntensityScale = S.GetLightOverrideMaxIntensityScale
+    SetAmbientVehicleRangeMultiplierThisFrame = S.SetAmbientVehicleRangeMultiplierThisFrame
+    ForcePedAiAndAnimationUpdate = S.ForcePedAiAndAnimationUpdate
+    ForceLightningFlash = S.ForceLightningFlash
+    SetPedConfigFlag = S.SetPedConfigFlag
+    NetworkDisableLeaveRemotePedBehind = S.NetworkDisableLeaveRemotePedBehind
+    GetPedLastWeaponImpactCoord = S.GetPedLastWeaponImpactCoord
+    SetPlayerMaxExplosiveDamage = S.SetPlayerMaxExplosiveDamage
+    GetSelectedPedWeapon = S.GetSelectedPedWeapon
+    SetEntityCollision = S.SetEntityCollision
+    GetPlayerPed = S.GetPlayerPed
+    GetOffsetFromEntityInWorldCoords = S.GetOffsetFromEntityInWorldCoords
+    NetworkCreateSynchronisedScene = S.NetworkCreateSynchronisedScene
+    AnimpostfxStop = S.AnimpostfxStop
+    StatSetInt = S.StatSetInt
+    SetVehicleDensityMultiplierThisFrame = S.SetVehicleDensityMultiplierThisFrame
+    IsEntityDead = S.IsEntityDead
+    SetWeatherTypeNowPersist = S.SetWeatherTypeNowPersist
+    GetEntityHeading = S.GetEntityHeading
+    AnimpostfxStopAll = S.AnimpostfxStopAll
+    ClearPedTasksImmediately = S.ClearPedTasksImmediately
+    SetRunSprintMultiplierForPlayer = S.SetRunSprintMultiplierForPlayer
+    AnimpostfxPlay = S.AnimpostfxPlay
+    GetNetworkTime = S.GetNetworkTime
+    SetLightOverrideMaxIntensityScale = S.SetLightOverrideMaxIntensityScale
+    SetEntityVisible = S.SetEntityVisible
+    GetEntityHealth = S.GetEntityHealth
+    SetPedDensityMultiplierThisFrame = S.SetPedDensityMultiplierThisFrame
+    SetEntityProofs = S.SetEntityProofs
+    ClearPedStoredHatProp = S.ClearPedStoredHatProp
+    SetPlayerVehicleDefenseModifier = S.SetPlayerVehicleDefenseModifier
+    SetScenarioPedDensityMultiplierThisFrame = S.SetScenarioPedDensityMultiplierThisFrame
+    TogglePausedRenderphases = S.TogglePausedRenderphases
+    PlaySoundFrontend = S.PlaySoundFrontend
+    SetEntityCoordsNoOffset = S.SetEntityCoordsNoOffset
+    SetPedMoveRateOverride = S.SetPedMoveRateOverride
+    SetPedStrafeClipset = S.SetPedStrafeClipset
+    ResetPedStrafeClipset = S.ResetPedStrafeClipset
+    GetEntitySpeed = S.GetEntitySpeed
+    StartNetworkedParticleFxNonLoopedOnPedBone = S.StartNetworkedParticleFxNonLoopedOnPedBone
+    GetEntityRotation = S.GetEntityRotation
+    SetPlayerModel = S.SetPlayerModel
+
+    ReadByte = memory.read_byte
+    ReadShort = memory.read_short
+    ReadInt = memory.read_int
+    ReadFloat = memory.read_float
+    WriteByte = memory.write_byte
+    WriteShort = memory.write_short
+    WriteInt = memory.write_int
+    WriteFloat = memory.write_float
+    WriteLong = memory.write_long
+    ScriptGlobal = S.ScriptGlobal
+    ScriptLocal = S.ScriptLocal
+
+    ImpactCoords = v3.new()
+
+    function __construct(root)
+        self.root = root:list(T'Self', {T'rself'}, T'Self')
+        self.healing = self.root:list(T'Healing', {T'healing'}, T'Healing options')
+        self.healthmod = self.root:list(T'Health', {T'health'}, T'Modded health options')
+        self.superpunch = self.root:list(T'Super Punch', {T'superpunch'}, T'Super Punch options')
+        self.hiding = self.root:list(T'Hiding', {T'hiding'}, T'Hiding options')
+        self.mental_state = self.root:list(T'Mental State', {T'mentalstate'}, T'Mental State options')
+        self.noclip = self.root:list(T'No Clip', {T'noclip'}, T'No Clip options')
+        self.bounty = self.root:list(T'Bounty', {T'bounty'}, T'Bounty options')
+        self.model_changer = self.root:list(T'Model Changer', {T'modelchanger'}, T'Model Changer options')
+        self.cutscene = self.root:list(T'Cutscenes', {T'cutscene'}, T'Cutscene options')
+        self.pvp_helper = self.root:list(T'PvP Helper', {T'pvphelper'}, T'PvP Helper options')
         self.root:divider('')
-    
-        healing:toggle_loop(T'Auto Heal', {T'autoheal'}, T'Automatically heal when your health falls below a certain threshold', function()
-            local ped = players.user_ped()
-            local maxhealth = GetEntityMaxHealth(ped)
-            local currenthealth = GetEntityHealth(ped)
-            
-            local healthpercent = math.floor((currenthealth / maxhealth) * 100)
-    
-            if healthpercent < BitMask:Get(settings, Bits.HealthThreshold) then
-                SetEntityHealth(ped, maxhealth)
+
+        self.auto_heal = self.healing:toggle_loop(T'Auto Heal', {T'rautoheal'}, T'Automatically heal when your health falls below the threshold that you have set', function()
+            local Ped = players.user_ped()
+            local MaxHealth = self.GetEntityMaxHealth(Ped)
+            local CurrentHealth = self.GetEntityHealth(Ped)
+            local HealthPercent = math.floor((CurrentHealth / MaxHealth) * 100)
+
+            if HealthPercent < Settings:Get(Bits.HealthThreshold) then
+                self.SetEntityHealth(Ped, MaxHealth)
             end
         end)
-    
-        healing:toggle_loop(T'Display Current Health Percentage', {T'displayhealthpercent'}, T'Displays your current health as a percentage', function()
-            local ped = players.user_ped()
-            local maxhealth = GetEntityMaxHealth(ped)
-            local currenthealth = GetEntityHealth(ped)
-            local healthpercent = math.floor((currenthealth / maxhealth) * 100)
-            util.draw_debug_text('Current health: ' .. healthpercent .. '%')
+
+        self.display_health_percent = self.healing:toggle_loop(T'Display Current Health Percentage', {T'rdisplayhealthpercent'}, T'Displays your current health as a percentage', function()
+            local Ped = players.user_ped()
+            local MaxHealth = self.GetEntityMaxHealth(Ped)
+            local CurrentHealth = self.GetEntityHealth(Ped)
+            local HealthPercent = math.floor((CurrentHealth / MaxHealth) * 100)
+            util.draw_debug_text(T'Current Health: ' .. HealthPercent .. '%')
         end)
-    
-        healing:slider(T'Health Threshold', {T'healthreshold'}, T'Health threshold to start healing', 0, 100, BitMask:Get(settings, Bits.HealthThreshold), 1, function(value)
-            settings = BitMask:Clear(settings, Bits.HealthThreshold)
-            settings = BitMask:Set(settings, value)
+
+        self.health_threshold = self.healing:slider(T'Health Threshold', {T'rhealthreshold'}, T'Health threshold to start healing', 0, 100, Settings:Get(Bits.HealthThreshold), 1, function(value)
+            Settings:Clear(Bits.HealthThreshold)
+            Settings:Set(value)
         end)
-    
-        healthmod:toggle(T'Mod Max Health', {T'moddedhealth'}, T'Modded max health', function(state)
-            local ped = players.user_ped()
-            settings = state ? (Bit:Set(settings, Bits.ModdedHealth)) : (Bit:Clear(settings, Bits.ModdedHealth))
-            
-            if not state and SCRIPT_CAN_CONTINUE then
-                SetPedMaxHealth(ped, 328)
-                SetEntityHealth(ped, 328)
+
+        self.mod_maxhealth = self.healthmod:toggle(T'Mod Max Health', {T'rmoddedhealth'}, T'Modded max health', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            local Ped = players.user_ped()
+            if state then
+                Settings:Set(Bits.ModdedHealth)
             else
-                SetPedMaxHealth(ped, 328)
-                SetEntityHealth(ped, 328)
+                Settings:Clear(Bits.ModdedHealth)
+                self.SetPedMaxHealth(Ped, 328)
+                self.SetEntityHealth(Ped, 328)
             end
-        end, Bit:Check(settings, Bits.ModdedHealth))
-    
-        healthmod:text_input(T'Max Health', {T'maxhealth'}, T'Change your max health', function(value)
-            local ped = players.user_ped()
+        end, Settings:IsSet(Bits.ModdedHealth))
+
+        self.moddedhealth_amount = self.healthmod:text_input(T'Max Health', {T'rmaxhealth'}, T'Change your max health', function(Health)
+            local Ped = players.user_ped()
             
-            if Bit:Check(settings, Bits.ModdedHealth) then
+            if Settings:IsSet(Bits.ModdedHealth) then
                 pcall(function()
-                    SetPedMaxHealth(ped, tonumber(value))
-                    SetEntityHealth(ped, tonumber(value))
+                    self.SetPedMaxHealth(Ped, tonumber(Health))
+                    self.SetEntityHealth(Ped, tonumber(Health))
                 end)
             end
         end)
-    
-        otr_ref = self.root:toggle(T'Stealth', {T'stealthmode'}, T'Removes your player blip from the minimap so others players in the session cannot see where you are on the map', function(state)
-            otr ??= ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 321)
-            local v = ReadByte(otr)
-            WriteByte(otr, state ? (BitMask:Set(v, Bits.StealthMode)) : (BitMask:Clear(v, Bits.StealthMode))) 
+
+        self.p_superpunch = self.superpunch:toggle_loop(T'Super Punch', {}, T'Kill players and peds in a single hit', function()
+            self:SuperPunch(17, 1000.0, false, true, 0.0)
         end)
+
+        self.orbital_superpunch = self.superpunch:toggle_loop(T'Orbital Cannon Super Punch', {}, T'Kill players and peds in a single hit', function()
+            local OrbitalCannon = self.ScriptGlobal(Globals.OrbitalCannon)
+            self.WriteByte(OrbitalCannon, 1)
+            self:SuperPunch(60, 1000.0, false, true, 0.0)
+        end)
+
+        self.hide_m1 = self.hiding:toggle(T'Hide Method 1', {T'rdisappear'}, T'Just a shortcut for enabling stealth mode and invisibility', function(state)
+            self.stealth_mode.value = state
+            self.invisibility.value = state
+        end)
+
+        self.hide_m2 = self.hiding:toggle(T'Hide Method 2', {T'rdisappear1'}, T'Just a shortcut for enabling interior state spoofing and invisibility', function(state)
+            self.spoof_interior_state.value = state
+            self.invisibility.value = state
+        end)
+
+        self.anti_psychpath = self.mental_state:toggle_loop(T'Anti-Psychopath', {T'rantipsychopath'}, T'Disables killing players, peds and cops affecting your mental state', function()
+            local MentalState = self.ScriptGlobal(Globals.MentalState)
+            local MentalStateValue = self.ScriptGlobal(Globals.MentalStateValue)
     
-        local bribe_authorities_ref
-        bribe_authorities_ref = self.root:toggle_loop(T'Bribe Authorities', {T'bribeauthorities'}, T'Bribes the authorities so you can get away with anything', function()
-            bribe ??= ScriptGlobal(BRIBE_AUTHORITIES)
-            WriteByte(bribe, BitMask:Set(ReadByte(bribe), Bits.BribeAuthorities))
+            self.WriteByte(MentalState, 1)
+            self.WriteFloat(MentalStateValue, 0.0)
         end,
         function()
-            WriteByte(bribe, BitMask:Clear(ReadByte(bribe), Bits.BribeAuthorities))
+            local MentalState = self.ScriptGlobal(Globals.MentalState)
+            self.WriteByte(MentalState, 0)
+        end)
+
+        self.psychopath = self.mental_state:toggle_loop(T'Psychopath', {T'rpsychopath'}, T'Show your inner psychopath', function()
+            local MentalStateValue = self.ScriptGlobal(Globals.MentalStateValue)
+            self.WriteFloat(MentalStateValue, 100.0)
         end)
     
-        superpunch:toggle_loop(T'Super Punch', {T'superpunch'}, T'Kills player or ped in a single hit', function()
-            SuperPunch(18, 1000.0, false, true, 0.0)
+        self.display_mental_state = self.mental_state:toggle_loop(T'Display Mental State', {T'rdisplaymentalstate'}, T'Displays your current mental state', function()
+            local MentalStateValue = self.ScriptGlobal(Globals.MentalStateValue)
+            local Value = self.ReadFloat(MentalStateValue)
+            util.draw_debug_text('Mental State: ' .. Value)
         end)
+
+        self.p_noclip = self.noclip:toggle_loop(T'No Clip', {T'rnoclip'}, T'Fly around the map', function()
+            if self.IsPedInAnyVehicle(players.user_ped()) then
+                local Veh = self.GetVehiclePedIsIn(players.user_ped(), false)
+                if Veh ~= 0 then
+                    self.FreezeEntityPosition(Veh, true)
+                    self.SetEntityCollision(Veh, false, false)
     
-        superpunch:toggle_loop(T'Orbital Cannon Super Punch', {T'orbitalsuperpunch'}, T'Kills anyone that is within a certain range', function()
-            orbital_cannon ??= ScriptGlobal(ORBITAL_CANNON)
-            WriteByte(orbital_cannon, 1)
-            SuperPunch(60, 1000.0, false, true, 0.0)
-        end,
-        function()
-            WriteByte(orbital_cannon, 0)
-        end)
+                    local Rot = self.GetGameplayCamRot(5)
+                    self.SetEntityRotation(Veh, Rot.x, Rot.y, Rot.z, 5, true)
     
-        invis_ref = self.root:toggle_loop(T'Invisibility', {T'ezinvisibility'}, T'Makes your player completely invisible, not even Stands reveal invisible players can make you visible again', function()
-            invis ??= ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 254)
-    
-            if not IsEntityDead(players.user_ped()) then
-                WriteByte(invis, 1)
-            else
-                WriteByte(invis, 0)
-            end
-        end,
-        function()
-            WriteByte(invis, 0)
-        end)
-    
-        interior_state_ref = self.root:toggle(T'Spoof Interior State', {T'spoofinteriorstate'}, T'Spoofs your position on the map to show you as being inside of an invalid interior when you are not', function(state)
-            interior_state ??= ScriptGlobal(1853988 + 1 + (PLAYER_ID * 867) + 863)
-            local bitfield = ReadShort(interior_state)
-            WriteShort(interior_state, state ? (Bit:Set(bitfield, Bits.SpoofInteriorState)) : (Bit:Clear(bitfield, Bits.SpoofInteriorState)))
-        end)
-    
-        hiding:toggle(T'Hide Method 1', {T'disappear'}, T'Just a shortcut for enabling invisibility and off the radar', function(state)
-            otr_ref.value = state
-            invis_ref.value = state
-        end)
-    
-        hiding:toggle(T'Hide Method 2', {T'disappear1'}, T'Just a shortcut for enabling invisibility and spoofing your interior state', function(state)
-            interior_state_ref.value = state
-            invis_ref.value = state
-        end)
-    
-        self.root:toggle(T'Harden Player', {T'hardplayer'}, T'Hardens your player', function(state)
-            SetPedSuffersCriticalHits(players.user_ped(), not state)
-            SetPedUpperBodyDamageOnly(players.user_ped(), state)
-        end)
-    
-        self.root:toggle_loop(T'Fast Respawn', {T'fastrespawn'}, T'Respawns you instantly', function()
-            respawn ??= ScriptGlobal(FAST_RESPAWN)
-            respawn_state ??= ScriptGlobal(RESPAWN_STATE)
-    
-            if ReadByte(respawn_state) ~= 0 then
-                WriteByte(respawn, 1)
-                util.yield_once()
-                WriteByte(respawn, 0)
-            end
-        end)
-    
-        self.root:toggle_loop(T'Killer Karma', {T'killerkarma'}, T'Karma the player that killed you', function()
-            killer_karma ??= ScriptGlobal(PLAYER_KILLER)
-            respawn_state ??= ScriptGlobal(RESPAWN_STATE)
-            respawn ??= ScriptGlobal(FAST_RESPAWN)
-    
-            if ReadByte(respawn_state) ~= 0 then
-                local pid = ReadByte(killer_karma)
-                pcall(function()
-                    local ped = GetPlayerPed(pid)
-                    local pos = GetOffsetFromEntityInWorldCoords(ped, 0.0, 0.0, 0.0)
-    
-                    if not IsEntityDead(ped) then
-                        AddOwnedExplosion(players.user_ped(), pos.x, pos.y, pos.z, 18, 100, false, true, 0.0)
-                        WriteByte(killer_karma, -1)
-                        WriteByte(respawn, 1)
-                        util.yield_once()
-                        WriteByte(respawn, 0)
-                    end
-                end)
-            end
-        end)
-    
-        mental_state:toggle_loop(T'Anti-Psychopath', {T'antipsychopath'}, T'Disables killing players, peds and cops affecting your mental state', function()
-            mentalstate ??= ScriptGlobal(MENTAL_STATE)
-            mentalstate_value ??= ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 268)
-    
-            WriteByte(mentalstate, 1)
-            WriteFloat(mentalstate_value, 0.0)
-        end,
-        function()
-            WriteByte(mentalstate, 0)
-        end)
-    
-        mental_state:toggle_loop(T'Display Mental State', {T'displaymentalstate'}, T'Displays your current mental state', function()
-            mentalstate_value ??= ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 268)
-    
-            local value = ReadFloat(mentalstate_value)
-            util.draw_debug_text('Mental State: ' .. value)
-        end)
-    
-        noclip:toggle_loop(T'No Clip', {}, T'Fly around the map', function()
-            if IsPedInAnyVehicle(players.user_ped()) then
-                local veh = GetVehiclePedIsIn(players.user_ped(), false)
-                if veh ~= 0 then
-                    FreezeEntityPosition(veh, true)
-                    SetEntityCollision(veh, false, false)
-    
-                    local rot = GetGameplayCamRot(5)
-                    SetEntityRotation(veh, rot.x, rot.y, rot.z, 5, true)
-    
-                    if is_key_down(0x57) then -- W
-                        local pos = GetOffsetFromEntityInWorldCoords(veh, 0, 1 * noclip_speed.value, 0)
-                        SetEntityCoordsNoOffset(veh, pos.x, pos.y, pos.z, false, false, false)
-                    elseif is_key_down(0x53) then -- S
-                        local pos = GetOffsetFromEntityInWorldCoords(veh, 0, -1 * noclip_speed.value, 0)
-                        SetEntityCoordsNoOffset(veh, pos.x, pos.y, pos.z, false, false, false)
+                    if util.is_key_down(0x57) then -- W
+                        local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, 0, 1 * self.noclip_speed.value, 0)
+                        self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
+                    elseif util.is_key_down(0x53) then -- S
+                        local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, 0, -1 * self.noclip_speed.value, 0)
+                        self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
                     end
     
-                    if is_key_down(0x41) then -- A
-                        local pos = GetOffsetFromEntityInWorldCoords(veh, -1 * noclip_speed.value, 0, 0)
-                        SetEntityCoordsNoOffset(veh, pos.x, pos.y, pos.z, false, false, false)
+                    if util.is_key_down(0x41) then -- A
+                        local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, -1 * self.noclip_speed.value, 0, 0)
+                        self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
                     elseif is_key_down(0x44) then -- D
-                        local pos = GetOffsetFromEntityInWorldCoords(veh, 1 * noclip_speed.value, 0, 0)
-                        SetEntityCoordsNoOffset(veh, pos.x, pos.y, pos.z, false, false, false)
+                        local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, 1 * self.noclip_speed.value, 0, 0)
+                        self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
                     end
     
                     -- left shift
-                    if is_key_down(0x10) then
-                        local pos = GetOffsetFromEntityInWorldCoords(veh, 0, 0, 1 * noclip_speed.value)
-                        SetEntityCoordsNoOffset(veh, pos.x, pos.y, pos.z, false, false, false)
+                    if util.is_key_down(0x10) then
+                        local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, 0, 0, 1 * self.noclip_speed.value)
+                        self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
                     end
     
                     -- left control
-                    if is_key_down(0x11) then
-                        local pos = GetOffsetFromEntityInWorldCoords(veh, 0, 0, -1 * noclip_speed.value)
-                        SetEntityCoordsNoOffset(veh, pos.x, pos.y, pos.z, false, false, false)
+                    if util.is_key_down(0x11) then
+                        local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, 0, 0, -1 * self.noclip_speed.value)
+                        self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
                     end
                 end
             else
-                local ped = players.user_ped()
-                FreezeEntityPosition(ped, true)
-                SetEntityCollision(ped, false, false)
+                local Ped = players.user_ped()
+                self.FreezeEntityPosition(Ped, true)
+                self.SetEntityCollision(Ped, false, false)
     
-                local rot = GetGameplayCamRot(5)
-                SetEntityRotation(ped, rot.x, rot.y, rot.z, 5, true)
+                local Rot = self.GetGameplayCamRot(5)
+                self.SetEntityRotation(Ped, Rot.x, Rot.y, Rot.z, 5, true)
     
-                if is_key_down(0x57) then -- W
-                    local pos = GetOffsetFromEntityInWorldCoords(ped, 0, 1 * noclip_speed.value, 0)
-                    SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
-                elseif is_key_down(0x53) then -- S
-                    local pos = GetOffsetFromEntityInWorldCoords(ped, 0, -1 * noclip_speed.value, 0)
-                    SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
+                if util.is_key_down(0x57) then -- W
+                    local Pos = self.GetOffsetFromEntityInWorldCoords(Ped, 0, 1 * self.noclip_speed.value, 0)
+                    self.SetEntityCoordsNoOffset(Ped, Pos.x, Pos.y, Pos.z, false, false, false)
+                elseif util.is_key_down(0x53) then -- S
+                    local Pos = self.GetOffsetFromEntityInWorldCoords(Ped, 0, -1 * self.noclip_speed.value, 0)
+                    self.SetEntityCoordsNoOffset(Ped, Pos.x, Pos.y, Pos.z, false, false, false)
                 end
     
-                if is_key_down(0x41) then -- A
-                    local pos = GetOffsetFromEntityInWorldCoords(ped, -1 * noclip_speed.value, 0, 0)
-                    SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
-                elseif is_key_down(0x44) then -- D
-                    local pos = GetOffsetFromEntityInWorldCoords(ped, 1 * noclip_speed.value, 0, 0)
-                    SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
+                if util.is_key_down(0x41) then -- A
+                    local Pos = self.GetOffsetFromEntityInWorldCoords(Ped, -1 * self.noclip_speed.value, 0, 0)
+                    self.SetEntityCoordsNoOffset(Ped, Pos.x, Pos.y, Pos.z, false, false, false)
+                elseif util.is_key_down(0x44) then -- D
+                    local Pos = self.GetOffsetFromEntityInWorldCoords(Ped, 1 * self.noclip_speed.value, 0, 0)
+                    self.SetEntityCoordsNoOffset(Ped, Pos.x, Pos.y, Pos.z, false, false, false)
                 end
     
                 -- left shift
-                if is_key_down(0x10) then
-                    local pos = GetOffsetFromEntityInWorldCoords(ped, 0, 0, 1 * noclip_speed.value)
-                    SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
+                if util.is_key_down(0x10) then
+                    local Pos = self.GetOffsetFromEntityInWorldCoords(Ped, 0, 0, 1 * self.noclip_speed.value)
+                    self.SetEntityCoordsNoOffset(Ped, Pos.x, Pos.y, Pos.z, false, false, false)
                 end
     
                 -- left control
-                if is_key_down(0x11) then
-                    local pos = GetOffsetFromEntityInWorldCoords(ped, 0, 0, -1 * noclip_speed.value)
-                    SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
+                if util.is_key_down(0x11) then
+                    local Pos = self.GetOffsetFromEntityInWorldCoords(Ped, 0, 0, -1 * self.noclip_speed.value)
+                    self.SetEntityCoordsNoOffset(Ped, Pos.x, Pos.y, Pos.z, false, false, false)
                 end
             end
         end,
         function()
-            if IsPedInAnyVehicle(players.user_ped()) then
-                local veh = GetVehiclePedIsIn(players.user_ped(), false)
-                if veh ~= 0 then
-                    FreezeEntityPosition(veh, false)
-                    SetEntityCollision(veh, true, true)
+            if self.IsPedInAnyVehicle(players.user_ped()) then
+                local Veh = self.GetVehiclePedIsIn(players.user_ped(), false)
+                if Veh ~= 0 then
+                    self.FreezeEntityPosition(Veh, false)
+                    self.SetEntityCollision(Veh, true, true)
                 end
             else
-                local ped = players.user_ped()
-                FreezeEntityPosition(ped, false)
-                SetEntityCollision(ped, true, true)
-                ClearPedTasksImmediately(ped)
+                local Ped = players.user_ped()
+                self.FreezeEntityPosition(Ped, false)
+                self.SetEntityCollision(Ped, true, true)
+                self.ClearPedTasksImmediately(Ped)
             end
         end)
     
-        noclip_speed = noclip:slider(T'Speed', {}, T'Speed multiplier', 1, 100, 1, 1, function(value) end)
-    
-        self.root:toggle_loop(T'Infinite OTR / Ghost Org', {T'infiniteotr'}, T'Freezes the timer so it never decreases', function()
-            otrghost_timer ??= ScriptGlobal(OTR_GHOST_TIMER)
-            WriteInt(otrghost_timer, GetNetworkTime())
-        end)
-    
-        self.root:toggle_loop(T'Force Ghost Org', {T'forceghostorg'}, T'When in an org with this enabled using off the radar will force you to go ghost org instead of off the radar allowing you to remain hidden for longer', function()
-            forceghostorg ??= ScriptGlobal(ABILITIES_BITFIELD)
-            WriteByte(forceghostorg, BitMask:Set(ReadByte(forceghostorg), Bits.ForceGhostOrg)) 
-        end, function()
-            WriteByte(forceghostorg, BitMask:Clear(ReadByte(forceghostorg), Bits.ForceGhostOrg))
-        end)
-    
-        self.root:toggle(T'Snacks Instant Restore', {T'snacksinstantrestore'}, T'Eating any snacks will instantly restore all your health', function(state)
-            for i = 113, 119 do
-                if state then
-                    WriteFloat(ScriptGlobal(262145 + i), 100.0)
-                else
-                    WriteFloat(ScriptGlobal(262145 + i), 1.0)
-                end
+        self.noclip_speed = self.noclip:slider(T'Speed', {}, T'Speed multiplier', 1, 100, 1, 1, function(value) end)
+
+        self.stealth_mode = self.root:toggle(T'Stealth', {T'rstealthmode'}, T'Removes your blip from the radar for the entire session (this does not trigger off the radar detection)', function(state)
+            local Stealth = self.ScriptGlobal(Globals.StealthMode)
+            local SBitfield = Bitfield.new(self.ReadInt(Stealth))
+            SBitfield.address = Stealth
+            if state then
+                SBitfield:Set(Bits.StealthMode)
+            else
+                SBitfield:Clear(Bits.StealthMode)
             end
         end)
+
+        self.bribe_authorities = self.root:toggle(T'Bribe Authorities', {T'rbribeauthorities'}, T'Bribe the authorities to remove your wanted level', function(state)
+            local Bribe = self.ScriptGlobal(Globals.BribeAuthorities)
+            local BBitfield = Bitfield.new(self.ReadByte(Bribe))
+            BBitfield.address = Bribe
+            if state then
+                util.create_tick_handler(function()
+                    if self.bribe_authorities.value == false then
+                        BBitfield:Clear(Bits.BribeAuthorities)                      
+                        return false
+                    end
+
+                    BBitfield:Set(Bits.BribeAuthorities)
+                end)
+            end
+        end)
+
+        self.invisibility = self.root:toggle(T'Invisibility', {T'rinvis'}, T'Makes your character invisible, Stand\'s reveal invisible players does not reveal you when using this', function(state)
+            if state then
+                util.create_tick_handler(function()
+                    local Invisible = self.ScriptGlobal(Globals.Invisibility)
+                    if self.invisibility.value == false then
+                        self.WriteByte(Invisible, 0)
+                        return false
+                    end
+
+                    if not self.IsEntityDead(players.user_ped()) then
+                        self.WriteByte(Invisible, 1)
+                    end
+                end)
+            end
+        end)
+
+        self.spoof_interior_state = self.root:toggle(T'Spoof Interior State', {}, T'Spoofs your interior state, you will appear to be in an invalid interior while this is enabled', function(state)
+            local InteriorState = self.ScriptGlobal(Globals.SpoofInteriorState)
+            local IBitfield = Bitfield.new(self.ReadShort(InteriorState))
+            IBitfield.address = InteriorState
+            if state then
+                IBitfield:Set(Bits.SpoofInteriorState)
+            else
+                IBitfield:Clear(Bits.SpoofInteriorState)
+            end
+        end)
+
+        self.harden_player = self.root:toggle(T'Harden Player', {T'rhardplayer'}, T'Hardens your player', function(state)
+            self.SetPedSuffersCriticalHits(players.user_ped(), not state)
+            self.SetPedUpperBodyDamageOnly(players.user_ped(), state)
+        end)
+
+        self.fast_respawn = self.root:toggle_loop(T'Fast Respawn', {T'rfastrespawn'}, T'Respawns you instantly', function()
+            local Respawn = self.ScriptGlobal(Globals.FastRespawn)
+            local RespawnState = self.ScriptGlobal(Globals.RespawnState)
     
-        self.root:toggle(T'Beast Mode', {T'beastmode'}, T'Enables beast mode which makes you stronger, faster and more durable than normal', function(state)
-            local ped = players.user_ped()
-            local ref = ref_by_rel_path(root, T'Beast Mode')
-            if not is_session_started() then
-                ref.value = false
+            if self.ReadByte(RespawnState) ~= 0 then
+                self.WriteByte(Respawn, 1)
+                util.yield_once()
+                self.WriteByte(Respawn, 0)
+            end
+        end)
+
+        self.killer_karma = self.root:toggle_loop(T'Killer Karma', {T'rkillerkarma'}, T'Karma the player that killed you', function()
+            local KillerKarma = self.ScriptGlobal(Globals.PlayerKiller)
+            local RespawnState = self.ScriptGlobal(Globals.RespawnState)
+            local Respawn = self.ScriptGlobal(Globals.FastRespawn)
+    
+            if self.ReadByte(RespawnState) ~= 0 then
+                local pid = self.ReadByte(KillerKarma)
+                pcall(function()
+                    local Ped = self.GetPlayerPed(pid)
+                    local Pos = self.GetOffsetFromEntityInWorldCoords(Ped, 0.0, 0.0, 0.0)
+    
+                    if not self.IsEntityDead(Ped) then
+                        self.AddOwnedExplosion(players.user_ped(), Pos.x, Pos.y, Pos.z, 18, 100, false, true, 0.0)
+                        self.WriteByte(KillerKarma, -1)
+                        self.WriteByte(Respawn, 1)
+                        util.yield_once()
+                        self.WriteByte(Respawn, 0)
+                    end
+                end)
+            end
+        end)
+
+        self.infinite_otr_ghost = self.root:toggle_loop(T'Infinite OTR / Ghost Org', {T'rinfiniteotr'}, T'Freezes the timer so it never decreases', function()
+            local Timer = self.ScriptGlobal(Globals.OtrGhostTimer)
+            self.WriteInt(Timer, self.GetNetworkTime())
+        end)
+
+        self.force_ghost_org = self.root:toggle(T'Force Ghost Org', {T'rforceghostorg'}, T'Force ghost org, this will only work if you are in an organisation', function(state)
+            if state then
+                local Force = self.ScriptGlobal(Globals.AbilitiesBitfield)
+                local FBitfield = Bitfield.new(self.ReadByte(Force))
+                util.create_tick_handler(function()
+                    if self.force_ghost_org.value == false then
+                        FBitfield:Clear(Bits.ForceGhostOrg)
+                        FBitfield(Force, 8)
+                        return false
+                    end
+
+                    FBitfield:Set(Bits.ForceGhostOrg)
+                    FBitfield(Force, 8)
+                end)
+            end
+        end)
+
+        self.snack_insta_restore = self.root:toggle(T'Snacks Instant Restore', {T'rsnacksinstantrestore'}, T'Eating any snacks will instantly restore all your health', function(state)
+            for i = Globals.SnacksInstantRestoreStart, Globals.SnacksInstantRestoreEnd do
+                self.WriteFloat(self.ScriptGlobal(262145 + i), state ? 100.0 : 1.0)
+            end
+        end)
+
+        self.beast_mode = self.root:toggle(T'Beast Mode', {T'rbeastmode'}, T'Enables beast mode which makes you stronger, faster and more durable than normal', function(state)
+            local Ped = players.user_ped()
+            if not util.is_session_started() then
+                self.beast_mode.value = false
                 return
             end
     
             if state then
                 util.create_tick_handler(function()
-                    if not ref.value then
+                    if not self.beast_mode.value then
                         return false
                     end
     
-                    SetEntityHealth(ped, 328)
+                    self.SetEntityHealth(Ped, 328)
                 end)
-                GiveWeaponToPed(ped, util.joaat('WEAPON_UNARMED'), 0, true, true)
-                ClearPedTasksImmediately(ped)
-                ClearPedTasksImmediately(ped)
-                ClearPedTasksImmediately(ped)
-                local pos = GetOffsetFromEntityInWorldCoords(ped, 0.05, 0.5, -1.11)
-                local scene = NetworkCreateSynchronisedScene(pos.x, pos.y, pos.z, 0.0, 0.0, GetEntityHeading(ped) + 90.0, 2, false, false, 1.0, 0.0, 1.0)
-                NetworkAddSynchronisedSceneCamera(scene, 'ANIM@MP_FM_EVENT@INTRO', 'BEAST_TRANSFORM_CAM')
-                TaskPlayAnim(ped, 'ANIM@MP_FM_EVENT@INTRO', 'BEAST_TRANSFORM', 1000.0, -2.0, -1, 0, 0.0, false, false, false)
-                ForcePedAiAndAnimationUpdate(ped, false, false)
-                NetworkForceLocalUseOfSyncedSceneCamera(scene)
-                NetworkStartSynchronisedScene(scene)
+                self.GiveWeaponToPed(Ped, util.joaat('WEAPON_UNARMED'), 0, true, true)
+                for _ = 0, 5 do self.ClearPedTasksImmediately(Ped) end
+                util.yield_once()
+                local Pos = self.GetOffsetFromEntityInWorldCoords(Ped, 0.05, 0.5, -1.11)
+                local Scene = self.NetworkCreateSynchronisedScene(Pos.x, Pos.y, Pos.z, 0.0, 0.0, self.GetEntityHeading(Ped) + 90.0, 2, false, false, 1.0, 0.0, 1.0)
+                self.NetworkAddSynchronisedSceneCamera(Scene, 'ANIM@MP_FM_EVENT@INTRO', 'BEAST_TRANSFORM_CAM')
+                self.TaskPlayAnim(Ped, 'ANIM@MP_FM_EVENT@INTRO', 'BEAST_TRANSFORM', 1000.0, -2.0, -1, 0, 0.0, false, false, false)
+                self.ForcePedAiAndAnimationUpdate(Ped, false, false)
+                self.NetworkForceLocalUseOfSyncedSceneCamera(Scene)
+                self.NetworkStartSynchronisedScene(Scene)
     
-                if not AnimpostfxIsRunning('BeastIntroScene') then
-                    AnimpostfxPlay('BeastIntroScene', 0, false)
+                if not self.AnimpostfxIsRunning('BeastIntroScene') then
+                    self.AnimpostfxPlay('BeastIntroScene', 0, false)
                 end
     
-                StartAudioScene('FM_Event_Beast_Transform_Sequence_Scene')
-                PlaySoundFrontend(-1, 'Frontend_Beast_Transform_Back', 'FM_Events_Sasquatch_Sounds', false)
+                self.StartAudioScene('FM_Event_Beast_Transform_Sequence_Scene')
+                self.PlaySoundFrontend(-1, 'Frontend_Beast_Transform_Back', 'FM_Events_Sasquatch_Sounds', false)
     
-                ClearPedStoredHatProp(ped)
-                ClearAllPedProps(ped, 1)
-                SetPedConfigFlag(ped, 189, true)
-                SetPedConfigFlag(ped, 407, true)
-                SetPlayerMeleeWeaponDamageModifier(PLAYER_ID, 100.0, true)
-                SetPedSuffersCriticalHits(ped, false)
-                SetDisableHighFallDeath(ped, true)
-                SetPlayerMaxExplosiveDamage(PLAYER_ID, 500.0)
-                SetPedConfigFlag(ped, 410, true)
-                SetPlayerVehicleDefenseModifier(PLAYER_ID, Shared.MAX_INT + 0.0)
-                SetPlayerVehicleDamageModifier(PLAYER_ID, Shared.MAX_INT + 0.0)
-                SetPedConfigFlag(ped, 411, true)
-                SetPlayerIsInAnimalForm(true)
-                SetPlayerLeavePedBehind(PLAYER_ID, false)
-                NetworkDisableLeaveRemotePedBehind(true)
-                FinalizeHeadBlend(ped)
-                SetRunSprintMultiplierForPlayer(PLAYER_ID, 1.49)
+                self.ClearPedStoredHatProp(Ped)
+                self.ClearAllPedProps(Ped, 1)
+                self.SetPedConfigFlag(Ped, 189, true)
+                self.SetPedConfigFlag(Ped, 407, true)
+                self.SetPlayerMeleeWeaponDamageModifier(PlayerID, 100.0, true)
+                self.SetPedSuffersCriticalHits(Ped, false)
+                self.SetDisableHighFallDeath(Ped, true)
+                self.SetPlayerMaxExplosiveDamage(PlayerID, 500.0)
+                self.SetPedConfigFlag(Ped, 410, true)
+                self.SetPlayerVehicleDefenseModifier(PlayerID, S.MAX_INT + 0.0)
+                self.SetPlayerVehicleDamageModifier(PlayerID, S.MAX_INT + 0.0)
+                self.SetPedConfigFlag(Ped, 411, true)
+                self.SetPlayerIsInAnimalForm(true)
+                self.SetPlayerLeavePedBehind(PlayerID, false)
+                self.NetworkDisableLeaveRemotePedBehind(true)
+                self.FinalizeHeadBlend(Ped)
+                self.SetRunSprintMultiplierForPlayer(PlayerID, 1.49)
             else
-                ClearPedStoredHatProp(ped)
-                ClearAllPedProps(ped, 1)
-                SetPedConfigFlag(ped, 189, false)
-                SetPedConfigFlag(ped, 407, false)
-                SetPlayerMeleeWeaponDamageModifier(PLAYER_ID, 1.0, true)
-                SetPedMaxHealth(ped, 328)
-                SetEntityHealth(ped, 328)
-                SetPedSuffersCriticalHits(ped, true)
-                SetDisableHighFallDeath(ped, false)
-                SetPlayerMaxExplosiveDamage(PLAYER_ID, 100.0)
-                SetPedConfigFlag(ped, 410, false)
-                SetEntityAlpha(ped, 255, false)
-                SetPlayerVehicleDefenseModifier(PLAYER_ID, 1.0)
-                SetPlayerVehicleDamageModifier(PLAYER_ID, 1.0)
-                SetPedConfigFlag(ped, 411, false)
-                SetPlayerIsInAnimalForm(false)
-                SetPlayerLeavePedBehind(PLAYER_ID, true)
-                NetworkDisableLeaveRemotePedBehind(false)
-                SetPedComponentVariation(ped, 1, 0, 0, 0)
-                SetRunSprintMultiplierForPlayer(PLAYER_ID, 1.0)
+                self.ClearPedStoredHatProp(Ped)
+                self.ClearAllPedProps(Ped, 1)
+                self.SetPedConfigFlag(Ped, 189, false)
+                self.SetPedConfigFlag(Ped, 407, false)
+                self.SetPlayerMeleeWeaponDamageModifier(PlayerID, 1.0, true)
+                self.SetPedMaxHealth(Ped, 328)
+                self.SetEntityHealth(Ped, 328)
+                self.SetPedSuffersCriticalHits(Ped, true)
+                self.SetDisableHighFallDeath(Ped, false)
+                self.SetPlayerMaxExplosiveDamage(PlayerID, 100.0)
+                self.SetPedConfigFlag(Ped, 410, false)
+                self.SetEntityAlpha(Ped, 255, false)
+                self.SetPlayerVehicleDefenseModifier(PlayerID, 1.0)
+                self.SetPlayerVehicleDamageModifier(PlayerID, 1.0)
+                self.SetPedConfigFlag(Ped, 411, false)
+                self.SetPlayerIsInAnimalForm(false)
+                self.SetPlayerLeavePedBehind(PlayerID, true)
+                self.NetworkDisableLeaveRemotePedBehind(false)
+                self.SetPedComponentVariation(Ped, 1, 0, 0, 0)
+                self.SetRunSprintMultiplierForPlayer(PlayerID, 1.0)
             end
         end)
-    
-        self.root:toggle_loop(T'Crouch Strafe', {}, T'Make your player strafe a crouched position (only works in first person)', function()
-            SetPedStrafeClipset(players.user_ped(), 'move_ped_crouched_strafing')
+
+        self.crouch_strafe = self.root:toggle_loop(T'Crouch Strafe', {}, T'Make your player strafe a crouched position (only works in first person)', function()
+            self.SetPedStrafeClipset(players.user_ped(), 'move_ped_crouched_strafing')
         end, function()
-            ResetPedStrafeClipset(players.user_ped())
+            self.ResetPedStrafeClipset(players.user_ped())
         end)
     
-        self.root:toggle_loop(T'Tbag', {}, T'Make you tbag the ground (only works in first person)', function()
-            local ped = players.user_ped()
-            SetPedStrafeClipset(ped, 'move_ped_crouched_strafing')
+        self.tbag = self.root:toggle_loop(T'Tbag', {}, T'Make you tbag the ground (only works in first person)', function()
+            local Ped = players.user_ped()
+            self.SetPedStrafeClipset(Ped, 'move_ped_crouched_strafing')
             util.yield_once()
-            ResetPedStrafeClipset(ped)
+            self.ResetPedStrafeClipset(Ped)
         end, function()
-            ResetPedStrafeClipset(players.user_ped())
+            self.ResetPedStrafeClipset(players.user_ped())
         end)
-    
-        Shared.Refs.BecomeInterior = self.root:toggle(T'Become An Interior', {}, T'Makes your blip look like you\'re inside of an interior when you are not', function(state)
-            become_interior ??= ScriptGlobal(1853988 + 1 + (PLAYER_ID * 867) + 267 + 31)
-            local bitfield = ReadByte(become_interior)
-            WriteByte(become_interior, state ? (Bit:Set(bitfield, Bits.BecomeInterior)) : (Bit:Clear(bitfield, Bits.BecomeInterior)))
+
+        S.Refs.BecomeInterior = self.root:toggle(T'Become An Interior', {}, T'Makes your blip look like you\'re inside of an interior when you are not', function(state)
+            local BecomeInterior = self.ScriptGlobal(Globals.BecomeInterior)
+            local BBitfield = Bitfield.new(self.ReadByte(BecomeInterior))
+            if state then
+                BBitfield:Set(Bits.BecomeInterior)
+            else
+                BBitfield:Clear(Bits.BecomeInterior)
+            end
+            BBitfield(BecomeInterior, 8)
         end)
-    
-        self.root:toggle(T'Delete All Players', {}, T'Delete all players from existence, this does not kick them', function(state)
-            local list = Shared.PlayerList
-    
-            for pid = 0, 32 do
-                if pid ~= PLAYER_ID then
-                    if Shared:PlayerInList(pid) then
-                        Shared:DeletePlayer(pid, state)
+
+        self.delete_all_players = self.root:toggle(T'Delete All Players', {}, T'Delete all players from existence, this does not kick them', function(state)
+            for pid = 0, S.MAX_PLAYERS do
+                if pid ~= PlayerID then
+                    if S:PlayerInList(pid) then
+                        S:DeletePlayer(pid, state)
                     end
                 end
             end
         end)
-    
-        self.root:toggle(T'Pause Menu Active', {}, T'Make it look like you\'re in the pause menu when you are not', function(state)
-            pause_menu ??= ScriptGlobal(1853988 + 1 + (PLAYER_ID * 867) + 192)
-            WriteByte(pause_menu, state and 1 or 0)
+
+        self.pause_menu_active = self.root:toggle(T'Pause Menu Active', {}, T'Make it look like you\'re in the pause menu when you are not', function(state)
+            self.WriteByte(self.ScriptGlobal(Globals.PauseMenuActive), state and 1 or 0)
         end)
     
-        self.root:toggle_loop(T'Bypass On Call', {}, T'Bypass the game preventing you leave interiors due to being on call (untested because cannot seem to force the requirements to test it)', function()
-            WriteByte(ScriptGlobal(1057409), -1) -- Global_1057409
+        self.bypass_oncall = self.root:toggle_loop(T'Bypass On Call', {}, T'Bypass the game preventing you leave interiors due to being on call (untested because cannot seem to force the requirements to test it)', function()
+            self.WriteByte(self.ScriptGlobal(Globals.BypassOnCall), -1)
         end)
 
-        self.root:toggle_loop(T'Out Of Sight', {}, T'Enable out of sight, what else?', function()
-            local g = ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 456)
-            local g1 = g + 0x8
+        self.out_of_sight = self.root:toggle_loop(T'Out Of Sight', {}, T'Enable out of sight, what else?', function()
+            local G = self.ScriptGlobal(Globals.OutOfSight)
+            local G1 = G + 0x8
 
-            local coords = GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
-            local x, y, z = coords.x, coords.y, coords.z
+            local Coords = self.GetOffsetFromEntityInWorldCoords(players.user_ped(), 0.0, 0.0, 0.0)
+            local X, Y, Z = Coords.x, Coords.y, Coords.z
 
-            if ReadByte(g) == 0 then
-                WriteByte(g, 1)
+            if self.ReadByte(G) == 0 then
+                self.WriteByte(G, 1)
             else
-                WriteFloat(g1, x)
-                WriteFloat(g1 + 0x8, y)
-                WriteFloat(g1 + 0x10, z)
+                self.WriteFloat(G1, X)
+                self.WriteFloat(G1 + 0x8, Y)
+                self.WriteFloat(G1 + 0x10, Z)
             end
         end,
         function()
-            local g = ScriptGlobal(2657704 + 1 + (PLAYER_ID * 463) + 456)
-            WriteByte(g, 0)
+            self.WriteByte(self.ScriptGlobal(Globals.OutOfSight), 0)
         end)
-    
-        model_changer:action(T'Custom Ped', {}, T'Choose a custom ped model', function()
-            local model = Shared:DisplayOnscreenKeyboard()
-            local status, err = pcall(function()
-                local hash = joaat(model)
-                Shared:RequestModel(hash)
-                SetPlayerModel(PLAYER_ID, hash)
-            end)
-    
-            if not status then
-                util.log(err)
+
+        self.cops_ignore_crimes = self.root:toggle(T'Cops Ignore Crimes', {}, T'Crimes do not increase your wanted level', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            if state then
+                -- WARNING: DO NOT EDIT THESE VALUES, THEY ARE MODIFYING THE GAME'S CODE
+                self.WriteLong(ModuleBase + 0x660143, 0xB883C7) -- mov [rbx+B8],00000000
+                self.WriteLong(ModuleBase + 0x660117, 0xB883C7) -- mov [rbx+B8],00000000
+                self.WriteLong(ModuleBase + 0x6600DD, 0xB883C7) -- mov [rbx+B8],00000000
+                self.WriteLong(ModuleBase + 0x6600B1, 0xB883C7) -- mov [rbx+B8],00000000
+                self.WriteLong(ModuleBase + 0x660081, 0xB883C7) -- mov [rbx+B8],00000000
+
+                self.WriteShort(ModuleBase + (0x660143 - 0x2), 0x1A75) -- jne GTA5.exe+66012D
+                self.WriteShort(ModuleBase + (0x660117 - 0x2), 0x1A75) -- jne GTA5.exe+660131
+                self.WriteShort(ModuleBase + (0x6600DD - 0x2), 0x2675) -- jne GTA5.exe+660103
+                self.WriteShort(ModuleBase + (0x6600B1 - 0x2), 0x1875) -- jne GTA5.exe+6600C9
+                self.WriteShort(ModuleBase + (0x660081 - 0x2), 0x1C75) -- jne GTA5.exe+66009D
+            else
+                self.WriteLong(ModuleBase + 0x660143, 0x1000000B883C7) -- mov [rbx+B8],00000001
+                self.WriteLong(ModuleBase + 0x660117, 0x2000000B883C7) -- mov [rbx+B8],00000002
+                self.WriteLong(ModuleBase + 0x6600DD, 0x3000000B883C7) -- mov [rbx+B8],00000003
+                self.WriteLong(ModuleBase + 0x6600B1, 0x4000000B883C7) -- mov [rbx+B8],00000004
+                self.WriteLong(ModuleBase + 0x660081, 0x5000000B883C7) -- mov [rbx+B8],00000005
+
+                self.WriteShort(ModuleBase + (0x660143 - 0x2), 0x1A7C) -- jl GTA5.exe+66012D
+                self.WriteShort(ModuleBase + (0x660117 - 0x2), 0x1A7C) -- jl GTA5.exe+660131
+                self.WriteShort(ModuleBase + (0x6600DD - 0x2), 0x267C) -- jl GTA5.exe+660103
+                self.WriteShort(ModuleBase + (0x6600B1 - 0x2), 0x187C) -- jl GTA5.exe+6600C9
+                self.WriteShort(ModuleBase + (0x660081 - 0x2), 0x1C7C) -- jl GTA5.exe+66009D
             end
         end)
-    
-        model_changer:action(T'Random Ped', {}, T'Choose a random ped model', function()
-            local ped = pedlist[math.random(1, #pedlist)]
-            local hash = joaat(ped)
-            Shared:RequestModel(hash)
-            SetPlayerModel(PLAYER_ID, hash)
+
+        self.force_scripthost = self.root:toggle_loop(T'Force Script Host', {}, T'Force you to become script host', function()
+            ScriptHostRef:trigger()
+        end)
+
+        self.infinite_bst = self.root:toggle_loop(T'Infinite BST', {}, T'BST timer will never decrease', function()
+            util.spoof_script('freemode', function()
+                local BST = self.ScriptLocal('freemode', Globals.BSTTimer)
+                self.WriteInt(BST, self.GetNetworkTime())
+            end)
+        end)
+
+        self.infinite_blindeye = self.root:toggle_loop(T'Infinte Cops Turn Blind Eye', {}, T'Timer will never decrease', function()
+            local BlindEyeTimer = self.ScriptGlobal(Globals.BribeAuthoritiesTimer)
+            self.WriteInt(BlindEyeTimer, self.GetNetworkTime())
+        end)
+
+        self.auto_restock = self.root:toggle_loop(T'Auto Restock Snacks And Armour', {}, T'Fully stocked snacks and armour in your inventory at all times', function()
+            local Value = S.MAX_INT
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NO_BOUGHT_YUM_SNACKS'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_'.. 'NO_BOUGHT_HEALTH_SNACKS'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NO_BOUGHT_EPIC_SNACKS'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NUMBER_OF_CHAMP_BOUGHT'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NUMBER_OF_ORANGE_BOUGHT'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NUMBER_OF_BOURGE_BOUGHT'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NUMBER_OF_SPRUNK_BOUGHT'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'CIGARETTES_BOUGHT'), 0)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'MP_CHAR_ARMOUR_5_COUNT'), Value)
+        end)
+
+        self.auto_restock.value = true
+
+        self.remove_bounty = self.bounty:action(T'Remove Bounty', {T'rremovebounty'}, T'Removes your bounty, this does NOT work the same as Stand\'s remove bounty feature', function()
+            S:SetPlayerBounty(PlayerID, 0, false)
+            S:SetPlayerBountyReward(PlayerID, 0)
         end)
     
-        model_changer:divider('')
-    
-        for Shared:SortTable(pedlist, function(a, b) return a < b end) as name do
-            model_changer:action(tostring(name), {}, '', function()
-                local hash = joaat(name)
-                Shared:RequestModel(hash)
-                SetPlayerModel(PLAYER_ID, hash)
+        self.collect_bounty = self.bounty:action(T'Collect Bounty', {T'rcollectbounty'}, T'Collect your bounty, if this does not work then remove all bounties from the entire session and re-set them', function()
+            self.WriteInt(self.ScriptGlobal(Globals.BountyTimer), 2880000)
+            self.WriteByte(self.ScriptGlobal(Globals.BountyLocal), -1)
+        end)
+
+        self.model_custom_ped = self.model_changer:text_input(T'Custom Ped Model', {T'rmodelcustomped'}, T'Change your model to a custom ped model', function(Model)
+            local Hash = util.joaat(Model)
+            if self.IsModelValid(Hash) then
+                self.RequestModel(Hash)
+                while not self.HasModelLoaded(Hash) do
+                    util.yield()
+                end
+                self.SetPlayerModel(PlayerID, Hash)
+                self.SetModelAsNoLongerNeeded(Hash)
+            end
+        end, 'A_C_Cat_01')
+
+        self.random_ped_model = self.model_changer:action(T'Random Ped Model', {T'rrandompedmodel'}, T'Change your model to a random ped model', function()
+            local Hash = util.joaat(PedList[math.random(1, #PedList)])
+            self.RequestModel(Hash)
+            while not self.HasModelLoaded(Hash) do
+                util.yield()
+            end
+            self.SetPlayerModel(PlayerID, Hash)
+            self.SetModelAsNoLongerNeeded(Hash)
+        end)
+
+        self.model_changer_ped_list = self.model_changer:list(T'Models', {}, T'A list of possible peds in the game')
+
+        for PedList as Model do
+            self.model_changer_ped_list:action(Model, {}, T'Change your model to this ped', function()
+                local Hash = util.joaat(Model)
+                self.RequestModel(Hash)
+                while not self.HasModelLoaded(Hash) do
+                    util.yield()
+                end
+                self.SetPlayerModel(PlayerID, Hash)
+                self.SetModelAsNoLongerNeeded(Hash)
             end)
         end
-    
+
+        self.play_cutscene = self.cutscene:text_input(T'Play Cutscene', {T'rplaycutscene'}, T'Play a cutscene', function(Cutscene)
+            self.RequestCutscene(Cutscene, 8)
+            while not self.HasCutsceneLoaded(Cutscene) do
+                util.yield()
+            end
+            self.StartCutscene(Cutscene)
+        end, 'abigail_mcs_1_concat')
+
+        self.stop_cutscene = self.cutscene:action(T'Stop Cutscene', {T'rstopcutscene'}, T'Stop the cutscene you are currently playing', function()
+            self.StopCutsceneImmediately()
+        end)
+
+        self.cutscene_list = self.cutscene:list(T'Cutscenes', {}, T'A list of cutscenes in the game')
+
+        for Cutscenes as Cutscene do
+            self.cutscene_list:action(Cutscene, {}, T'Play this cutscene', function()
+                self.RequestCutscene(Cutscene, 8)
+                while not self.HasCutsceneLoaded(Cutscene) do
+                    util.yield()
+                end
+                self.StartCutscene(Cutscene)
+            end)
+        end
+
+        self.auto_bst = self.pvp_helper:toggle(T'Auto BST', {T'rautobst'}, T'Automatically use BST when another player drops it', function(state)
+            if state then
+                local BSTPickups = {}
+                util.create_tick_handler(function()
+                    if self.auto_bst == false then
+                        return false
+                    end
+
+                    for entities.get_all_pickups_as_pointers() as Pickup do
+                        local Model = util.reverse_joaat(entities.get_model_hash(Pickup))
+                        if Model:find(S.Data.Models.BST) then
+                            if not BSTPickups[Pickup] then
+                                BSTPickups[Pickup] = true
+                                local Ref = self.instant_bst
+                                if Ref:isValid() then
+                                    util.yield(3000)
+                                    Ref:trigger()
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+
+        if S.Settings:IsSet(S.SettingsBits.DevMode) then
+            self.auto_ewo = self.pvp_helper:toggle_loop(T'Auto EWO', {}, T'Automatically ewo when you are low on health', function()
+                local Ped = players.user_ped()
+                local Health = self.GetEntityHealth(Ped)
+                local MaxHealth = self.GetEntityMaxHealth(Ped)
+                local HealthPercent = (Health / MaxHealth) * 100
+
+                if HealthPercent < 90 and not self.IsEntityDead(Ped) then
+                    self:ShootPlayer(PlayerID, util.joaat('WEAPON_RPG'), 9999)
+                end
+            end)
+        end
+
         self.root:divider('')
-    
-        self.root:action(T'Max Health', {T'maxhealth'}, T'Set your health to max', function()
-            local ped = players.user_ped()
-            SetEntityHealth(ped, GetEntityMaxHealth(ped))
+
+        self.root:action(T'Max Health', {T'rmaxhealth'}, T'Set your health to max', function()
+            local Ped = players.user_ped()
+            self.SetEntityHealth(Ped, self.GetEntityMaxHealth(Ped))
         end)
     
-        self.root:action(T'Max Armour', {T'maxarmour'}, T'Set your armour to max', function()
-            local ped = players.user_ped()
-            SetPedArmour(ped, GetPlayerMaxArmour(PLAYER_ID))
+        self.root:action(T'Max Armour', {T'rmaxarmour'}, T'Set your armour to max', function()
+            local Ped = players.user_ped()
+            self.SetPedArmour(Ped, self.GetPlayerMaxArmour(PlayerID))
         end)
-    
-        self.root:action(T'Infinite Snacks and Armor', {T'infiniteinventory'}, T'Gives you infinite snacks and armor in your inventory', function()
-            local value = Shared.MAX_INT
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'NO_BOUGHT_YUM_SNACKS'), value)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_'.. 'NO_BOUGHT_HEALTH_SNACKS'), value)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'NO_BOUGHT_EPIC_SNACKS'), value)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'NUMBER_OF_CHAMP_BOUGHT'), value)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'NUMBER_OF_ORANGE_BOUGHT'), value)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'NUMBER_OF_BOURGE_BOUGHT'), value)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'NUMBER_OF_SPRUNK_BOUGHT'), value)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'CIGARETTES_BOUGHT'), value)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'MP_CHAR_ARMOUR_1_COUNT'), 0)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'MP_CHAR_ARMOUR_2_COUNT'), 0)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'MP_CHAR_ARMOUR_3_COUNT'), 0)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'MP_CHAR_ARMOUR_4_COUNT'), 0)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'MP_CHAR_ARMOUR_5_COUNT'), value)
-            StatSetInt(util.joaat('MP' .. Shared.CHAR_SLOT .. '_' .. 'BREATHING_APPAR_BOUGHT'), value)
+
+        self.root:action(T'Infinite Snacks And Armor', {T'rinfiniteinventory'}, T'Gives you infinite snacks and armor in your inventory', function()
+            local Value = S.MAX_INT
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NO_BOUGHT_YUM_SNACKS'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_'.. 'NO_BOUGHT_HEALTH_SNACKS'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NO_BOUGHT_EPIC_SNACKS'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NUMBER_OF_CHAMP_BOUGHT'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NUMBER_OF_ORANGE_BOUGHT'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NUMBER_OF_BOURGE_BOUGHT'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'NUMBER_OF_SPRUNK_BOUGHT'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'CIGARETTES_BOUGHT'), 0)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'MP_CHAR_ARMOUR_1_COUNT'), 0)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'MP_CHAR_ARMOUR_2_COUNT'), 0)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'MP_CHAR_ARMOUR_3_COUNT'), 0)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'MP_CHAR_ARMOUR_4_COUNT'), 0)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'MP_CHAR_ARMOUR_5_COUNT'), Value)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'BREATHING_APPAR_BOUGHT'), Value)
         end)
-    
-        Shared.Refs.InstantBST = self.root:action(T'Instant BST', {T'instantbst'}, T'Instantly reap the reward of bst', function()
-            bst_local ??= ScriptLocal('freemode', INSTANT_BST_LOCAL)
-            WriteByte(bst ?? ScriptGlobal(INSTANT_BST), 1)
-    
-            if bst_local ~= 0 then
-                WriteByte(bst_local, 0)
+
+        self.instant_bst = self.root:action(T'Instant BST', {T'rinstantbst'}, T'Instantly reap the reward of bst', function()
+            local BSTLocal = self.ScriptLocal('freemode', Globals.InstantBSTLocal)
+            local BST = self.ScriptGlobal(Globals.InstantBST)
+
+            if BSTLocal ~= 0 then
+                self.WriteByte(BST, 1)
+                self.WriteByte(BSTLocal, 0)
             end
         end)
-    
-        self.root:action(T'Teleport To Nearest Hospital', {T'tpnearbyhospital'}, T'Teleport you to the nearest hospital as if someone just used the orbital cannon on you', function()
-            tp_hospital ??= ScriptGlobal(TELEPORT_NEAREST_HOSPITAL)
-    
-            WriteByte(tp_hospital, 1)
+
+        self.teleport_hospital = self.root:action(T'Teleport To Nearest Hospital', {T'rtpnearbyhospital'}, T'Teleport you to the nearest hospital as if someone just used the orbital cannon on you', function()
+            local HospitalTP = self.ScriptGlobal(Globals.TeleportNearestHospital)
+            self.WriteByte(HospitalTP, 1)
             util.yield(2000)
-            WriteByte(tp_hospital, 0)
+            self.WriteByte(HospitalTP, 0)
         end)
-    
-        self.root:action(T'Equip Ballistic Armor', {T'equiparmor'}, T'Equip ballistic armor', function()
-            ballistic_armor ??= ScriptGlobal(EQUIP_BALLISTIC_ARMOR)
-    
-            if ReadByte(ballistic_armor) == 0 then
-                WriteByte(ballistic_armor, 1)
+
+        self.equip_ballistic_armor = self.root:action(T'Equip Ballistic Armor', {T'requiparmor'}, T'Equip ballistic armor', function()
+            local Armor = self.ScriptGlobal(Globals.EquipBallisticArmor)
+            if self.ReadByte(Armor) == 0 then
+                self.WriteByte(Armor, 1)
             end
         end)
     
-        bounty:action(T'Remove Bounty', {T'removebounty'}, T'Removes your bounty, this does NOT work the same as Stand\'s remove bounty feature', function()
-            Shared:SetPlayerBounty(PLAYER_ID, 0, false)
-            Shared:SetPlayerBountyReward(PLAYER_ID, 0)
-        end)
-    
-        bounty:action(T'Collect Bounty', {T'collectbounty'}, T'Collect your bounty, if this does not work then remove all bounties from the entire session and re-set them', function()
-            bounty_timer ??= ScriptGlobal(BOUNTY_TIMER)
-            bounty_local ??= ScriptGlobal(BOUNTY_LOCAL)
-            
-            WriteInt(bounty_timer, 2880000)
-            WriteByte(bounty_local, -1)
-        end)
-    
-        self.root:action(T'Cops Turn Blind Eye', {T'copsturnblindeye'}, T'Makes the cops turn a blind eye to you', function()
-            blindeye ??= ScriptGlobal(BRIBE_AUTHORITIES)
-            WriteByte(blindeye, BitMask:Set(ReadByte(blindeye), Bits.BribeAuthorities))
+        self.cops_turn_blind_eye = self.root:action(T'Cops Turn Blind Eye', {T'rcopsturnblindeye'}, T'Makes the cops turn a blind eye to you', function()
+            local BlindEye = self.ScriptGlobal(Globals.BribeAuthorities)
+            self.WriteByte(BlindEye, S.BitMask:Set(self.ReadByte(BlindEye), Bits.BribeAuthorities))
             util.yield(100)
-            WriteByte(blindeye, BitMask:Clear(ReadByte(blindeye), Bits.BribeAuthorities))
-            WriteByte(blindeye, BitMask:Set(ReadByte(blindeye), 0xFFFFFFFF))
-            WriteByte(blindeye, BitMask:Clear(ReadByte(blindeye), 0xFFFFFFFF))
+            self.WriteByte(BlindEye, S.BitMask:Clear(self.ReadByte(BlindEye), Bits.BribeAuthorities))
+            self.WriteByte(BlindEye, S.BitMask:Set(self.ReadByte(BlindEye), 0xFFFFFFFF))
+            self.WriteByte(BlindEye, S.BitMask:Clear(self.ReadByte(BlindEye), 0xFFFFFFFF))
             util.yield_once()
-            WriteByte(blindeye, Bit:Set(ReadByte(blindeye), Bits.CopsTurnBlindEye))
+            self.WriteByte(BlindEye, S.Bit:Set(self.ReadByte(BlindEye), Bits.CopsTurnBlindEye))
+        end)
+
+        self.off_the_radar = self.root:action(T'Off The Radar', {T'rofftheradar'}, T'Gives you off the radar', function()
+            self:OffTheRadar(false)
+        end)
+
+        self.ghost_org = self.root:action(T'Ghost Organisation', {T'rghostorg'}, T'Gives you ghost organisation', function()
+            self:OffTheRadar(true)
+        end)
+
+       self.reset_otr_timer = self.root:action(T'Reset OTR/Ghost Org Timer', {T'rresetotrghostorgtimer'}, T'Reset the timer for off the radar/ghost org', function()
+            self.WriteInt(self.ScriptGlobal(Globals.OtrGhostTimer), self.GetNetworkTime())
         end)
     
-        self.root:action(T'Off The Radar', {T'selfotr'}, T'Makes you off the radar using the same method the game does', function()
-            OffTheRadar(false)
+        self.disable_otr = self.root:action(T'Disable Ghost Org / OTR', {T'rstophiding'}, T'Disable off the radar / ghost org', function()
+            self:DisableOffTheRadar()
         end)
-    
-        self.root:action(T'Ghost Org', {T'selfghostorg'}, T'Makes you ghost org using the same method the game does', function()
-            OffTheRadar(true)
-        end)
-    
-        self.root:action(T'Reset OTR/Ghost Org Timer', {T'resetotrghostorgtimer'}, T'Reset the timer for off the radar/ghost org', function()
-            otrghost_timer ??= ScriptGlobal(OTR_GHOST_TIMER)
-            WriteInt(otrghost_timer, GetNetworkTime())
-        end)
-    
-        self.root:action(T'Disable Ghost Org / OTR', {T'stophiding'}, T'Disable off the radar / ghost org', function()
-            DisableOffTheRadar()
-        end)
-    
-        self.root:action(T'Disable Blind Eye', {T'stopblindeye'}, T'Disable the cops turning a blind eye to you', function()
-            blindeye ??= ScriptGlobal(BRIBE_AUTHORITIES)
-            WriteByte(blindeye, Bit:Clear(ReadByte(blindeye), 0))
+
+        self.disable_blindeye = self.root:action(T'Disable Blind Eye', {T'stopblindeye'}, T'Disable the cops turning a blind eye to you', function()
+            self.WriteByte(self.ScriptGlobal(Globals.BribeAuthorities), 0)
         end)
     
         self.root:action(T'Disable BST', {T'disablebst'}, T'Disable bst', function()
-            local g = ScriptGlobal(2672524 + 3690)
-            if ReadByte(g) == 1 then
-                WriteByte(g, BitMask:Set(g, BitMask:Create(0, 1, 2)))
+            local BST = self.ScriptGlobal(Globals.DisableBST)
+            local BBitfield = Bitfield.new(self.ReadByte(BST))
+            if BBitfield:IsSet(1 << 0) then
+                BBitfield:Set(0b00000111)
+                BBitfield(BST, 8)
             end
         end)
-    
-        cutscene:text_input(T'Play Cutscene', {T'playcutscene'}, T'Play a custom cutscene', function(text)
-            Shared:RequestCutscene(text)
-            Shared:PlayCutscene(text)
+
+        self.root:action(T'Suicide', {}, T'Kill yourself using an RPG', function()
+            self:ShootPlayer(PlayerID, util.joaat('WEAPON_RPG'), 9999)
         end)
-    
-        cutscene:action(T'Stop Cutscene', {T'stopcutscene'}, T'Stop the cutscene', function()
-            Shared:StopCutscene()
-        end)
-    
-        cutscene:divider('')
-    
-        for Shared:SortTable(cutscenes, function(a, b) return a < b end) as name do
-            cutscene:action(name, {T'play' .. name}, name, function()
-                Shared:RequestCutscene(name)
-                Shared:PlayCutscene(name)
-            end)
-        end
-    
-        local bst_pickups = {}
-        pvp_helper:toggle_loop(T'Auto-BST', {}, T'Automatically activate BST the moment that your opponent drops it', function()
-            for Shared:GetAllPickupsAsPointers() as pickup do
-                local model = ReverseJoaat(GetModelHash(pickup))
-                if model:find(Shared.Data.Models.BST) then
-                    if not bst_pickups[pickup] then
-                        bst_pickups[pickup] = true
-                        local ref = Shared.Refs.InstantBST
-                        if ref:isValid() then
-                            util.yield(3000) -- delayed activation to ensure the player has picked it up before we activate it
-                            ref:trigger()
-                        end
-                    end
-                end
+
+        self.root:action(T'Improved Suicide', {}, T'Same as Stand\'s but doesn\'t give the other player the kill', function()
+            for pid = 0, S.MAX_PLAYERS do
+                local ped = self.GetPlayerPed(pid)
+                self.ClearEntityLastDamageEntity(ped)
             end
+            util.yield_once()
+            self.SetEntityHealth(players.user_ped(), 0)
         end)
     end
+
+    function SuperPunch(ExplosionType, Damage, isAudible, isInvisible, cameraShake)
+        local Ped = players.user_ped()
+        if util.reverse_joaat(self.GetSelectedPedWeapon(Ped)) == 'WEAPON_UNARMED' then
+            if self.GetPedLastWeaponImpactCoord(Ped, self.ImpactCoords) then
+                self.SetEntityProofs(Ped, true, true, true, true, true, true, true, true)
+                self.AddOwnedExplosion(Ped, self.ImpactCoords.x, self.ImpactCoords.y, self.ImpactCoords.z, ExplosionType, Damage, isAudible, isInvisible, cameraShake)
+                util.yield(500)
+                self.SetEntityProofs(Ped, false, false, false, false, false, false, false, false)
+            end
+        end
+    end
+
+    function ShootPlayer(Target, WeaponHash, Damage)
+        local Player = self.GetPlayerPed(Target)
+        local Pos = self.GetOffsetFromEntityInWorldCoords(Player, 0.0, 0.0, 0.0)
+        self.ShootSingleBulletBetweenCoords(Pos.x, Pos.y, Pos.z, Pos.x, Pos.y, Pos.z, Damage or 100, true, WeaponHash, Player, true, false, 1000.0)
+    end
+
+    function OffTheRadar(GhostOrg=false)
+        local Radar = self.ScriptGlobal(Globals.LegitOffTheRadar)
+        local Timer = self.ScriptGlobal(Globals.OtrGhostTimer)
+        local ForceGhost = self.ScriptGlobal(Globals.AbilitiesBitfield)
+
+        if self.ReadByte(Radar) == 0 then
+            local GBitfield = Bitfield.new(self.ReadInt(ForceGhost))
+            if GhostOrg then GBitfield:Set(Bits.OffRadar) else GBitfield:Clear(Bits.OffRadar) end
+            GBitfield(ForceGhost, 8)
+            self.WriteByte(Radar, 1)
+            self.WriteInt(Timer, self.GetNetworkTime())
+        end
+    end
+
+    function DisableOffTheRadar()
+        local Radar = self.ScriptGlobal(Globals.LegitOffTheRadar)
+        local Timer = self.ScriptGlobal(Globals.OtrGhostTimer)
+
+        if self.ReadByte(Radar) then
+            self.WriteByte(Radar, 0)
+            self.WriteByte(Timer, 0)
+        end
+    end
+
+    --[[void]] static function ClearEntityLastDamageEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xA72CD9CA74A5ECBA)end
+    --[[BOOL (bool)]] static function HasModelLoaded(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x98A4EB5D89A0C952)return native_invoker.get_return_value_bool()end
+    --[[void]] static function RequestModel(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x963D27A58DF860AC)end
+    --[[BOOL (bool)]] static function IsModelValid(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xC0296A2EDF545E92)return native_invoker.get_return_value_bool()end
+    --[[void]] static function SetModelAsNoLongerNeeded(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xE532F5D78798DAAB)end
+    --[[void]] static function RequestCutscene(--[[string]] cutsceneName,--[[int]] flags)native_invoker.begin_call()native_invoker.push_arg_string(cutsceneName)native_invoker.push_arg_int(flags)native_invoker.end_call_2(0x7A86743F475D9E09)end
+    --[[BOOL (bool)]] static function HasCutsceneLoaded()native_invoker.begin_call()native_invoker.end_call_2(0xC59F528E9AB9F339)return native_invoker.get_return_value_bool()end
+    --[[void]] static function StartCutscene(--[[int]] flags)native_invoker.begin_call()native_invoker.push_arg_int(flags)native_invoker.end_call_2(0x186D5CB5E7B0FF7B)end
+    --[[BOOL (bool)]] static function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end
+    --[[void]] static function StopCutsceneImmediately()native_invoker.begin_call()native_invoker.end_call_2(0xD220BDD222AC4A1E)end
 end
 
 return SelfOptions

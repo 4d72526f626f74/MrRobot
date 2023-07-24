@@ -52,98 +52,147 @@
 -- Global_1669211.f_567 = block passive mode protection
 -- Global_1669211.f_568 = CEO/MC kick protection
 -- Global_1669211.f_65 = bounty protection
+-- Global_1669211.f_2 = force camera forward protection
+-- Global_2794162.f_5231.f_48 = CEO/MC kick protection (clear bit 5)
 -- freemode, 18717 + 1 how many times you have requested a personal vehicle
 -- joaat("HEIST_ANTI_CHEAT_OPERATING_MODE"), &(Global_262145.f_10772), true);
 -- Global_1853988[PLAYER::PLAYER_ID() /*867*/].f_267[i]?
 -- Global_1853988[PLAYER::PLAYER_ID() /*867*/].f_267.f_116[num2 /*3*/].f_1
 
+-- Global_1853988[plParam0 /*867*/].f_267.f_497 car meet related
+-- Global_1853988[PLAYER::PLAYER_ID() /*867*/].f_267.f_497.f_3 = _STAT_GET_PACKED_INT(31562, -1);
+-- Global_1853988[PLAYER::PLAYER_ID() /*867*/].f_267.f_497.f_4 = _STAT_GET_PACKED_INT(41240, -1);
+-- MISC::GET_BITS_IN_RANGE(Global_2657704[plParam0 /*463*/].f_321.f_3, 28, 31);
 
-local Shared = require('shared')
+-- Global_2657704[plParam0 /*463*/].f_321.f_7 -- changing this seems to change where you appear on the map when inside the car meet
+local PLAYER_ID = players.user() -- for some reason PLAYER_ID in shared doesn't work here
 
-pluto_class ScriptGlobals
-    function __construct()
-        self:AddSettings()
-        self:AddTools()
-        self:AddCooldowns()
-        self:AddHeists()
-        self:AddProtections()
-    end
+local Globals = {
+    TransactionErrorBanner = 4536678, -- from UnknownCheats (updated by me)
+    TransactionErrorNotification = 4536677,
+    UnlockArcades = 1971633 + 22, -- Global_1971633.f_22
+    GoodBoyTimer = 2805862 + 85 + 1 + 5, -- Global_2805862.f_85[5]
+    SinRemover = 2764426 + 36, -- Global_2764426.f_36
+    InsufficientFunds = 100885 + 1482, -- Global_100885.f_1482
+    GunVanWeaponsStart = 34095,
+    GunVanWeaponsEnd = 34095 + 8,
+    GunVanThrowablesStart = 34117,
+    GunVanThrowablesEnd = 34117 + 2,
+    DisableHeistAntiCheat = 262145 + 10761, -- Global_262145.f_10761
+    KosatkaMissileCooldown = 262145 + 30394, -- default 60000 (int)
+    KosatkaMissileDistance = 262145 + 30395, -- default 4000 (float)
+    KosatkaRequestCooldown = 2684820 + 4319 + 242 + 1 + (65 * 2),
+    KosatkaDinghyCooldown = 2684820 + 4319 + 242 + 1 + (66 * 2),
+    MOCRequestCooldown = 2684820 + 4319 + 242 + 1 + (46 * 2),
+    AvengerRequestCooldown = 2684820 + 4319 + 242 + 1 + (49 * 2),
+    TerrorbyteRequestCooldown = 2684820 + 4319 + 242 + 1 + (52 * 2),
+    PersonalVehicleRequestCooldown = 2684820 + 4319 + 242 + 1 + (7 * 2),
+    CEOVehicleRequestCooldown = 1895156 + 1 + (PLAYER_ID * 609) + 10 + 63,
+    TerrorbyteDroneCooldown = 262145 + 24845, -- default 60000 (int)
+    TerrorbyteDistance = 262145 + 24845, -- default 500 (float)
+    TerrorbyteHeight = 262145 + 24671, -- default 200 (float)
+    TerrorbyteShockCooldown = 262145 + 24853, -- default 12000 (int)
+    TerrorbyteBoostRechargeTime = 262145 + 24851, -- default 15000 (int)
+    TerrorbyteDetonateCountdown = 262145 + 24849, -- default 7000 (int)
+    TerrorbyteDroneDamagePlayers = 262145 + 24848, -- default 1 (int)
+    TerrorbyteDroneDamagePeds = 262145 + 24847, -- default 1 (int)
+    TerrorbyteDroneBoostTime = 262145 + 24850, -- default 4000 (int)
+    TerrorbyteDroneForwardSpeed = 262145 + 24855, -- default 35 (float)
+    MoonpoolCooldown = 262145 + 31116, -- default 120000 (int)
+    Mk2Cooldown = 262145 + 28615, -- default 300000 (int)
+    StrikeTeamCooldown = 262145 + 23967, -- default 300000 (int)
+    AcidLabRequestCooldown = 262145 + 22046, -- default 300000 (int)
+    Oppressor2FlareCooldown = 262145 + 22146, -- default 9000 (int)
+    Oppressor2ChaffDuration = 262145 + 22147, -- default 6000 (int)
+    Oppressor2ChaffCooldown = 262145 + 22148, -- default 15000 (int)
+    InstantBST = 2672524 + 3690, -- Global_2672505.f_3690
+    InstantBSTLocal = 8340 + 1, -- func_12519(&iLocal_8285); (iParam0->f_1)
+    TeleportNearestHospital = 2635560 + 2781, -- Global_2635559.f_2681
+    FastRespawn = 1574964, -- Global_1574964
+    RespawnState = 2672524 + 1685 + 756, -- Global_2672505.f_1685.f_756
+    PlayerKiller = 2672524 + 1685 + 703 + 16, -- Global_2672505.f_1685.f_703.f_16
+    EquipBallisticArmor = 2794162 + 902, -- Global_2793046.f_897
+    MentalState = 2794162 + 4699, -- Global_2793046.f_4692
+    BribeAuthorities = 2794162 + 4661, -- Global_2793046.f_4654
+    AbilitiesBitfield = 2794162 + 4667, -- Global_2793046.f_4660
+    OtrGhostTimer = 2672524 + 57, -- Global_2672505.f_57
+    LegitOffTheRadar = 2657704 + 1 + (PLAYER_ID * 463) + 210, -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_210
+    BountyLocal = 2794162 + 1893 + 17, -- Global_2794162.f_1893.f_17
+    BountyTimer = 2359296 + 1 + (0 * 5568) + 5150 + 13, -- Global_2359296[func_876() /*5568*/].f_5150.f_13
+    OrbitalCannon = 2657704 + 1 + (PLAYER_ID * 463) + 424, -- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_424
+    RequestNanoDrone = 1963795,
+    RequestBase = 2794162,
+    AmPiMenuBase = 2766600,
+    PrimaryTargetValueStart = 30189,
+    PrimaryTargetValueEnd = 30194, 
+    RefreshPlannningBoard = 1526, -- heist_island_planning.c
+    SkipHacking = 21269 + 3168, -- fm_mission_controller_2020.c
+    InstantHack = 23669, -- fm_mission_controller_2020.c
+    ForceCameraForward = 1669211 + 2,
+    BlockPassiveMode = 1669211 + 567,
+    CeoKickProtection = 1669211 + 568,
+    CeoKickProtection2 = 2794162 + 5231 + 48,
+    Bounty = 1669211 + 65,
+    BlockAllNotifications = 1669211,
+    OrganisationBase = 1895156 + 1 + PLAYER_ID * 609,
+    OrganisationInvite = 1924276 + 9,
+    Interior = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 33,
+    SpoofSpecialPropertyOwner = 2657704 + 1 + (PLAYER_ID * 463) + 321 + 10,
+    StatSpoofing = 1853988 + 1 + (PLAYER_ID * 867) + 205,
+    BlackjackDealerCards = 3789, -- blackjack.c
+    BlackjackPlayerCards = 3790, -- blackjack.c
+    BlackjackBetAmount = 2273, -- blackjack.c
+    InsideTrackBetAmount = -197350, -- freemode.c
+    ActivePVSlot = 2359296 + 1 + (0 * 5568) + 681 + 2, -- Global_2359296[func_876() /*5568*/].f_681.f_2
+    VehicleKickProtection = 1669211 + 54,
+    DisableBST = 2672524 + 3690,
+    StealthMode = 2657704 + 1 + (PLAYER_ID * 463) + 321,
+    Invisibility = 2657704 + 1 + (PLAYER_ID * 463) + 254,
+    SpoofInteriorState = 1853988 + 1 + (PLAYER_ID * 867) + 863,
+    MentalStateValue = 2657704 + 1 + (PLAYER_ID * 463) + 268,
+    BecomeInterior = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 31,
+    PauseMenuActive = 1853988 + 1 + (PLAYER_ID * 867) + 192,
+    BypassOnCall = 1057409, -- Global_1057409
+    OutOfSight = 2657704 + 1 + (PLAYER_ID * 463) + 456,
+    SnacksInstantRestoreStart = 113,
+    SnacksInstantRestoreEnd = 119,
+    PVOwnershipBypass = 78689,
+    MissionState = 1853988 + 1 + (PLAYER_ID * 867),
+    NightclubStatsBase = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 354,
+    RequestSupplies = 1950844 + 10,
+    SourceMotorcycle = 1982265 + 1,
+    KosatkaStatsBase = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 479,
+    AvengerStatsBase = 2657704 + 1 + (PLAYER_ID * 463) + 321 + 6,
+    ReturnKosatka = 2672524 + 62 + 9,
+    LesterLocate = 2672524 + 3787,
+    PegasusRequest = 2672524 + 3787,
+    AcidLabName = 1914706 + 1 + (PLAYER_ID * 299) + 283, -- Global_1914706[plParam0 /*299*/].f_283
+    ActivePVHandle = 2794162 + 299,
+    MuggerEventProtection = 1670105 + 156,
+    StandNotificationSpamProtection = 1670105 + 42,
+    BlockCEOMCInviteProtection = 1669211 + 558,
+    BlockIslandHeistInviteProtection = 1669211 + 812,
+    BlockPropertyInviteProtection = 1669211 + 22,
+    BlockRemoveWantedLevelProtection = 1669211 + 509,
+    BlockRemoteOffTheRadarProtection = 1669211 + 511,
+    GunVanPositionVectorStart = 1956855,
+    GunVanProximity = 262145 + 34093,
+    BSTTimer = 8340 + 1 + 2,
+    BribeAuthoritiesTimer = 2794162 + 4664,
+    BlockCEOMoneyLoopProtection = 1669211 + 560,
+}
 
-    function AddSettings()
-        self.Settings = {}
-        self.Settings.TransactionErrorBanner = 4536678 -- from UnknownCheats (updated by me)
-    end
+function Globals:PlayerLegitOffTheRadar(pid) return 2657704 + 1 + (pid * 463) + 210 end
+function Globals:PlayerOrbitalCannon(pid) return 2657704 + 1 + (pid * 463) + 424 end
+function Globals:PlayerOrganisationBase(pid) return 1895156 + 1 + (pid * 609) end
+function Globals:PlayerInterior(pid) return 1853988 + 1 + (pid * 867) + 267 + 33 end
+function Globals:PlayerStatSpoofing(pid) return 1853988 + 1 + (pid * 867) + 205 end
+function Globals:PlayerPVNetworkID(pid) return 2657704 + 1 + (pid * 463) + 38 end
+function Globals:PersonalVehicleData(slot) return 1586488 + 1 + (slot * 142) end
+function Globals:PlayerBountyData(pid) return 1835504 + 4 + 1 + (pid * 3) end
+function Globals:PlayerBountyRewardData(pid) return 1895156 + 1 + (pid * 609) + 600 end
+function Globals:PlayerInvisibility(pid) return 2657704 + 1 + (pid * 463) + 254 end
+function Globals:PlayerStealthMode(pid) return 2657704 + 1 + (pid * 463) + 321 end
+function Globals:PlayerMissionState(pid) return 1853988 + 1 + (pid * 867) end
 
-    function AddTools()
-        self.Tools = {}
-        self.Tools.UnlockArcades = 1971633 + 22 -- Global_1971633.f_22
-        self.Tools.GoodBoyTimer = 2805862 + 85 + 1 + 5 -- Global_2805862.f_85[5]
-        self.Tools.SinRemover = 2764426 + 36 -- Global_2764426.f_36
-        self.Tools.InsufficientFunds = 100885 + 1482 -- Global_100885.f_1482
-        self.Tools.GunVanWeaponsStart = 34095
-        self.Tools.GunVanWeaponsEnd = 34095 + 8
-        self.Tools.GunVanThrowablesStart = 34117
-        self.Tools.GunVanThrowablesEnd = 34117 + 2
-        self.Tools.DisableHeistAntiCheat = 262145 + 10761 -- Global_262145.f_10761
-    end
-
-    function AddCooldowns()
-        self.Cooldowns = {}
-        self.Cooldowns.KosatkaMissileCooldown = 262145 + 30394 -- default 60000 (int)
-        self.Cooldowns.KosatkaMissileDistance = 262145 + 30395 -- default 4000 (float)
-
-        self.Cooldowns.KosatkaRequestCooldown = 2684820 + 4319 + 242 + 1 + (65 * 2)
-        self.Cooldowns.KosatkaDinghyCooldown = 2684820 + 4319 + 242 + 1 + (66 * 2)
-        self.Cooldowns.MOCRequestCooldown = 2684820 + 4319 + 242 + 1 + (46 * 2)
-        self.Cooldowns.AvengerRequestCooldown = 2684820 + 4319 + 242 + 1 + (49 * 2)
-        self.Cooldowns.TerrorbyteRequestCooldown = 2684820 + 4319 + 242 + 1 + (52 * 2)
-        self.Cooldowns.PersonalVehicleRequestCooldown = 2684820 + 4319 + 242 + 1 + (7 * 2)
-        self.Cooldowns.CEOVehicleRequestCooldown = 1895156 + 1 + (Shared.PLAYER_ID * 609) + 10 + 63
-        
-        self.Cooldowns.TerrorbyteDroneCooldown = 262145 + 24845 -- default 60000 (int)
-        self.Cooldowns.TerrorbyteDistance = 262145 + 24845 -- default 500 (float)
-        self.Cooldowns.TerrorbyteHeight = 262145 + 24671 -- default 200 (float)
-        self.Cooldowns.TerrorbyteShockCooldown = 262145 + 24853 -- default 12000 (int)
-        self.Cooldowns.TerrorbyteBoostRechargeTime = 262145 + 24851 -- default 15000 (int)
-        self.Cooldowns.TerrorbyteDetonateCountdown = 262145 + 24849 -- default 7000 (int)
-        self.Cooldowns.TerrorbyteDroneDamagePlayers = 262145 + 24848 -- default 1 (int)
-        self.Cooldowns.TerrorbyteDroneDamagePeds = 262145 + 24847 -- default 1 (int)
-        self.Cooldowns.TerrorbyteDroneBoostTime = 262145 + 24850 -- default 4000 (int)
-        self.Cooldowns.TerrorbyteDroneForwardSpeed = 262145 + 24855 -- default 35 (float)
-
-        self.Cooldowns.MoonpoolCooldown = 262145 + 31116 -- default 120000 (int)
-        self.Cooldowns.Mk2Cooldown = 262145 + 28615 -- default 300000 (int)
-        self.Cooldowns.StrikeTeamCooldown = 262145 + 23967 -- default 300000 (int)
-        self.Cooldowns.AcidLabRequestCooldown = 262145 + 22046 -- default 300000 (int)
-
-        self.Cooldowns.Oppressor2FlareCooldown = 262145 + 22146 -- default 9000 (int)
-        self.Cooldowns.Oppressor2ChaffDuration = 262145 + 22147 -- default 6000 (int)
-        self.Cooldowns.Oppressor2ChaffCooldown = 262145 + 22148 -- default 15000 (int)
-    end
-
-    function AddHeists()
-        self.Heists = {}
-        
-        self.Heists.PrimaryTargetValueStart = 30189
-        self.Heists.PrimaryTargetValueEnd = 30194 
-        self.Heists.RefreshPlannningBoard = 1526 -- heist_island_planning.c
-        self.Heists.SkipHacking = 21269 + 3168 -- fm_mission_controller_2020.c
-        self.Heists.InstantHack = 23669 -- fm_mission_controller_2020.c
-    end
-
-    function AddProtections()
-        -- Global_1669211.f_2 = force camera forward protection
-        -- Global_1669211.f_567 = block passive mode protection
-        -- Global_1669211.f_568 = CEO/MC kick protection
-        -- Global_2794162.f_5231.f_48 = CEO/MC kick protection (clear bit 5)
-        self.Protections = {}
-        self.Protections.ForceCameraForward = 1669211 + 2
-        self.Protections.BlockPassiveMode = 1669211 + 567
-        self.Protections.CeoKickProtection = 1669211 + 568
-        self.Protections.CeoKickProtection2 = 2794162 + 5231 + 48
-        self.Protections.Bounty = 1669211 + 65
-        self.Protections.BlockAllNotifications = 1669211
-    end
-end
-
-return ScriptGlobals
+return Globals

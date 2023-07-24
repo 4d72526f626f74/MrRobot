@@ -1,64 +1,34 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
-local T = require('translations')
-local Shared = require('shared')
-local Globals = Shared.Globals.Settings
+local T, S = require('translations'), require('shared')
+local Globals = require('script_globals')
 
-local ReadByte = Shared.ReadByte
-local ScriptGlobal = Shared.ScriptGlobal
-local ReadInt = Shared.ReadInt
-local GetPosition = Shared.GetPosition
-local GetAllPickupsAsPointers = Shared.GetAllPickupsAsPointers
-local DeleteByPointer = Shared.DeleteByPointer
-
-local GetOffsetFromEntityInWorldCoords = Shared.GetOffsetFromEntityInWorldCoords
-local SimulateControlKey = Shared.SimulateControlKey
-
---local TransactionErrorHash <const> = -991495373
+local SettingsBits = S.SettingsBits
 
 pluto_class Settings
-    function __construct()
+    ScriptGlobal = S.ScriptGlobal
+    WriteByte = memory.write_byte
+
+    function __construct(root, version)
         self.root = root:list(T'Settings', {T'rsettings'}, T'Settings')
-        self:CreateMenu()
-    end
+        self.root:divider('v' .. version)
+        
+        self.remove_transaction_error = self.root:toggle(T'Remove Transaction Errors', {}, T'Removes transaction error notifications so that they do not disturb your gameplay', function()
+            util.create_tick_handler(function()
+                if self.remove_transaction_error.value == false then
+                    return false
+                end
+                self.WriteByte(self.ScriptGlobal(Globals.TransactionErrorNotification), 0)
+            end)
+        end)
 
-    function CreateMenu()
-        self.autoaccept_ref = self.root:toggle(T'Auto Accept Transaction Errors', {}, T'Automatically accept transaction errors for you', function(state)
-            if state then
-                util.create_tick_handler(function()
-                    if self.autoaccept_ref.value == false then
-                        return false
-                    end
-
-                    if self:ErrorIsActive() then
-                        local ped = players.user_ped()
-                        SimulateControlKey(201, 1, 2)
-                        for GetAllPickupsAsPointers() as entity do
-                            local pos = GetPosition(entity)
-                            local player_pos = GetOffsetFromEntityInWorldCoords(ped, 0, 0, 0)
-                
-                            if Shared.Distance(pos, player_pos) < 10.0 then
-                                DeleteByPointer(entity)
-                            end
-                        end
-                    end
-                end)
-            end
-        end, Shared.Settings:IsSet(Shared.SettingsOffsets.AutoAcceptTransactionErrors))
-
-        -- this setting is inspired by AcjokerScript
         self.show_alerts = self.root:toggle(T'Show Alerts', {}, T'Should alerts be shown', function(state)
             if state then
-                Shared.Settings:Set(Shared.SettingsOffsets.ShowAlerts, true)
+                S.Settings:Set(SettingsBits.ShowAlerts)
             else
-                Shared.Settings:Clear(Shared.SettingsOffsets.ShowAlerts)
+                S.Settings:Clear(SettingsBits.ShowAlerts)
             end
-        end, Shared.Settings:IsSet(Shared.SettingsOffsets.ShowAlerts))
-    end
+        end, S.Settings:IsSet(SettingsBits.ShowAlerts))
 
-    function ErrorIsActive()
-        local banner = ScriptGlobal(Globals.TransactionErrorBanner) -- global is from UnknownCheats (updated by me)
-        return ReadInt(banner) ~= 0 or ReadInt(banner + 0x8) ~= 0
+        self.remove_transaction_error.value = S.Settings:IsSet(SettingsBits.RemoveTransactionError)
     end
 end
 

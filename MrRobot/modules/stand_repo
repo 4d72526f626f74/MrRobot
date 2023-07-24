@@ -1,17 +1,15 @@
+local T = require('translations')
 local root = menu.my_root()
 local shadow_root = menu.shadow_root()
-local T = require('translations')
 
 local tools_ref = menu.ref_by_rel_path(root, T'Tools')
 if tools_ref:isValid() then
     root = tools_ref
 end
 
-local fs = filesystem
-
-local lib_dir = fs.scripts_dir() .. '/lib'
-local res_dir = fs.scripts_dir() .. '/resources'
-local store_dir = fs.scripts_dir() .. '/store'
+local lib_dir = filesystem.scripts_dir() .. '/lib'
+local res_dir = filesystem.scripts_dir() .. '/resources'
+local store_dir = filesystem.scripts_dir() .. '/store'
 
 local endpoint = 'stand.gg'
 local stand_natives = {
@@ -200,7 +198,7 @@ local libs = repo:list(T'Libs', {}, T'Libs for other scripts like json, scalefor
 local function download_sync(url, path, download_path)
     local bytes = 0
 
-    if fs.exists(download_path) then
+    if filesystem.exists(download_path) then
         io.remove(download_path)
     end
     
@@ -234,21 +232,21 @@ end
 
 for k, v in pairs(stand_natives) do
     local n = natives:list(v.name:gsub('.lua', ''), {}, '')
-    local installed = n:readonly('Installed: ' .. tostring(fs.exists(v.files[1][2])))
+    local installed = n:readonly('Installed: ' .. tostring(filesystem.exists(v.files[1][2])))
     n:divider('')
 
     n:action(T'Download/Update', {}, '', function()
         if #v.files ~= 1 then
             local dir = lib_dir .. '/' .. v.name:gsub('.lua', '')
-            if not fs.exists(dir) then
-                fs.mkdir(dir)
+            if not filesystem.exists(dir) then
+                filesystem.mkdir(dir)
             end
         end
 
         for _, file in pairs(v.files) do
             download_sync(endpoint, file[3], file[2])
         end
-        installed.menu_name = 'Installed: ' .. tostring(fs.exists(v.files[1][2]))
+        installed.menu_name = 'Installed: ' .. tostring(filesystem.exists(v.files[1][2]))
     end)
 
     n:action(T'Uninstall', {}, '', function()
@@ -258,7 +256,7 @@ for k, v in pairs(stand_natives) do
             end
         end
 
-        installed.menu_name = 'Installed: ' .. tostring(fs.exists(v.files[1][2]))
+        installed.menu_name = 'Installed: ' .. tostring(filesystem.exists(v.files[1][2]))
     end)
 end
 
@@ -269,8 +267,8 @@ for k, v in pairs(stand_libs) do
     l:action(T'Download/Update', {}, '', function()
         if #v.files ~= 1 and v.create_directory then
             for _, dir in pairs(v.dirs) do
-                if not fs.exists(dir[1]) then
-                    fs.mkdir(dir[1])
+                if not filesystem.exists(dir[1]) then
+                    filesystem.mkdir(dir[1])
                 end
             end
         end

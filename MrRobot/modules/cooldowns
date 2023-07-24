@@ -1,203 +1,23 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
-local T = require('translations')
-local Shared = require('shared')
-local Globals = Shared.Globals.Cooldowns
-local PLAYER_ID = Shared.PLAYER_ID
-local CHAR_SLOT = Shared.CHAR_SLOT
+local T, S = require('translations'), require('shared')
+local Bitfield = require('bitfield')
+local Globals = require('script_globals')
 
-local SetPlayerWeaponDamageModifier = Shared.SetPlayerWeaponDamageModifier
-
-local ScriptGlobal = Shared.ScriptGlobal
-local ReadInt = Shared.ReadInt
-local ReadShort = Shared.ReadShort
-local ReadByte = Shared.ReadByte
-local ReadFloat = Shared.ReadFloat
-local ReadLong = Shared.ReadLong
-local WriteInt = Shared.WriteInt
-local WriteShort = Shared.WriteShort
-local WriteByte = Shared.WriteByte
-local WriteFloat = Shared.WriteFloat
-local WriteLong = Shared.WriteLong
-local RefByRelPath = Shared.RefByRelPath
-
-local StatSetInt = Shared.StatSetInt
-
-pluto_class GCooldowns
-    KosatkaMissileCooldown = Globals.KosatkaMissileCooldown
-    KosatkaMissileDistance = Globals.KosatkaMissileDistance
-
-    KosatkaRequestCooldown = Globals.KosatkaRequestCooldown
-    KosatkaDinghyCooldown = Globals.KosatkaDinghyCooldown
-    MOCRequestCooldown = Globals.MOCRequestCooldown
-    AvengerRequestCooldown = Globals.AvengerRequestCooldown
-    TerrorbyteRequestCooldown = Globals.TerrorbyteRequestCooldown
-    PersonalVehicleRequestCooldown = Globals.PersonalVehicleRequestCooldown
-    CEOVehicleRequestCooldown = Globals.CEOVehicleRequestCooldown
-
-    TerrorbyteDroneCooldown = Globals.TerrorbyteDroneCooldown
-    TerrorbyteDistance = Globals.TerrorbyteDistance
-    TerrorbyteHeight = Globals.TerrorbyteHeight
-    TerrorbyteShockCooldown = Globals.TerrorbyteShockCooldown
-    TerrorbyteBoostRechargeTime = Globals.TerrorbyteBoostRechargeTime
-    TerrorbyteDetonateCountdown = Globals.TerrorbyteDetonateCountdown
-    TerrorbyteDroneDamagePlayers = Globals.TerrorbyteDroneDamagePlayers
-    TerrorbyteDroneDamagePeds = Globals.TerrorbyteDroneDamagePeds
-    TerrorbyteDroneBoostTime = Globals.TerrorbyteDroneBoostTime
-    TerrorbyteDroneForwardSpeed = Globals.TerrorbyteDroneForwardSpeed
-
-    MoonpoolCooldown = Globals.MoonpoolCooldown
-    Mk2Cooldown = Globals.Mk2Cooldown
-    StrikeTeamCooldown = Globals.StrikeTeamCooldown
-    AcidLabRequestCooldown = Globals.AcidLabRequestCooldown
-
-    Oppressor2FlareCooldown = Globals.Oppressor2FlareCooldown
-    Oppressor2ChaffDuration = Globals.Oppressor2ChaffDuration
-    Oppressor2ChaffCooldown = Globals.Oppressor2ChaffCooldown
-
-    function SetKosatkaMissileCooldown(value)
-        local g = ScriptGlobal(self.KosatkaMissileCooldown)
-        WriteInt(g, value)
-    end
-
-    function SetKosatkaMissileDistance(value)
-        local g = ScriptGlobal(self.KosatkaMissileDistance)
-        WriteFloat(g, value)
-    end
-
-    function RemoveKosatkaRequestCooldown()
-        local g = ScriptGlobal(self.KosatkaRequestCooldown)
-        WriteInt(g, 0)
-    end
-
-    function RemoveKosatkaDinghyCooldown()
-        local g = ScriptGlobal(self.KosatkaDinghyCooldown)
-        WriteInt(g, 0)
-    end
-
-    function RemoveMOCRequestCooldown()
-        local g = ScriptGlobal(self.MOCRequestCooldown)
-        WriteInt(g, 0)
-    end
-
-    function RemoveAvengerRequestCooldown()
-        local g = ScriptGlobal(self.AvengerRequestCooldown)
-        WriteInt(g, 0)
-    end
-
-    function RemoveTerrorbyteRequestCooldown()
-        local g = ScriptGlobal(self.TerrorbyteRequestCooldown)
-        WriteInt(g, 0)
-    end
-
-    function RemovePersonalVehicleRequestCooldown()
-        local g = ScriptGlobal(self.PersonalVehicleRequestCooldown)
-        WriteInt(g, 0)
-    end
-
-    function RemoveCEOVehicleRequestCooldown()
-        local g = ScriptGlobal(self.CEOVehicleRequestCooldown)
-        WriteInt(g, 0)
-    end
-
-    function SetTerrorbyteDroneCooldown(value)
-        local g = ScriptGlobal(self.TerrorbyteDroneCooldown)
-        WriteInt(g, value)
-    end
-
-    function SetTerrorbyteDroneDistance(value)
-        local g = ScriptGlobal(self.TerrorbyteDistance)
-        WriteFloat(g, value)
-    end
-
-    function SetTerrorbyteDroneHeight(value)
-        local g = ScriptGlobal(self.TerrorbyteHeight)
-        WriteFloat(g, value)
-    end
-
-    function SetTerrorbyteDroneShockCooldown(value)
-        local g = ScriptGlobal(self.TerrorbyteShockCooldown)
-        WriteInt(g, value)
-    end
-
-    function SetTerrorbyteDroneBoostRechargeTime(value)
-        local g = ScriptGlobal(self.TerrorbyteBoostRechargeTime)
-        WriteInt(g, value)
-    end
-
-    function SetTerrorbyteDroneDetonateCountdown(value)
-        local g = ScriptGlobal(self.TerrorbyteDetonateCountdown)
-        WriteInt(g, value)
-    end
-
-    function SetTerrorbyteDroneDamagePlayers(value)
-        local g = ScriptGlobal(self.TerrorbyteDroneDamagePlayers)
-        WriteInt(g, value)
-    end
-
-    function SetTerrorbyteDroneDamagePeds(value)
-        local g = ScriptGlobal(self.TerrorbyteDroneDamagePeds)
-        WriteInt(g, value)
-    end
-
-    function GetTerrorbyteDroneDamagePlayers()
-        local g = ScriptGlobal(self.TerrorbyteDroneDamagePlayers)
-        return ReadInt(g)
-    end
-
-    function GetTerrorbyteDroneDamagePeds()
-        local g = ScriptGlobal(self.TerrorbyteDroneDamagePeds)
-        return ReadInt(g)
-    end
-
-    function SetTerrorbyteDroneBoostTime(value)
-        local g = ScriptGlobal(self.TerrorbyteDroneBoostTime)
-        WriteInt(g, value)
-    end
-
-    function SetTerrorbyteDroneForwardSpeed(value)
-        local g = ScriptGlobal(self.TerrorbyteDroneForwardSpeed)
-        WriteFloat(g, value)
-    end
-
-    function SetMoonpoolCooldown(value)
-        local g = ScriptGlobal(self.MoonpoolCooldown)
-        WriteInt(g, value)
-    end
-
-    function SetMk2Cooldown(value)
-        local g = ScriptGlobal(self.Mk2Cooldown)
-        WriteInt(g, value)
-    end
-
-    function SetStrikeTeamCooldown(value)
-        local g = ScriptGlobal(self.StrikeTeamCooldown)
-        WriteInt(g, value)
-    end
-
-    function SetOppressor2FlareCooldown(value)
-        local g = ScriptGlobal(self.Oppressor2FlareCooldown)
-        WriteInt(g, value)
-    end
-
-    function SetOppressor2ChaffDuration(value)
-        local g = ScriptGlobal(self.Oppressor2ChaffDuration)
-        WriteInt(g, value)
-    end
-
-    function SetOppressor2ChaffCooldown(value)
-        local g = ScriptGlobal(self.Oppressor2ChaffCooldown)
-        WriteInt(g, value)
-    end
-
-    function SetAcidLabRequestCooldown(value)
-        local g = ScriptGlobal(self.AcidLabRequestCooldown)
-        WriteInt(g, value)
-    end
-end
+local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
 
 pluto_class Cooldowns
-    function __construct()
+    ScriptGlobal = S.ScriptGlobal
+    ReadByte = memory.read_byte
+    ReadShort = memory.read_short
+    ReadInt = memory.read_int
+    ReadFloat = memory.read_float
+    ReadString = memory.read_string
+    WriteByte = memory.write_byte
+    WriteShort = memory.write_short
+    WriteInt = memory.write_int
+    WriteFloat = memory.write_float
+    WriteString = memory.write_string
+
+    function __construct(root)
         self.root = root:list(T'Cooldowns', {T'rcooldowns'}, T'Cooldowns')
         self.kosatka = self.root:list(T'Kosatka', {T'rkosatka'}, T'Kosatka')
         self.terrorbyte = self.root:list(T'Terrorbyte/Nano Drone', {T'rterrorbyte'}, T'Not everything that works for the terrorbyte works for the nano drone')
@@ -205,136 +25,274 @@ pluto_class Cooldowns
         self:CreateKosatka()
         self:CreateTerrorbyte()
 
+        self.root:divider('')
         self.root:toggle(T'Remove Moonpool Cooldown', {}, T'Remove moonpool request cooldown', function(state)
-            GCooldowns:SetMoonpoolCooldown(state ? 0 : 300000)
+            self:SetMoonpoolCooldown(state ? 0 : 300000)
         end)
 
         self.root:toggle(T'Remove MK2 Cooldown', {}, T'Remove Oppressor MKII request cooldown', function(state)
-            GCooldowns:SetMk2Cooldown(state ? 0 : 300000)
+            self:SetMk2Cooldown(state ? 0 : 300000)
         end)
 
         self.root:toggle(T'Remove Strike Team Cooldown', {}, T'Remove strike team request cooldown', function(state)
-            GCooldowns:SetStrikeTeamCooldown(state ? 0 : 300000)
+            self:SetStrikeTeamCooldown(state ? 0 : 300000)
         end)
 
         self.root:toggle_loop(T'Remove Orbital Cannon Cooldown', {}, T'Remove orbital cannon cooldown', function()
-            StatSetInt(util.joaat('MP' .. CHAR_SLOT .. '_' .. 'ORBITAL_CANNON_COOLDOWN'), 0, true)
+            self.StatSetInt(util.joaat('MP' .. CharSlot .. '_' .. 'ORBITAL_CANNON_COOLDOWN'), 0, true)
         end)
 
         self.root:toggle(T'Remove MK2 Chaff Cooldown', {}, T'Remove Oppressor MKII chaff cooldown', function(state)
-            GCooldowns:SetOppressor2ChaffCooldown(state ? 0 : 6000)
+            self:SetOppressor2ChaffCooldown(state ? 0 : 6000)
         end)
 
         self.root:toggle(T'Remove MK2 Flare Cooldown', {}, T'Remove Oppressor MKII flare cooldown', function(state)
-            GCooldowns:SetOppressor2FlareCooldown(state ? 0 : 6000)
+            self:SetOppressor2FlareCooldown(state ? 0 : 6000)
         end)
 
         self.root:toggle(T'Infinite Chaff Duration', {}, T'Make Oppressor MKII Chaff last forever', function(state)
-            GCooldowns:SetOppressor2ChaffDuration(state ? Shared.MAX_FLOAT : 10.0)
+            self:SetOppressor2ChaffDuration(state ? S.MAX_FLOAT : 10.0)
         end)
 
         self.root:toggle_loop(T'Remove Acid Lab Request Cooldown', {}, T'Remove acid lab request cooldown', function(state)
-            GCooldowns:SetAcidLabRequestCooldown(state ? 0 : 300000)
+            self:SetAcidLabRequestCooldown(state ? 0 : 300000)
         end)
 
         self.root:toggle_loop(T'Remove MOC Request Cooldown', {}, T'Remove MOC request cooldown', function(state)
-            GCooldowns:RemoveMOCRequestCooldown()
+            self:RemoveMOCRequestCooldown()
         end)
 
         self.root:toggle_loop(T'Remove Avenger Request Cooldown', {}, T'Remove Avenger request cooldown', function(state)
-            GCooldowns:RemoveAvengerRequestCooldown()
+            self:RemoveAvengerRequestCooldown()
         end)
 
         self.root:toggle_loop(T'Remove Personal Vehicle Cooldown', {}, T'Remove personal vehicle request cooldown', function(state)
-            GCooldowns:RemovePersonalVehicleRequestCooldown()
+            self:RemovePersonalVehicleRequestCooldown()
         end)
 
         self.root:toggle_loop(T'Remove CEO Vehicle Cooldown', {}, T'Remove CEO vehicle request cooldown', function(state)
-            GCooldowns:RemoveCEOVehicleRequestCooldown()
+            self:RemoveCEOVehicleRequestCooldown()
         end)
     end
 
     function CreateKosatka()
         self.kosatka:toggle(T'Remove Missile Cooldown', {}, T'Remove kosatka guided missile cooldown', function(state)
-            GCooldowns:SetKosatkaMissileCooldown(state ? 0 : 60000)
+            self:SetKosatkaMissileCooldown(state ? 0 : 60000)
         end)
 
         self.kosatka:toggle(T'Remove Missile Distance', {}, T'Remove kosatka guided missile distance limit', function(state)
-            GCooldowns:SetKosatkaMissileDistance(state ? Shared.MAX_FLOAT : 4000)
+            self:SetKosatkaMissileDistance(state ? S.MAX_FLOAT : 4000)
         end)
 
         self.kosatka:toggle_loop(T'Remove Request Cooldown', {}, T'Remove kosatka request cooldown', function(state)
-            GCooldowns:RemoveKosatkaRequestCooldown()
+            self:RemoveKosatkaRequestCooldown()
         end)
 
         self.kosatka:toggle_loop(T'Remove Dinghy Cooldown', {}, T'Remove kosatka dinghy cooldown', function(state)
-            GCooldowns:RemoveKosatkaDinghyCooldown()
+            self:RemoveKosatkaDinghyCooldown()
         end)
     end
 
     function CreateTerrorbyte()
         self.terrorbyte:toggle(T'Remove Drone Cooldown', {}, T'Remove drone cooldown', function(state)
-            GCooldowns:SetTerrorbyteDroneCooldown(state ? 0 : 60000)
+            self:SetTerrorbyteDroneCooldown(state ? 0 : 60000)
         end)
 
         self.terrorbyte:toggle_loop(T'Remove Request Cooldown', {}, T'Remove terrorbyte request cooldown', function(state)
-            GCooldowns:RemoveTerrorbyteRequestCooldown()
+            self:RemoveTerrorbyteRequestCooldown()
         end)
 
         self.terrorbyte:toggle(T'Unlimited Range', {}, T'Removes drone range limitation so you can take the drone anywhere on the map without losing connection', function(state)
-            GCooldowns:SetTerrorbyteDroneDistance(state ? Shared.MAX_FLOAT : 500)
+            self:SetTerrorbyteDroneDistance(state ? S.MAX_FLOAT : 500)
         end)
 
         self.terrorbyte:toggle(T'Unlimited Height', {}, T'Removes drone height limitation so you can go as high as the sky height barrier without the drone getting destroyed', function(state)
-            GCooldowns:SetTerrorbyteDroneHeight(state ? Shared.MAX_FLOAT : 200)
+            self:SetTerrorbyteDroneHeight(state ? S.MAX_FLOAT : 200)
         end)
 
         self.terrorbyte:toggle(T'Remove Shock Cooldown', {}, T'Remove shock cooldown', function(state)
-            GCooldowns:SetTerrorbyteDroneShockCooldown(state ? 0 : 12000)
+            self:SetTerrorbyteDroneShockCooldown(state ? 0 : 12000)
         end)
 
         self.terrorbyte:toggle(T'Instant Boost Recharge', {}, T'Remove boost recharge time', function(state)
-            GCooldowns:SetTerrorbyteDroneBoostRechargeTime(state ? 0 : 15000)
+            self:SetTerrorbyteDroneBoostRechargeTime(state ? 0 : 15000)
         end)
 
         self.terrorbyte:toggle(T'Instant Detonate', {}, T'Remove detonate countdown', function(state)
-            GCooldowns:SetTerrorbyteDroneDetonateCountdown(state ? 0 : 7000)
+            self:SetTerrorbyteDroneDetonateCountdown(state ? 0 : 7000)
         end)
 
-        self.terrorbyte:toggle(T'Damage Players', {}, T'Drone damage players', function(state)
-            GCooldowns:SetTerrorbyteDroneDamagePlayers(state ? 1 : 0)
-        end, GCooldowns:GetTerrorbyteDroneDamagePlayers())
+        self.damage_players = self.terrorbyte:toggle(T'Damage Players', {}, T'Drone damage players', function(state)
+            self:SetTerrorbyteDroneDamagePlayers(state ? 1 : 0)
+        end, self:GetTerrorbyteDroneDamagePlayers())
 
-        self.terrorbyte:toggle(T'Damage Peds', {}, T'Drone damage peds', function(state)
-            GCooldowns:SetTerrorbyteDroneDamagePeds(state ? 1 : 0)
-        end, GCooldowns:GetTerrorbyteDroneDamagePeds())
+        self.damage_peds = self.terrorbyte:toggle(T'Damage Peds', {}, T'Drone damage peds', function(state)
+            self:SetTerrorbyteDroneDamagePeds(state ? 1 : 0)
+        end, self:GetTerrorbyteDroneDamagePeds())
 
-        self.terrorbyte:click_slider(T'Drone Boost Time', {}, T'Amount of the time the drone will boost for', 4, Shared.MAX_INT, 4, 1, function(value)
-            GCooldowns:SetTerrorbyteDroneBoostTime(value * 1000)
+        self.terrorbyte:click_slider(T'Drone Boost Time', {}, T'Amount of the time the drone will boost for', 4, S.MAX_INT, 4, 1, function(value)
+            self:SetTerrorbyteDroneBoostTime(value * 1000)
         end)
 
-        self.terrorbyte:click_slider_float(T'Drone Forward Speed', {}, T'Drone forward speed', 3500.0, Shared.MAX_INT + 0.0, 3500.0, 500.0, function(value)
-            GCooldowns:SetTerrorbyteDroneForwardSpeed(value)
+        self.terrorbyte:click_slider_float(T'Drone Forward Speed', {}, T'Drone forward speed', 3500.0, S.MAX_INT + 0.0, 3500.0, 500.0, function(value)
+            self:SetTerrorbyteDroneForwardSpeed(value)
         end)
 
-        self.terrorbyte:toggle(T'Instant Kill', {}, T'Allow drone to instantly kill players and peds with 1 shock', function(state)
-            local player_damage = RefByRelPath(terrorbyte, T'Damage Players')
-            local ped_damage = RefByRelPath(terrorbyte, T'Damage Peds')
-            local instant_kill = RefByRelPath(terrorbyte, T'Instant Kill')
-
-            if player_damage.value or ped_damage.value then
-                if Shared:IsPlayerUsingDrone(PLAYER_ID) then
-                    SetPlayerWeaponDamageModifier(players.user_ped(), state and 1000.0 or 1.0)
+        self.instant_kill = self.terrorbyte:toggle(T'Instant Kill', {}, T'Allow drone to instantly kill players and peds with 1 shock', function(state)
+            if self.damage_players.value or self.damage_peds.value then
+                if S:IsPlayerUsingDrone(PlayerID) then
+                    self.SetPlayerWeaponDamageModifier(players.user_ped(), state ? 1000.0 : 1.0)
                 else
-                    instant_kill.value = false
+                    self.instant_kill.value = false
                 end
             else
-                instant_kill.value = false
+                self.instant_kill.value = false
             end
         end)
-
-        self.root:divider('')
     end
+
+    function SetKosatkaMissileCooldown(value)
+        local g = self.ScriptGlobal(Globals.KosatkaMissileCooldown)
+        self.WriteInt(g, value)
+    end
+
+    function SetKosatkaMissileDistance(value)
+        local g = self.ScriptGlobal(Globals.KosatkaMissileDistance)
+        self.WriteFloat(g, value)
+    end
+
+    function RemoveKosatkaRequestCooldown()
+        local g = self.ScriptGlobal(Globals.KosatkaRequestCooldown)
+        self.WriteInt(g, 0)
+    end
+
+    function RemoveKosatkaDinghyCooldown()
+        local g = self.ScriptGlobal(Globals.KosatkaDinghyCooldown)
+        self.WriteInt(g, 0)
+    end
+
+    function RemoveMOCRequestCooldown()
+        local g = self.ScriptGlobal(Globals.MOCRequestCooldown)
+        self.WriteInt(g, 0)
+    end
+
+    function RemoveAvengerRequestCooldown()
+        local g = self.ScriptGlobal(Globals.AvengerRequestCooldown)
+        self.WriteInt(g, 0)
+    end
+
+    function RemoveTerrorbyteRequestCooldown()
+        local g = self.ScriptGlobal(Globals.TerrorbyteRequestCooldown)
+        self.WriteInt(g, 0)
+    end
+
+    function RemovePersonalVehicleRequestCooldown()
+        local g = self.ScriptGlobal(Globals.PersonalVehicleRequestCooldown)
+        self.WriteInt(g, 0)
+    end
+
+    function RemoveCEOVehicleRequestCooldown()
+        local g = self.ScriptGlobal(Globals.CEOVehicleRequestCooldown)
+        self.WriteInt(g, 0)
+    end
+
+    function SetTerrorbyteDroneCooldown(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteDroneCooldown)
+        self.WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneDistance(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteDistance)
+        self.WriteFloat(g, value)
+    end
+
+    function SetTerrorbyteDroneHeight(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteHeight)
+        self.WriteFloat(g, value)
+    end
+
+    function SetTerrorbyteDroneShockCooldown(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteShockCooldown)
+        self.WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneBoostRechargeTime(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteBoostRechargeTime)
+        self.WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneDetonateCountdown(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteDetonateCountdown)
+        self.WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneDamagePlayers(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteDroneDamagePlayers)
+        self.WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneDamagePeds(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteDroneDamagePeds)
+        self.WriteInt(g, value)
+    end
+
+    function GetTerrorbyteDroneDamagePlayers()
+        local g = self.ScriptGlobal(Globals.TerrorbyteDroneDamagePlayers)
+        return self.ReadInt(g)
+    end
+
+    function GetTerrorbyteDroneDamagePeds()
+        local g = self.ScriptGlobal(Globals.TerrorbyteDroneDamagePeds)
+        return self.ReadInt(g)
+    end
+
+    function SetTerrorbyteDroneBoostTime(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteDroneBoostTime)
+        self.WriteInt(g, value)
+    end
+
+    function SetTerrorbyteDroneForwardSpeed(value)
+        local g = self.ScriptGlobal(Globals.TerrorbyteDroneForwardSpeed)
+        self.WriteFloat(g, value)
+    end
+
+    function SetMoonpoolCooldown(value)
+        local g = self.ScriptGlobal(Globals.MoonpoolCooldown)
+        self.WriteInt(g, value)
+    end
+
+    function SetMk2Cooldown(value)
+        local g = self.ScriptGlobal(Globals.Mk2Cooldown)
+        self.WriteInt(g, value)
+    end
+
+    function SetStrikeTeamCooldown(value)
+        local g = self.ScriptGlobal(Globals.StrikeTeamCooldown)
+        self.WriteInt(g, value)
+    end
+
+    function SetOppressor2FlareCooldown(value)
+        local g = self.ScriptGlobal(Globals.Oppressor2FlareCooldown)
+        self.WriteInt(g, value)
+    end
+
+    function SetOppressor2ChaffDuration(value)
+        local g = self.ScriptGlobal(Globals.Oppressor2ChaffDuration)
+        self.WriteInt(g, value)
+    end
+
+    function SetOppressor2ChaffCooldown(value)
+        local g = self.ScriptGlobal(Globals.Oppressor2ChaffCooldown)
+        self.WriteInt(g, value)
+    end
+
+    function SetAcidLabRequestCooldown(value)
+        local g = self.ScriptGlobal(Globals.AcidLabRequestCooldown)
+        self.WriteInt(g, value)
+    end
+
+    --[[BOOL (bool)]] static function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end
+    --[[void]] static function SetPlayerWeaponDamageModifier(--[[Player (int)]] player,--[[float]] modifier)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_float(modifier)native_invoker.end_call_2(0xCE07B9F7817AADA3)end
 end
 
 return Cooldowns

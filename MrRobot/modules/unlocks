@@ -1,24 +1,29 @@
-local root = menu.my_root()
-local shadow_root = menu.shadow_root()
-local T = require('translations')
-local Shared = require('shared')
-local BitModule = require('bit')
-local Bit, BitMask, Pack = BitModule.Bit, BitModule.BitMask, BitModule.Pack
+local T, S = require('translations'), require('shared')
+local Bit, BitMask = S.Bit, S.BitMask
+local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
 
-local ScriptGlobal = Shared.ScriptGlobal
-local WriteByte = Shared.WriteByte
-local Toast = Shared.Toast
+local AgencyArt = {"None", "Power and Money", "Pop & Hype", "Loyalty and Respect"}
+local AgencyWallpaper = {"None", "Floral", "Marble", "Geometric", "Designer", "Presidential", "Exotic", "Tiled", "Organic", "Royal"}
+local AgencyHighlight = {"None", "Charcoal", "Sage", "Green", "Gray", "Purple", "Red", "Brown", "Ash", "Moss"}
 
 pluto_class Unlocks
-    function __construct()
+    ScriptGlobal = S.ScriptGlobal
+    WriteByte = memory.write_byte
+    WriteShort = memory.write_short
+    WriteInt = memory.write_int
+    WriteFloat = memory.write_float
+    ReadByte = memory.read_byte
+    ReadShort = memory.read_short
+    ReadInt = memory.read_int
+    ReadFloat = memory.read_float
+
+    function __construct(root)
         self.root = root:list(T'Unlocks', {T'runlocks'}, T'Unlocks')
 
-        self.root:action(T'Unlock All', {}, T'Unlocks loads of shit clothes, hats, masks etc', function()
+        self.root:action(T'Unlock All', {}, T'Unlocks loads of useless shit like clothes, hats, masks, guns etc', function()
             menu.trigger_commands('unlockall')
         end)
-    
-        self.root:divider('')
-    
+
         self.achievements = self.root:list(T'Achievements', {}, T'Achievements')
         self.bunker_research = self.root:list(T'Bunker Research', {}, T'Bunker Research')
         self.vehicle_trade_in_prices = self.root:list(T'Vehicle Trade-In Prices', {}, T'Vehicle Trade-In Prices')
@@ -30,432 +35,919 @@ pluto_class Unlocks
         self.autoshop = self.root:list(T'Autoshop', {}, T'Autoshop')
         self.arena_workshop = self.root:list(T'Arena Workshop', {}, T'Arena Workshop')
         self.facility = self.root:list(T'Facility', {}, T'Facility')
+        self.hangar = self.root:list(T'Hangar', {}, T'Hangar')
         self.other = self.root:list(T'Other', {}, T'Other')
-    
-        self.achievements:action(T'Unlock All', {}, T'Unlock All', function()
-            Shared:UnlockAllAchievements()
+
+        self.facility.visible = false
+
+        self.achievements:action(T'All Achievements', {}, T'All Achievements', function()
+            self:UnlockAllAchievements()
         end)
-    
+
         self.achievements:divider('')
-    
-        for Shared:SortTable(Shared.Data.Achievements, function(a, b) return a < b end) as name do
-            self.achievements:action(name, {}, 'Unlock ' .. name, function()
-                Shared:UnlockAchievement(name)
+        for S:SortTable(S.Data.Achievements, |a, b| -> a < b) as name do
+            self.achievements:action(tostring(name), {}, tostring(name), function()
+                if self:UnlockAchievement(name) then
+                    util.toast('Unlocked achievement: ' .. name)
+                else
+                    util.toast('Achievement already unlocked: ' .. name)
+                end
             end)
         end
-    
-        self.bunker_research:action('Unlock All', {}, 'Unlock All', function()
-            for Shared.Data.BunkerResearch as offset do
-                WriteByte(ScriptGlobal(262145 + offset), 1)
+
+        self.bunker_research:action(T'Unlock All', {}, T'Unlock All', function()
+            for S.Data.BunkerResearch as offset do
+                self.WriteByte(self.ScriptGlobal(262145 + offset), 1)
             end
         end)
-    
+
         self.bunker_research:divider('')
-    
-        for name, offset in pairs(Shared.Data.BunkerResearch) do
-            self.bunker_research:action(name, {}, 'Unlock ' .. name, function()
-                WriteByte(ScriptGlobal(262145 + offset), 1)
+        for name, offset in pairs(S.Data.BunkerResearch) do
+            self.bunker_research:action(tostring(name), {}, tostring(name), function()
+                self.WriteByte(self.ScriptGlobal(262145 + offset), 1)
             end)
         end
-    
+
         self.vehicle_trade_in_prices:action('Unlock All', {}, 'Unlock All', function()
-            for Shared.Data.AircraftTradeIn as offset do
-                WriteByte(ScriptGlobal(262145 + offset), 0)
+            for S.Data.AircraftTradeIn as offset do
+                self.WriteByte(self.ScriptGlobal(262145 + offset), 0)
             end
         end)
     
         self.vehicle_trade_in_prices:divider('')
     
-        for name, offset in pairs(Shared.Data.AircraftTradeIn) do
+        for name, offset in pairs(S.Data.AircraftTradeIn) do
             self.vehicle_trade_in_prices:action(name, {}, 'Unlock ' .. name .. ' trade-in price', function()
-                WriteByte(ScriptGlobal(262145 + offset), 0)
+                self.WriteByte(self.ScriptGlobal(262145 + offset), 0)
             end)
         end
-    
-        local unlock_kosatka, unlock_sonar, unlock_guidedmissiles, 
-        unlock_weaponworkshop, unlock_sparrow, unlock_avisa
-    
+
         self.kosatka:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                unlock_kosatka.value = state
-                unlock_sonar.value = state
-                unlock_guidedmissiles.value = state
-                unlock_weaponworkshop.value = state
-                unlock_sparrow.value = state
-                unlock_avisa.value = state
-            end
+            if not SCRIPT_CAN_CONTINUE then return end
+            self.unlock_kosatka.value = state
+            self.unlock_sonar.value = state
+            self.guided_missiles.value = state
+            self.kosatka_weapons_workshop.value = state
+            self.unlock_sparrow.value = state
+            self.unlock_avisa.value = state
         end)
-    
-        unlock_kosatka = self.kosatka:toggle(T'Unlock Kosatka', {}, T'Unlock kosatka without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockKosatka(state)
-            end
-        end, Shared:IsKosatkaUnlocked())
-    
-        unlock_sonar = self.kosatka:toggle(T'Unlock Sonar', {}, T'Own Sonar on your kosatka without buying it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockSonar(state)
-            end
-        end, Shared:IsSonarUnlocked())
-    
-        unlock_guidedmissiles = self.kosatka:toggle(T'Unlock Guided Missiles', {}, T'Own Guided Missiles on your kosatka without buying it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockGuidedMissiles(state)
-            end
-        end, Shared:IsGuidedMissilesUnlocked())
-    
-        unlock_weaponworkshop = self.kosatka:toggle(T'Unlock Weapon Workshop', {}, T'Own Weapon Workshop on your kosatka without buying it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockWeaponWorkshop(state)
-            end
-        end, Shared:IsWeaponWorkshopUnlocked())
-    
-        unlock_sparrow = self.kosatka:toggle(T'Unlock Sparrow', {}, T'Unlock sparrow without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockSparrow(state)
-            end
-        end, Shared:IsSparrowUnlocked())
-    
-        unlock_avisa = self.kosatka:toggle(T'Unlock Avisa', {}, T'Unlock avisa without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAvisa(state)
-            end
-        end, Shared:IsAvisaUnlocked())
-    
-        local unlock_acidlab, unlock_ballisticequipment, unlock_nanodrone, unlock_rcbandito,
-        unlock_rctank
-    
-        self.interaction_menu:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                unlock_acidlab.value = state
-                unlock_ballisticequipment.value = state
-                unlock_nanodrone.value = state
-                unlock_rcbandito.value = state
-                unlock_rctank.value = state
-            end
+
+        self.kosatka:divider('')
+        self.unlock_kosatka = self.kosatka:toggle(T'Kosatka', {}, T'Unlock kosatka', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockKosatka(state)
+        end, self:IsKosatkaUnlocked())
+
+        self.unlock_sonar = self.kosatka:toggle(T'Sonar', {}, T'Unlock sonar', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockSonar(state)
+        end, self:IsSonarUnlocked())
+
+        self.guided_missiles = self.kosatka:toggle(T'Guided Missiles', {}, T'Unlock guided missiles', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockGuidedMissiles(state)
+        end, self:IsGuidedMissilesUnlocked())
+
+        self.kosatka_weapons_workshop = self.kosatka:toggle(T'Weapon Workshop', {}, T'Unlock weapon workshop', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockWeaponWorkshop(state)
+        end, self:IsWeaponWorkshopUnlocked())
+
+        self.unlock_sparrow = self.kosatka:toggle(T'Sparrow', {}, T'Unlock sparrow', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockSparrow(state)
+        end, self:IsSparrowUnlocked())
+
+        self.unlock_avisa = self.kosatka:toggle(T'Avisa', {}, T'Unlock avisa', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockAvisa(state)
+        end, self:IsAvisaUnlocked())
+
+        self.interaction_menu:toggle(T'Unlock All', {}, T'Unlocks everything', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self.unlock_acidlab.value = state
+            self.unlock_ballisticequipment.value = state
+            self.unlock_nanodrone.value = state
+            self.unlock_rcbandito.value = state
+            self.unlock_rctank.value = state
         end)
-    
-        unlock_acidlab = self.interaction_menu:toggle(T'Unlock Acid Lab', {}, T'Unlock acid lab without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAcidLab(state)
-            end
-        end, Shared:IsAcidLabUnlocked())
-    
-        unlock_ballisticequipment = self.interaction_menu:toggle(T'Unlock Ballistic Equipment', {}, T'Unlock ballistic equipment', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockBallisticEquipment(state)
-            end
-        end, Shared:IsBallisticEquipmentUnlocked())
-    
-        unlock_nanodrone = self.interaction_menu:toggle(T'Unlock Nano Drone', {}, T'Unlock nano drone', function(state)
-            if SCRIPT_CAN_CONTINUE and not Shared:IsEightBitArcadeUnlocked() and not Shared:IsWonderamaArcadeUnlocked() then
-                Shared:UnlockNanoDrone(state)
-            else
-                unlock_nanodrone.value = false
-                util.toast('Unlocking nano drones with an arcade unlocked will cause the arcade to disappear!')
-            end
-        end, Shared:IsNanoDroneUnlocked())
-    
-        unlock_rcbandito = self.interaction_menu:toggle(T'Unlock RC Bandito', {}, T'Unlock rc bandito without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockRCBandito(state)
-            end
-        end, Shared:IsRCBanditoUnlocked())
-    
-        unlock_rctank = self.interaction_menu:toggle(T'Unlock RC Tank', {}, T'Unlock rc tank without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockRCTank(state)
-                local g = memory.script_local('freemode', 15561)
-                Shared.WriteInt(g, Shared.ReadInt(g) | (1 << 10))
-            end
-        end, Shared:IsRCTankUnlocked())
-    
-        local unlock_agencyarmoury, unlock_agencyaccommodation, unlock_agencyvehicleworkshop
-    
+
+        self.interaction_menu:divider('')
+
+        self.unlock_acidlab = self.interaction_menu:toggle(T'Unlock Acid Lab', {}, T'Unlock acid lab without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockAcidLab(state)
+        end, self:IsAcidLabUnlocked())
+
+        self.unlock_ballisticequipment = self.interaction_menu:toggle(T'Unlock Ballistic Equipment', {}, T'Unlock ballistic equipment', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockBallisticEquipment(state)
+        end, self:IsBallisticEquipmentUnlocked())
+
+        self.unlock_nanodrone = self.interaction_menu:toggle(T'Unlock Nano Drone', {}, T'Unlock nano drone', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockNanoDrone(state)
+        end, self:IsNanoDroneUnlocked())
+
+        self.unlock_rcbandito = self.interaction_menu:toggle(T'Unlock RC Bandito', {}, T'Unlock rc bandito without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockRCBandito(state)
+        end, self:IsRCBanditoUnlocked())
+
+        self.unlock_rctank = self.interaction_menu:toggle(T'Unlock RC Tank', {}, T'Unlock rc tank without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockRCTank(state)
+        end, self:IsRCTankUnlocked())
+
         self.agency:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                unlock_agencyarmoury.value = state
-                unlock_agencyaccommodation.value = state
-                unlock_agencyvehicleworkshop.value = state
-            end
+            if not SCRIPT_CAN_CONTINUE then return end
+            self.unlock_agencyarmoury.value = state
+            self.unlock_agencyaccommodation.value = state
+            self.unlock_agencyvehicleworkshop.value = state
         end)
-    
-        unlock_agencyarmoury = self.agency:toggle(T'Unlock Agency Armoury', {}, T'Unlock agency armoury without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAgencyArmoury(state)
-            end
-        end, Shared:IsAgencyArmouryUnlocked())
-    
-        unlock_agencyaccommodation = self.agency:toggle(T'Unlock Agency Accommodation', {}, T'Unlock agency accommodation without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAgencyAccommodation(state)
-            end
-        end, Shared:IsAgencyAccommodationUnlocked())
-    
-        unlock_agencyvehicleworkshop = self.agency:toggle(T'Unlock Agency Vehicle Workshop', {}, T'Unlock agency vehicle workshop without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAgencyVehicleWorkshop(state)
-            end
-        end, Shared:IsAgencyVehicleWorkshopUnlocked())
-    
+
         self.agency:divider('')
-    
-        self.agency:list_select(T'Agency Art', {}, T'Change art in your agency', Shared.AgencyArt, 1, function(index)
-            if SCRIPT_CAN_CONTINUE then
-                index = index - 2
-                if index >= 0 then
-                    Shared:SetAgencyArt(index, true)
-                    coroutine.yield()
-                    Shared:SetAgencyArt(index, false)
-                end
+        self.unlock_agencyarmoury = self.agency:toggle(T'Unlock Agency Armoury', {}, T'Unlock agency armoury without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockAgencyArmoury(state)
+        end, self:IsAgencyArmouryUnlocked())
+
+        self.unlock_agencyaccommodation = self.agency:toggle(T'Unlock Agency Accommodation', {}, T'Unlock agency accommodation without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockAgencyAccommodation(state)
+        end, self:IsAgencyAccommodationUnlocked())
+
+        self.unlock_agencyvehicleworkshop = self.agency:toggle(T'Unlock Agency Vehicle Workshop', {}, T'Unlock agency vehicle workshop without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockAgencyVehicleWorkshop(state)
+        end, self:IsAgencyVehicleWorkshopUnlocked())
+
+        self.agency:divider('')
+        self.agency:list_select(T'Agency Art', {}, T'Change art in your agency', AgencyArt, 1, function(index)
+            if not SCRIPT_CAN_CONTINUE then return end
+            index = index - 2
+            if index >= 0 then
+                self:SetAgencyArt(index, true)
+                coroutine.yield()
+                self:SetAgencyArt(index, false)
             end
         end)
-    
-        self.agency:list_select(T'Agency Wallpaper', {}, T'Change wallpaper in your agency', Shared.AgencyWallpaper, 1, function(index)
-            if SCRIPT_CAN_CONTINUE then
-                index = index - 2
-                if index >= 0 then
-                    Shared:SetAgencyWallpaper(index + 3, true)
-                    coroutine.yield()
-                    Shared:SetAgencyWallpaper(index + 3, false)
-                end
+
+        self.agency:list_select(T'Agency Wallpaper', {}, T'Change wallpaper in your agency', AgencyWallpaper, 1, function(index)
+            if not SCRIPT_CAN_CONTINUE then return end
+            index = index - 2
+            if index >= 0 then
+                self:SetAgencyWallpaper(index + 3, true)
+                coroutine.yield()
+                self:SetAgencyWallpaper(index + 3, false)
             end
         end)
-    
-        self.agency:list_select(T'Agency Highlight', {}, T'Change highlight in your agency', Shared.AgencyHighlight, 1, function(index)
-            if SCRIPT_CAN_CONTINUE then
-                index = index - 2
-                if index >= 0 then
-                    Shared:SetAgencyHighlight(index + 12, true)
-                    util.yield(2000)
-                    Shared:SetAgencyHighlight(index + 12, false)
-                end
+
+        self.agency:list_select(T'Agency Highlight', {}, T'Change highlight in your agency', AgencyHighlight, 1, function(index)
+            if not SCRIPT_CAN_CONTINUE then return end
+            index = index - 2
+            if index >= 0 then
+                self:SetAgencyHighlight(index + 12, true)
+                coroutine.yield()
+                self:SetAgencyHighlight(index + 12, false)
             end
         end)
-    
-        local unlock_penthouse, unlock_penthouse_lounge, unlock_penthouse_bar, unlock_penthouse_dealer,
-        unlock_penthouse_sparebedroom, unlock_penthouse_media, unlock_penthouse_spa, 
-        unlock_penthouse_office, unlock_penthouse_garage
-    
+
         self.penthouse:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                unlock_penthouse.value = state
-                unlock_penthouse_lounge.value = state
-                unlock_penthouse_bar.value = state
-                unlock_penthouse_dealer.value = state
-                unlock_penthouse_sparebedroom.value = state
-                unlock_penthouse_media.value = state
-                unlock_penthouse_office.value = state
-                unlock_penthouse_spa.value = state
-                unlock_penthouse_garage.value = state
-            end
+            if not SCRIPT_CAN_CONTINUE then return end
+            self.unlock_penthouse.value = state
+            self.unlock_penthouse_lounge.value = state
+            self.unlock_penthouse_bar.value = state
+            self.unlock_penthouse_dealer.value = state
+            self.unlock_penthouse_sparebedroom.value = state
+            self.unlock_penthouse_media.value = state
+            self.unlock_penthouse_spa.value = state
+            self.unlock_penthouse_office.value = state
+            self.unlock_penthouse_garage.value = state
         end)
-    
-        unlock_penthouse = self.penthouse:toggle(T'Unlock Penthouse', {}, T'Unlock penthouse without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockPenthouse(state)
-            end
-        end, Shared:IsPenthouseUnlocked())
-    
-        unlock_penthouse_lounge = self.penthouse:toggle(T'Unlock Lounge', {}, T'Unlock lounge without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockPenthouseLounge(state)
-            end
-        end, Shared:IsPenthouseLoungeUnlocked())
-    
-        unlock_penthouse_bar = self.penthouse:toggle(T'Unlock Bar', {}, T'Unlock bar without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockPenthouseBar(state)
-            end
-        end, Shared:IsPenthouseBarUnlocked())
-    
-        unlock_penthouse_dealer = self.penthouse:toggle(T'Unlock Dealer Room', {}, T'Unlock dealer room without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockPenthouseDealerRoom(state)
-            end
-        end, Shared:IsPenthouseDealerRoomUnlocked())
-    
-        unlock_penthouse_sparebedroom = self.penthouse:toggle(T'Unlock Spare Bedroom', {}, T'Unlock spare bedroom without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockPenthouseSpareBedroom(state)
-            end
-        end, Shared:IsPenthouseSpareBedroomUnlocked())
-    
-        unlock_penthouse_media = self.penthouse:toggle(T'Unlock Media Room', {}, T'Unlock media room without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockPenthouseMediaRoom(state)
-            end
-        end, Shared:IsPenthouseMediaRoomUnlocked())
-    
-        unlock_penthouse_spa = self.penthouse:toggle(T'Unlock Spa', {}, T'Unlock spa without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockPenthouseSpa(state)
-            end
-        end, Shared:IsPenthouseSpaUnlocked())
-    
-        unlock_penthouse_office = self.penthouse:toggle(T'Unlock Office', {}, T'Unlock office without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockPenthouseOffice(state)
-            end
-        end, Shared:IsPenthouseOfficeUnlocked())
-    
-        unlock_penthouse_garage = self.penthouse:toggle(T'Unlock Garage', {}, T'Unlock garage without having to buy it', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockPenthouseGarage(state)
-            end
-        end, Shared:IsPenthouseGarageUnlocked())
-    
-        local unlock_arcadegarage, unlock_arcademct, unlock_arcade_weaponworkshop
-    
+
+        self.penthouse:divider('')
+        self.unlock_penthouse = self.penthouse:toggle(T'Unlock Penthouse', {}, T'Unlock penthouse without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockPenthouse(state)
+        end, self:IsPenthouseUnlocked())
+
+        self.unlock_penthouse_lounge = self.penthouse:toggle(T'Unlock Lounge', {}, T'Unlock lounge without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockPenthouseLounge(state)
+        end, self:IsPenthouseLoungeUnlocked())
+
+        self.unlock_penthouse_bar = self.penthouse:toggle(T'Unlock Bar', {}, T'Unlock bar without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockPenthouseBar(state)
+        end, self:IsPenthouseBarUnlocked())
+
+        self.unlock_penthouse_dealer = self.penthouse:toggle(T'Unlock Dealer Room', {}, T'Unlock dealer room without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockPenthouseDealerRoom(state)
+        end, self:IsPenthouseDealerRoomUnlocked())
+
+        self.unlock_penthouse_sparebedroom = self.penthouse:toggle(T'Unlock Spare Bedroom', {}, T'Unlock spare bedroom without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockPenthouseSpareBedroom(state)
+        end, self:IsPenthouseSpareBedroomUnlocked())
+
+        self.unlock_penthouse_media = self.penthouse:toggle(T'Unlock Media Room', {}, T'Unlock media room without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockPenthouseMediaRoom(state)
+        end, self:IsPenthouseMediaRoomUnlocked())
+
+        self.unlock_penthouse_spa = self.penthouse:toggle(T'Unlock Spa', {}, T'Unlock spa without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockPenthouseSpa(state)
+        end, self:IsPenthouseSpaUnlocked())
+
+        self.unlock_penthouse_office = self.penthouse:toggle(T'Unlock Office', {}, T'Unlock office without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockPenthouseOffice(state)
+        end, self:IsPenthouseOfficeUnlocked())
+
+        self.unlock_penthouse_garage = self.penthouse:toggle(T'Unlock Garage', {}, T'Unlock garage without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockPenthouseGarage(state)
+        end, self:IsPenthouseGarageUnlocked())
+
         self.arcade:toggle(T'Bypass Setup', {}, T'Bypass arcade setup missions', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:BypassArcadeSetup(state)
+                self:BypassArcadeSetup(state)
             end
-        end, Shared:IsArcadeSetup())
+        end, self:IsArcadeSetup())
     
         self.arcade:toggle(T'Wonderama', {}, T'Unlock Wonderama arcade', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockArcade(1, state)
+                self:UnlockArcade(1, state)
             end
-        end, Shared:IsWonderamaArcadeUnlocked())
+        end, self:IsWonderamaArcadeUnlocked())
     
         self.arcade:toggle(T'Eight Bit', {}, T'Unlock Eight Bit arcade', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockArcade(2, state)
+                self:UnlockArcade(2, state)
             end
-        end, Shared:IsEightBitArcadeUnlocked())
-    
-        unlock_arcadegarage = self.arcade:toggle(T'Unlock Garage', {}, T'Unlock garage without having to buy it', function(state)
+        end, self:IsEightBitArcadeUnlocked())
+
+        self.arcade:toggle(T'Bypass Setup', {}, T'Bypass arcade setup missions', function(state)
             if SCRIPT_CAN_CONTINUE then
-                if not Shared:IsArcadeSetup() then
+                self:BypassArcadeSetup(state)
+            end
+        end, self:IsArcadeSetup())
+
+        self.arcade:toggle(T'Wonderama', {}, T'Unlock Wonderama arcade', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                self:UnlockArcade(1, state)
+            end
+        end, self:IsWonderamaArcadeUnlocked())
+
+        self.arcade:toggle(T'Eight Bit', {}, T'Unlock Eight Bit arcade', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                self:UnlockArcade(2, state)
+            end
+        end, self:IsEightBitArcadeUnlocked())
+
+        self.arcade:toggle(T'Garage', {}, T'Unlock garage without having to buy it', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                if not self:IsArcadeSetup() then
                     unlock_arcadegarage.value = false
                     return Toast('You must complete the arcade setup missions first')
                 end
-    
-                Shared:UnlockArcadeGarage(state)
+
+                self:UnlockArcadeGarage(state)
             end
-        end, Shared:IsArcadeGarageUnlocked())
-    
-        unlock_arcademct = self.arcade:toggle(T'Unlock Master Control Terminal', {}, T'Unlock master control terminal without having to buy it', function(state)
+        end, self:IsArcadeGarageUnlocked())
+
+        self.arcade:toggle(T'Master Control Terminal', {}, T'Unlock master control terminal without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                if not Shared:IsArcadeSetup() then
+                if not self:IsArcadeSetup() then
                     unlock_arcademct.value = false
                     return Toast('You must complete the arcade setup missions first')
                 end
                 
-                Shared:UnlockArcadeMasterControlTerminal(state)
+                self:UnlockArcadeMasterControlTerminal(state)
             end
-        end, Shared:IsArcadeMasterControlTerminalUnlocked())
-    
-        unlock_arcade_weaponworkshop = self.arcade:toggle(T'Unlock Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
+        end, self:IsArcadeMasterControlTerminalUnlocked())
+
+        self.arcade:toggle(T'Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                if not Shared:IsArcadeSetup() then
+                if not self:IsArcadeSetup() then
                     unlock_arcade_weaponworkshop.value = false
                     return Toast('You must complete the arcade setup missions first')
                 end
                 
-                Shared:UnlockArcadeWeaponWorkshop(state)
+                self:UnlockArcadeWeaponWorkshop(state)
             end
-        end, Shared:IsArcadeWeaponWorkshopUnlocked())
-    
-        self.autoshop:toggle(T'Unlock La Mesa Auto Shop', {}, T'Unlock La Mesa auto shop without having to buy it', function(state)
+        end, self:IsArcadeWeaponWorkshopUnlocked())
+
+        self.autoshop:toggle(T'La Mesa', {}, T'Unlock La Mesa auto shop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAutoShop(0, state)
+                self:UnlockAutoShop(0, state)
             end
-        end, Shared:IsLaMesaAutoShopUnlocked())
-    
-        self.autoshop:toggle(T'Unlock Strawberry Auto Shop', {}, T'Unlock Strawberry auto shop without having to buy it', function(state)
+        end, self:IsLaMesaAutoShopUnlocked())
+
+        self.autoshop:toggle(T'Strawberry', {}, T'Unlock Strawberry auto shop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAutoShop(1, state)
+                self:UnlockAutoShop(1, state)
             end
-        end, Shared:IsStrawberryAutoShopUnlocked())
-    
-        self.autoshop:toggle(T'Unlock Rancho Auto Shop', {}, T'Unlock Rancho auto shop without having to buy it', function(state)
+        end, self:IsStrawberryAutoShopUnlocked())
+
+        self.autoshop:toggle(T'Rancho', {}, T'Unlock Rancho auto shop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAutoShop(2, state)
+                self:UnlockAutoShop(2, state)
             end
-        end, Shared:IsRanchoAutoShopUnlocked())
-    
-        self.arena_workshop:toggle(T'Unlock Workshop', {}, T'Unlock arena workshop without having to buy it', function(state)
+        end, self:IsRanchoAutoShopUnlocked())
+
+        self.arena_workshop:toggle(T'Workshop', {}, T'Unlock arena workshop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockArenaWorkshop(state)
+                self:UnlockArenaWorkshop(state)
             end
-        end, Shared:IsArenaWorkshopUnlocked())
-    
-        self.arena_workshop:toggle(T'Unlock Benny Mechanic', {}, T'Unlock benny mechanic without having to buy it', function(state)
+        end, self:IsArenaWorkshopUnlocked())
+
+        self.arena_workshop:toggle(T'Benny Mechanic', {}, T'Unlock benny mechanic without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAWBennyMechanic(state)
+                self:UnlockAWBennyMechanic(state)
             end
-        end, Shared:IsAWBennyMechanicUnlocked())
-    
-        self.arena_workshop:toggle(T'Unlock Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
+        end, self:IsAWBennyMechanicUnlocked())
+
+        self.arena_workshop:toggle(T'Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockAWWeaponWorkshop(state)
+                self:UnlockAWWeaponWorkshop(state)
             end
-        end, Shared:IsAWWeaponWorkshopUnlocked())
-    
-        self.facility:toggle(T'Unlock Facility', {}, T'Unlock facility without having to buy it', function(state)
+        end, self:IsAWWeaponWorkshopUnlocked())
+
+        self.facility:toggle(T'Facility', {}, T'Unlock facility without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockFacility(state)
+                self:UnlockFacility(state)
             end
-        end, Shared:IsFacilityUnlocked())
-    
-        self.facility:toggle(T'Unlock Orbital Cannon', {}, T'Unlock orbital cannon without having to buy it', function(state)
+        end, self:IsFacilityUnlocked())
+
+        self.facility:toggle(T'Orbital Cannon', {}, T'Unlock orbital cannon without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockFacilityOrbitalCannon(state)
+                self:UnlockFacilityOrbitalCannon(state)
             end
-        end, Shared:IsFacilityOrbitalCannonUnlocked())
-    
-        self.facility:toggle(T'Unlock Security Room', {}, T'Unlock security room without having to buy it', function(state)
+        end, self:IsFacilityOrbitalCannonUnlocked())
+
+        self.facility:toggle(T'Security Room', {}, T'Unlock security room without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockFacilitySecurityRoom(state)
+                self:UnlockFacilitySecurityRoom(state)
             end
-        end, Shared:IsFacilitySecurityRoomUnlocked())
-    
-        self.facility:toggle(T'Unlock Sleeping Quarters (Utility)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
+        end, self:IsFacilitySecurityRoomUnlocked())
+
+        self.facility:toggle(T'Sleeping Quarters (Utility)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockFacilitySleepingQuarters(0, state)
+                self:UnlockFacilitySleepingQuarters(0, state)
             end
-        end, Shared:IsFacilitySleepingQuartersUtilityUnlocked())
-    
-        self.facility:toggle(T'Unlock Sleeping Quarters (Prestige)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
+        end, self:IsFacilitySleepingQuartersUtilityUnlocked())
+
+        self.facility:toggle(T'Sleeping Quarters (Prestige)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockFacilitySleepingQuarters(1, state)
+                self:UnlockFacilitySleepingQuarters(1, state)
             end
-        end, Shared:IsFacilitySleepingQuartersPrestigeUnlocked())
-    
-        self.facility:toggle(T'Unlock Sleeping Quarters (Premier)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
+        end, self:IsFacilitySleepingQuartersPrestigeUnlocked())
+
+        self.facility:toggle(T'Sleeping Quarters (Premier)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockFacilitySleepingQuarters(2, state)
+                self:UnlockFacilitySleepingQuarters(2, state)
             end
-        end, Shared:IsFacilitySleepingQuartersPremierUnlocked())
+        end, self:IsFacilitySleepingQuartersPremierUnlocked())
+
+        self.hangar:toggle(T'Hangar', {}, T'Unlock hangar without having to buy it', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                self:UnlockHangar(state)
+            end
+        end, self:IsHangarUnlocked())
 
         self.other:action(T'Unlock WM 29 Pistol', {}, T'Unlock WM 29 pistol, you do not get to keep the pistol!', function()
             if SCRIPT_CAN_CONTINUE then
-                Shared.SetPackedStatBoolCode(36785, true, Shared.CHAR_SLOT)
-                Shared:GiveWeaponToSelf(465894841, 9999, true)
+                self.SetPackedStatBoolCode(36785, true, CharSlot)
+                S:GiveWeaponToSelf(465894841, 9999, true)
                 util.toast('WM 29 is now in your weapon wheel, you do not get to keep the pistol!')
             end
         end)
 
         self.other:action(T'Unlock Double Action Revolver', {}, T'Unlock Double Action Revolver', function()
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockDoubleActionRevolver()
+                self:UnlockDoubleActionRevolver()
             end
         end)
 
         self.other:action(T'Unlock Stone Hatchet', {}, T'Unlock Stone Hatchet', function()
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockStoneHatchet()
+                self:UnlockStoneHatchet()
             end
         end)
 
         self.other:action(T'Unlock Navy Revolver', {}, T'Unlock Navy Revolver', function()
             if SCRIPT_CAN_CONTINUE then
-                Shared:UnlockNavyRevolver()
+                self:UnlockNavyRevolver()
             end
         end)
     end
+
+    function UnlockAchievement(name)
+        if not self.HasAchievementBeenPassed(name) then
+            if self.GiveAchievementToPlayer(name) then
+                return true
+            else
+                return false
+            end
+        else
+            return false
+        end
+    end
+    
+    function UnlockAllAchievements()
+        for S.Data.Achievements as name do
+            self:UnlockAchievement(name)
+        end
+    end
+
+    function UnlockKosatka(state)
+        self.SetPackedStatBoolCode(30309, true, CharSlot)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 0)) : (Bit:Clear(self.ReadInt(unlock), 0)))
+    end
+
+    function IsKosatkaUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        return Bit:Check(self.ReadInt(unlock), 0)
+    end
+
+    function UnlockSonar(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 1)) : (Bit:Clear(self.ReadInt(unlock), 1)))
+    end
+    
+    function UnlockGuidedMissiles(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 2)) : (Bit:Clear(self.ReadInt(unlock), 2)))
+    end
+    
+    function UnlockWeaponWorkshop(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 3)) : (Bit:Clear(self.ReadInt(unlock), 3)))
+    end
+    
+    function UnlockSparrow(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 4)) : (Bit:Clear(self.ReadInt(unlock), 4)))
+    end
+    
+    function UnlockAvisa(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 5)) : (Bit:Clear(self.ReadInt(unlock), 5)))
+    end
+    
+    function UnlockAcidLab(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 14)) : (Bit:Clear(self.ReadInt(unlock), 14)))
+    end
+    
+    function IsSonarUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        return Bit:Check(self.ReadInt(unlock), 1)
+    end
+    
+    function IsGuidedMissilesUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        return Bit:Check(self.ReadInt(unlock), 2)
+    end
+    
+    function IsWeaponWorkshopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        return Bit:Check(self.ReadInt(unlock), 3)
+    end
+    
+    function IsSparrowUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        return Bit:Check(self.ReadInt(unlock), 4)
+    end
+    
+    function IsAvisaUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        return Bit:Check(self.ReadInt(unlock), 5)
+    end
+    
+    function IsSparrowBeingUsed()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        return Bit:Check(self.ReadInt(unlock), 6)
+    end
+    
+    function IsAvisaBeingUsed()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        return Bit:Check(self.ReadInt(unlock), 7)
+    end
+    
+    function IsAcidLabUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 479)
+        return Bit:Check(self.ReadInt(unlock), 14)
+    end
+
+    function UnlockBallisticEquipment(state)
+        self.SetPackedStatBoolCode(9461, state, CharSlot)
+        self.SetPackedStatBoolCode(25, state, CharSlot)
+        self.WriteByte(self.ScriptGlobal(262145 + 21807), state ? 1 : 0)
+    end
+    
+    function IsBallisticEquipmentUnlocked()
+        return self.GetPackedStatBoolCode(9461, CharSlot) or self.GetPackedStatBoolCode(25, CharSlot)
+    end
+    
+    function UnlockNanoDrone(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429)
+        local unlock1 = self.ScriptGlobal(1963795)
+    
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 27)) : (Bit:Clear(self.ReadInt(unlock), 27)))
+        self.WriteInt(unlock1, state ? (Bit:Set(self.ReadInt(unlock1), 25)) : (Bit:Clear(self.ReadInt(unlock1), 25)))
+    end
+    
+    function IsNanoDroneUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429)
+        return Bit:Check(self.ReadInt(unlock), 27)
+    end
+    
+    function UnlockRCBandito(state)
+        self.SetPackedStatBoolCode(25237, state, CharSlot)
+        self.SetPackedStatBoolCode(28085, state, CharSlot)
+    
+        local l = self.ScriptLocal('freemode', 15648)
+        if l ~= 0 then
+            self.WriteShort(l, state ? (Bit:Set(self.ReadShort(l), 9)) : (Bit:Clear(self.ReadShort(l), 9)))
+        end
+    end
+    
+    function IsRCBanditoUnlocked()
+        return self.GetPackedStatBoolCode(25237, CharSlot) or self.GetPackedStatBoolCode(28085, CharSlot)
+    end
+    
+    function UnlockRCTank(state)
+        self.SetPackedStatBoolCode(25516, state, CharSlot)
+        self.SetPackedStatBoolCode(28086, state, CharSlot)
+    
+        local l = self.ScriptLocal('freemode', 15648)
+        if l ~= 0 then
+            self.WriteShort(l, state ? (Bit:Set(self.ReadShort(l), 10)) : (Bit:Clear(self.ReadShort(l), 10)))
+        end
+    end
+    
+    function IsRCTankUnlocked()
+        return self.GetPackedStatBoolCode(25516, CharSlot) or self.GetPackedStatBoolCode(28086, CharSlot)
+    end
+
+    function UnlockAgencyArmoury(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 22)) : (Bit:Clear(self.ReadInt(unlock), 22)))
+    end
+    
+    function IsAgencyArmouryUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        return Bit:Check(self.ReadInt(unlock), 22)
+    end
+    
+    function UnlockAgencyAccommodation(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 23)) : (Bit:Clear(self.ReadInt(unlock), 23)))
+    end
+    
+    function IsAgencyAccommodationUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        return Bit:Check(self.ReadInt(unlock), 23)
+    end
+    
+    function UnlockAgencyVehicleWorkshop(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 24)) : (Bit:Clear(self.ReadInt(unlock), 24)))
+    end
+    
+    function IsAgencyVehicleWorkshopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        return Bit:Check(self.ReadInt(unlock), 24)
+    end
+    
+    function SetAgencyArt(index, state)
+        local art = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(art, state ? (Bit:Set(self.ReadInt(art), index)) : (Bit:Clear(self.ReadInt(art), index)))
+    end
+    
+    function SetAgencyWallpaper(index, state)
+        local wallpaper = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(wallpaper, state ? (Bit:Set(self.ReadInt(wallpaper), index)) : (Bit:Clear(self.ReadInt(wallpaper), index)))
+    end
+    
+    function SetAgencyHighlight(index, state)
+        local highlight = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(highlight, state ? (Bit:Set(self.ReadInt(highlight), index)) : (Bit:Clear(self.ReadInt(highlight), index)))
+    end
+
+    function UnlockPenthouse(state)
+        local penthouse = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405)
+        self.WriteByte(penthouse, state ? 1 : 0)
+    end
+    
+    function IsPenthouseUnlocked()
+        local penthouse = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405)
+        return self.ReadByte(penthouse) == 1
+    end
+    
+    function UnlockPenthouseLounge(state)
+        local lounge = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        self.WriteInt(lounge, state ? (Bit:Set(self.ReadInt(lounge), 0)) : (Bit:Clear(self.ReadInt(lounge), 0)))
+    end
+    
+    function IsPenthouseLoungeUnlocked()
+        local lounge = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        return Bit:Check(self.ReadInt(lounge), 0)
+    end
+    
+    function UnlockPenthouseBar(state)
+        local bar = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        self.WriteInt(bar, state ? (Bit:Set(self.ReadInt(bar), 1)) : (Bit:Clear(self.ReadInt(bar), 1)))
+    end
+    
+    function IsPenthouseBarUnlocked()
+        local bar = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        return Bit:Check(self.ReadInt(bar), 1)
+    end
+    
+    function UnlockPenthouseDealerRoom(state)
+        local dealer = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        self.WriteInt(dealer, state ? (Bit:Set(self.ReadInt(dealer), 2)) : (Bit:Clear(self.ReadInt(dealer), 2)))
+    end
+    
+    function IsPenthouseDealerRoomUnlocked()
+        local dealer = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        return Bit:Check(self.ReadInt(dealer), 2)
+    end
+    
+    function UnlockPenthouseSpareBedroom(state)
+        local spare = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        self.WriteInt(spare, state ? (Bit:Set(self.ReadInt(spare), 3)) : (Bit:Clear(self.ReadInt(spare), 3)))
+    end
+    
+    function IsPenthouseSpareBedroomUnlocked()
+        local spare = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        return Bit:Check(self.ReadInt(spare), 3)
+    end
+    
+    function UnlockPenthouseMediaRoom(state)
+        local media = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        self.WriteInt(media, state ? (Bit:Set(self.ReadInt(media), 4)) : (Bit:Clear(self.ReadInt(media), 4)))
+    end
+    
+    function IsPenthouseMediaRoomUnlocked()
+        local media = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        return Bit:Check(self.ReadInt(media), 4)
+    end
+    
+    function UnlockPenthouseSpa(state)
+        local spa = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        self.WriteInt(spa, state ? (Bit:Set(self.ReadInt(spa), 5)) : (Bit:Clear(self.ReadInt(spa), 5)))
+    end
+    
+    function IsPenthouseSpaUnlocked()
+        local spa = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        return Bit:Check(self.ReadInt(spa), 5)
+    end
+    
+    function UnlockPenthouseOffice(state)
+        local office = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        self.WriteInt(office, state ? (Bit:Set(self.ReadInt(office), 6)) : (Bit:Clear(self.ReadInt(office), 6)))
+    end
+    
+    function IsPenthouseOfficeUnlocked()
+        local office = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        return Bit:Check(self.ReadInt(office), 6)
+    end
+    
+    function UnlockPenthouseGarage(state)
+        local garage = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        self.WriteInt(garage, state ? (Bit:Set(self.ReadInt(garage), 7)) : (Bit:Clear(self.ReadInt(garage), 7)))
+    end
+    
+    function IsPenthouseGarageUnlocked()
+        local garage = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 405 + 2)
+        return Bit:Check(self.ReadInt(garage), 7)
+    end
+
+    function UnlockArcade(index, state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429)
+        self.WriteInt(unlock, BitMask:Clear(self.ReadInt(unlock), 0x1E))
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), index)) : (Bit:Clear(self.ReadInt(unlock), index)))
+    end
+    
+    function IsWonderamaArcadeUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429)
+        return Bit:Check(self.ReadInt(unlock), 1)
+    end
+    
+    function IsEightBitArcadeUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429)
+        return Bit:Check(self.ReadInt(unlock), 2)
+    end
+    
+    function BypassArcadeSetup(state)
+        local bypass = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        self.WriteInt(bypass, state ? (BitMask:Set(self.ReadInt(bypass), 0x1000004)) : (BitMask:Clear(self.ReadInt(bypass), 0x1000004)))
+    end
+    
+    function IsArcadeSetup()
+        local bypass = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return BitMask:Check(self.ReadInt(bypass), 0x1000004)
+    end
+    
+    function UnlockArcadeGarage(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 0)) : (Bit:Clear(self.ReadInt(unlock), 0)))
+    end
+    
+    function IsArcadeGarageUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return Bit:Check(self.ReadInt(unlock), 0)
+    end
+    
+    function UnlockArcadeMasterControlTerminal(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 3)) : (Bit:Clear(self.ReadInt(unlock), 3)))
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 4)) : (Bit:Clear(self.ReadInt(unlock), 4)))
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 28)) : (Bit:Clear(self.ReadInt(unlock), 28)))
+    end
+    
+    function IsArcadeMasterControlTerminalUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return Bit:Check(self.ReadInt(unlock), 3) and Bit:Check(self.ReadInt(unlock), 4) and Bit:Check(self.ReadInt(unlock), 28)
+    end
+    
+    function UnlockArcadeWeaponWorkshop(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 11)) : (Bit:Clear(self.ReadInt(unlock), 11)))
+    end
+    
+    function IsArcadeWeaponWorkshopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return Bit:Check(self.ReadInt(unlock), 11)
+    end
+    
+    function UnlockArcadeNanoDroneStation(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 27)) : (Bit:Clear(self.ReadInt(unlock), 27)))
+    end
+    
+    function IsArcadeNanoDroneStationUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return Bit:Check(self.ReadInt(unlock), 27)
+    end
+
+    function UnlockAutoShop(index, state)
+        -- 0 = la mesa
+        -- 1 = strawberry
+        -- 2 = rancho
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 862) + 267 + 486)
+        self.WriteInt(unlock, BitMask:Clear(self.ReadInt(unlock), 0x7))
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), index)) : (Bit:Clear(self.ReadInt(unlock), index)))
+    end
+    
+    function IsLaMesaAutoShopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 862) + 267 + 486)
+        return Bit:Check(self.ReadInt(unlock), 1)
+    end
+    
+    function IsStrawberryAutoShopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 862) + 267 + 486)
+        return Bit:Check(self.ReadInt(unlock), 2)
+    end
+    
+    function IsRanchoAutoShopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 862) + 267 + 486)
+        return Bit:Check(self.ReadInt(unlock), 3)
+    end
+    
+    function UnlockArenaWorkshop(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 373)
+        self.WriteInt(unlock, 1)
+    end
+    
+    function IsArenaWorkshopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 373)
+        return self.ReadInt(unlock) == 1
+    end
+    
+    function UnlockAWBennyMechanic(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 373 + 2)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 12)) : (Bit:Clear(self.ReadInt(unlock), 12)))
+    end
+    
+    function IsAWBennyMechanicUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 373 + 2)
+        return Bit:Check(self.ReadInt(unlock), 12)
+    end
+    
+    function UnlockAWWeaponWorkshop(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 373 + 2)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 13)) : (Bit:Clear(self.ReadInt(unlock), 13)))
+    end
+    
+    function IsAWWeaponWorkshopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 373 + 2)
+        return Bit:Check(self.ReadInt(unlock), 13)
+    end
+    
+    -- bit 0 = sleeping quarters (utility)
+    -- bit 1 = sleeping quarters (prestige)
+    -- bit 2 = sleeping quarters (premier)
+    -- bit 3 = security room
+    -- bit 5 = orbital cannon
+    -- bit 6 = utility (style)
+    -- bit 7 = expertise (style)
+    -- bit 8 = altitude (style)
+    -- bit 9 = power (style)
+    -- bit 10 = authority (style)
+    -- bit 11 = influence (style)
+    -- bit 12 = order (style)
+    -- bit 13 = empire (style)
+    -- bit 14 = supremacy (style)
+    
+    function UnlockFacility(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300)
+        self.WriteByte(unlock, state ? 1 : 0)
+    end
+    
+    function IsFacilityUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300)
+        return self.ReadByte(unlock) == 1
+    end
+    
+    function UnlockFacilitySleepingQuarters(index, state)
+        -- 0 = utility
+        -- 1 = prestige
+        -- 2 = premier
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300 + 1)
+        self.WriteByte(unlock, BitMask:Clear(self.ReadByte(unlock), 0x7))
+        self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), index)) : (Bit:Clear(self.ReadByte(unlock), index)))
+    end
+    
+    function IsFacilitySleepingQuartersUtilityUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300 + 1)
+        return Bit:Check(self.ReadByte(unlock), 0)
+    end
+    
+    function IsFacilitySleepingQuartersPrestigeUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300 + 1)
+        return Bit:Check(self.ReadByte(unlock), 1)
+    end
+    
+    function IsFacilitySleepingQuartersPremierUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300 + 1)
+        return Bit:Check(self.ReadByte(unlock), 2)
+    end
+    
+    function UnlockFacilitySecurityRoom(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300 + 1)
+        self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), 3)) : (Bit:Clear(self.ReadByte(unlock), 3)))
+    end
+    
+    function IsFacilitySecurityRoomUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300 + 1)
+        return Bit:Check(self.ReadByte(unlock), 3)
+    end
+    
+    function UnlockFacilityOrbitalCannon(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300 + 1)
+        self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), 5)) : (Bit:Clear(self.ReadByte(unlock), 5)))
+    end
+    
+    function IsFacilityOrbitalCannonUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 300 + 1)
+        return Bit:Check(self.ReadByte(unlock), 5)
+    end
+
+    function UnlockDoubleActionRevolver()
+        self.SetPackedStatBoolCode(18981, true, CharSlot)
+    end
+    
+    function UnlockStoneHatchet()
+        self.SetPackedStatBoolCode(7315, true, CharSlot)
+    end
+    
+    function UnlockNavyRevolver()
+        self.SetPackedStatBoolCode(28158, true, CharSlot)
+    end
+
+    function UnlockHangar()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (players.user() * 867) + 267 + 293)
+        self.WriteByte(unlock, 1)
+    end
+
+    function IsHangarUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (players.user() * 867) + 267 + 293)
+        return self.ReadByte(unlock) == 1
+    end
+
+    --[[BOOL (bool)]] static function HasAchievementBeenPassed(--[[int]] achievementId)native_invoker.begin_call()native_invoker.push_arg_int(achievementId)native_invoker.end_call_2(0x867365E111A3B6EB)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function GiveAchievementToPlayer(--[[int]] achievementId)native_invoker.begin_call()native_invoker.push_arg_int(achievementId)native_invoker.end_call_2(0xBEC7076D64130195)return native_invoker.get_return_value_bool()end
+    --[[void]] static function SetPackedStatBoolCode(--[[int]] index,--[[BOOL (bool)]] value,--[[int]] characterSlot)native_invoker.begin_call()native_invoker.push_arg_int(index)native_invoker.push_arg_bool(value)native_invoker.push_arg_int(characterSlot)native_invoker.end_call_2(0xDB8A58AEAA67CD07)end
+    --[[BOOL (bool)]] static function GetPackedStatBoolCode(--[[int]] index,--[[int]] characterSlot)native_invoker.begin_call()native_invoker.push_arg_int(index)native_invoker.push_arg_int(characterSlot)native_invoker.end_call_2(0xDA7EBFC49AE3F1B0)return native_invoker.get_return_value_bool()end
 end
 
 return Unlocks

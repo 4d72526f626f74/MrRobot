@@ -83,6 +83,9 @@ pluto_class PVM
     function __construct(root)
         self.root = root:list(T'Personal Vehicle Manager', {}, T'Personal Vehicle Manager', function() self:OnClick() end)
         self.PvSlot = self.ScriptGlobal(Globals.ActivePVSlot)
+        self.sroot = filesystem.scripts_dir() .. '/MrRobot'
+        self.spvcustom = self.sroot .. '/personal_vehicles'
+        self.json = soup.json
     end
 
     function OnClick()
@@ -125,6 +128,12 @@ pluto_class PVM
         local Aircraft = {}
 
         for Slot = 0, 415 do
+            if not filesystem.exists(self.spvcustom .. '/' .. tostring(Slot)) then
+                if not io.makedir(self.spvcustom .. '/' .. tostring(Slot)) then
+                    print('[MrRobot] Failed to create directory for vehicle slot ' .. Slot)
+                end
+            end
+
             local Data = {}
             Data.Data = self.ScriptGlobal(Globals:PersonalVehicleData(Slot))
             Data.Hash = self.ReadInt(Data.Data + Offsets.VehicleModel)
@@ -321,6 +330,75 @@ pluto_class PVM
                     self.WriteInt(Data + Offsets.VehicleModel, Model)
                 else
                     util.toast('Invalid model')
+                end
+            end)
+        end
+
+        if S.Settings:IsSet(S.SettingsBits.ExperimentalMode) then
+            local customisation_dir = self.spvcustom .. '/' .. tostring(Slot)
+            self.customisation = PV:list(T'Customisation', {}, T'Customisation', function()
+                local Ref = menu.ref_by_rel_path(PV, T'Customisation')
+
+                for Ref:getChildren() as child do
+                    if child:isValid() and child.menu_name ~= T'Save Current Config' then child:delete() end
+                end
+
+                local Configs = filesystem.list_files(customisation_dir)
+                if #Configs > 0 then
+                    Ref:divider('')
+                    local Sorted = {}
+                    for Configs as Config do
+                        local Name = Config:match('([^/]+)$'):sub(3):gsub('.json', '')
+                        table.insert(Sorted, Name)
+                    end
+
+                    Sorted = S:SortTable(Sorted, |a, b| -> a < b)
+                    for Sorted as Config do
+                        local C = Ref:list(tostring(Config), {}, tostring(Config))
+                        C:action(T'Load', {}, T'Load this config', function() 
+                            local file <close> = assert(io.open(customisation_dir .. '/' .. Config .. '.json', 'rb'))
+                            local Vehicle = self.json.decode(file:read('*all'))
+                            file:close()
+
+                            for Offsets as Offset do
+                                if Offset ~= Offsets.LicensePlate then
+                                    self.WriteInt(Data + Offset, Vehicle[Offset])
+                                else
+                                    self.WriteString(Data + Offset, Vehicle[Offset])
+                                end
+                            end
+                        end)
+
+                        C:action(T'Delete', {}, T'Delete this config', function() 
+                            if filesystem.exists(customisation_dir .. '/' .. Config .. '.json') then
+                                io.remove(customisation_dir .. '/' .. Config .. '.json')
+                                util.toast('Deleted config ' .. Config)
+                                if C:isValid() then C:delete() end
+                            end
+                        end)
+                    end
+                else
+                    util.toast('No configs found')
+                end
+            end)
+
+            self.customisation:action(T'Save Current Config', {}, T'Save your current config to file', function()
+                local Vehicle = {}
+                for Offsets as Offset do
+                    if Offset ~= Offsets.LicensePlate then
+                        if not Vehicle[Offset] then Vehicle[Offset] = 0 end
+                        Vehicle[Offset] = self.ReadInt(Data + Offset)
+                    else
+                        if not Vehicle[Offset] then Vehicle[Offset] = 0 end
+                        Vehicle[Offset] = self.ReadString(Data + Offset)
+                    end
+                end
+                local Name = S:DisplayOnscreenKeyboard()
+                if Name ~= '0' and type(Name) == 'string' then
+                    local file <close> = assert(io.open(customisation_dir .. '/' .. Name .. '.json', 'wb'))
+                    file:write(self.json.encode(Vehicle, true))
+                    file:close()
+                    util.toast('Saved config ' .. Name)
                 end
             end)
         end

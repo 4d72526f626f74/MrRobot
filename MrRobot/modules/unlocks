@@ -277,24 +277,6 @@ pluto_class Unlocks
                 self:BypassArcadeSetup(state)
             end
         end, self:IsArcadeSetup())
-    
-        self.arcade:toggle(T'Wonderama', {}, T'Unlock Wonderama arcade', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                self:UnlockArcade(1, state)
-            end
-        end, self:IsWonderamaArcadeUnlocked())
-    
-        self.arcade:toggle(T'Eight Bit', {}, T'Unlock Eight Bit arcade', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                self:UnlockArcade(2, state)
-            end
-        end, self:IsEightBitArcadeUnlocked())
-
-        self.arcade:toggle(T'Bypass Setup', {}, T'Bypass arcade setup missions', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                self:BypassArcadeSetup(state)
-            end
-        end, self:IsArcadeSetup())
 
         self.arcade:toggle(T'Wonderama', {}, T'Unlock Wonderama arcade', function(state)
             if SCRIPT_CAN_CONTINUE then
@@ -733,8 +715,8 @@ pluto_class Unlocks
 
     function UnlockArcade(index, state)
         local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429)
-        self.WriteInt(unlock, BitMask:Clear(self.ReadInt(unlock), 0x1E))
-        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), index)) : (Bit:Clear(self.ReadInt(unlock), index)))
+        self.WriteByte(unlock, BitMask:Clear(self.ReadByte(unlock), 0x1E))
+        self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), index)) : (Bit:Clear(self.ReadByte(unlock), index)))
     end
     
     function IsWonderamaArcadeUnlocked()

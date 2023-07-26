@@ -245,7 +245,7 @@ pluto_class SelfOptions
                     if util.is_key_down(0x41) then -- A
                         local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, -1 * self.noclip_speed.value, 0, 0)
                         self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
-                    elseif is_key_down(0x44) then -- D
+                    elseif util.is_key_down(0x44) then -- D
                         local Pos = self.GetOffsetFromEntityInWorldCoords(Veh, 1 * self.noclip_speed.value, 0, 0)
                         self.SetEntityCoordsNoOffset(Veh, Pos.x, Pos.y, Pos.z, false, false, false)
                     end
@@ -608,10 +608,19 @@ pluto_class SelfOptions
         end)
 
         self.infinite_bst = self.root:toggle_loop(T'Infinite BST', {}, T'BST timer will never decrease', function()
-            util.spoof_script('freemode', function()
-                local BST = self.ScriptLocal('freemode', Globals.BSTTimer)
-                self.WriteInt(BST, self.GetNetworkTime())
-            end)
+            local BST = self.ScriptLocal('freemode', Globals.BSTTimer)
+            local BSTToggle = self.ScriptGlobal(Globals.InstantBST)
+            local BSTLocal = self.ScriptLocal('freemode', Globals.InstantBSTLocal)
+
+            if not self.IsEntityDead(players.user_ped()) and self.ReadByte(BSTToggle) == 0 then
+                util.yield(700)
+                self.WriteByte(BSTToggle, 1)
+                self.WriteByte(BSTLocal, 0)
+            elseif self.IsEntityDead(players.user_ped()) and self.ReadByte(BSTToggle) == 1 then
+                self.disable_bst:trigger()
+            end
+
+            self.WriteInt(BST, self.GetNetworkTime())
         end)
 
         self.infinite_blindeye = self.root:toggle_loop(T'Infinte Cops Turn Blind Eye', {}, T'Timer will never decrease', function()
@@ -827,12 +836,12 @@ pluto_class SelfOptions
             self.WriteByte(self.ScriptGlobal(Globals.BribeAuthorities), 0)
         end)
     
-        self.root:action(T'Disable BST', {T'disablebst'}, T'Disable bst', function()
+        self.disable_bst = self.root:action(T'Disable BST', {T'disablebst'}, T'Disable bst', function()
             local BST = self.ScriptGlobal(Globals.DisableBST)
             local BBitfield = Bitfield.new(self.ReadByte(BST))
+            BBitfield.address = BST
             if BBitfield:IsSet(1 << 0) then
                 BBitfield:Set(0b00000111)
-                BBitfield(BST, 8)
             end
         end)
 

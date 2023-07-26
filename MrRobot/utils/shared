@@ -25,11 +25,12 @@ Shared.MAX_PLAYERS = 31
 Shared.SettingsBits = {
     ShowAlerts = 1 << 0,
     DevMode = 1 << 1,
-    RemoveTransactionError = 1 << 2
+    RemoveTransactionError = 1 << 2,
+    ExperimentalMode = 1 << 3
 }
 Shared.Settings = Bitfield.new(
     Shared.SettingsBits.ShowAlerts 
-    | Shared.SettingsBits.RemoveTransactionError 
+    | Shared.SettingsBits.RemoveTransactionError
 )
 
 Shared.VehicleBitfield = {}

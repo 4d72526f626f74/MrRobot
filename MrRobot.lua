@@ -57,6 +57,7 @@ pluto_class MrRobot
         self.scustom = self.sroot .. '/custom'
         self.slibs = self.sroot .. '/libs'
         self.ssubmodules = self.smodules .. '/sub_modules'
+        self.spvcustom = self.sroot .. '/personal_vehicles'
         self.json = soup.json
 
         self.dirs = {
@@ -66,7 +67,8 @@ pluto_class MrRobot
             self.smodules,
             self.scustom,
             self.slibs,
-            self.ssubmodules
+            self.ssubmodules,
+            self.spvcustom
         }
     end
 
@@ -216,7 +218,7 @@ pluto_class MrRobot
         async_http.dispatch()
 
         repeat
-            draw_text(0.5, 0.5, 'Downloading missing files ...', ALIGN_CENTRE, 0.8, (0xFF4DA6 >> 16 & 0xFF) / 255, (0xFF4DA6 >> 8 & 0xFF) / 255, (0xFF4DA6 & 0xFF) / 255, 1)
+            util.draw_debug_text(0.5, 0.5, 'Downloading missing files ...', ALIGN_CENTRE, 0.8, (0xFF4DA6 >> 16 & 0xFF) / 255, (0xFF4DA6 >> 8 & 0xFF) / 255, (0xFF4DA6 & 0xFF) / 255, 1)
             util.yield_once()
         until bytes ~= 0
     end
@@ -402,7 +404,7 @@ pluto_class MrRobot
     end
 end
 
-local Script = pluto_new MrRobot('1.2.6-alpha', '1.67')
+local Script = pluto_new MrRobot('1.2.8-alpha', '1.67')
 Script:CheckGameVersion()
 Script:SetupPackagePath()
 Script:FixMissingDirs()

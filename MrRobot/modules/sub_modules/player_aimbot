@@ -38,9 +38,7 @@ pluto_class PlayerAimbot
     function Init()
         self.root:toggle_loop(T'Aimbot', {}, T'Enable Aimbot', S:Partial(self.Aimbot, self))
         self.root:toggle_loop(T'Unfair Aimbot', {}, T'Enable Unfair Aimbot, the most blatant kind of aimbot that exists', S:Partial(self.UnfairAimbot, self))
-        if S.Settings:IsSet(S.SettingsBits.DevMode) then 
-            self.root:toggle_loop(T'Trigger Bot', {}, T'Enable Trigger Bot', S:Partial(self.TriggerBot, self))
-        end
+        self.root:toggle_loop(T'Trigger Bot', {}, T'Enable Trigger Bot', S:Partial(self.TriggerBot, self))
         self.root:divider('')
 
         self.root:toggle(T'Use FOV', {}, T'Use FOV', function(state)

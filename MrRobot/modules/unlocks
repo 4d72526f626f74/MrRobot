@@ -31,14 +31,13 @@ pluto_class Unlocks
         self.interaction_menu = self.root:list(T'Interaction Menu', {}, T'Interaction Menu')
         self.agency = self.root:list(T'Agency', {}, T'Agency')
         self.penthouse = self.root:list(T'Casino Penthouse', {}, T'Casino Penthouse')
+        self.casino = self.root:list(T'Casino', {}, T'Casino')
         self.arcade = self.root:list(T'Arcade', {}, T'Arcade')
         self.autoshop = self.root:list(T'Autoshop', {}, T'Autoshop')
         self.arena_workshop = self.root:list(T'Arena Workshop', {}, T'Arena Workshop')
         self.facility = self.root:list(T'Facility', {}, T'Facility')
         self.hangar = self.root:list(T'Hangar', {}, T'Hangar')
         self.other = self.root:list(T'Other', {}, T'Other')
-
-        self.facility.visible = false
 
         self.achievements:action(T'All Achievements', {}, T'All Achievements', function()
             self:UnlockAllAchievements()
@@ -271,6 +270,11 @@ pluto_class Unlocks
             if not SCRIPT_CAN_CONTINUE then return end
             self:UnlockPenthouseGarage(state)
         end, self:IsPenthouseGarageUnlocked())
+
+        self.unlock_casino_membership = self.casino:toggle(T'Unlock Casino Membership', {}, T'Unlock casino membership without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockCasinoMembership(state)
+        end, self:IsCasinoMembershipUnlocked())
 
         self.arcade:toggle(T'Bypass Setup', {}, T'Bypass arcade setup missions', function(state)
             if SCRIPT_CAN_CONTINUE then
@@ -924,6 +928,16 @@ pluto_class Unlocks
     function IsHangarUnlocked()
         local unlock = self.ScriptGlobal(1853988 + 1 + (players.user() * 867) + 267 + 293)
         return self.ReadByte(unlock) == 1
+    end
+
+    function UnlockCasinoMembership(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (players.user() * 867) + 267 + 405 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 18)) : (Bit:Clear(self.ReadInt(unlock), 18)))
+    end
+
+    function IsCasinoMembershipUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (players.user() * 867) + 267 + 405 + 1)
+        return Bit:Check(self.ReadInt(unlock), 18)
     end
 
     --[[BOOL (bool)]] static function HasAchievementBeenPassed(--[[int]] achievementId)native_invoker.begin_call()native_invoker.push_arg_int(achievementId)native_invoker.end_call_2(0x867365E111A3B6EB)return native_invoker.get_return_value_bool()end

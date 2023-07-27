@@ -641,6 +641,18 @@ pluto_class Players
             S:SendMercenaries(pid)
         end)
 
+        self.trolling:action(T'Send Strike Team (Level 1)', {}, T'Send a strike team to kill the player', function()
+            S:SendStrikeTeam(pid, 1)
+        end)
+
+        self.trolling:action(T'Send Strike Team (Level 2)', {}, T'Send a strike team to kill the player', function()
+            S:SendStrikeTeam(pid, 2)
+        end)
+
+        self.trolling:action(T'Send Strike Team (Level 3)', {}, T'Send a strike team to kill the player', function()
+            S:SendStrikeTeam(pid, 3)
+        end)
+
         self.ram = self.veh_trolling:list(T'Ram With Vehicle', {}, T'Ram the player with a vehicle of your choice')
         local model_name = 'adder'
         

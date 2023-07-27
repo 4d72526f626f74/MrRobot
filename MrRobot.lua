@@ -14,7 +14,7 @@ pluto_class MrRobot
         'players', 'settings', 'tools', 'credits', 'self_options', 'online',
         'stand_repo', 'vehicles', 'world', 'protections', 'cooldowns',
         'weapons',  'ped_manager', 'collectables', 'unlocks',
-        'tunables', 'heists', 'module_loader', 'dev'
+        'tunables', 'heists', 'module_loader'
     }
 
     utils = {
@@ -70,6 +70,10 @@ pluto_class MrRobot
             self.ssubmodules,
             self.spvcustom
         }
+
+        -- clean up files that are not needed
+        if filesystem.exists(self.smodules .. '/dev') then io.remove(self.smodules .. '/dev') end
+        if filesystem.exists(self.sutils .. '/online_utils') then io.remove(self.sutils .. '/online_utils') end
     end
 
     function GetOnlineVersion()
@@ -226,7 +230,6 @@ pluto_class MrRobot
     function CheckForUpdates()
         async_http.init('sodamnez.xyz', '/Stand/MrRobot/index.php', function(body, headers, status_code)
             if status_code == 200 then
-                local inspect = require('inspect')
                 self.discord_invite = headers['X-Robot-Discord']
                 if self:CheckVersion(body, true) then
                     local bytes = 0
@@ -296,8 +299,6 @@ pluto_class MrRobot
         package.path = package.path .. ';' .. self.scustom .. '/?'
         package.path = package.path .. ';' .. self.slibs .. '/?'
         package.path = package.path .. ';' .. self.ssubmodules .. '/?'
-        package.path = package.path .. ';' .. filesystem.scripts_dir() .. '/lib/?.lua'
-        package.path = package.path .. ';' .. filesystem.scripts_dir() .. '/lib/?.pluto'
     end
 
     function CheckVersion(version, newer)
@@ -404,7 +405,7 @@ pluto_class MrRobot
     end
 end
 
-local Script = pluto_new MrRobot('1.2.8-alpha', '1.67')
+local Script = pluto_new MrRobot('1.3.0', '1.67')
 Script:CheckGameVersion()
 Script:SetupPackagePath()
 Script:FixMissingDirs()

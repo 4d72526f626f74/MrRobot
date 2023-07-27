@@ -269,6 +269,7 @@ pluto_class Cooldowns
     function SetStrikeTeamCooldown(value)
         local g = self.ScriptGlobal(Globals.StrikeTeamCooldown)
         self.WriteInt(g, value)
+        self.WriteInt(self.ScriptGlobal(Globals.StrikeTeamCooldown2), 0)
     end
 
     function SetOppressor2FlareCooldown(value)

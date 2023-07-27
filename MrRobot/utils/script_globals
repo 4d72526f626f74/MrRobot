@@ -180,6 +180,8 @@ local Globals = {
     BSTTimer = 8340 + 1 + 2,
     BribeAuthoritiesTimer = 2794162 + 4664,
     BlockCEOMoneyLoopProtection = 1669211 + 560,
+    CasinoChips = 1971266,
+    StrikeTeamCooldown2 = 1853988 + 1 + (PLAYER_ID * 867) + 180 + 1,
 }
 
 function Globals:PlayerLegitOffTheRadar(pid) return 2657704 + 1 + (pid * 463) + 210 end

@@ -93,7 +93,8 @@ pluto_class ModuleLoader
                     if package.loaded[name] ~= nil then
                         util.toast(T'Module already loaded' .. ': ' .. name)
                     else
-                        menu.ref_by_rel_path(mod_list, 'Load').visible = false
+                        menu.ref_by_rel_path(mod_list, T'Load').visible = false
+                        menu.ref_by_rel_path(mod_list, T'Delete').visible = false
                         local status, err = pcall(require, name)
                         if not status then
                             util.log(err)

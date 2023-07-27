@@ -301,23 +301,21 @@ pluto_class MrRobot
         package.path = package.path .. ';' .. self.ssubmodules .. '/?'
     end
 
-    function CheckVersion(version, newer)
+    function CheckVersion(version)
         local a = version:gsub('-%w+', ''):split('.')
         local b = self.SCRIPT_VERSION:gsub('-%w+', ''):split('.')
         local x_major, x_minor, x_patch = tonumber(a[1]), tonumber(a[2]), tonumber(a[3])
         local y_major, y_minor, y_patch = tonumber(b[1]), tonumber(b[2]), tonumber(b[3])
+    
+        local x = (x_major | (x_minor << 4)) + x_patch
+        local y = (y_major | (y_minor << 4)) + y_patch
 
-        local x = x_major | (x_minor << 4) | (x_patch << 8)
-        local y = y_major | (y_minor << 4) | (y_patch << 8)
-
-        if newer == nil then
-            return x == y
+        if x == y then
+            return false
+        elseif x > y then
+            return true
         else
-            if newer then
-                return x > y
-            else
-                return x < y
-            end
+            return false
         end
     end
 

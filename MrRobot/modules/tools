@@ -19,7 +19,6 @@ local VehicleClearAllBits = 0x7FFFFFFF
 local DestoryVehicleBits = 0x10041
 
 pluto_class Tools
-    NetGameserverTransferWalletToBank = S.NetGameserverTransferWalletToBank
     ScriptGlobal = S.ScriptGlobal
     WriteByte = memory.write_byte
     WriteInt = memory.write_int
@@ -201,6 +200,8 @@ pluto_class Tools
             end
         end)
     end
+
+    --[[BOOL (bool)]] static function NetGameserverTransferWalletToBank(--[[int]] charSlot,--[[int]] amount)native_invoker.begin_call()native_invoker.push_arg_int(charSlot)native_invoker.push_arg_int(amount)native_invoker.end_call_2(0xC2F7FE5309181C7D)return native_invoker.get_return_value_bool()end
 end 
 
 return Tools

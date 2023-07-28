@@ -173,6 +173,23 @@ pluto_class Players
             end
         end)
 
+        self.conceal_vehicle = self.veh_menu:toggle_loop(T'Conceal Vehicle', {}, T'Stops the vehicle from being networked', function()
+            local Veh = self:GetVehicleFromNetId(pid)
+            if Veh ~= 0 then
+                if not self.NetworkIsEntityConcealed(Veh) then
+                    self.NetworkConcealEntity(Veh, true, true)
+                end
+            end
+        end,
+        function()
+            local Veh = self:GetVehicleFromNetId(pid)
+            if Veh ~= 0 then
+                if self.NetworkIsEntityConcealed(Veh) then
+                    self.NetworkConcealEntity(Veh, false, false)
+                end
+            end
+        end)
+
         self.veh_menu:action(T'Add Explosive Device', {}, T'Add explosive device to the players vehicle', function()
             local veh = self:GetVehicleFromNetId(pid)
             if veh ~= 0 then
@@ -878,6 +895,8 @@ pluto_class Players
     --[[void]] static function SetVehicleAlarm(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(state)native_invoker.end_call_2(0xCDE5E70C1DDB954C)end
     --[[void]] static function SetEntityCoordsNoOffset(--[[Entity (int)]] entity,--[[float]] xPos,--[[float]] yPos,--[[float]] zPos,--[[BOOL (bool)]] xAxis,--[[BOOL (bool)]] yAxis,--[[BOOL (bool)]] zAxis)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xPos)native_invoker.push_arg_float(yPos)native_invoker.push_arg_float(zPos)native_invoker.push_arg_bool(xAxis)native_invoker.push_arg_bool(yAxis)native_invoker.push_arg_bool(zAxis)native_invoker.end_call_2(0x239A3351AC1DA385)end
     --[[void]] static function AddExplosion(--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake,--[[BOOL (bool)]] noDamage)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.push_arg_bool(noDamage)native_invoker.end_call_2(0xE3AD2BDBAEE269AC)end
+    --[[void]] static function NetworkConcealEntity(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x1632BE0AC1E62876)end
+    --[[BOOL (bool)]] static function NetworkIsEntityConcealed(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x71302EC70689052A)return native_invoker.get_return_value_bool()end
 end
 
 return Players

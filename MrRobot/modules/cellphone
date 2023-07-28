@@ -1,0 +1,35 @@
+local T, S = require('translations'), require('shared')
+
+pluto_class Cellphone
+    ScriptGlobal = S.ScriptGlobal
+    WriteInt = memory.write_int
+
+    function __construct(root)
+        self.root = root:list(T'Cellphone', {T'rcellphone'}, '')
+        local contacts = S:SortTable(S.Contacts, |a, b| -> a.name < b.name)
+        
+        for contacts as contact do
+            self.root:action(T'Call ' .. contact.name, {T'call' .. contact.name}, '', function()
+                self:Call(contact.contact_id)
+            end)
+        end
+        
+        self.root:divider('')
+
+        self.root:action(T'Fix Phone', {}, T'Fixes your phone if calling someone doesn\'t work (usually results in phone and interaction menu being un-usable)', function()
+            self.WriteInt(self.ScriptGlobal(20500 + 1), 0)
+            self.WriteInt(self.ScriptGlobal(20500 + 2), 0)
+        end)
+    end
+
+    function Call(contact)
+        self.WriteInt(self.ScriptGlobal(22868), 0)
+        self.WriteInt(self.ScriptGlobal(22866), 0)
+        util.yield_once()
+        self.WriteInt(self.ScriptGlobal(7685), contact)
+        self.WriteInt(self.ScriptGlobal(20500 + 1), 10)
+        self.WriteInt(self.ScriptGlobal(20500 + 2), 6)
+    end
+end
+
+return Cellphone

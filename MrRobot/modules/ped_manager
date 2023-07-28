@@ -47,9 +47,9 @@ pluto_class PedManager
                 end
             end
 
-            ped_all:divider(T'Toggles')
+            self.peds_all:divider(T'Toggles')
 
-            ped_all:toggle(T'Invincible', {}, T'Makes all peds invincible', function(state)
+            self.peds_all:toggle(T'Invincible', {}, T'Makes all peds invincible', function(state)
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.SetEntityInvincible(entity, state)                             
@@ -57,7 +57,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:toggle(T'Dies In Water', {}, T'Makes all peds die in water', function(state)
+            self.peds_all:toggle(T'Dies In Water', {}, T'Makes all peds die in water', function(state)
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.SetPedDiesInWater(entity, state)                             
@@ -65,7 +65,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:toggle(T'Freeze', {}, T'Freezes all peds', function(state)
+            self.peds_all:toggle(T'Freeze', {}, T'Freezes all peds', function(state)
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.FreezeEntityPosition(entity, state)                             
@@ -73,7 +73,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:toggle(T'Invisible', {}, T'Makes all peds invisible', function(state)
+            self.peds_all:toggle(T'Invisible', {}, T'Makes all peds invisible', function(state)
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.SetEntityVisible(entity, not state, false)                             
@@ -81,9 +81,9 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:divider(T'Actions')
+            self.peds_all:divider(T'Actions')
 
-            ped_all:action(T'Kill', {}, T'Kills all peds', function()
+            self.peds_all:action(T'Kill', {}, T'Kills all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.SetEntityHealth(entity, 0)
@@ -91,7 +91,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:action(T'Delete', {}, T'Deletes all peds', function()
+            self.peds_all:action(T'Delete', {}, T'Deletes all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         entities.delete_by_handle(entity)
@@ -99,7 +99,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:action(T'Ragdoll', {}, T'Ragdolls all peds', function()
+            self.peds_all:action(T'Ragdoll', {}, T'Ragdolls all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.SetPedToRagdoll(entity, 1000, 1000, 0, true, true, false)
@@ -107,9 +107,9 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:divider(T'Tasks')
+            self.peds_all:divider(T'Tasks')
 
-            ped_all:action(T'Stop All Tasks', {}, T'Stops all tasks for all peds', function()
+            self.peds_all:action(T'Stop All Tasks', {}, T'Stops all tasks for all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.ClearPedTasksImmediately(entity)
@@ -117,7 +117,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:action(T'Pause', {}, T'Pauses all peds', function()
+            self.peds_all:action(T'Pause', {}, T'Pauses all peds', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.TaskPause(entity, -1)
@@ -125,7 +125,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:action(T'Stand Still', {}, T'Makes all peds stand still', function()
+            self.peds_all:action(T'Stand Still', {}, T'Makes all peds stand still', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.TaskStandStill(entity, -1)
@@ -133,7 +133,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:action(T'Sky Dive', {}, T'Makes all peds sky dive', function()
+            self.peds_all:action(T'Sky Dive', {}, T'Makes all peds sky dive', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.TaskSkyDive(entity)
@@ -141,7 +141,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:action(T'Writhe', {}, T'Makes all peds writhe', function()
+            self.peds_all:action(T'Writhe', {}, T'Makes all peds writhe', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.TaskWrithe(entity, -1, 0, 0)
@@ -149,7 +149,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:action(T'Jump', {}, T'Makes all peds jump', function()
+            self.peds_all:action(T'Jump', {}, T'Makes all peds jump', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.TaskJump(entity, true, true, true)
@@ -157,7 +157,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:action(T'Super Splat', {}, T'Force all peds to super jump and ragdoll so they go splat', function()
+            self.peds_all:action(T'Super Splat', {}, T'Force all peds to super jump and ragdoll so they go splat', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.TaskJump(entity, true, true, true)
@@ -167,7 +167,7 @@ pluto_class PedManager
                 end
             end)
 
-            ped_all:action(T'Gtfo Of The Vehicle', {}, T'Makes all peds get the fuck out of their vehicle', function()
+            self.peds_all:action(T'Gtfo Of The Vehicle', {}, T'Makes all peds get the fuck out of their vehicle', function()
                 for i, entity in pairs(entities.get_all_peds_as_handles()) do
                     if self.DoesEntityExist(entity) and not self.IsPedAPlayer(entity) then
                         self.TaskLeaveAnyVehicle(entity, 0, 0)
@@ -197,9 +197,9 @@ pluto_class PedManager
                 ref = menu.ref_by_rel_path(self.root, model)
             end
 
-            for i, data in pairs(sorted) do
-                local dist = data[1]
-                local entity = data[2]
+            for i, data_inner in pairs(sorted) do
+                local dist = data_inner[1]
+                local entity = data_inner[2]
 
                 local ped_menu 
                 ped_menu = ref:list(tostring(dist), {}, tostring(entity), function()

@@ -405,14 +405,6 @@ pluto_class Unlocks
             end
         end, self:IsHangarUnlocked())
 
-        self.other:action(T'Unlock WM 29 Pistol', {}, T'Unlock WM 29 pistol, you do not get to keep the pistol!', function()
-            if SCRIPT_CAN_CONTINUE then
-                self.SetPackedStatBoolCode(36785, true, CharSlot)
-                S:GiveWeaponToSelf(465894841, 9999, true)
-                util.toast('WM 29 is now in your weapon wheel, you do not get to keep the pistol!')
-            end
-        end)
-
         self.other:action(T'Unlock Double Action Revolver', {}, T'Unlock Double Action Revolver', function()
             if SCRIPT_CAN_CONTINUE then
                 self:UnlockDoubleActionRevolver()

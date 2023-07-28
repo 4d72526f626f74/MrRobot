@@ -182,6 +182,7 @@ local Globals = {
     BlockCEOMoneyLoopProtection = 1669211 + 560,
     CasinoChips = 1971266,
     StrikeTeamCooldown2 = 1853988 + 1 + (PLAYER_ID * 867) + 180 + 1,
+    QuickBail = 2657704 + 1 + (players.user() * 463)
 }
 
 function Globals:PlayerLegitOffTheRadar(pid) return 2657704 + 1 + (pid * 463) + 210 end

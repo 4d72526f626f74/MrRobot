@@ -5,11 +5,6 @@ local Globals = require('script_globals')
 local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
 
 pluto_class Protections
-    GetEntityCanBeDamaged = S.GetEntityCanBeDamaged
-    IsPedInAnyVehicle = S.IsPedInAnyVehicle
-    GetVehiclePedIsIn = S.GetVehiclePedIsIn
-    DecorGetInt = S.DecorGetInt
-    TerminateThisThread = S.TerminateThisThread
     ScriptGlobal = S.ScriptGlobal
     ScriptLocal = S.ScriptLocal
     ReadByte = memory.read_byte
@@ -409,6 +404,11 @@ pluto_class Protections
     --[[string]] static function GetVehicleNumberPlateText(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x7CE1CCB9B293020E)return native_invoker.get_return_value_string()end
     --[[Player (int)]] static function NetworkGetPlayerIndexFromPed(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x6C0E2E0125610278)return native_invoker.get_return_value_int()end
     --[[Ped (int)]] static function GetPedInVehicleSeat(--[[Vehicle (int)]] vehicle,--[[int]] seatIndex,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(seatIndex)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0xBB40DD2270B65366)return native_invoker.get_return_value_int()end
+    --[[BOOL (bool)]] static function GetEntityCanBeDamaged(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xD95CC5D2AB15A09F)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
+    --[[Vehicle (int)]] static function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
+    --[[int]] static function DecorGetInt(--[[Entity (int)]] entity,--[[string]] propertyName)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.end_call_2(0xA06C969B02A97298)return native_invoker.get_return_value_int()end
+    --[[void]] static function TerminateThisThread()native_invoker.begin_call()native_invoker.end_call_2(0x1090044AD1DA76FA)end
 end
 
 return Protections

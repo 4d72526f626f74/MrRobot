@@ -37,6 +37,7 @@ pluto_class Vehicles
         self:CreateCounterMeasures()
         self:CreateTunableOptions()
         self:CreateHandlingEditor()
+        self:CreateProximityConcealment()
 
         local AIHandling = {
             'AVERAGE',
@@ -686,6 +687,38 @@ pluto_class Vehicles
         end)
     end
 
+    function CreateProximityConcealment()
+        self.proximity_concealment = self.vehicles:list(T'Proximity Concealment', {}, T'')
+        self.last_veh_coords = v3.new()
+
+        self.proximity_concealment:toggle_loop(T'Proximity Concealment', {}, T'Proximity based denetworking of your personal vehicle, this will prevent the vehicle being synced with other players when you are outside of a certain proximity to your vehicle', function()
+            local ActivePV = self.ScriptGlobal(Globals.ActivePVHandle)
+            local Veh = self.ReadInt(ActivePV)
+            local Proximity = self.proximity.value / 100
+
+            if Veh ~= -1 then
+                local Coords = self.GetEntityCoords(Veh)
+                local PlayerCoords = players.get_position(PlayerID)
+                local Dist = Coords:distance(PlayerCoords)
+                
+                if Dist >= Proximity then
+                    if not self.NetworkIsEntityConcealed(Veh) then
+                        self.NetworkConcealEntity(Veh, true)
+                        self.last_veh_coords = Coords
+                    end
+                end
+
+                if self.NetworkIsEntityConcealed(Veh) then
+                    if Coords:distance(self.last_veh_coords) <= Proximity then
+                        self.NetworkConcealEntity(Veh, false)
+                    end
+                end
+            end
+        end)
+
+        self.proximity = self.proximity_concealment:slider_float(T'Proximity', {}, T'Set the proximity for the concealment', 0.0, S.MAX_FLOAT, 50.0 * 100, 1.0 * 100, function(value) end)
+    end
+
     --[[void]] static function SetVehicleDoorsShut(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] closeInstantly)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(closeInstantly)native_invoker.end_call_2(0x781B3D62BB013EF5)end
     --[[int]] static function DecorGetInt(--[[Entity (int)]] entity,--[[string]] propertyName)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.end_call_2(0xA06C969B02A97298)return native_invoker.get_return_value_int()end
     --[[Vehicle (int)]] static function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
@@ -747,6 +780,8 @@ pluto_class Vehicles
     --[[BOOL (bool)]] static function DecorRemove(--[[Entity (int)]] entity,--[[string]] propertyName)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.end_call_2(0x00EE9F297C738720)return native_invoker.get_return_value_bool()end
     --[[Vector3 (vector3)]] static function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
     --[[BOOL (bool)]] static function IsEntityVisible(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x47D6F43D77935C75)return native_invoker.get_return_value_bool()end
+    --[[void]] static function NetworkConcealEntity(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x1632BE0AC1E62876)end
+    --[[BOOL (bool)]] static function NetworkIsEntityConcealed(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x71302EC70689052A)return native_invoker.get_return_value_bool()end
 end
 
 return Vehicles

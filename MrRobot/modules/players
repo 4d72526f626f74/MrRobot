@@ -631,7 +631,7 @@ pluto_class Players
         self.trolling:divider('')
             
         self.trolling:action(T'Owned Orbital Strike', {}, T'Launch an owned orbital strike on the player', function()
-            S:RequestNamedPtfxAsset('scr_xm_orbital')
+            S:RequestNamedPtfxAsset_('scr_xm_orbital')
             local ped = self.GetPlayerPed(pid)
             local pos = self.GetEntityCoords(ped)
             S:SetUsingOrbitalCannon(true)
@@ -649,7 +649,7 @@ pluto_class Players
         end)
 
         self.trolling:action(T'Orbital Strike', {}, T'Launch an orbital strike on the player', function()
-            S:RequestNamedPtfxAsset('scr_xm_orbital')
+            S:RequestNamedPtfxAsset_('scr_xm_orbital')
             local ped = self.GetPlayerPed(pid)
             local pos = self.GetEntityCoords(ped)
 

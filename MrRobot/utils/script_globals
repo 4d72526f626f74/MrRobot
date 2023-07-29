@@ -191,7 +191,15 @@ local Globals = {
     BlockCEOMoneyLoopProtection = 1669211 + 560,
     CasinoChips = 1971266,
     StrikeTeamCooldown2 = 1853988 + 1 + (PLAYER_ID * 867) + 180 + 1,
-    QuickBail = 2657704 + 1 + (players.user() * 463)
+    QuickBail = 2657704 + 1 + (players.user() * 463),
+    NCSafeCapacity = 262145 + 24227,
+    NCSafeIncomeStart = 24204,
+    NCSafeIncomeEnd = 24223,
+    TriggerNCSafeCollection = 199 + 532 + 1, -- am_mp_nightclub.c
+    NightclubSafeValue = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 354 + 5, -- safe value
+    ArcadeSafeCapacity = 262145 + 29457,
+    ArcadeSafeIncomeStart = 29458,
+    ArcadeSafeIncomeEnd = 29465,
 }
 
 function Globals:PlayerLegitOffTheRadar(pid) return 2657704 + 1 + (pid * 463) + 210 end

@@ -37,7 +37,6 @@ pluto_class Online
 
     function __construct(root)
         self.root = root:list(T'Online', {T'ronline'}, T'Online')
-        self.nightclub = self.root:list(T'Nightclub', {T'rnightclub'}, T'Nightclub')
         self.fake_notifications = self.root:list(T'Fake Notifications', {T'rfakenotif'}, T'Fake Notifications')
         self.services = self.root:list(T'Services', {T'rservices'}, T'Services')
         self.trolling = self.root:list(T'Trolling', {T'rtrolling'}, T'Trolling')
@@ -49,7 +48,6 @@ pluto_class Online
 
         self.beast_blip = nil
 
-        self:CreateNC()
         self:CreateFakeNotifs()
         self:CreateServices()
         self:CreateTrolling()
@@ -58,38 +56,6 @@ pluto_class Online
         self:CreateOther()
         self:CreateToxic()
         self:CreateCasino()
-    end
-
-    function CreateNC()
-        self.nightclub:toggle(T'Clear Nightclub', {}, 'Empty your nightclub', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                self:ClearNightclub(state)
-            end
-        end, self:IsNightclubCleared())
-
-        self.nightclub:toggle(T'Turn Off Office Lights', {}, 'Turn off the lights in your office', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                self:DisableNightclubOfficeLights(state)
-            end
-        end, self:AreNightclubOfficeLightsDisabled())
-
-        self.nightclub:toggle(T'Dry Ice', {}, 'Enable dry ice in your nightclub', function(state)
-            if SCRIPT_CAN_CONTINUE then
-                self:UnlockNightclubDryIce(state)
-            end
-        end, self:IsNightclubDryIceUnlocked())
-
-        self.nightclub:action(T'Upgrade Everything', {}, 'Unlock all upgrades in your nightclub', function()
-            if SCRIPT_CAN_CONTINUE then
-                self:UnlockNightclubUpgrades()
-            end
-        end)
-
-        self.nightclub:action(T'Bypass Setup', {}, 'Bypass setup missions in your nightclub (does not always work!)', function()
-            if SCRIPT_CAN_CONTINUE then
-                self:BypassNightclubSetup()
-            end
-        end)
     end
 
     function CreateFakeNotifs()
@@ -1004,49 +970,6 @@ pluto_class Online
             end
             ::continue::
         end
-    end
-
-    function ClearNightclub(state)
-        local Clear = self.ScriptGlobal(Globals.NightclubStatsBase + 2)
-        self.WriteByte(Clear, state ? (Bit:Set(self.ReadByte(Clear), 1)) : (Bit:Clear(self.ReadByte(Clear), 1)))
-    end
-    
-    function IsNightclubCleared()
-        local Clear = self.ScriptGlobal(Globals.NightclubStatsBase + 2)
-        return Bit:Check(self.ReadByte(Clear), 1)
-    end
-    
-    function DisableNightclubOfficeLights(state)
-        local Lights = self.ScriptGlobal(Globals.NightclubStatsBase + 2)
-        self.WriteInt(Lights, state ? (Bit:Set(self.ReadInt(Lights), 17)) : (Bit:Clear(self.ReadInt(Lights), 17)))
-    end
-    
-    function AreNightclubOfficeLightsDisabled()
-        local Lights = self.ScriptGlobal(Globals.NightclubStatsBase + 2)
-        return Bit:Check(self.ReadInt(Lights), 17)
-    end
-    
-    function UnlockNightclubDryIce(state)
-        local Ice = self.ScriptGlobal(Globals.NightclubStatsBase + 2)
-        self.WriteInt(Ice, state ? (Bit:Set(self.ReadInt(Ice), 23)) : (Bit:Clear(self.ReadInt(Ice), 23)))
-    end
-    
-    function IsNightclubDryIceUnlocked()
-        local Ice = self.ScriptGlobal(Globals.NightclubStatsBase + 2)
-        return Bit:Check(self.ReadInt(Ice), 23)
-    end
-    
-    function UnlockNightclubUpgrades()
-        local Upgrades = self.ScriptGlobal(Globals.NightclubStatsBase + 1)
-        self.WriteInt(Upgrades, 0x7FFEFFFD)
-        self:UnlockNightclubDryIce(true)
-    end
-    
-    function BypassNightclubSetup()
-        local Bypass = self.ScriptGlobal(Globals.NightclubStatsBase + 1)
-        local Bypass1 = self.ScriptGlobal(Globals.NightclubStatsBase + 2)
-        self.WriteInt(Bypass, 0x7FFFFFFF)
-        self.WriteInt(Bypass1, 0x7FFFFFFF)
     end
 
     --[[void]] static function SetPackedStatBoolCode(--[[int]] index,--[[BOOL (bool)]] value,--[[int]] characterSlot)native_invoker.begin_call()native_invoker.push_arg_int(index)native_invoker.push_arg_bool(value)native_invoker.push_arg_int(characterSlot)native_invoker.end_call_2(0xDB8A58AEAA67CD07)end

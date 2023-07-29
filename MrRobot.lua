@@ -2,6 +2,8 @@ local SCRIPT_START = os.clock()
 util.keep_running()
 
 ModuleBase = memory.scan('')
+local inspect = require('inspect')
+local sha256 = require('crypto').sha256
 
 pluto_class MrRobot
     images = {
@@ -14,7 +16,7 @@ pluto_class MrRobot
         'players', 'settings', 'tools', 'credits', 'self_options', 'online',
         'stand_repo', 'vehicles', 'world', 'protections', 'cooldowns',
         'weapons',  'ped_manager', 'collectables', 'unlocks',
-        'tunables', 'heists', 'module_loader', 'cellphone'
+        'tunables', 'heists', 'module_loader', 'cellphone', 'nightclub'
     }
 
     utils = {
@@ -35,6 +37,7 @@ pluto_class MrRobot
         'bit',
         'bitfield',
         'scaleform',
+        'math'
     }
 
     sub_modules = {
@@ -178,40 +181,53 @@ pluto_class MrRobot
         local bytes = 0
         async_http.init('sodamnez.xyz', '/Stand/MrRobot/index.php?missing=true', function(body, headers, status_code)
             if status_code == 200 then
+                local hash = headers['X-Robot-Hash']
+                if sha256(body) ~= hash then
+                    util.toast('Failed to verify integrity of the files')
+                    print('[MrRobot] Failed to verify integrity of the files')
+                    util.yield(2000)
+                    util.stop_script()
+                    return
+                else
+                    util.toast('Successfully verified integrity of the files')
+                    print('[MrRobot] Successfully verified integrity of the files')
+                end
+
                 local missing = self.json.decode(body)
 
-                for missing['sub_modules'] as sub_module do
-                    local file <close> = assert(io.open(self.ssubmodules .. '/' .. sub_module.name, 'wb'))
-                    file:write(sub_module.content)
-                    file:close()
-                end
+                util.execute_in_os_thread(function()
+                    for missing['sub_modules'] as sub_module do
+                        local file <close> = assert(io.open(self.ssubmodules .. '/' .. sub_module.name, 'wb'))
+                        file:write(sub_module.content)
+                        file:close()
+                    end
+    
+                    for missing['images'] as image do
+                        local file <close> = assert(io.open(self.simages .. '/' .. image.name, 'wb'))
+                        file:write(self:b64decode(image.content))
+                        file:close()
+                    end
+    
+                    for missing['modules'] as module do
+                        local file <close> = assert(io.open(self.smodules .. '/' .. module.name, 'wb'))
+                        file:write(module.content)
+                        file:close()
+                    end
+    
+                    for missing['utils'] as util do
+                        local file <close> = assert(io.open(self.sutils .. '/' .. util.name, 'wb'))
+                        file:write(util.content)
+                        file:close()
+                    end
+    
+                    for missing['libs'] as lib do
+                        local file <close> = assert(io.open(self.slibs .. '/' .. lib.name, 'wb'))
+                        file:write(lib.content)
+                        file:close()
+                    end
 
-                for missing['images'] as image do
-                    local file <close> = assert(io.open(self.simages .. '/' .. image.name, 'wb'))
-                    file:write(self:b64decode(image.content))
-                    file:close()
-                end
-
-                for missing['modules'] as module do
-                    local file <close> = assert(io.open(self.smodules .. '/' .. module.name, 'wb'))
-                    file:write(module.content)
-                    file:close()
-                end
-
-                for missing['utils'] as util do
-                    local file <close> = assert(io.open(self.sutils .. '/' .. util.name, 'wb'))
-                    file:write(util.content)
-                    file:close()
-                end
-
-                for missing['libs'] as lib do
-                    local file <close> = assert(io.open(self.slibs .. '/' .. lib.name, 'wb'))
-                    file:write(lib.content)
-                    file:close()
-                end
-
-                bytes = body
-                util.toast('Successfully downloaded missing files')
+                    bytes = body
+                end)
             else
                 print('[MrRobot : {status_code}] Failed to request missing files')
                 print()
@@ -222,7 +238,7 @@ pluto_class MrRobot
         async_http.dispatch()
 
         repeat
-            util.draw_debug_text(0.5, 0.5, 'Downloading missing files ...', ALIGN_CENTRE, 0.8, (0xFF4DA6 >> 16 & 0xFF) / 255, (0xFF4DA6 >> 8 & 0xFF) / 255, (0xFF4DA6 & 0xFF) / 255, 1)
+            util.draw_debug_text('Downloading missing files ...', ALIGN_CENTRE, 0.8, (0xFF4DA6 >> 16 & 0xFF) / 255, (0xFF4DA6 >> 8 & 0xFF) / 255, (0xFF4DA6 & 0xFF) / 255, 1)
             util.yield_once()
         until bytes ~= 0
     end
@@ -231,7 +247,8 @@ pluto_class MrRobot
         async_http.init('sodamnez.xyz', '/Stand/MrRobot/index.php', function(body, headers, status_code)
             if status_code == 200 then
                 self.discord_invite = headers['X-Robot-Discord']
-                if self:CheckVersion(body, true) then
+                if self:CheckVersion(body) then
+                    util.toast('v' .. body .. ' is now available')
                     local bytes = 0
                     local update_button
                     update_button = self.shadow_root:action('Update v' .. body, {}, '', function()
@@ -304,19 +321,13 @@ pluto_class MrRobot
     function CheckVersion(version)
         local a = version:gsub('-%w+', ''):split('.')
         local b = self.SCRIPT_VERSION:gsub('-%w+', ''):split('.')
-        local x_major, x_minor, x_patch = tonumber(a[1]), tonumber(a[2]), tonumber(a[3])
-        local y_major, y_minor, y_patch = tonumber(b[1]), tonumber(b[2]), tonumber(b[3])
-    
-        local x = (x_major | (x_minor << 4)) + x_patch
-        local y = (y_major | (y_minor << 4)) + y_patch
+        for i = 1, #a do a[i] = tonumber(a[i]) end
+        for i = 1, #b do b[i] = tonumber(b[i]) end
 
-        if x == y then
-            return false
-        elseif x > y then
-            return true
-        else
-            return false
-        end
+        local x = (a[1] << 4) | (a[2] << 8) + a[3]
+        local y = (b[1] << 4) | (b[2] << 8) + b[3]
+
+        return x > y
     end
 
     function PlayStartupAnimation(play)
@@ -403,7 +414,7 @@ pluto_class MrRobot
     end
 end
 
-local Script = pluto_new MrRobot('1.4.2', '1.67')
+local Script = pluto_new MrRobot('1.4.3', '1.67')
 Script:CheckGameVersion()
 Script:SetupPackagePath()
 Script:FixMissingDirs()

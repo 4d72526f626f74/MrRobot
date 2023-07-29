@@ -39,11 +39,6 @@ pluto_class Tools
             ArcadeBitfield(Arcade, 16) 
         end)
 
-        self.deposit_wallet = self.root:action(T'Deposit Wallet', {T'toolsdepositwallet'}, T'Deposits your wallet into your bank', function()
-            local Wallet = self.ReadInt(self.base + WalletOffset) 
-            if Wallet > 0 then self.NetGameserverTransferWalletToBank(CharSlot, Wallet) end 
-        end)
-
         self.press_me = self.root:action(T'Press Me', {}, T'By pressing this button you have agreed to pay the price for your wrong doings within the world of GTA Online, this will rid you of your mk2 and money as retribution for the sins of owning an oppressor mk2 and from here on out you declare that you will never again buy another mk2, have a nice day!', function()
             local Oppressors = {} 
             local Wallet = 0 
@@ -123,7 +118,14 @@ pluto_class Tools
         end)
 
         self.root:divider('')
-        self.root:toggle_loop(T'Auto Deposit Wallet', {T'toolsautowalletdeposit'}, T'Automatically deposit all money that is in your wallet', function() self.deposit_wallet:trigger() end)
+        self.atm = self.root:list(T'ATM', {T'ratm'}, T'ATM')
+        self.deposit_wallet = self.atm:action(T'Deposit Wallet', {T'toolsdepositwallet'}, T'Deposits your wallet into your bank', function()
+            local Wallet = self.ReadInt(self.base + WalletOffset) 
+            if Wallet > 0 then self.NetGameserverTransferWalletToBank(CharSlot, Wallet) end 
+        end)
+        self.atm:toggle_loop(T'Auto Deposit Wallet', {T'toolsautowalletdeposit'}, T'Automatically deposit all money that is in your wallet', function() self.deposit_wallet:trigger() end)
+        self.atm:text_input(T'Deposit Wallet Amount', {T'toolsdepositwalletamount'}, T'Amount of money to deposit from your wallet', function(amount) self.NetGameserverTransferWalletToBank(CharSlot, tonumber(amount)) end, '0')
+        
         self:CreateGunVan()
     end
 

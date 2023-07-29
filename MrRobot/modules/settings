@@ -9,7 +9,11 @@ pluto_class Settings
 
     function __construct(root, version)
         self.root = root:list(T'Settings', {T'rsettings'}, T'Settings')
-        self.root:divider('v' .. version)
+        if not S.Settings:IsSet(SettingsBits.DevMode) then 
+            self.root:divider('v' .. version) 
+        else
+            self.root:divider('v' .. version .. '-dev')
+        end
         
         self.remove_transaction_error = self.root:toggle(T'Remove Transaction Errors', {}, T'Removes transaction error notifications so that they do not disturb your gameplay', function()
             util.create_tick_handler(function()

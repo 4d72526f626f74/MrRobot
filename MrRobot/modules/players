@@ -406,8 +406,20 @@ pluto_class Players
         self.bounty_modded = self.bounty:readonly(T'Modded')
         self.bounty:divider('')
 
-        self.bounty:action(T'Set Bounty', {}, T'Set an anonymous undetectable bounty on the player, they will never even know that they have a bounty on them', function()
-            local amount = tonumber(S:DisplayOnscreenKeyboard())
+        -- self.bounty:action(T'Set Bounty', {}, T'Set an anonymous undetectable bounty on the player, they will never even know that they have a bounty on them', function()
+        --     local amount = tonumber(S:DisplayOnscreenKeyboard())
+        --     if amount ~= nil then
+        --         if amount < 0 or amount > 10000 then
+        --             return util.toast(T'Invalid amount')
+        --         end
+
+        --         S:SetPlayerBounty(pid, 0, false)
+        --         S:SetPlayerBounty(pid, amount, true)
+        --     end
+        -- end)
+
+        self.bounty:text_input(T'Set Bounty', {T'setbounty'}, T'Set an anonymous undetectable bounty on the player, they will never even know that they have a bounty on them', function(amount)
+            amount = tonumber(amount)
             if amount ~= nil then
                 if amount < 0 or amount > 10000 then
                     return util.toast(T'Invalid amount')
@@ -416,7 +428,7 @@ pluto_class Players
                 S:SetPlayerBounty(pid, 0, false)
                 S:SetPlayerBounty(pid, amount, true)
             end
-        end)
+        end, '10000')
 
         self.bounty:action(T'Max Bounty', {}, T'Set the maximum bounty a player can have', function()
             S:SetPlayerBounty(pid, 0, false)

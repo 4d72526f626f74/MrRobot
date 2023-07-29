@@ -65,6 +65,15 @@
 -- MISC::GET_BITS_IN_RANGE(Global_2657704[plParam0 /*463*/].f_321.f_3, 28, 31);
 
 -- Global_2657704[plParam0 /*463*/].f_321.f_7 -- changing this seems to change where you appear on the map when inside the car meet
+
+-- globals that need tested
+
+-- Global_2684820.f_4319.f_242[35 /*2*/]
+-- Global_2684820.f_4319.f_242[35 /*3*/].f_1 = timer
+-- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_213 -- reveal all players
+-- Global_2672524.f_58 = reveal all players timer
+-- 535367551 freemode.c = org colour slots, (colour, boss pid)
+
 local PLAYER_ID = players.user() -- for some reason PLAYER_ID in shared doesn't work here
 
 local Globals = {

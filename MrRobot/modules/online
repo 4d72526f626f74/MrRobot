@@ -159,8 +159,8 @@ pluto_class Online
     end
 
     function CreateServices()
-        self.RequestBase = self.ScriptGlobal(Globals.RequestBase)
-        self.AmPiMenuBase = self.ScriptGlobal(Globals.AmPiMenuBase)
+        self.RequestBase = pluto_new S.SG(Globals.RequestBase)
+        self.AmPiMenuBase = pluto_new S.SG(Globals.AmPiMenuBase)
 
         self.services:action(T'Request Nano Drone', {T'requestnanodrone'}, 'It does something, the name probably tells you enough', function()
             self:RequestService('NanoDrone')
@@ -922,65 +922,65 @@ pluto_class Online
                 self.WriteInt(Drone, self.ReadInt(Drone) | Masks.RequestNanoDrone)
                 break
             case 'RCBandito':
-                self.WriteByte(self.RequestBase + Offsets.Bandito, 1)
+                self.RequestBase:Write(1, Offsets.Bandito)
                 break
             case 'RCTank':
-                self.WriteByte(self.RequestBase + Offsets.Tank, 1)
+                self.RequestBase:Write(1, Offsets.Tank)
                 util.yield(3500)
                 if TuneRef:isValid() then TuneRef:trigger() end
                 break
             case 'MOC':
-                self.WriteByte(self.RequestBase + Offsets.MOC, 1)
+                self.RequestBase:Write(1, Offsets.MOC)
                 break
             case 'Avenger':
-                self.WriteByte(self.RequestBase + Offsets.Avenger, 1)
+                self.RequestBase:Write(1, Offsets.Avenger)
                 break
             case 'AcidLab':
-                self.WriteByte(self.RequestBase + Offsets.AcidLab, 1)
+                self.RequestBase:Write(1, Offsets.AcidLab)
                 break
             case 'Terrorbyte':
-                self.WriteByte(self.RequestBase + Offsets.Terrorbyte, 1)
+                self.RequestBase:Write(1, Offsets.Terrorbyte)
                 break
             case 'Dinghy':
-                self.WriteByte(self.RequestBase + Offsets.Dinghy, 1)
+                self.RequestBase:Write(1, Offsets.Dinghy)
                 break
             case 'Kosatka':
-                self.WriteByte(self.RequestBase + Offsets.Kosatka, 1)
+                self.RequestBase:Write(1, Offsets.Kosatka)
                 break
             case 'Sparrow':
-                self.WriteByte(self.AmPiMenuBase + Offsets.Sparrow, 1)
+                self.AmPiMenuBase:Write(1, Offsets.Sparrow)
                 break
             case 'Avisa':
-                self.WriteByte(self.AmPiMenuBase + Offsets.Avisa, 1)
+                self.AmPiMenuBase:Write(1, Offsets.Avisa)
                 break
             case 'BallisticArmor':
-                self.WriteByte(self.RequestBase + Offsets.BallisticArmor, 1)
+                self.RequestBase:Write(1, Offsets.BallisticArmor)
                 break
             case 'AmmoDrop':
-                self.WriteByte(self.RequestBase + Offsets.AmmoDrop, 1)
+                self.RequestBase:Write(1, Offsets.AmmoDrop)
                 break
             case 'Helicopter':
-                self.WriteByte(self.RequestBase + Offsets.Helicopter, 1)
+                self.RequestBase:Write(1, Offsets.Helicopter)
                 break
             case 'DeliveryBike':
-                self.WriteByte(self.RequestBase + Offsets.DeliveryBike, 1)
+                self.RequestBase:Write(1, Offsets.DeliveryBike)
                 break
             case 'RatBike':
-                self.WriteByte(self.AmPiMenuBase + Offsets.RatBike, 1)
+                self.AmPiMenuBase:Write(1, Offsets.RatBike)
                 break
             case 'AvengerThruster':
-                self.WriteByte(self.AmPiMenuBase + Offsets.AvengerThruster, 1)
+                self.AmPiMenuBase:Write(1, Offsets.AvengerThruster)
                 break
             case 'Airstrike':
                 self.SetPackedStatBoolCode(8, true,CharSlot)
-                self.WriteByte(self.RequestBase + Offsets.Airstrike, 1)
+                self.RequestBase:Write(1, Offsets.Airstrike)
                 break
             case 'BackupHeli':
                 self.SetPackedStatBoolCode(11, true,CharSlot)
-                self.WriteByte(self.RequestBase + Offsets.BackupHeli, 1)
+                self.RequestBase:Write(1, Offsets.BackupHeli)
                 break
             case 'BST':
-                self.WriteByte(self.RequestBase + Offsets.BullsharkTestosterone, 1)
+                self.RequestBase:Write(1, Offsets.BST)
                 break
             case 'Supplies':
                 local Supplies = self.ScriptGlobal(Globals.RequestSupplies)

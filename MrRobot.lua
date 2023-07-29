@@ -403,7 +403,7 @@ pluto_class MrRobot
     end
 end
 
-local Script = pluto_new MrRobot('1.4.1', '1.67')
+local Script = pluto_new MrRobot('1.4.2', '1.67')
 Script:CheckGameVersion()
 Script:SetupPackagePath()
 Script:FixMissingDirs()

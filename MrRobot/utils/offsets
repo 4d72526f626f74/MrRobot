@@ -23,7 +23,7 @@ Offsets.Online.RequestOffsets = {
     DeliveryBike = 0x1F10,
     Airstrike = 0x8C60,
     BackupHeli = 0x8C58,
-    BullsharkTestosterone = 0x1C18
+    BST = 0x1C18
 }
 
 Offsets.Online.SpoofingOffsets = {

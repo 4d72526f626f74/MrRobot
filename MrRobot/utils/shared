@@ -1,14 +1,6 @@
 local Shared = {}
 Shared.__index = Shared
 
--- globals that need tested
-
--- Global_2684820.f_4319.f_242[35 /*2*/]
--- Global_2684820.f_4319.f_242[35 /*3*/].f_1 = timer
--- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_213 -- reveal all players
--- Global_2672524.f_58 = reveal all players timer
--- 535367551 freemode.c = org colour slots, (colour, boss pid)
-
 local T = require('translations')
 local BitModule = require('bit')
 local Bitfield = require('bitfield')
@@ -43,6 +35,95 @@ Shared.VehicleBitfield.Delivered = 1 << 10
 Shared.VehicleBitfield.SpawnMorsMutual = 1 << 11
 
 Shared.Refs = {}
+
+pluto_class SG
+    function __construct(...)
+        local args = {...}
+
+        if #args == 1 and type(args[1]) == 'number' then
+            self.address = Shared.ScriptGlobal(args[1])
+        elseif #args == 2 and type(args[1]) == 'string' then
+            self.address = Shared.ScriptLocal(args[1], args[2])
+        end
+    end
+
+    function WriteByte(value, offset)
+        offset = offset or 0
+        memory.write_byte(self.address + offset, value & 0xFF)
+    end
+
+    function WriteShort(value, offset)
+        offset = offset or 0
+        memory.write_short(self.address + offset, value & 0xFFFF)
+    end
+
+    function WriteInt(value, offset)
+        offset = offset or 0
+        memory.write_int(self.address + offset, value & 0xFFFFFFFF)
+    end
+
+    function WriteLong(value, offset)
+        offset = offset or 0
+        memory.write_long(self.address + offset, value)
+    end
+
+    function WriteFloat(value, offset)
+        offset = offset or 0
+        memory.write_float(self.address + offset, value)
+    end
+
+    function WriteString(value, offset)
+        offset = offset or 0
+        memory.write_string(self.address + offset, value)
+    end
+
+    function ReadByte(offset)
+        offset = offset or 0
+        return memory.read_byte(self.address + offset)
+    end
+
+    function ReadShort(offset)
+        offset = offset or 0
+        return memory.read_short(self.address + offset)
+    end
+
+    function ReadInt(offset)
+        offset = offset or 0
+        return memory.read_int(self.address + offset)
+    end
+
+    function ReadLong(offset)
+        offset = offset or 0
+        return memory.read_long(self.address + offset)
+    end
+
+    function ReadFloat(offset)
+        offset = offset or 0
+        return memory.read_float(self.address + offset)
+    end
+
+    function ReadString(offset)
+        offset = offset or 0
+        return memory.read_string(self.address + offset)
+    end
+
+    function Write(value, offset)
+        offset = offset or 0
+        local bits = math.floor(math.log(value, 2)) + 1
+
+        if bits <= 8 then
+            self:WriteByte(value, offset)
+        elseif bits <= 16 then
+            self:WriteShort(value, offset)
+        elseif bits <= 32 then
+            self:WriteInt(value, offset)
+        else
+            self:WriteLong(value, offset)
+        end
+    end
+end
+
+Shared.SG = SG
 
 Shared.Data = {
     Achievements = {

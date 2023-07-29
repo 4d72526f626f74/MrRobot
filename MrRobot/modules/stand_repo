@@ -11,8 +11,37 @@ local lib_dir = filesystem.scripts_dir() .. '/lib'
 local res_dir = filesystem.scripts_dir() .. '/resources'
 local store_dir = filesystem.scripts_dir() .. '/store'
 
+--[[
+    "lua/natives-2944a" => [
+		"priority" => 9,
+		"files" => [
+			"lib/natives-2944a/init.lua" => "stand.gg/dl/lua/lib/natives-2944a/init.lua",
+			"lib/natives-2944a/init.source.lua" => "stand.gg/dl/lua/lib/natives-2944a/init.source.lua",
+			"lib/natives-2944a/uno.lua" => "stand.gg/dl/lua/lib/natives-2944a/uno.lua",
+			"lib/natives-2944a/uno.source.lua" => "stand.gg/dl/lua/lib/natives-2944a/uno.source.lua",
+			"lib/natives-2944a/g.lua" => "stand.gg/dl/lua/lib/natives-2944a/g.lua",
+			"lib/natives-2944a/g.source.lua" => "stand.gg/dl/lua/lib/natives-2944a/g.source.lua",
+			"lib/natives-2944a/g-uno.lua" => "stand.gg/dl/lua/lib/natives-2944a/g-uno.lua",
+			"lib/natives-2944a/g-uno.source.lua" => "stand.gg/dl/lua/lib/natives-2944a/g-uno.source.lua",
+		],
+	],
+]]
+
 local endpoint = 'stand.gg'
 local stand_natives = {
+    ['natives-2944a.lua'] = {
+        ['name'] = 'natives-2944a.lua',
+        ['files'] = {
+            {'init.lua', lib_dir .. '/natives-2944a/init.lua', '/dl/lua/lib/natives-2944a/init.lua'},
+            {'init.source.lua', lib_dir .. '/natives-2944a/init.source.lua', '/dl/lua/lib/natives-2944a/init.source.lua'},
+            {'uno.lua', lib_dir .. '/natives-2944a/uno.lua', '/dl/lua/lib/natives-2944a/uno.lua'},
+            {'uno.source.lua', lib_dir .. '/natives-2944a/uno.source.lua', '/dl/lua/lib/natives-2944a/uno.source.lua'},
+            {'g.lua', lib_dir .. '/natives-2944a/g.lua', '/dl/lua/lib/natives-2944a/g.lua'},
+            {'g.source.lua', lib_dir .. '/natives-2944a/g.source.lua', '/dl/lua/lib/natives-2944a/g.source.lua'},
+            {'g-uno.lua', lib_dir .. '/natives-2944a/g-uno.lua', '/dl/lua/lib/natives-2944a/g-uno.lua'},
+            {'g-uno.source.lua', lib_dir .. '/natives-2944a/g-uno.source.lua', '/dl/lua/lib/natives-2944a/g-uno.source.lua'}
+        }
+    },
     ['natives-1681379138.lua'] = {
         ['name'] = 'natives-1681379138.lua',
         ['files'] = {

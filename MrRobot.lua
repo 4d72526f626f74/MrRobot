@@ -2,7 +2,6 @@ local SCRIPT_START = os.clock()
 util.keep_running()
 
 ModuleBase = memory.scan('')
-local inspect = require('inspect')
 local sha256 = require('crypto').sha256
 
 pluto_class MrRobot

@@ -16,7 +16,8 @@ pluto_class MrRobot
         'players', 'settings', 'tools', 'credits', 'self_options', 'online',
         'stand_repo', 'vehicles', 'world', 'protections', 'cooldowns',
         'weapons',  'ped_manager', 'collectables', 'unlocks',
-        'tunables', 'heists', 'module_loader', 'cellphone', 'nightclub'
+        'tunables', 'heists', 'module_loader', 'cellphone', 'nightclub',
+        'arcade', 'agency'
     }
 
     utils = {
@@ -414,7 +415,7 @@ pluto_class MrRobot
     end
 end
 
-local Script = pluto_new MrRobot('1.4.3', '1.67')
+local Script = pluto_new MrRobot('1.5.3', '1.67')
 Script:CheckGameVersion()
 Script:SetupPackagePath()
 Script:FixMissingDirs()

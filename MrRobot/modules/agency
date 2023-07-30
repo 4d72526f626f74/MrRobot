@@ -1,0 +1,177 @@
+local T, S = require('translations'), require('shared')
+local Globals = require('script_globals')
+local Bit, BitMask = S.Bit, S.BitMask
+local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
+
+local AgencyArt = {"None", "Power and Money", "Pop & Hype", "Loyalty and Respect"}
+local AgencyWallpaper = {"None", "Floral", "Marble", "Geometric", "Designer", "Presidential", "Exotic", "Tiled", "Organic", "Royal"}
+local AgencyHighlight = {"None", "Charcoal", "Sage", "Green", "Gray", "Purple", "Red", "Brown", "Ash", "Moss"}
+
+pluto_class Agency
+    ScriptGlobal = S.ScriptGlobal
+    ScriptLocal = S.ScriptLocal
+    WriteByte = memory.write_byte
+    WriteInt = memory.write_int
+    ReadInt = memory.read_int
+    ReadByte = memory.read_byte
+
+    function __construct(root)
+        self.root = root:list(T'Agency', {T'ragency'}, T'Agency related options', function()
+            menu.show_warning(self.root, CLICK_AUTO, T'All features under this menu are considered risky, are you sure you want to continue?', function()
+                -- do nothing
+            end,
+            function()
+                menu.my_root():focus()
+            end, false)
+        end)
+
+        self:CreateSafe()
+        self:CreateAgency()
+    end
+
+    function CreateSafe()
+        self.safe = self.root:list(T'Agency Safe', {}, T'Agency Safe related options')
+        self.trigger_production = self.safe:action(T'Trigger Production', {}, T'Trigger production for agency safe', function()
+            self:TriggerAgencySafeProduction()
+        end)
+
+        self.safe:action(T'Collect', {T'ragsafe'}, T'Collect money from the safe remotely without having to open it or even be near it', function()
+            self:CollectSafeMoney()
+        end)
+
+        self.safe:divider('')
+
+        self.afk_loop = self.safe:toggle_loop(T'AFK Loop (slow)', {}, T'AFK Loop you only need to be in your agency for this', function()
+            self.trigger_production:trigger()
+            repeat
+                util.yield_once()
+            until self.ReadInt(self.ScriptGlobal(Globals.AgencySafeValue)) ~= 0
+            self:CollectSafeMoney()
+            repeat
+                util.yield_once()
+            until self.ReadInt(self.ScriptGlobal(Globals.AgencySafeValue)) == 0
+        end)
+
+        self.root:divider('')
+    end
+
+    function CreateAgency()
+        self.root:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self.unlock_agencyarmoury.value = state
+            self.unlock_agencyaccommodation.value = state
+            self.unlock_agencyvehicleworkshop.value = state
+        end)
+
+        self.root:divider('')
+        self.unlock_agencyarmoury = self.root:toggle(T'Unlock Agency Armoury', {}, T'Unlock agency armoury without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockAgencyArmoury(state)
+        end, self:IsAgencyArmouryUnlocked())
+
+        self.unlock_agencyaccommodation = self.root:toggle(T'Unlock Agency Accommodation', {}, T'Unlock agency accommodation without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockAgencyAccommodation(state)
+        end, self:IsAgencyAccommodationUnlocked())
+
+        self.unlock_agencyvehicleworkshop = self.root:toggle(T'Unlock Agency Vehicle Workshop', {}, T'Unlock agency vehicle workshop without having to buy it', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            self:UnlockAgencyVehicleWorkshop(state)
+        end, self:IsAgencyVehicleWorkshopUnlocked())
+
+        self.root:divider('')
+        self.root:list_select(T'Agency Art', {}, T'Change art in your agency', AgencyArt, 1, function(index)
+            if not SCRIPT_CAN_CONTINUE then return end
+            index = index - 2
+            if index >= 0 then
+                self:SetAgencyArt(index, true)
+                coroutine.yield()
+                self:SetAgencyArt(index, false)
+            end
+        end)
+
+        self.root:list_select(T'Agency Wallpaper', {}, T'Change wallpaper in your agency', AgencyWallpaper, 1, function(index)
+            if not SCRIPT_CAN_CONTINUE then return end
+            index = index - 2
+            if index >= 0 then
+                self:SetAgencyWallpaper(index + 3, true)
+                coroutine.yield()
+                self:SetAgencyWallpaper(index + 3, false)
+            end
+        end)
+
+        self.root:list_select(T'Agency Highlight', {}, T'Change highlight in your agency', AgencyHighlight, 1, function(index)
+            if not SCRIPT_CAN_CONTINUE then return end
+            index = index - 2
+            if index >= 0 then
+                self:SetAgencyHighlight(index + 12, true)
+                coroutine.yield()
+                self:SetAgencyHighlight(index + 12, false)
+            end
+        end)
+
+    end
+
+    function TriggerAgencySafeProduction()
+        for i = Globals.AgencySafeIncomeStart, Globals.AgencySafeIncomeEnd do
+            self.WriteInt(self.ScriptGlobal(262145 + i), 250000)
+        end
+        self.StatSetInt(util.joaat('MP' .. CharSlot .. '_FIXER_PASSIVE_PAY_TIME_LEFT'), 1)
+    end
+
+    function CollectSafeMoney()
+        local l = self.ScriptLocal('am_mp_fixer_hq', Globals.TriggerAgencySafeCollection)
+        local l1 = self.ScriptLocal('am_mp_fixer_hq', Globals.TriggerAgencySafeCollection1)
+        self.WriteInt(l, self.ReadInt(l) | (1 << 5))
+        self.WriteByte(l1, 1)
+    end
+
+    function UnlockAgencyArmoury(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 22)) : (Bit:Clear(self.ReadInt(unlock), 22)))
+    end
+    
+    function IsAgencyArmouryUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        return Bit:Check(self.ReadInt(unlock), 22)
+    end
+    
+    function UnlockAgencyAccommodation(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 23)) : (Bit:Clear(self.ReadInt(unlock), 23)))
+    end
+    
+    function IsAgencyAccommodationUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        return Bit:Check(self.ReadInt(unlock), 23)
+    end
+    
+    function UnlockAgencyVehicleWorkshop(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 24)) : (Bit:Clear(self.ReadInt(unlock), 24)))
+    end
+    
+    function IsAgencyVehicleWorkshopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        return Bit:Check(self.ReadInt(unlock), 24)
+    end
+    
+    function SetAgencyArt(index, state)
+        local art = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(art, state ? (Bit:Set(self.ReadInt(art), index)) : (Bit:Clear(self.ReadInt(art), index)))
+    end
+    
+    function SetAgencyWallpaper(index, state)
+        local wallpaper = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(wallpaper, state ? (Bit:Set(self.ReadInt(wallpaper), index)) : (Bit:Clear(self.ReadInt(wallpaper), index)))
+    end
+    
+    function SetAgencyHighlight(index, state)
+        local highlight = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 502 + 1)
+        self.WriteInt(highlight, state ? (Bit:Set(self.ReadInt(highlight), index)) : (Bit:Clear(self.ReadInt(highlight), index)))
+    end
+
+    --[[BOOL (bool)]] static function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end
+end
+
+return Agency

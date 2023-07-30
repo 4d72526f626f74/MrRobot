@@ -200,7 +200,21 @@ local Globals = {
     ArcadeSafeCapacity = 262145 + 29457,
     ArcadeSafeIncomeStart = 29458,
     ArcadeSafeIncomeEnd = 29465,
+    TriggerArcadeSafeCollection = 3727 + 1, -- am_mp_arcade.c
+    TriggerArcadeSafeCollection1 = 3727 + 69, -- am_mp_arcade.c
+    ArcadeSafeValue = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 429 + 5, -- safe value
+    TriggerAgencySafeCollection = 526 + 469, -- am_mp_fixer_hq.c (bit 5)
+    TriggerAgencySafeCollection1 = 526 + 469 + 94, -- am_mp_fixer_hq.c
+    AgencySafeValue = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 502 + 2, -- safe value
+    AgencySafeCapacity = 262145 + 29467,
+    AgencySafeIncomeStart = 29058,
+    AgencySafeIncomeEnd = 29061,
 }
+
+--[[
+    3727 + 1 = 1
+    3727 + 69 = 15
+]]
 
 function Globals:PlayerLegitOffTheRadar(pid) return 2657704 + 1 + (pid * 463) + 210 end
 function Globals:PlayerOrbitalCannon(pid) return 2657704 + 1 + (pid * 463) + 424 end
@@ -214,5 +228,6 @@ function Globals:PlayerBountyRewardData(pid) return 1895156 + 1 + (pid * 609) + 
 function Globals:PlayerInvisibility(pid) return 2657704 + 1 + (pid * 463) + 254 end
 function Globals:PlayerStealthMode(pid) return 2657704 + 1 + (pid * 463) + 321 end
 function Globals:PlayerMissionState(pid) return 1853988 + 1 + (pid * 867) end
+function Globals:PlayerCayoPrimaryTarget(pid) return 1980400 + 1 + (pid * 53) + 5 + 9 end
 
 return Globals

@@ -19,6 +19,15 @@ pluto_class Heists
     WriteFloat = memory.write_float
     WriteString = memory.write_string
 
+    targets = {
+        'Tequila',
+        'Madrazo Files',
+        'Pink Diamond',
+        'Bearer Bonds',
+        'Ruby Necklace',
+        'Sapphire Panther',
+    }
+
     function __construct(root)
         self.root = root:list(T'Heists', {T'rheists'}, T'Heists')
         self.cayo = self.root:list(T'Cayo Perico', {T'cayo'}, T'Cayo Perico')
@@ -1046,11 +1055,20 @@ pluto_class Heists
         end)
     
         island_teleports:action(T'Drainage Pipe 2nd Checkpoint', {}, T'Teleport to the second checkpoint', function()
-            self.SetEntityCoords(players.user_ped(), 5053.362, -5774.8247, -5.1060443    , false, false, false, false)
+            self.SetEntityCoords(players.user_ped(), 5053.362, -5774.8247, -5.1060443, false, false, false, false)
         end)
     
         exits_teleports:action(T'Teleport To Kosatka', {}, T'Teleport to the kosatka', function()
             self.TeleportToBlip(760)
+        end)
+
+        self.primary_target = self.cayo:list(T'Primary Target', {}, T'Primary Target (host only)')
+        self.target_choice = self.primary_target:list_select(T'Target', {}, T'Target that will be set for everyone in the heist', self.targets, 1, function(index) end)
+        self.primary_target:toggle_loop(T'Set Target', {}, T'Set the target for all players in the heist, changing the target during the heist will adjust the take', function()
+            for pid = 0, S.MAX_PLAYERS do
+                local g = self.ScriptGlobal(Globals:PlayerCayoPrimaryTarget(pid))
+                self.WriteInt(g, self.target_choice.value)
+            end
         end)
     end
 

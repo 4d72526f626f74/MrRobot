@@ -1,0 +1,207 @@
+local T, S = require('translations'), require('shared')
+local Globals = require('script_globals')
+local Bit, BitMask = S.Bit, S.BitMask
+local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
+
+pluto_class Arcade
+    ScriptGlobal = S.ScriptGlobal
+    ScriptLocal = S.ScriptLocal
+    WriteByte = memory.write_byte
+    WriteInt = memory.write_int
+    ReadInt = memory.read_int
+    ReadByte = memory.read_byte
+
+    arcade_setup = {
+        28192,
+        28155,
+        27227,
+        28156,
+        28157
+    }
+
+    function __construct(root)
+        self.root = root:list(T'Arcade', {T'rarcade'}, T'Arcade related options', function()
+            menu.show_warning(self.root, CLICK_AUTO, T'All features under this menu are considered risky, are you sure you want to continue?', function()
+                -- do nothing
+            end,
+            function()
+                menu.my_root():focus()
+            end, false)
+        end)
+
+        self:CreateSafe()
+        self:CreateArcade()
+    end
+
+    function CreateSafe()
+        self.arcade = self.root:list(T'Arcade Safe', {}, T'Arcade Safe related options')
+        self.trigger_production = self.arcade:action(T'Trigger Production', {}, T'Trigger production for arcade safe', function()
+            self:TriggerArcadeSafeProduction()
+        end)
+
+        self.arcade:action(T'Collect', {T'rarsafe'}, T'Collect money from the safe remotely without having to open it or even be near it', function()
+            self:CollectSafeMoney()
+        end)
+
+        self.arcade:divider('')
+
+        self.afk_loop = self.arcade:toggle_loop(T'AFK Loop', {}, T'AFK Loop you only need to be in your arcade for this', function()
+            self.trigger_production:trigger()
+            repeat
+                util.yield_once()
+            until self.ReadInt(self.ScriptGlobal(Globals.ArcadeSafeValue)) ~= 0
+            self:CollectSafeMoney()
+            repeat
+                util.yield_once()
+            until self.ReadInt(self.ScriptGlobal(Globals.ArcadeSafeValue)) == 0
+        end)
+
+        self.root:divider('')
+    end
+
+    function CreateArcade()
+        self.root:action(T'Bypass Setup', {}, T'Bypass arcade setup missions', function()
+            if SCRIPT_CAN_CONTINUE then
+                self:BypassArcadeSetup()
+            end
+        end)
+
+        self.root:toggle(T'Wonderama', {}, T'Unlock Wonderama arcade', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                self:UnlockArcade(1, state)
+            end
+        end, self:IsWonderamaArcadeUnlocked())
+
+        self.root:toggle(T'Eight Bit', {}, T'Unlock Eight Bit arcade', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                self:UnlockArcade(2, state)
+            end
+        end, self:IsEightBitArcadeUnlocked())
+
+        self.root:toggle(T'Garage', {}, T'Unlock garage without having to buy it', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                if not self:IsArcadeSetup() then
+                    unlock_arcadegarage.value = false
+                    return util.toast('You must complete the arcade setup missions first')
+                end
+
+                self:UnlockArcadeGarage(state)
+            end
+        end, self:IsArcadeGarageUnlocked())
+
+        self.root:toggle(T'Master Control Terminal', {}, T'Unlock master control terminal without having to buy it', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                if not self:IsArcadeSetup() then
+                    unlock_arcademct.value = false
+                    return util.toast('You must complete the arcade setup missions first')
+                end
+                
+                self:UnlockArcadeMasterControlTerminal(state)
+            end
+        end, self:IsArcadeMasterControlTerminalUnlocked())
+
+        self.root:toggle(T'Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
+            if SCRIPT_CAN_CONTINUE then
+                if not self:IsArcadeSetup() then
+                    unlock_arcade_weaponworkshop.value = false
+                    return util.toast('You must complete the arcade setup missions first')
+                end
+                
+                self:UnlockArcadeWeaponWorkshop(state)
+            end
+        end, self:IsArcadeWeaponWorkshopUnlocked())
+    end
+
+    function TriggerArcadeSafeProduction()
+        for i = Globals.ArcadeSafeIncomeStart, Globals.ArcadeSafeIncomeEnd do
+            self.WriteInt(self.ScriptGlobal(262145 + i), 200000)
+        end
+        self.WriteInt(self.ScriptGlobal(Globals.ArcadeSafeCapacity), 200000)
+        self.StatSetInt(util.joaat('MP' .. CharSlot .. '_ARCADE_PAY_TIME_LEFT'), 1, true)
+    end
+
+    function CollectSafeMoney()
+        local l = self.ScriptLocal('am_mp_arcade', Globals.TriggerArcadeSafeCollection)
+        local l1 = self.ScriptLocal('am_mp_arcade', Globals.TriggerArcadeSafeCollection1)
+
+        if l ~= 0 and l2 ~= 0 then
+            self.WriteByte(l, 1)
+            self.WriteInt(l1, 15)
+        end
+    end
+
+    function UnlockArcade(index, state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429)
+        self.WriteByte(unlock, BitMask:Clear(self.ReadByte(unlock), 0x1E))
+        self.WriteByte(unlock, state ? (Bit:Set(self.ReadByte(unlock), index)) : (Bit:Clear(self.ReadByte(unlock), index)))
+    end
+    
+    function IsWonderamaArcadeUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429)
+        return Bit:Check(self.ReadInt(unlock), 1)
+    end
+    
+    function IsEightBitArcadeUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429)
+        return Bit:Check(self.ReadInt(unlock), 2)
+    end
+    
+    function BypassArcadeSetup()
+        for self.arcade_setup as bool_code do
+            self.SetPackedStatBoolCode(bool_code, true, CharSlot)
+        end
+        util.toast('Join a new session to apply changes')
+    end
+    
+    function IsArcadeSetup()
+        local bypass = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return BitMask:Check(self.ReadInt(bypass), 0x1000004)
+    end
+    
+    function UnlockArcadeGarage(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 0)) : (Bit:Clear(self.ReadInt(unlock), 0)))
+    end
+    
+    function IsArcadeGarageUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return Bit:Check(self.ReadInt(unlock), 0)
+    end
+    
+    function UnlockArcadeMasterControlTerminal(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 3)) : (Bit:Clear(self.ReadInt(unlock), 3)))
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 4)) : (Bit:Clear(self.ReadInt(unlock), 4)))
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 28)) : (Bit:Clear(self.ReadInt(unlock), 28)))
+    end
+    
+    function IsArcadeMasterControlTerminalUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return Bit:Check(self.ReadInt(unlock), 3) and Bit:Check(self.ReadInt(unlock), 4) and Bit:Check(self.ReadInt(unlock), 28)
+    end
+    
+    function UnlockArcadeWeaponWorkshop(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 11)) : (Bit:Clear(self.ReadInt(unlock), 11)))
+    end
+    
+    function IsArcadeWeaponWorkshopUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return Bit:Check(self.ReadInt(unlock), 11)
+    end
+    
+    function UnlockArcadeNanoDroneStation(state)
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        self.WriteInt(unlock, state ? (Bit:Set(self.ReadInt(unlock), 27)) : (Bit:Clear(self.ReadInt(unlock), 27)))
+    end
+    
+    function IsArcadeNanoDroneStationUnlocked()
+        local unlock = self.ScriptGlobal(1853988 + 1 + (PlayerID * 867) + 267 + 429 + 1)
+        return Bit:Check(self.ReadInt(unlock), 27)
+    end
+
+    --[[BOOL (bool)]] static function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end
+    --[[void]] static function SetPackedStatBoolCode(--[[int]] index,--[[BOOL (bool)]] value,--[[int]] characterSlot)native_invoker.begin_call()native_invoker.push_arg_int(index)native_invoker.push_arg_bool(value)native_invoker.push_arg_int(characterSlot)native_invoker.end_call_2(0xDB8A58AEAA67CD07)end
+end
+
+return Arcade

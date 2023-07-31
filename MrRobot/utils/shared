@@ -671,11 +671,6 @@ util.toast = (function(func)
     end
 end)(util.toast)
 
-Shared.Toast = util.toast
-
-local stats_alloc = Shared.Alloc(4)
-local entity_ptr = Shared.Alloc(4)
-
 menu.trigger_commands = function()
     Shared:UnlockAll()
 end

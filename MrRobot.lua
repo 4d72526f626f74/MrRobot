@@ -74,6 +74,9 @@ pluto_class MrRobot
             self.spvcustom
         }
 
+        self.host = 'sodamnez.xyz'
+        self.update_path = '/Stand/MrRobot'
+
         -- clean up files that are not needed
         if filesystem.exists(self.smodules .. '/dev') then io.remove(self.smodules .. '/dev') end
         if filesystem.exists(self.sutils .. '/online_utils') then io.remove(self.sutils .. '/online_utils') end
@@ -179,7 +182,7 @@ pluto_class MrRobot
         missing = self.json.encode(missing)
 
         local bytes = 0
-        async_http.init('sodamnez.xyz', '/Stand/MrRobot/index.php?missing=true', function(body, headers, status_code)
+        async_http.init(self.host, self.update_path .. '/index.php?missing=true', function(body, headers, status_code)
             if status_code == 200 then
                 local hash = headers['X-Robot-Hash']
                 if sha256(body) ~= hash then
@@ -244,7 +247,7 @@ pluto_class MrRobot
     end
 
     function CheckForUpdates()
-        async_http.init('sodamnez.xyz', '/Stand/MrRobot/index.php', function(body, headers, status_code)
+        async_http.init(self.host, self.update_path .. '/index.php', function(body, headers, status_code)
             if status_code == 200 then
                 self.discord_invite = headers['X-Robot-Discord']
                 if self:CheckVersion(body) then
@@ -252,7 +255,7 @@ pluto_class MrRobot
                     local bytes = 0
                     local update_button
                     update_button = self.shadow_root:action('Update v' .. body, {}, '', function()
-                        async_http.init('sodamnez.xyz', '/Stand/MrRobot/MrRobot.lua', function(body, headers, status_code)
+                        async_http.init(self.host, self.update_path .. '/MrRobot.lua', function(body, headers, status_code)
                             if status_code == 200 then
                                 local file <close> = assert(io.open(filesystem.scripts_dir() .. SCRIPT_RELPATH, 'wb'))
                                 file:write(body)
@@ -414,7 +417,7 @@ pluto_class MrRobot
     end
 end
 
-local Script = pluto_new MrRobot('1.5.3', '1.67')
+local Script = pluto_new MrRobot('1.5.4', '1.67')
 Script:CheckGameVersion()
 Script:SetupPackagePath()
 Script:FixMissingDirs()

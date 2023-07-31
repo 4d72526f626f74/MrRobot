@@ -812,6 +812,7 @@ pluto_class PVM
     --[[BOOL (bool)]] static function IsThisModelABoat(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x45A9187928F4B9E3)return native_invoker.get_return_value_bool()end
     --[[BOOL (bool)]] static function IsThisModelAJetski(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x9537097412CF75FE)return native_invoker.get_return_value_bool()end
     --[[BOOL (bool)]] static function IsModelValid(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0xC0296A2EDF545E92)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end
 end
 
 return PVM

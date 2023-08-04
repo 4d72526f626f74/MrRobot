@@ -34,7 +34,8 @@ Offsets.Online.SpoofingOffsets = {
     TotalMoney = 0x1C0,
     PlayerKD = 0xD0,
     PlayerKills = 0xE0,
-    PlayerDeaths = 0xE8
+    PlayerDeaths = 0xE8,
+	PlayerReports = 0x198,
 }
 
 Offsets.Online.Bits = {
@@ -141,6 +142,17 @@ Offsets.Vehicles.VehicleBitfield = {
 
 Offsets.Players.Bits = {
     ForceScriptHost = 1 << 0
+}
+
+Offsets.PlayerStates = {
+	IsDead = 0x110,
+	VehStateBitfield = 0x118
+}
+
+Offsets.VehStateBitfield = {
+	UsingWeapon = 1 << 4,
+	InVehicle = 1 << 6,
+	UsingHorn = 1 << 7
 }
 
 return Offsets

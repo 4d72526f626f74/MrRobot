@@ -68,6 +68,7 @@ local WindowTints = { 'None', 'Limo', 'Dark Smoke','Light Smoke' }
 
 pluto_class PVM
     ScriptGlobal = S.ScriptGlobal
+    ScriptLocal = S.ScriptLocal
     ReadByte = memory.read_byte
     ReadShort = memory.read_short
     ReadInt = memory.read_int
@@ -255,6 +256,15 @@ pluto_class PVM
                 self.WriteInt(Base + 0x1EC8, Slot) -- 985
                 self.WriteByte(Base + 0x1D00, 1) -- 928
             end
+
+            local timeout = os.time() + 2
+            util.create_tick_handler(function()
+                if os.time() > timeout then
+                    return false
+                end
+
+                self.WriteInt(self.ScriptLocal('freemode', Globals.PersonalVehicleRequestDelay), 0)
+            end)
         end)
 
         PV:action(T'Request Safe', {}, '', function()

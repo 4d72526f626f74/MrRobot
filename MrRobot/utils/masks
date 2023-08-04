@@ -2,7 +2,10 @@ local Masks = {
     UnlockArcades = 0x14E,
     RequestNanoDrone = 0x1C00000,
     RequestSupplies = 1 << 12,
-    VehicleGifting = 0x1000008
+    VehicleGifting = 0x1000008,
+    HoldUpForceRobbery = 0x6,
+    IsBadSport = 1 << 1,
+    IsCheater = 1 << 4
 }
 
 return Masks

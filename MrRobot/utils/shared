@@ -536,6 +536,13 @@ Shared.Contacts = {
 --[[void]] function Shared.RequestNamedPtfxAsset(--[[string]] fxName)native_invoker.begin_call()native_invoker.push_arg_string(fxName)native_invoker.end_call_2(0xB80D8756B4668AB6)end
 --[[BOOL (bool)]] function Shared.HasNamedPtfxAssetLoaded(--[[string]] fxName)native_invoker.begin_call()native_invoker.push_arg_string(fxName)native_invoker.end_call_2(0x8702416E512EC454)return native_invoker.get_return_value_bool()end
 --[[void]] function Shared.UseParticleFxAsset(--[[string]] name)native_invoker.begin_call()native_invoker.push_arg_string(name)native_invoker.end_call_2(0x6C38AF3693A69A91)end
+--[[Hash (int)]] function Shared.GetStatHashForCharacterStat(--[[int]] dataType,--[[int]] statIndex,--[[int]] charSlot)native_invoker.begin_call()native_invoker.push_arg_int(dataType)native_invoker.push_arg_int(statIndex)native_invoker.push_arg_int(charSlot)native_invoker.end_call_2(0xD69CE161FE614531)return native_invoker.get_return_value_int()end
+--[[BOOL (bool)]] function Shared.NetworkRequestControlOfEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xB69317BF5E782347)return native_invoker.get_return_value_bool()end
+--[[BOOL (bool)]] function Shared.NetworkHasControlOfEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x01BF60A500E28887)return native_invoker.get_return_value_bool()end
+--[[void]] function Shared.RequestModel(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x963D27A58DF860AC)end
+--[[BOOL (bool)]] function Shared.HasModelLoaded(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x98A4EB5D89A0C952)return native_invoker.get_return_value_bool()end
+--[[void]] function Shared.SetRemotePlayerAsGhost(--[[Player (int)]] player,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xA7C511FA1C5BDA38)end
+--[[BOOL (bool)]] function Shared.GetEntityPlayerIsFreeAimingAt(--[[Player (int)]] player,--[[Entity* (pointer)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_pointer(entity)native_invoker.end_call_2(0x2975C866E6713290)return native_invoker.get_return_value_bool()end
 
 Shared.BlipIds = (614 | (740 << 0xA) | (779 << 0x14) | (569 << 0x1E) | (521 << 0x28) | (765 << 0x32))
 
@@ -678,7 +685,7 @@ end
 Shared.ScriptGlobal = (function(func) 
     local cache = {}
     return function(sg)
-        if cache[sg] == nil then
+        if cache[sg] == nil or cache[sh] == 0 then
             cache[sg] = func(sg)
         end
 
@@ -689,17 +696,11 @@ end)(memory.script_global)
 Shared.ScriptLocal = (function(func) 
     local cache = {}
     return function(script_name, sl)
-        if cache[sl] == nil then
+        if cache[sl] == nil or cache[sl] == 0 then
             cache[sl] = func(script_name, sl)
         end
 
-        local cached = cache[sl]
-        if cache == 0 then
-            cache[sl] = func(script_name, sl)
-            return cache[sl]
-        end
-
-        return cached
+        return cache[sl]
     end
 end)(memory.script_local)
 
@@ -884,9 +885,9 @@ function Shared:RequestControl(entity, timeout)
     timeout = os.time() + 5 or os.time() + timeout
 
     repeat
-        NetworkRequestControlOfEntity(entity)
+        self.NetworkRequestControlOfEntity(entity)
         util.yield_once()
-    until NetworkHasControlOfEntity(entity) or os.time() > timeout
+    until self.NetworkHasControlOfEntity(entity) or os.time() > timeout
 
     if not NetworkHasControlOfEntity(entity) then
         error("Failed to get control")
@@ -896,11 +897,11 @@ end
 function Shared:RequestControlCB(entity, callback, timeout=5)
     timeout = os.time() + timeout or os.time() + 5
     repeat
-        NetworkRequestControlOfEntity(entity)
+        self.NetworkRequestControlOfEntity(entity)
         util.yield_once()
-    until NetworkHasControlOfEntity(entity) or os.time() > timeout
+    until self.NetworkHasControlOfEntity(entity) or os.time() > timeout
 
-    if not NetworkHasControlOfEntity(entity) then
+    if not self.NetworkHasControlOfEntity(entity) then
         callback(false)
     else
         callback(true)
@@ -914,7 +915,7 @@ function Shared:DeletePlayer(pid, state)
     local become_interior = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 31)
     local otr_val = self.ReadShort(off_radar)
 
-    SetRemotePlayerAsGhost(pid, state)
+   self.SetRemotePlayerAsGhost(pid, state)
 
     self.WriteByte(player_invis, state ? 1 : 0)
     self.WriteShort(off_radar, state ? (otr_val | 0xA) : (otr_val & ~0xA))
@@ -926,23 +927,8 @@ function Shared:IsModdedBounty(bounty)
     return bounty & 0xF ~= 0x8
 end
 
-function Shared:RequestCutscene(cutscene)
-    RequestCutscene(cutscene, 8)
-    while not HasThisCutsceneLoaded(cutscene) do
-        util.yield_once()
-    end
-end
-
-function Shared:PlayCutscene(cutscene)
-    StartCutscene(cutscene)
-end
-
-function Shared:StopCutscene()
-    StopCutsceneImmediately()
-end
-
 function Shared:GetEntityAimingAt(pid)
-    if GetEntityPlayerIsFreeAimingAt(pid, entity_ptr) then
+    if self.GetEntityPlayerIsFreeAimingAt(pid, entity_ptr) then
         return self.ReadInt(entity_ptr)
     end
 
@@ -954,11 +940,11 @@ function Shared:IsPlayerTheBeast(pid)
     return Bit:Check(self.ReadInt(beast), 29)
 end
 
-function Shared:RequestModel(model)
+function Shared:LoadModel(model)
     local timeout = os.time() + 3
 
-    RequestModel(model)
-    while not HasModelLoaded(model) do
+    self.RequestModel(model)
+    while not self.HasModelLoaded(model) do
         util.yield_once()
         if os.time() > timeout then
             error("Failed to load model")

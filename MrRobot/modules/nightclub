@@ -67,6 +67,18 @@ pluto_class Nightclub
             end
         end)
 
+        self.root:action(T'Spawn Troublemaker', {}, 'Spawn a troublemaker in your nightclub', function()
+            if SCRIPT_CAN_CONTINUE then
+                self:SpawnTroublemaker()
+            end
+        end)
+
+        self.root:action(T'Yeet Troublemaker', {}, 'Yeet the troublemaker out of your nightclub', function()
+            if SCRIPT_CAN_CONTINUE then
+                self:YeetTroubleMaker()
+            end
+        end)
+
         self.root:divider('')
     end
 
@@ -96,7 +108,7 @@ pluto_class Nightclub
 
     function TriggerNCSafeProduction()
         for i = Globals.NCSafeIncomeStart, Globals.NCSafeIncomeEnd do
-            self.WriteInt(self.ScriptGlobal(262145 + i), 300000)
+            self.WriteInt(self.ScriptGlobal(262145 + i), 10)
         end
         self.WriteInt(self.ScriptGlobal(Globals.NCSafeCapacity), 300000)
         self.StatSetInt(util.joaat('MP' .. CharSlot .. '_CLUB_PAY_TIME_LEFT'), 1, true)
@@ -104,6 +116,7 @@ pluto_class Nightclub
 
     function CollectSafeMoney()
         local l = self.ScriptLocal('am_mp_nightclub', Globals.TriggerNCSafeCollection)
+        
         if l ~= 0 then
             self.WriteByte(l, 1)
         end
@@ -151,6 +164,21 @@ pluto_class Nightclub
         end
 
         util.toast('Join a new session to apply the changes!')
+    end
+
+    function SpawnTroublemaker()
+        util.spoof_script('am_mp_nightclub', function()
+            self.WriteInt(self.ScriptGlobal(Globals.NCTroubleMakerScenario), 2)
+            self.WriteInt(self.ScriptLocal('am_mp_nightclub', Globals.NCTriggerTrobleMaker), 0)
+        end)
+    end
+
+    function YeetTroubleMaker()
+        local l = self.ScriptLocal('am_mp_nightclub', Globals.NCTriggerYeetTroubleMaker)
+        --local l1 = self.ScriptLocal('am_mp_nightclub', 1800 + 3032)
+        if l ~= 0 then
+            self.WriteInt(l, 0)
+        end
     end
 
     --[[BOOL (bool)]] static function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end

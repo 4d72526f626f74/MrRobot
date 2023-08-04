@@ -6,6 +6,7 @@ local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
 
 pluto_class Cooldowns
     ScriptGlobal = S.ScriptGlobal
+    ScriptLocal = S.ScriptLocal
     ReadByte = memory.read_byte
     ReadShort = memory.read_short
     ReadInt = memory.read_int
@@ -72,6 +73,10 @@ pluto_class Cooldowns
 
         self.root:toggle_loop(T'Remove CEO Vehicle Cooldown', {}, T'Remove CEO vehicle request cooldown', function(state)
             self:RemoveCEOVehicleRequestCooldown()
+        end)
+
+        self.root:toggle_loop(T'Remove Personal Vehicle Request Delay', {}, T'Personal vehicles will be delivered to you instantly', function()
+            self:RemovePersonalVehicleRequestDelay()
         end)
     end
 
@@ -290,6 +295,10 @@ pluto_class Cooldowns
     function SetAcidLabRequestCooldown(value)
         local g = self.ScriptGlobal(Globals.AcidLabRequestCooldown)
         self.WriteInt(g, value)
+    end
+
+    function RemovePersonalVehicleRequestDelay()
+        self.WriteInt(self.ScriptLocal('freemode', Globals.PersonalVehicleRequestDelay), 0)
     end
 
     --[[BOOL (bool)]] static function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end

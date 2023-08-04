@@ -56,6 +56,8 @@ pluto_class Online
         self:CreateOther()
         self:CreateToxic()
         self:CreateCasino()
+        self:CreateStoreHoldUps()
+        self:CreateTaxiService()
     end
 
     function CreateFakeNotifs()
@@ -325,6 +327,7 @@ pluto_class Online
             if Amount == nil then
                 Amount = 0
             end
+            self.WriteInt(self.ScriptGlobal(Globals.SinRemoverTimer), 0)
             self.WriteInt(self.ScriptGlobal(Globals.SinRemover), Amount)
         end)
     end
@@ -492,12 +495,6 @@ pluto_class Online
                 self.WriteByte(Interior, InteriorID)
             end 
         end)
-        --[[self.interior_spoofing:action(T'Reset Spoofing', {}, T'Reset back to correct interior', function()
-            local Interior = self.ScriptGlobal(Globals.Interior)
-            self.WriteByte(Interior, -1)
-            util.yield(1000)
-            self.WriteByte(Interior, self.ReadByte(ModuleBase + 0x28C10F4))
-        end)]]
 
         self.spoofing:action(T'Spoof Special Property Ownership', {}, T'Spoof ownership of special properties like Kosatka, Terrorbyte etc, this allows you to invite players to someone elses kosatka, terrorbyte', function()
             self.WriteInt(self.ScriptGlobal(Globals.SpoofSpecialPropertyOwner), PlayerID)
@@ -526,6 +523,8 @@ pluto_class Online
         self.s_playerkills = self.stat_spoofing:list(T'Player Kills', {}, T'Spoof your player kills')
         self.s_playerdeaths = self.stat_spoofing:list(T'Player Deaths', {}, T'Spoof your player deaths')
         self.s_kd = self.stat_spoofing:list(T'K/D', {}, T'Spoof your K/D')
+        self.s_is_badsport = self.stat_spoofing:list(T'Is Bad Sport', {}, T'Spoof your bad sport status')
+        self.s_is_cheater = self.stat_spoofing:list(T'Is Cheater', {}, T'Spoof your cheater status')
 
         local Amount = {
             TotalMoney = 0,
@@ -593,6 +592,26 @@ pluto_class Online
         self.s_kd:text_input(T'Value', {T'rkdval'}, '', function(Value)
             Amount.KD = tonumber(Value)
         end, self.ReadFloat(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerKD))
+
+        self.s_is_badsport:toggle_loop(T'Is Bad Sport', {}, T'Spoof your bad sport status (this does not fool GTAs network natives!)', function()
+            local g = self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+            self.WriteByte(g, self.ReadByte(g) | Masks.IsBadSport)
+        end)
+
+        self.s_is_badsport:toggle_loop(T'Is Not Bad Sport', {}, T'Spoof your bad sport status (this does not fool GTAs network natives!)', function()
+            local g = self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+            self.WriteByte(g, self.ReadByte(g) & ~Masks.IsBadSport)
+        end)
+
+        self.s_is_cheater:toggle_loop(T'Is Cheater', {}, T'Spoof your cheater status (this does not fool GTAs network natives!)', function()
+            local g = self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+            self.WriteByte(g, self.ReadByte(g) | Masks.IsCheater)
+        end)
+
+        self.s_is_cheater:toggle_loop(T'Is Not Cheater', {}, T'Spoof your cheater status (this does not fool GTAs network natives!)', function()
+            local g = self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+            self.WriteByte(g, self.ReadByte(g) & ~Masks.IsCheater)
+        end)
     end
 
     function CreateGhosting()
@@ -702,6 +721,97 @@ pluto_class Online
                     self.WriteInt(Bet, 55000)
                 end
             end)
+        end)
+    end
+
+    function CreateStoreHoldUps()
+        self.store_holdups = self.root:list(T'Store Hold Ups', {}, '')
+
+        self.force_robbery = self.store_holdups:action(T'Force Robbery', {}, T'Force a robbery when you are inside of a store', function()
+            local l = self.ScriptLocal('am_hold_up', Globals.HoldUpForceRobbery)
+            if l ~= 0 then
+                self.WriteInt(l, self.ReadInt(l) | Masks.HoldUpForceRobbery)
+            end
+        end)
+
+        self.instant_finish_robbery = self.store_holdups:action(T'Instant Finish Robbery', {}, T'Instantly finish a robbery when you are inside of a store', function()
+            local l = self.ScriptLocal('am_hold_up', Globals.HoldUpForceRobbery)
+            local l1 = self.ScriptLocal('am_hold_up', Globals.HoldUpRobberySceneId)
+            if l ~= 0 and l1 ~= 0 then
+                self.WriteInt(l, self.ReadInt(l) | Masks.HoldUpForceRobbery)
+                local scene_id = self.ReadInt(l1)
+                repeat
+                    util.yield_once()
+                    scene_id = self.ReadInt(l1)
+                until scene_id ~= -1
+                repeat
+                    util.yield_once()
+                until self.IsSynchronizedSceneRunning(scene_id)
+                self.SetSynchronizedScenePhase(scene_id, 100.0)
+            end
+        end)
+    end
+
+    function CreateTaxiService()
+        local Script = Globals.TaxiScript
+        self.taxi = self.root:list(T'Taxi Service', {}, '')
+
+        self.taxi:action(T'Instant Quit', {}, T'Instantly quit the taxi service', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            local l = self.ScriptLocal(Script, Globals.TaxiServiceInstantQuit)
+            if l ~= 0 then
+                self.WriteInt(l, 2)
+            end
+        end)
+
+        self.taxi:text_input(T'Fare', {T'taxiservicefare'}, T'Set the fare for the taxi service', function(fare)
+            if not SCRIPT_CAN_CONTINUE then return end
+            local l = self.ScriptLocal(Script, Globals.TaxiServiceFare)
+            if l ~= 0 then
+                self.WriteInt(l, tonumber(fare))
+            end
+        end)
+
+        self.taxi:text_input(T'Tip', {T'taxiservicetip'}, T'Set the tip for the taxi service', function(tip)
+            if not SCRIPT_CAN_CONTINUE then return end
+            local l = self.ScriptLocal(Script, Globals.TaxiServiceTip)
+            if l ~= 0 then
+                self.WriteInt(l, tonumber(tip))
+            end
+        end)
+
+        self.taxi:toggle_loop(T'Disable Customer Salt', {}, T'Prevent the customer from getting mad at you and decreasing the tip, crashing will still cause the customer to get mad at you though!', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            local l = self.ScriptLocal(Script, Globals.TaxiServiceSaltTimerActive)
+            if l ~= 0 then
+                self.WriteInt(l, 0)
+            end
+        end)
+
+        self.taxi:toggle_loop(T'Remove Fare', {}, T'Remove the fare', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            local l = self.ScriptLocal(Script, Globals.TaxiServiceFare)
+            if l ~= 0 then
+                self.WriteInt(l, 0)
+            end
+        end)
+
+        self.taxi:toggle_loop(T'Remove Tip', {}, T'Remove the tip', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            local l = self.ScriptLocal(Script, Globals.TaxiServiceTip)
+            if l ~= 0 then
+                self.WriteInt(l, 0)
+            end
+        end)
+
+        self.taxi:toggle_loop(T'Max Tip', {}, T'Set the tip to the maximum value', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            local l = self.ScriptLocal(Script, Globals.TaxiServiceFare)
+            local l1 = self.ScriptLocal(Script, Globals.TaxiServiceTip)
+            if l ~= 0 and l1 ~= 0 then
+                self.WriteInt(l, 0)
+                self.WriteInt(l1, 15000)
+            end
         end)
     end
 
@@ -983,6 +1093,8 @@ pluto_class Online
     --[[void]] static function SetBlipSprite(--[[Blip (int)]] blip,--[[int]] spriteId)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_int(spriteId)native_invoker.end_call_2(0xDF735600A4696DAF)end
     --[[void]] static function SetBlipScale(--[[Blip (int)]] blip,--[[float]] scale)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_float(scale)native_invoker.end_call_2(0xD38744167B2FA257)end
     --[[void]] static function SetBlipNameToPlayerName(--[[Blip (int)]] blip,--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_int(player)native_invoker.end_call_2(0x127DE7B20C60A6A3)end
+    --[[BOOL (bool)]] static function IsSynchronizedSceneRunning(--[[int]] sceneId)native_invoker.begin_call()native_invoker.push_arg_int(sceneId)native_invoker.end_call_2(0x25D39B935A038A26)return native_invoker.get_return_value_bool()end
+    --[[void]] static function SetSynchronizedScenePhase(--[[int]] sceneID,--[[float]] phase)native_invoker.begin_call()native_invoker.push_arg_int(sceneID)native_invoker.push_arg_float(phase)native_invoker.end_call_2(0x734292F4F0ABF6D0)end
 end
 
 return Online

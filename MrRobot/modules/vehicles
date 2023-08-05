@@ -197,6 +197,13 @@ pluto_class Vehicles
             end
         end)
 
+        self.request_restrictions = self.vehicles:toggle(T'Disable Request Restrictions', {}, T'Request your vehicles regardless of where you are, you will no longer be told that you are too far from a suitable road etc', function(state)
+            self.WriteInt(self.ScriptGlobal(Globals.PersonalVehicleRequestRestrictions), state ? 1 : -1)
+        end)
+        self.request_restrictions.visible = false
+
+        self.vehicles:divider('')
+
         self.vehicles:action(T'Change License Plate', {}, T'Change the license plate of your vehicle (works on personal vehicles)', function()
             local Veh = self:GetPedVehicle(players.user_ped())
             local Personal = self:GetVehicleFromNetId(PlayerID)

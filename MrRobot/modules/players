@@ -3,6 +3,7 @@ local Bitfield = require('bitfield')
 local VehModels = require('vehicle_models')
 local Globals = require('script_globals')
 local ScriptOffsets = require('offsets')
+local Masks = require('masks')
 local shadow_root = menu.shadow_root()
 local Bit, BitMask = S.Bit, S.BitMask
 local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
@@ -13,6 +14,9 @@ local GamerHandle = memory.alloc(104)
 
 local Offsets = ScriptOffsets.Vehicles.LSCustoms
 local Bits = ScriptOffsets.Players.Bits
+local SpoofingOffsets = ScriptOffsets.Online.SpoofingOffsets
+local PlayerStates = ScriptOffsets.PlayerStates
+local VehStateBitfield = ScriptOffsets.VehStateBitfield
 local Settings = Bitfield.new(Bits.ForceScriptHost)
 
 pluto_class Players
@@ -42,6 +46,24 @@ pluto_class Players
         root:divider('Mr.Robot')
         local proot = root:list('Mr.Robot', {}, 'Mr.Robot')
 
+        self.pinfo = proot:list(T'Player Info', {}, T'Player Info', function()
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= T'Player Info' then
+                    return false
+                end
+
+                util.draw_debug_text(T'Is Bad Sport' .. ': ' .. self:GetPlayerIsBadsport(pid))
+                util.draw_debug_text(T'Is Cheater' .. ': ' .. self:GetPlayerIsCheater(pid))
+
+                self.pinfo_is_badsport.menu_name = T'Is Bad Sport' .. ': ' .. self:GetPlayerIsBadsport(pid)
+                self.pinfo_is_cheater.menu_name = T'Is Cheater' .. ': ' .. self:GetPlayerIsCheater(pid)
+            end)
+        end)
+
+        self.pinfo_is_badsport = self.pinfo:readonly('', '')
+        self.pinfo_is_cheater = self.pinfo:readonly('', '')
+
         self.veh_menu = proot:list(T'Personal Vehicle', {}, T'Personal Vehicle options', function()
             util.create_tick_handler(function()
                 local item = menu.get_current_menu_list()
@@ -53,6 +75,7 @@ pluto_class Players
 
                 if veh ~= nil then
                     self.model_ref.menu_name = T'Model' .. ': ' .. util.get_label_text(util.reverse_joaat(self.GetEntityModel(veh)))
+                    util.draw_debug_text(T'Model' .. ': ' .. util.get_label_text(util.reverse_joaat(self.GetEntityModel(veh))))
                 else
                     self.model_ref.menu_name = T'Model' .. ': ' .. T'None'
                 end
@@ -60,7 +83,7 @@ pluto_class Players
         end)
 
         self.veh_menu:divider(T'Vehicle Info')    
-        self.model_ref = self.veh_menu:readonly('', '')
+        self.model_ref = self.veh_menu:readonly('Model: None', '')
         self.veh_menu:divider('')
 
         self.script_events = shadow_root:list(T'Script Events', {}, T'Script Events')
@@ -77,10 +100,15 @@ pluto_class Players
                 local bounty_data = self.ScriptGlobal(Globals:PlayerBountyData(pid))
                 local reward_data = self.ScriptGlobal(Globals:PlayerBountyRewardData(pid))
 
-                self.bounty_active.menu_name = T'Active' .. ': ' .. (self.ReadByte(bounty_data) ~= 0)
+                util.draw_debug_text(T'Active' .. ': ' .. ((self.ReadByte(bounty_data) ~= 0) and T'Yes' or T'No'))
+                util.draw_debug_text(T'Amount' .. ': ' .. (self.ReadShort(bounty_data + 0x8)))
+                util.draw_debug_text(T'Reward' .. ': ' .. (self.ReadShort(reward_data)))
+                util.draw_debug_text(T'Modded' .. ': ' .. ((self.ReadByte(bounty_data) ~= 0 and S:IsModdedBounty(self.ReadShort(bounty_data + 0x8))) and T'Yes' or T'No'))
+
+                self.bounty_active.menu_name = T'Active' .. ': ' .. ((self.ReadByte(bounty_data) ~= 0) and T'Yes' or T'No')
                 self.bounty_amount.menu_name = T'Amount' .. ': ' .. (self.ReadShort(bounty_data + 0x8))
                 self.bounty_reward.menu_name = T'Reward' .. ': ' .. (self.ReadShort(reward_data))
-                self.bounty_modded.menu_name = T'Modded' .. ': ' .. (self.ReadByte(bounty_data) ~= 0 and S:IsModdedBounty(self.ReadShort(bounty_data + 0x8)))
+                self.bounty_modded.menu_name = T'Modded' .. ': ' .. ((self.ReadByte(bounty_data) ~= 0 and S:IsModdedBounty(self.ReadShort(bounty_data + 0x8))) and T'Yes' or T'No')
             end)
         end)
         self.toxic = shadow_root:list(T'Toxic', {}, T'Toxic')
@@ -400,23 +428,11 @@ pluto_class Players
         self.bounty = self.trolling:attach(self.bounty)
             
         self.bounty:divider(T'Bounty')
-        self.bounty_active = self.bounty:readonly(T'Bounty')
-        self.bounty_amount = self.bounty:readonly(T'Amount')
-        self.bounty_reward = self.bounty:readonly(T'Reward')
-        self.bounty_modded = self.bounty:readonly(T'Modded')
+        self.bounty_active = self.bounty:readonly(T'Active' .. ': ' .. T'No')
+        self.bounty_amount = self.bounty:readonly(T'Amount' .. ': ' .. T'0')
+        self.bounty_reward = self.bounty:readonly(T'Reward' .. ': ' .. T'0')
+        self.bounty_modded = self.bounty:readonly(T'Modded' .. ': ' .. T'No')
         self.bounty:divider('')
-
-        -- self.bounty:action(T'Set Bounty', {}, T'Set an anonymous undetectable bounty on the player, they will never even know that they have a bounty on them', function()
-        --     local amount = tonumber(S:DisplayOnscreenKeyboard())
-        --     if amount ~= nil then
-        --         if amount < 0 or amount > 10000 then
-        --             return util.toast(T'Invalid amount')
-        --         end
-
-        --         S:SetPlayerBounty(pid, 0, false)
-        --         S:SetPlayerBounty(pid, amount, true)
-        --     end
-        -- end)
 
         self.bounty:text_input(T'Set Bounty', {T'setbounty'}, T'Set an anonymous undetectable bounty on the player, they will never even know that they have a bounty on them', function(amount)
             amount = tonumber(amount)
@@ -606,6 +622,28 @@ pluto_class Players
             end
         end)
 
+        self.veh_trolling:toggle_loop(T'Horn Boost', {}, T'Give the player horn boost', function()
+            local base = self.ScriptGlobal(Globals:PlayerStatesBase(pid)) + PlayerStates.VehStateBitfield
+            local bitfield = Bitfield.new(self.ReadInt(base))
+
+            if bitfield:IsSet(VehStateBitfield.InVehicle) then
+                if bitfield:IsSet(VehStateBitfield.UsingHorn) then
+                    local veh = self.GetVehiclePedIsIn(self.GetPlayerPed(pid), false)
+                    if veh ~= 0 then
+                        S:RequestControlCB(veh, function(control)
+                            if control then
+                                self.SetVehicleForwardSpeed(veh, 100.0)
+                            end
+                        end)
+                    else
+                        if bitfield:IsSet(VehStateBitfield.InVehicle) then
+                            util.toast('Spectate the player or wait for them to get closer')
+                        end
+                    end
+                end
+            end
+        end)
+
         self.crashes = self.trolling:attach(self.crashes)
             
         self.crashes:action(T'Wheel Crash', {}, T'Crashes the player by using a buggy wheel model', function()
@@ -764,7 +802,7 @@ pluto_class Players
         local ped = self.GetPlayerPed(pid)
         local pos = self.GetOffsetFromEntityInWorldCoords(ped, 0.0, -5.0, 0.0)
     
-        S:RequestModel(model)
+        S:LoadModel(model)
     
         local veh = entities.create_vehicle(model, pos, self.GetEntityHeading(ped))
         self.SetVehicleForwardSpeed(veh, S.MAX_FLOAT)
@@ -876,6 +914,18 @@ pluto_class Players
         util.toast('You are out of range, spectate or get closer')
     end
 
+    function GetPlayerIsBadsport(pid)
+        local g = self.ScriptGlobal(Globals:PlayerStatSpoofing(pid)) + SpoofingOffsets.PlayerReports
+        local result = self.ReadByte(g) & Masks.IsBadSport == Masks.IsBadSport
+        return (result) and 'Yes' or 'No'
+    end
+
+    function GetPlayerIsCheater(pid)
+        local g = self.ScriptGlobal(Globals:PlayerStatSpoofing(pid)) + SpoofingOffsets.PlayerReports
+        local result = self.ReadByte(g) & Masks.IsCheater == Masks.IsCheater
+        return (result) and 'Yes' or 'No'
+    end
+
     --[[void]] static function NetworkHandleFromPlayer(--[[Player (int)]] player,--[[Any* (pointer)]] gamerHandle,--[[int]] gamerHandleSize)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_pointer(gamerHandle)native_invoker.push_arg_int(gamerHandleSize)native_invoker.end_call_2(0x388EB2B86C73B6B3)end
     --[[BOOL (bool)]] static function NetworkIsFriend(--[[Any* (pointer)]] gamerHandle)native_invoker.begin_call()native_invoker.push_arg_pointer(gamerHandle)native_invoker.end_call_2(0x1A24A179F9B31654)return native_invoker.get_return_value_bool()end
     --[[Hash (int)]] static function GetEntityModel(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x9F47B058362C84B5)return native_invoker.get_return_value_int()end
@@ -909,6 +959,7 @@ pluto_class Players
     --[[void]] static function AddExplosion(--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake,--[[BOOL (bool)]] noDamage)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.push_arg_bool(noDamage)native_invoker.end_call_2(0xE3AD2BDBAEE269AC)end
     --[[void]] static function NetworkConcealEntity(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x1632BE0AC1E62876)end
     --[[BOOL (bool)]] static function NetworkIsEntityConcealed(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x71302EC70689052A)return native_invoker.get_return_value_bool()end
+    --[[BOOL (bool)]] static function IsPlayerPressingHorn(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0xFA1E2BF8B10598F9)return native_invoker.get_return_value_bool()end
 end
 
 return Players

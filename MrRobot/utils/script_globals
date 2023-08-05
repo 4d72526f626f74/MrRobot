@@ -73,6 +73,7 @@
 -- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_213 -- reveal all players
 -- Global_2672524.f_58 = reveal all players timer
 -- 535367551 freemode.c = org colour slots, (colour, boss pid)
+-- Global_1895156[PLAYER::PLAYER_ID() /*609*/].f_534 kicking someone out of nightclub
 
 local PLAYER_ID = players.user() -- for some reason PLAYER_ID in shared doesn't work here
 
@@ -82,6 +83,7 @@ local Globals = {
     UnlockArcades = 1971633 + 22, -- Global_1971633.f_22
     GoodBoyTimer = 2805862 + 85 + 1 + 5, -- Global_2805862.f_85[5]
     SinRemover = 2764426 + 36, -- Global_2764426.f_36
+    SinRemoverTimer = 2764426 + 40, -- Global_2764426.f_40
     InsufficientFunds = 100885 + 1482, -- Global_100885.f_1482
     GunVanWeaponsStart = 34095,
     GunVanWeaponsEnd = 34095 + 8,
@@ -209,11 +211,42 @@ local Globals = {
     AgencySafeCapacity = 262145 + 29467,
     AgencySafeIncomeStart = 29058,
     AgencySafeIncomeEnd = 29061,
+    NCTroubleMakerScenario = 1982213,
+    NCTriggerTrobleMaker = 1800 + 5, -- am_mp_nightclub.c
+    NCTriggerYeetTroubleMaker = 1800 + 3031, -- am_mp_nightclub.c
+    PersonalVehicleRequestDelay = 18717 + 176, -- freemode.c
+    PersonalVehicleRequestRestrictions = 1950844 + 4794, -- return Global_1950844.f_4794 != -1; 18717 + 173
+    HoldUpForceRobbery = 161 + 1 + (players.user() * 10), -- am_hold_up.c
+    HoldUpRobberySceneId = 548, -- am_hold_up.c
+    TaxiServiceState = 115, -- 0 = customter not in taxi, 1 = within range of customer, 2 = customer heard horn
+    TaxiServiceInstantQuit = 115 + 1, -- 2 = instant quit
+    TaxiServiceFare = 115 + 19,
+    TaxiServiceTip = 115 + 21,
+    TaxiServiceSaltTimer = 115 + 25,
+    TaxiServiceSaltTimerActive = 115 + 26, -- set to 0 and timer resets
+    TaxiServiceCustomerBlip = 115 + 16,
+    TaxiServiceDestinationBlip = 115 + 17,
 }
 
+Globals.TaxiScript = 'fm_content_taxi_driver'
+Globals.NCScript = 'am_mp_nightclub'
+Globals.ArcadeScript = 'am_mp_arcade'
+Globals.AgencyScript = 'am_mp_fixer_hq'
+Globals.HoldUpScript = 'am_hold_up'
+Globals.FMScript = 'freemode'
+Globals.BJScript = 'blackjack'
+Globals.FMMC20 = 'fm_mission_controller_2020'
+Globals.IHS = 'heist_island_planning'
+
 --[[
-    3727 + 1 = 1
-    3727 + 69 = 15
+    fm_content_taxi_driver
+    0x0 = state
+    0x8 = instant quit (set to 2)
+    0x98 = fare
+    0xA8 = tip
+    0xC8 = salt timer
+    0x80 = customer blip
+    0x88 = destination blip
 ]]
 
 function Globals:PlayerLegitOffTheRadar(pid) return 2657704 + 1 + (pid * 463) + 210 end
@@ -229,5 +262,6 @@ function Globals:PlayerInvisibility(pid) return 2657704 + 1 + (pid * 463) + 254 
 function Globals:PlayerStealthMode(pid) return 2657704 + 1 + (pid * 463) + 321 end
 function Globals:PlayerMissionState(pid) return 1853988 + 1 + (pid * 867) end
 function Globals:PlayerCayoPrimaryTarget(pid) return 1980400 + 1 + (pid * 53) + 5 + 9 end
+function Globals:PlayerStatesBase(pid) return 2657704 + 1 + (pid * 463) end
 
 return Globals

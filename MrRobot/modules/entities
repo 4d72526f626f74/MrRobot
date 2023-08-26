@@ -1,0 +1,399 @@
+local T, S, H = require('translations'), require('shared'), require('handler')
+local ZoneInfo = require('zone_info')
+
+pluto_class PedManager
+    function __construct(root)
+        self.root = root:list(T'Entities', {T'rpedmanager'}, '')
+        self.peds = self.root:list(T'Peds', {T'repeds'}, '', || -> self:OnClick())
+        self.ar_beacons = {}
+        self.blips = setmetatable({}, {
+            __gc = function(self)
+                for self as blip do
+                    util.remove_blip(blip)
+                end
+            end
+        })
+        self.commands = {}
+
+        function H.PedRemoveBlips()
+            self.blips = nil
+        end
+    end
+
+    function MapPeds()
+        local localplayer = players.localplayer()
+        local player_pos = localplayer:get_offset_from_entity_in_world_coords(0.0, 0.0, 0.0)
+        local peds = {}
+
+        for entities.get_all_peds_as_pointers() as ptr do
+            local model = util.reverse_joaat(entities.get_model_hash(ptr))
+            local pos = entities.get_position(ptr)
+            local dist = player_pos:distance(pos)
+            if dist <= 200.0 and not model:find('freemode') then
+                if not peds[model] then peds[model] = {} end
+                peds[model][dist] = entities.pointer_to_handle(ptr)
+            end
+        end
+
+        return peds
+    end
+
+    function OnClick()
+        if self.peds:isValid() then
+            for self.peds:getChildren() as child do
+                if child:isValid() then
+                    child:delete()
+                end
+            end
+        end
+
+        self.peds_all = self.peds:list(T'All', {}, T'All Peds', function()
+            if self.peds_all:isValid() then
+                for self.peds_all:getChildren() as child do
+                    if child:isValid() then
+                        child:delete()
+                    end
+                end
+            end
+
+            self.peds_all:divider(T'Toggles')
+            for ({
+                { T'Invincible', self.commands, T'Makes all peds invincible', function(state) self:LoopEntityHandlesCallFunc(entity.set_entity_invincible, state) end },
+                { T'Dies In Water', self.commands, T'Makes all peds die in water', function(state) self:LoopEntityHandlesCallFunc(ped.set_entity_dies_in_water, state) end },
+                { T'Freeze', self.commands, T'Freezes all peds', function(state) self:LoopEntityHandlesCallFunc(entity.freeze_entity_position, state) end },
+                { T'Invisible', self.commands, T'Makes all peds invisible', function(state) self:LoopEntityHandlesCallFunc(entity.set_entity_visible, not state) end },
+            }) as data do
+                self.peds_all:toggle(table.unpack(data))
+            end
+            self.peds_all:divider(T'Actions')
+            for ({
+               { T'Kill', self.commands, T'Kills all peds', function() self:LoopEntityHandlesCallFunc(entity.set_entity_health, 0) end },
+               { T'Delete', self.commands, T'Deletes all peds', function() self:LoopEntityHandlesCallFunc(entities.delete_by_handle) end },
+               { T'Ragdoll', self.commands, T'Ragdolls all peds', function() self:LoopEntityHandlesCallFunc(ped.set_ped_to_ragdoll, 1000, 1000, 0, true, true, false) end },
+            }) as data do
+                self.peds_all:action(table.unpack(data))
+            end
+            self.peds_all:divider(T'Tasks')
+            for ({
+                { T'Stop All Tasks', self.commands, T'Stops all tasks for all peds', function() self:LoopEntityHandlesCallFunc(task.clear_ped_tasks_immediately) end },
+                { T'Pause', self.commands, T'Pauses all peds', function() self:LoopEntityHandlesCallFunc(task.task_pause, -1) end },
+                { T'Stand Still', self.commands, T'Makes all peds stand still', function() self:LoopEntityHandlesCallFunc(task.task_stand_still, -1) end },
+                { T'Sky Dive', self.commands, T'Makes all peds sky dive', function() self:LoopEntityHandlesCallFunc(task.task_sky_dive) end },
+                { T'Writhe', self.commands, T'Makes all peds writhe', function() self:LoopEntityHandlesCallFunc(task.task_writhe, -1, 0, 0, 0) end },
+                { T'Jump', self.commands, T'Makes all peds jump', function() self:LoopEntityHandlesCallFunc(task.task_jump, true, true, true) end },
+                { T'Gtfo Of The Vehicle', self.commands, T'Makes all peds get the fuck out of their vehicle', function() self:LoopEntityHandlesCallFunc(task.task_leave_any_vehicle, 0, 0) end },
+                { T'Super Splat', self.commands, T'Force all peds to super jump and ragdoll so they go splat', function()
+                    self:LoopEntityHandlesCallCustomFunc(function(ent)
+                        task.task_jump(ent, true, true)
+                        util.yield(500)
+                        ped.set_ped_to_ragdoll(ent, 1, 1, 0, true, true, false)
+                    end)
+                end }
+            }) as data do
+                self.peds_all:action(table.unpack(data))
+            end
+        end)
+
+        self.peds:action(T'Refresh', {}, T'Refresh all peds in the list', function()
+            if self.peds:isValid() then
+                for self.peds:getChildren() as child do
+                    local menu_name = child.menu_name
+                    if menu_name == self.peds_all.menu_name or menu_name == '' or menu_name == T'Refresh' then goto continue end
+                    if child:isValid() then
+                        child:delete()
+                    end
+                    ::continue::
+                end
+                self:Populate()
+                util.toast(T'Peds refreshed')
+            end
+        end)
+        self.peds:divider('')
+        self:Populate()
+    end
+
+    function ValidateEntity(ent)
+        return entity.does_entity_exist(ent) and not ped.is_ped_a_player(ent)
+    end
+
+    function LoopEntityHandlesCallFunc(func, ...)
+        for entities.get_all_peds_as_handles() as ent do
+            if self:ValidateEntity(ent) then
+                func(ent, ...)
+            end
+        end
+    end
+
+    function LoopEntityHandlesCallCustomFunc(callback)
+        for entities.get_all_peds_as_handles() as ent do
+            if self:ValidateEntity(ent) then
+                callback(ent)
+            end
+        end
+    end
+
+    function Populate()
+        for model, data in pairs(self:MapPeds()) do
+            local ref, sorted = nil, {}
+            for dist, ent in pairs(data) do table.insert(sorted, {dist, ent}) end
+            table.sort(sorted, |a, b| -> a[1] < b[1])
+
+            if not self.peds:refByRelPath(model):isValid() then
+                ref = self.peds:list(tostring(model), {}, tostring(model))
+                ref:onTickInViewport(function()
+                    local children = ref:getChildren()
+                    ref.menu_name = $'{model} [{#children}]'
+                end)
+            else
+                ref = self.peds:refByRelPath(model)
+            end
+
+            for i, data in pairs(sorted) do
+                local dist, ent, ped_menu, blip = math.floor(data[1]), data[2], nil, nil
+                local ptr = entities.handle_to_pointer(ent)
+                local info = {
+                    health = nil,
+                    maxhealth = nil,
+                    armor = nil,
+                    godmode = nil,
+                    frozen = nil,
+                    invisible = nil
+                }
+
+                ped_menu = ref:list(tostring(dist) .. 'm', {}, tostring(ent), function()
+                    if not self.ar_beacons[ent] then
+                        self.ar_beacons[ent] = true
+                        blip = hud.add_blip_for_entity(ent)
+                        hud.set_blip_sprite(blip, 280)
+                        if not self:IsEntityGodmode(ptr) then
+                            hud.set_blip_colour(blip, 1)
+                        else
+                            hud.set_blip_colour(blip, 27)
+                        end
+                        table.insert(self.blips, blip)
+                    end
+                    util.create_tick_handler(function()
+                        local pos = ped.get_ped_bone_coords(ent, 31086, 0.0, 0.0, 0.0)
+                        util.draw_ar_beacon(pos)
+                        if type(info.health) == 'userdata' then
+                            if info.health:isValid() then
+                                info.health.menu_name = T'Health' .. $': {entity.get_entity_health(ent)}'
+                            end
+                        end
+                        if type(info.maxhealth) == 'userdata' then
+                            if info.maxhealth:isValid() then
+                                info.maxhealth.menu_name = T'Max Health' .. $': {entity.get_entity_max_health(ent)}'
+                            end
+                        end
+                        if type(info.armor) == 'userdata' then
+                            if info.armor:isValid() then
+                                info.armor.menu_name = T'Armor' .. $': {ped.get_ped_armour(ent)}'
+                            end
+                        end
+                        if type(info.godmode) == 'userdata' then
+                            if info.godmode:isValid() then
+                                info.godmode.menu_name = T'Godmode' .. $': {(self:IsEntityGodmode(ptr))}'
+                            end
+                        end
+                        if type(info.frozen) == 'userdata' then
+                            if info.frozen:isValid() then
+                                info.frozen.menu_name = T'Frozen' .. $': {self:IsEntityFrozen(ent)}'
+                            end
+                        end
+                        if type(info.invisible) == 'userdata' then
+                            if info.invisible:isValid() then
+                                info.invisible.menu_name = T'Invisible' .. $': {self:IsEntityInvisible(ent)}'
+                            end
+                        end
+                        if not self.ar_beacons[ent] or entity.is_entity_dead(ent) then
+                            util.remove_blip(blip)
+                            return false
+                        end
+                    end)
+                end, function()
+                    self.ar_beacons[ent] = false
+                end)
+
+                ped_menu:divider(T'Info')
+                info.health = ped_menu:readonly(T'Health' .. $': {entity.get_entity_health(ent)}')
+                info.maxhealth = ped_menu:readonly(T'Max Health' .. $': {entity.get_entity_max_health(ent)}')
+                info.armor = ped_menu:readonly(T'Armor' .. $': {ped.get_ped_armour(ent)}')
+                info.godmode = ped_menu:readonly(T'Godmode' .. $': {(self:IsEntityGodmode(ptr))}')
+                info.frozen = ped_menu:readonly(T'Frozen' .. $': {self:IsEntityFrozen(ent)}')
+                info.invisible = ped_menu:readonly(T'Invisible' .. $': {self:IsEntityInvisible(ent)}')
+
+                ped_menu:onTickInViewport(function()
+                    local localplayer = players.localplayer()
+                    local player_pos = localplayer:get_offset_from_entity_in_world_coords(0.0, 0.0, 0.0)
+                    local pos = entity.get_offset_from_entity_in_world_coords(ent, 0.0, 0.0, 0.0)
+                    local dist = math.floor(player_pos:distance(pos))
+
+                    if dist > 200.0 then
+                        if ped_menu:isValid() then
+                            ped_menu:delete()
+                        end
+                    end
+                    if ped_menu:isValid() then
+                        local zone = ZoneInfo[zone.get_name_of_zone(pos.x, pos.y, pos.z)] or zone.get_name_of_zone(pos.x, pos.y, pos.z)
+                        local mortality_status = (entity.is_entity_dead(ent)) ? T'Dead' : T'Alive'
+                        local ent_health = entity.get_entity_health(ent)
+                        ped_menu.menu_name = $'{dist}m - {zone} [{mortality_status}:{ent_health}]'
+                    end
+                    util.yield(3000)
+                end)
+
+                ped_menu:divider('')
+                ped_menu:toggle(T'Invincible', {}, T'Makes the ped invincible', function(state)
+                    entity.set_entity_invincible(ent, state)
+                    local coords = entity.get_offset_from_entity_in_world_coords(ent, 0.0, 0.0, 0.0)
+                    for self.blips as blip do
+                        local blip_coords = hud.get_blip_coords(blip)
+                        local dist = coords:distance(blip_coords)
+                        if dist <= 0.0 then
+                            hud.set_blip_colour(blip, (state) ? 27 : 1)
+                        end
+                    end
+                end)
+
+                ped_menu:toggle(T'Dies In Water', {}, T'Set whether the ped dies in water or not', function(state)
+                    ped.set_ped_dies_in_water(ent, state)
+                end, ped.get_ped_dies_in_water(ent))
+
+                ped_menu:toggle(T'Freeze', {}, T'Freeze the ped', function(state)
+                    entity.freeze_entity_position(ent, state)
+                end)
+
+                ped_menu:toggle(T'Invisible', {}, T'Makes the ped invisible', function(state)
+                    entity.set_entity_visible(ent, not state, false)
+                end, not entity.is_entity_visible(ent))
+
+                ped_menu:toggle(T'No Ragdoll', {}, 'TMakes the ped not ragdoll', function(state)
+                    ped.set_ped_can_ragdoll(ent, not state)
+                end, not ped.can_ped_ragdoll(ent))
+
+                ped_menu:toggle_loop(T'Auto Heal', {}, T'Heal the ped', function()
+                    entity.set_entity_health(ent, entity.get_entity_max_health(ent))
+                end)
+
+                ped_menu:divider('')
+
+                ped_menu:action(T'Soul Swap', {}, T'Become this ped', function()
+                    player.change_player_ped(players.user(), ent, true, true)
+                end)
+
+                ped_menu:action(T'Teleport To Ped', {}, T'Teleports you to the ped', function()
+                    local pos = entity.get_offset_from_entity_in_world_coords(ent, 0, -5, 0)
+                    local rot = entity.get_entity_rotation(ent, 2)
+                    local heading = entity.get_entity_heading(ent)
+                    entity.set_entity_coords(players.user_ped(), pos.x, pos.y, pos.z)
+                    entity.set_entity_rotation(players.user_ped(), rot.x, rot.y, rot.z, 2, true)
+                    entity.set_entity_heading(players.user_ped(), heading)
+                end)
+
+                ped_menu:action(T'Teleport To Me', {}, T'Teleports the ped to you', function()
+                    local pos = entity.get_entity_coords(players.user_ped(), true)
+                    local rot = entity.get_entity_rotation(players.user_ped(), 2)
+                    local heading = entity.get_entity_heading(players.user_ped())
+                    entity.set_entity_coords(ent, pos.x, pos.y, pos.z, true, true, true, true)
+                    entity.set_entity_rotation(ent, rot.x, rot.y, rot.z, 2, true)
+                    entity.set_entity_heading(ent, heading)
+                end)
+
+                ped_menu:action(T'Kill', {}, T'Kills the ped', function()
+                    entity.set_entity_health(ent, 0)
+                end)
+
+                ped_menu:action(T'Blame Kill', {}, T'Kills the ped as you', function()
+                    local pos = entity.get_entity_coords(ent, true)
+                    fire.add_owned_explosion(players.user_ped(), pos.x, pos.y, pos.z, 17, 100, false, true, 0)
+                end)
+
+                ped_menu:action(T'Orbital Cannon', {}, T'Kill the ped with orbital cannon', function()
+                    local pos = entity.get_entity_coords(ent, true)
+                    fire.add_owned_explosion(players.user_ped(), pos.x, pos.y, pos.z, 60, 100, true, false, 2.0)
+                end)
+
+                ped_menu:action(T'Delete', {}, T'Deletes the ped', function()
+                    entities.delete_by_handle(ent)
+                    if ped_menu:isValid() then
+                        ped_menu:delete()
+                        self.ar_beacons[ent] = false
+                    end
+                end)
+
+                ped_menu:action(T'Ragdoll', {}, T'Ragdoll the ped', function()
+                    ped.set_ped_to_ragdoll(ent, 1000, 1000, 0, true, true, false)
+                end)
+
+                ped_menu:action(T'Peds Attack', {}, T'Makes all peds nearby attack the ped', function()
+                    for i, ped in pairs(entities.get_all_peds_as_handles()) do
+                        if ped ~= players.user_ped() then
+                            task.task_combat_ped(ped, ent, 0, 16)
+                        end
+                    end
+                end)
+
+                ped_menu:action(T'Give All Weapons', {}, T'Gives the ped all weapons', function()
+                    weapon.remove_all_ped_weapons(ent, true)
+                    for util.get_weapons() as weapon_data do
+                        weapon.give_weapon_to_ped(ent, weapon_data.hash, 9999, false, false)
+                    end
+                end)
+
+                ped_menu:divider('')
+                ped_menu:action(T'Stop All Tasks', {}, T'Stops all tasks of the ped', function()
+                    task.clear_ped_tasks_immediately(ent)
+                end)
+
+                ped_menu:action(T'Pause', {}, T'Pauses the ped', function()
+                    task.task_pause(ent, -1)
+                end)
+
+                ped_menu:action(T'Stand Still', {}, T'Makes the ped stand still', function()
+                    task.task_stand_still(ent, -1)
+                end)
+
+                ped_menu:action(T'Sky Dive', {}, T'Makes the ped sky dive', function()
+                    task.task_sky_dive(ent, false)
+                end)
+
+                ped_menu:action(T'Writhe', {}, T'Makes the ped writhe', function()
+                    task.task_writhe(ent, players.user_ped(), 0, 0, 0, 0)
+                end)
+
+                ped_menu:action(T'Jump', {}, T'Makes the ped jump', function()
+                    task.task_jump(ent, true, true, true)
+                end)
+
+                ped_menu:action(T'Super Splat', {}, T'Launch the ped', function()
+                    task.task_jump(ent, true, true, true)
+                    util.yield(1000)
+                    ped.set_ped_to_ragdoll(ent, 1, 1, 0, true, true, false)
+                end)
+
+                ped_menu:action(T'Gtfo Of The Vehicle', {}, T'Makes the ped get out of the vehicle', function()
+                    task.task_leave_any_vehicle(ent, 0, 0)
+                end)
+            end
+        end
+    end
+
+    function IsEntityGodmode(ptr)
+        local damage_flags = memory.read_int(ptr + 0x188)
+        local mask = 0x1F0
+        return damage_flags & mask ~= 0
+    end
+
+    function IsEntityFrozen(ent)
+        local ptr = entities.handle_to_pointer(ent)
+        return memory.read_long(ptr + 0x0028) & (1 << 49) ~= 0
+    end
+
+    function IsEntityInvisible(ent)
+        local ptr = entities.handle_to_pointer(ent)
+        local mask = 0x10000100000000
+        return memory.read_long(ptr + 0x0028) & mask == 0
+    end
+end
+
+return PedManager

@@ -1,11 +1,37 @@
 local Masks = {
     UnlockArcades = 0x14E,
     RequestNanoDrone = 0x1C00000,
-    RequestSupplies = 1 << 12,
+    RequestSupplies = 0x1000, -- 1 << 12
     VehicleGifting = 0x1000008,
     HoldUpForceRobbery = 0x6,
-    IsBadSport = 1 << 1,
-    IsCheater = 1 << 4
+    IsBadSport = 0x2, -- 1 << 1
+    IsCheater = 0x8, -- 1 << 3
+    VehicleClearAllBits = 0x7FFFFFFF,
+    DestoryVehicleBits = 0x10041,
+    Beast = 0x20000000, -- 1 << 29
+    NeonLayoutAll = 0x1F0000000,
+    NeonLayoutFront = 0x10000000, -- 1 << 28
+    NeonLayoutBack = 0x20000000, -- 1 << 29
+    NeonLayoutSides = 0x1C0000000,
+    NeonLayoutFrontAndBack = 0x30000000,
+    NeonLayoutFrontAndSides = 0x1D0000000,
+    NeonLayoutBackAndSides = 0x1E0000000,
+    UsingDrone = 0x4000000, -- 1 << 26
+    UsingOrbitalCannon = 0x1, -- 1 << 0,
+    ClearUnlockedArcade = 0x1E,
+    ArcadeWonderama = 0x2, -- 1 << 1
+    ArcadeEightBit = 0x4, -- 1 << 2
+    ArcadeGarageUnlock = 0x1, -- 1 << 0
+    ArcadeMCTUnlock = 0x10000018, -- 1 << 3 | 1 << 4 | 1 << 28
+    ArcadeWeaponWorkshopUnlock = 0x800, -- 1 << 11
+    ArcadeUnlockNanoDroneStation = 0x8000000, -- 1 << 27
+    ArcadeSetup = 0x1000004,
+    NightclubCleared = 0x2, -- 1 << 1
+    NightclubOfficeLights = 0x20000, -- 1 << 17
+    NightclubDryIce = 0x800000, -- 1 << 23
+    NightclubMaxUpgrades = 0x7FFEFFFD,
+    AgencyTriggerCollection = 0x20, -- 1 << 5
+    AgencyClearArt = 0x7, -- 1 << 0 | 1 << 1 | 1 << 2
 }
 
 return Masks

@@ -1,8 +1,5 @@
 local T, S = require('translations'), require('shared')
-local PedAimbot = require('ped_aimbot')
-local PlayerAimbot = require('player_aimbot')
-
-local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
+local WeaponsList = require('weapons_list')
 
 local sns_ammo_types = {'Default Clip', 'Extended Clip', 'Tracer', 'Incendiary', 'Hollow Point', 'FMJ'}
 local heavy_revolver_types = {'Default Clip', 'Tracer', 'Incendiary', 'Hollow Point', 'FMJ'}
@@ -18,6 +15,20 @@ local combat_mg_types = {'Default Clip', 'Extended Clip', 'Tracer', 'Incendiary'
 local heavy_sniper_types = {'Default Clip', 'Extended Clip', 'Incendiary', 'FMJ', 'Armor Piercing', 'Explosive'}
 
 local heavy_sniper_scopes = {'Zoom Scope', 'Advanced Scope', 'Night Vision Scope', 'Thermal Scope'}
+local all_types = {
+    ['SNS Pistol'] = sns_ammo_types,
+    ['Heavy Revolver'] = heavy_revolver_types,
+    ['Special Carbine'] = special_carbine_types,
+    ['Bullpup Rifle'] = bullpup_rifle_types,
+    ['Pump Shotgun'] = pump_shotgun_types,
+    ['Marksman Rifle'] = marksman_rifle_types,
+    ['Pistol'] = pistol_types,
+    ['SMG'] = smg_types,
+    ['Assault Rifle'] = assault_rifle_types,
+    ['Carbine Rifle'] = carbine_rifle_types,
+    ['Combat MG'] = combat_mg_types,
+    ['Heavy Sniper'] = heavy_sniper_types
+}
 
 local weapons_hashmap = {
     ['SNS Pistol'] = util.joaat('WEAPON_SNSPISTOL_MK2'),
@@ -50,228 +61,236 @@ local weapons_names = {
     'Heavy Sniper'
 }
 
+local damage_types = {
+    'Melee',
+    'Bullet',
+    'Bullet Rubber',
+    'Explosive',
+    'Fire',
+    'Collision',
+    'Fall',
+    'Drown',
+    'Electric',
+    'Barbed Wire',
+    'Fire Extinguisher',
+    'Smoke',
+    'Water Cannon',
+    'Tranquilizer'
+}
+
+local special_ammo = {
+    'None',
+    'Armor Piercing',
+    'Explosive',
+    'FMJ',
+    'Hollow Point',
+    'Incendiary',
+    'Tracer'
+}
+
 pluto_class Weapons
-    ScriptGlobal = S.ScriptGlobal
-    ReadByte = memory.read_byte
-    ReadShort = memory.read_short
-    ReadInt = memory.read_int
-    ReadFloat = memory.read_float
-    ReadString = memory.read_string
-    WriteByte = memory.write_byte
-    WriteShort = memory.write_short
-    WriteInt = memory.write_int
-    WriteFloat = memory.write_float
-    WriteString = memory.write_string
-    Alloc = memory.alloc
-
     function __construct(root)
-        self.root = root:list(T'Weapons', {T'rweapons'}, T'Weapons')
-        self.weapons_mk2 = self.root:list(T'Weapons MK2', {}, T'Weapons MK2 options')
-        self.thermal = self.root:list(T'Thermal', {}, T'Thermal')
-        self.aimbot = self.root:list(T'Aimbot', {}, T'Aimbot')
+        self.root = root:list(T'Weapons', {T'rweapons'}, '')
+        self.mk2 = self.root:list(T'MK2', {T'rweaponsmk2'}, T'MK2 weapons')
+        self.thermal = self.root:list(T'Thermal', {T'rthermal'}, T'Thermal')
+        self.aimbot = self.root:list(T'Aimbot', {T'raimbot'}, T'Aimbot')
+        self.mods = self.root:list(T'Mods', {T'rmods'}, T'Mods')
 
-        self:CreateMK2Weapons()
+        self:CreateMk2Weapons()
         self:CreateThermal()
         self:CreateAimbot()
+        self:CreateMods()
     end
 
-    function CreateMK2Weapons()
-        self.weapons_mk2:list_select(T'Weapons', {}, T'Weapon to modify', weapons_names, 1, function(Index)
+    function CreateMk2Weapons()
+        self.mk2:list_select(T'Weapons', {}, T'Weapon to modify', weapons_names, 1, function(index)
             if not SCRIPT_CAN_CONTINUE then return end
-    
-            for self.weapons_mk2:getChildren() as child do
-                if child:isValid() then
-                    if child.menu_name ~= T'Weapons' then
-                        child:delete()
+            if self.mk2:isValid() then
+                for self.mk2:getChildren() as child do
+                    if child:isValid() then
+                        if child.menu_name ~= T'Weapons' then
+                            child:delete()
+                        end
                     end
                 end
             end
-    
-            local Weapon = weapons_names[Index]
-            local WeaponHash = weapons_hashmap[Weapon]
-    
-            if Weapon == 'SNS Pistol' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', sns_ammo_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(sns_ammo_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Heavy Revolver' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', heavy_revolver_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(heavy_revolver_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Special Carbine' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', special_carbine_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(special_carbine_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Bullpup Rifle' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', bullpup_rifle_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(bullpup_rifle_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Pump Shotgun' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', pump_shotgun_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(pump_shotgun_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Marksman Rifle' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', marksman_rifle_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(marksman_rifle_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Pistol' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', pistol_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(pistol_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'SMG' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', smg_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(smg_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Assault Rifle' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', assault_rifle_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(assault_rifle_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Carbine Rifle' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', carbine_rifle_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(carbine_rifle_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Combat MG' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', combat_mg_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(combat_mg_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-            elseif Weapon == 'Heavy Sniper' then
-                local Ammo = self.weapons_mk2:textslider('Ammo Type', {}, '', heavy_sniper_types, function(TableIndex)
-                    local AmmoType = AmmoTypeToHash(heavy_sniper_types[TableIndex], WeaponHash)
-                    self:GiveComponent(WeaponHash, AmmoType)
-                end)
-    
-                local Scope = self.weapons_mk2:textslider('Scope', {}, '', heavy_sniper_scopes, function(TableIndex)
-                    local WeaponHash = util.joaat('WEAPON_HEAVYSNIPER_MK2')
-                    local Scope = heavy_sniper_scopes[TableIndex]
-                    local ComponentHash = ''
-    
-                    if Scope == 'Zoom Scope' then
-                        ComponentHash = util.joaat('COMPONENT_AT_SCOPE_LARGE_MK2')
-                    elseif Scope == 'Advanced Scope' then
-                        ComponentHash = util.joaat('COMPONENT_AT_SCOPE_MAX')
-                    elseif Scope == 'Night Vision Scope' then
-                        ComponentHash = util.joaat('COMPONENT_AT_SCOPE_NV')
-                    elseif Scope == 'Thermal Scope' then
-                        ComponentHash = util.joaat('COMPONENT_AT_SCOPE_THERMAL')
-                    end
-    
-                    if not self.HasPedGotWeaponComponent(players.user_ped(), WeaponHash, ComponentHash) then
-                        self.GiveWeaponComponentToPed(players.user_ped(), WeaponHash, ComponentHash)
-                        local AmmoType = self.GetPedAmmoTypeFromWeapon(players.user_ped(), WeaponHash)
-                        self.AddPedAmmoByType(players.user_ped(), AmmoType, 9999)
-                    end
-                end)
+
+            local weapon = weapons_names[index]
+            local weapon_hash = weapons_hashmap[weapon]
+            local ammo_types = all_types[weapon]
+
+            if index ~= 1 then
+                if weapon ~= 'Heavy Sniper' then
+                    self.mk2:list_select(T'Ammo', {}, '', ammo_types, 1, function(index)
+                        local ammo_type = self:AmmoTypeToHash(ammo_types[index], weapon_hash)
+                        self:GiveComponent(weapon_hash, ammo_type)
+                    end)
+                else
+                    self.mk2:list_select(T'Ammo', {}, '', ammo_types, 1, function(index)
+                        local ammo_type = self:AmmoTypeToHash(ammo_types[index], weapon_hash)
+                        self:GiveComponent(weapon_hash, ammo_type)
+                    end)
+
+                    local scope = self.mk2:list_select(T'Scope', {}, '', heavy_sniper_scopes, 1, function(index)
+                        local scope = heavy_sniper_scopes[index]
+                        local component_hash = ''
+                        if scope == 'Zoom Scope' then
+                            component_hash = util.joaat('COMPONENT_AT_SCOPE_LARGE_MK2')
+                        elseif scope == 'Advanced Scope' then
+                            component_hash = util.joaat('COMPONENT_AT_SCOPE_MAX')
+                        elseif scope == 'Night Vision Scope' then
+                            component_hash = util.joaat('COMPONENT_AT_SCOPE_NV')
+                        elseif scope == 'Thermal Scope' then
+                            component_hash = util.joaat('COMPONENT_AT_SCOPE_THERMAL')
+                        end
+                        self:GiveComponent(weapon_hash, component_hash)
+                    end)
+                end
             end
         end)
     end
 
     function CreateThermal()
         self.thermal:toggle_loop(T'ESP Thermal', {}, T'Makes thermal more op than it already is', function()
-            if self.GetUsingseethrough() then
-                self.SeethroughSetMaxThickness(self.SeethroughGetMaxThickness())
-                self.SeethroughSetNoiseMin(0.0)
-                self.SeethroughSetNoiseMax(0.0)
-                self.SeethroughSetFadeStartdistance(0.0)
-                self.SeethroughSetFadeEnddistance(S.MAX_INT + 0.0)
-                self.SeethroughSetHighlightNoise(0.0)
+            if graphics.get_usingseethrough() then
+                graphics.seethrough_set_max_thickness(graphics.seethrough_get_max_thickness())
+                graphics.seethrough_set_noise_min(0.0)
+                graphics.seethrough_set_noise_max(0.0)
+                graphics.seethrough_set_fade_startdistance(0.0)
+                graphics.seethrough_set_fade_enddistance(math.max_int + 0.0)
+                graphics.seethrough_set_highlight_noise(0.0)
             else
-                self.SeethroughReset()
+                graphics.seethrough_reset()
             end
         end,
         function()
-            self.SeethroughReset()
+            graphics.seethrough_reset()
         end)
     end
 
     function CreateAimbot()
-        local _ = pluto_new PedAimbot(self.aimbot)
-        _ = pluto_new PlayerAimbot(self.aimbot)
+        do pluto_new (require('ped_aimbot'))(self.aimbot) end
+        do pluto_new (require('player_aimbot'))(self.aimbot) end
     end
 
-    function AmmoTypeToHash(Type, Weapon)
-        local WeaponName = util.reverse_joaat(Weapon)
-        WeaponName = WeaponName:gsub('WEAPON_', '')
-    
-        local Comp = 'COMPONENT_' .. WeaponName .. '_CLIP_'
-    
-        if Type == 'Default Clip' or Type == 'Default Shells' then
-            return util.joaat(Comp .. '01')
-        elseif Type == 'Extended Clip' then
-            return util.joaat(Comp .. '02')
-        elseif Type == 'Tracer' then
-            return util.joaat(Comp .. 'TRACER')
-        elseif Type == 'Incendiary' then
-            return util.joaat(Comp .. 'INCENDIARY')
-        elseif Type == 'Hollow Point' then
-            return util.joaat(Comp .. 'HOLLOWPOINT')
-        elseif Type == 'FMJ' then
-            return util.joaat(Comp .. 'FMJ')
-        elseif Type == 'Explosive' then
-            return util.joaat(Comp .. 'EXPLOSIVE')
-        elseif Type == 'Armor Piercing' then
-            return util.joaat(Comp .. 'ARMORPIERCING')
-        elseif Type == 'Dragons Breathe' then
-            return util.joaat(Comp .. 'INCENDIARY')
-        elseif Type == 'Flechette Shells' then
-            return util.joaat(Comp .. 'HOLLOWPOINT')
-        elseif Type == 'Steel Buckshot Shells' then
-            return util.joaat(Comp .. 'ARMORPIERCING')
-        elseif Type == 'Explosive Slugs' then
-            return util.joaat(Comp .. 'EXPLOSIVE')
-        end
+    function CreateMods()
+        self.mods:toggle_loop(T'Double Tap', {}, T'Shoot 2 bullets instead of 1', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_int(self:GetCurrentWeapon() + 0x0120, 2)
+        end, function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_int(self:GetCurrentWeapon() + 0x0120, 1)
+        end)
+
+        self.mods:toggle_loop(T'Fast Reload', {}, T'Reload super fast', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_float(self:GetCurrentWeapon() + 0x0134, 2.0)
+        end, function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_float(self:GetCurrentWeapon() + 0x0134, 1.5)
+        end)
+
+        -- self.mods:toggle_loop(T'Infinite Range', {}, T'Be able to shoot very long distances regardless of the weapon you have', function()
+        --     if not SCRIPT_CAN_CONTINUE then return end
+        --     memory.write_float(self:GetCurrentWeapon() + 0x028C, math.max_int / 2)
+        -- end, function()
+        --     if not SCRIPT_CAN_CONTINUE then return end
+        --     memory.write_float(self:GetCurrentWeapon() + 0x028C, 1500.0)
+        -- end)
+
+        self.mods:toggle_loop(T'No Spread', {}, T'No spread', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_float(self:GetCurrentWeapon() + 0x0074, 0.0)
+        end, function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_float(self:GetCurrentWeapon() + 0x00D0, 3.0)
+        end)
+
+        self.mods:toggle_loop(T'Max Penetration', {}, T'', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_float(self:GetCurrentWeapon() + 0x0110, 100.0)
+        end, function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_float(self:GetCurrentWeapon() + 0x0110, 1.0)
+        end)
+
+        self.mods:divider('')
+
+        self.mods:slider(T'Bullets Multiplier', {}, T'How many bullets to shoot per shot', 1, 1000, 1, 1, function(value)
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_int(self:GetCurrentWeapon() + 0x0120, value)
+        end)
+
+        self.mods:slider_float(T'Vehicle Damage Modifier', {T'rwvehdamagemod'}, T'How much damage to do to vehicles', 0.0, 100000.0 * 100, 1.0 * 100, 1.0 * 10, function(value)
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_float(self:GetCurrentWeapon() + 0x00D4, value / 100)
+        end)
+
+        self.damage_type = self.mods:list(T'Damage Type', {}, T'What type of damage to do (not all of these work on players)')
+        self.damage_type:list_select(T'Type', {}, T'Type of damage your weapon deals', damage_types, 1, function(index)
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_int(self:GetCurrentWeapon() + 0x0020, index + 1)
+        end)
+
+        self.special_ammo = self.mods:list(T'Special Ammo', {}, T'Equip special ammo on any gun (explosive will trigger explosive hits detection)')
+        self.special_ammo:list_select(T'Type', {}, T'Type of special ammo to equip', special_ammo, 1, function(index)
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_int(self:GetCurrentWeaponAmmoInfo() + 0x003C, index - 1)
+        end)
     end
-    
-    function GiveComponent(WeaponHash, ComponentHash)
-        if not self.HasPedGotWeaponComponent(players.user_ped(), WeaponHash, ComponentHash) then
-            self.GiveWeaponComponentToPed(players.user_ped(), WeaponHash, ComponentHash)
-            local AmmoType = self.GetPedAmmoTypeFromWeapon(players.user_ped(), WeaponHash)
-            self.AddPedAmmoByType(players.user_ped(), AmmoType, 9999)
+
+    function AmmoTypeToHash(type, weapon)
+        local weapon_name = util.reverse_joaat(weapon)
+        weapon_name = weapon_name:gsub('WEAPON_', '')
+
+        local comp = 'COMPONENT_' .. weapon_name .. '_CLIP_'
+
+        if type == 'Default Clip' or type == 'Default Shells' then
+            return util.joaat(comp .. '01')
+        elseif type == 'Extended Clip' then
+            return util.joaat(comp .. '02')
+        elseif type == 'Tracer' then
+            return util.joaat(comp .. 'TRACER')
+        elseif type == 'Incendiary' then
+            return util.joaat(comp .. 'INCENDIARY')
+        elseif type == 'Hollow Point' then
+            return util.joaat(comp .. 'HOLLOWPOINT')
+        elseif type == 'FMJ' then
+            return util.joaat(comp .. 'FMJ')
+        elseif type == 'Explosive' then
+            return util.joaat(comp .. 'EXPLOSIVE')
+        elseif type == 'Armor Piercing' then
+            return util.joaat(comp .. 'ARMORPIERCING')
+        elseif type == 'Dragons Breathe' then
+            return util.joaat(comp .. 'INCENDIARY')
+        elseif type == 'Flechette Shells' then
+            return util.joaat(comp .. 'HOLLOWPOINT')
+        elseif type == 'Steel Buckshot Shells' then
+            return util.joaat(comp .. 'ARMORPIERCING')
+        elseif type == 'Explosive Slugs' then
+            return util.joaat(comp .. 'EXPLOSIVE')
         end
     end
 
-    --[[void]] static function SeethroughSetHighlightNoise(--[[float]] noise)native_invoker.begin_call()native_invoker.push_arg_float(noise)native_invoker.end_call_2(0x1636D7FC127B10D2)end
-    --[[Hash (int)]] static function GetPedAmmoTypeFromWeapon(--[[Ped (int)]] ped,--[[Hash (int)]] weaponHash)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(weaponHash)native_invoker.end_call_2(0x7FEAD38B326B9F74)return native_invoker.get_return_value_int()end
-    --[[Vector3 (vector3)]] static function GetPedBoneCoords(--[[Ped (int)]] ped,--[[int]] boneId,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(boneId)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x17C07FC640E86B4E)return native_invoker.get_return_value_vector3()end
-    --[[Ped (int)]] static function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x43A66C31C68491C0)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SeethroughSetFadeStartdistance(--[[float]] distance)native_invoker.begin_call()native_invoker.push_arg_float(distance)native_invoker.end_call_2(0xA78DE25577300BA1)end
-    --[[Hash (int)]] static function GetSelectedPedWeapon(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x0A6DB4965674D243)return native_invoker.get_return_value_int()end
-    --[[void]] static function SeethroughSetMaxThickness(--[[float]] thickness)native_invoker.begin_call()native_invoker.push_arg_float(thickness)native_invoker.end_call_2(0x0C8FAC83902A62DF)end
-    --[[BOOL (bool)]] static function HasPedGotWeaponComponent(--[[Ped (int)]] ped,--[[Hash (int)]] weaponHash,--[[Hash (int)]] componentHash)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(componentHash)native_invoker.end_call_2(0xC593212475FAE340)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SeethroughSetFadeEnddistance(--[[float]] distance)native_invoker.begin_call()native_invoker.push_arg_float(distance)native_invoker.end_call_2(0x9D75795B9DC6EBBF)end
-    --[[Ped (int)]] static function GetPlayerPedScriptIndex(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x50FAC3A3E030A6E1)return native_invoker.get_return_value_int()end
-    --[[Vector3 (vector3)]] static function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
-    --[[float]] static function GetDistanceBetweenCoords(--[[float]] x1,--[[float]] y1,--[[float]] z1,--[[float]] x2,--[[float]] y2,--[[float]] z2,--[[BOOL (bool)]] useZ)native_invoker.begin_call()native_invoker.push_arg_float(x1)native_invoker.push_arg_float(y1)native_invoker.push_arg_float(z1)native_invoker.push_arg_float(x2)native_invoker.push_arg_float(y2)native_invoker.push_arg_float(z2)native_invoker.push_arg_bool(useZ)native_invoker.end_call_2(0xF1B760881820C952)return native_invoker.get_return_value_float()end
-    --[[BOOL (bool)]] static function GetScreenCoordFromWorldCoord(--[[float]] worldX,--[[float]] worldY,--[[float]] worldZ,--[[float* (pointer)]] screenX,--[[float* (pointer)]] screenY)native_invoker.begin_call()native_invoker.push_arg_float(worldX)native_invoker.push_arg_float(worldY)native_invoker.push_arg_float(worldZ)native_invoker.push_arg_pointer(screenX)native_invoker.push_arg_pointer(screenY)native_invoker.end_call_2(0x34E82F05DF2974F5)return native_invoker.get_return_value_bool()end
-    --[[BOOL (bool)]] static function GetUsingseethrough()native_invoker.begin_call()native_invoker.end_call_2(0x44B80ABAB9D80BD3)return native_invoker.get_return_value_bool()end
-    --[[BOOL (bool)]] static function IsPedFacingPed(--[[Ped (int)]] ped,--[[Ped (int)]] otherPed,--[[float]] angle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(otherPed)native_invoker.push_arg_float(angle)native_invoker.end_call_2(0xD71649DB0A545AA3)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SeethroughSetNoiseMin(--[[float]] amount)native_invoker.begin_call()native_invoker.push_arg_float(amount)native_invoker.end_call_2(0xFF5992E1C9E65D05)end
-    --[[void]] static function SeethroughSetNoiseMax(--[[float]] amount)native_invoker.begin_call()native_invoker.push_arg_float(amount)native_invoker.end_call_2(0xFEBFBFDFB66039DE)end
-    --[[BOOL (bool)]] static function IsPedShooting(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x34616828CD07F1A1)return native_invoker.get_return_value_bool()end
-    --[[void]] static function AddPedAmmoByType(--[[Ped (int)]] ped,--[[Hash (int)]] ammoTypeHash,--[[int]] Ammo)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(ammoTypeHash)native_invoker.push_arg_int(Ammo)native_invoker.end_call_2(0x2472622CE1F2D45F)end
-    --[[BOOL (bool)]] static function HasEntityClearLosToEntity(--[[Entity (int)]] entity1,--[[Entity (int)]] entity2,--[[int]] traceType)native_invoker.begin_call()native_invoker.push_arg_int(entity1)native_invoker.push_arg_int(entity2)native_invoker.push_arg_int(traceType)native_invoker.end_call_2(0xFCDFF7B72D23A1AC)return native_invoker.get_return_value_bool()end
-    --[[void]] static function ShootSingleBulletBetweenCoordsIgnoreEntity(--[[float]] x1,--[[float]] y1,--[[float]] z1,--[[float]] x2,--[[float]] y2,--[[float]] z2,--[[int]] damage,--[[BOOL (bool)]] p7,--[[Hash (int)]] weaponHash,--[[Ped (int)]] ownerPed,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] speed,--[[Entity (int)]] entity,--[[Any (int)]] p14)native_invoker.begin_call()native_invoker.push_arg_float(x1)native_invoker.push_arg_float(y1)native_invoker.push_arg_float(z1)native_invoker.push_arg_float(x2)native_invoker.push_arg_float(y2)native_invoker.push_arg_float(z2)native_invoker.push_arg_int(damage)native_invoker.push_arg_bool(p7)native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(ownerPed)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(speed)native_invoker.push_arg_int(entity)native_invoker.push_arg_int(p14)native_invoker.end_call_2(0xE3A7742E0B7A2F8B)end
-    --[[float]] static function SeethroughGetMaxThickness()native_invoker.begin_call()native_invoker.end_call_2(0x43DBAE39626CE83F)return native_invoker.get_return_value_float()end
-    --[[BOOL (bool)]] static function IsEntityDead(--[[Entity (int)]] entity,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0x5F9532F3B5CC2551)return native_invoker.get_return_value_bool()end
-    --[[void]] static function GiveWeaponComponentToPed(--[[Ped (int)]] ped,--[[Hash (int)]] weaponHash,--[[Hash (int)]] componentHash)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(componentHash)native_invoker.end_call_2(0xD966D51AA5B28BB9)end
-    --[[int]] static function GetEntityHealth(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xEEF059FAD016D209)return native_invoker.get_return_value_int()end
-    --[[float]] static function GetWeaponDamage(--[[Hash (int)]] weaponHash,--[[Hash (int)]] componentHash)native_invoker.begin_call()native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(componentHash)native_invoker.end_call_2(0x3133B907D8B32053)return native_invoker.get_return_value_float()end
-    --[[BOOL (bool)]] static function IsPedAPlayer(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x12534C348C6CB68B)return native_invoker.get_return_value_bool()end
-    --[[BOOL (bool)]] static function DoesEntityExist(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x7239B21A38F536BA)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SeethroughReset()native_invoker.begin_call()native_invoker.end_call_2(0x70A64C0234EF522C)end
-    --[[BOOL (bool)]] static function IsPlayerFreeAiming(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x2E397FD2ECD37C87)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SetSeethrough(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x7E08924259E08CE0)end
+    function GiveComponent(weapon_hash, component_hash)
+        if not SCRIPT_CAN_CONTINUE then return end
+        local localplayer = players.localplayer()
+        if not localplayer:has_ped_got_weapon_component(weapon_hash, component_hash) then
+            localplayer:give_weapon_component_to_ped(weapon_hash, component_hash)
+            local ammo_type = localplayer:get_ped_ammo_type_from_weapon(weapon_hash)
+            localplayer:set_ped_ammo_by_type(ammo_type, 9999)
+        end
+    end
+
+    function GetCurrentWeapon()
+        local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
+        local current_weapon = memory.read_long(weapon_manager + 0x0020)
+        return current_weapon
+    end
+
+    function GetCurrentWeaponAmmoInfo()
+        return memory.read_long(self:GetCurrentWeapon() + 0x0060)
+    end
 end
 
 return Weapons

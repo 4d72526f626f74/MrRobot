@@ -4,335 +4,19 @@ local VehModels = require('vehicle_models')
 local Globals = require('script_globals')
 local ScriptOffsets = require('offsets')
 local Masks = require('masks')
-local shadow_root = menu.shadow_root()
-local Bit, BitMask = S.Bit, S.BitMask
-local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
+local Network = require('network')
 
-local ScriptRoot = filesystem.scripts_dir() .. 'MrRobot/'
-local ScriptImages = ScriptRoot .. 'images/'
-local GamerHandle = memory.alloc(104)
+local shadow_root = menu.shadow_root()
 
 local Offsets = ScriptOffsets.Vehicles.LSCustoms
 local Bits = ScriptOffsets.Players.Bits
 local SpoofingOffsets = ScriptOffsets.Online.SpoofingOffsets
 local PlayerStates = ScriptOffsets.PlayerStates
 local VehStateBitfield = ScriptOffsets.VehStateBitfield
-local Settings = Bitfield.new(Bits.ForceScriptHost)
+local Settings = pluto_new Bitfield(Bits.ForceScriptHost)
 
-pluto_class Players
-    ScriptGlobal = memory.script_global
-    ReadInt = memory.read_int
-    ReadShort = memory.read_short
-    ReadByte = memory.read_byte
-    ReadFloat = memory.read_float
-    WriteInt = memory.write_int
-    WriteShort = memory.write_short
-    WriteByte = memory.write_byte
-    Alloc = memory.alloc
-
-    function __construct()
-       local func = S:Partial(self.PlayerLoop, self)
-       H.PlayerLoop = func
-
-       self.spawned_vehicles = {}
-    end
-
-    function PlayerLoop(pid, root)
-        self.NetworkHandleFromPlayer(pid, GamerHandle, 104 // 8)
-        S:AddPlayer(pid)
-        if self.NetworkIsFriend(GamerHandle) then S:AddFriend(pid) end
-
-        local name = players.get_name(pid)
-        root:divider('Mr.Robot')
-        local proot = root:list('Mr.Robot', {}, 'Mr.Robot')
-
-        self.pinfo = proot:list(T'Player Info', {}, T'Player Info', function()
-            util.create_tick_handler(function()
-                local item = menu.get_current_menu_list()
-                if item.menu_name ~= T'Player Info' then
-                    return false
-                end
-
-                util.draw_debug_text(T'Is Bad Sport' .. ': ' .. self:GetPlayerIsBadsport(pid))
-                util.draw_debug_text(T'Is Cheater' .. ': ' .. self:GetPlayerIsCheater(pid))
-
-                self.pinfo_is_badsport.menu_name = T'Is Bad Sport' .. ': ' .. self:GetPlayerIsBadsport(pid)
-                self.pinfo_is_cheater.menu_name = T'Is Cheater' .. ': ' .. self:GetPlayerIsCheater(pid)
-            end)
-        end)
-
-        self.pinfo_is_badsport = self.pinfo:readonly('', '')
-        self.pinfo_is_cheater = self.pinfo:readonly('', '')
-
-        self.veh_menu = proot:list(T'Personal Vehicle', {}, T'Personal Vehicle options', function()
-            util.create_tick_handler(function()
-                local item = menu.get_current_menu_list()
-                local veh = self:GetVehicleFromNetId(pid)
-
-                if item.menu_name ~= T'Personal Vehicle' then
-                    return false
-                end
-
-                if veh ~= nil then
-                    self.model_ref.menu_name = T'Model' .. ': ' .. util.get_label_text(util.reverse_joaat(self.GetEntityModel(veh)))
-                    util.draw_debug_text(T'Model' .. ': ' .. util.get_label_text(util.reverse_joaat(self.GetEntityModel(veh))))
-                else
-                    self.model_ref.menu_name = T'Model' .. ': ' .. T'None'
-                end
-            end)
-        end)
-
-        self.veh_menu:divider(T'Vehicle Info')    
-        self.model_ref = self.veh_menu:readonly('Model: None', '')
-        self.veh_menu:divider('')
-
-        self.script_events = shadow_root:list(T'Script Events', {}, T'Script Events')
-        self.trolling = proot:list(T'Trolling', {}, T'Trolling options')
-        self.friendly = proot:list(T'Friendly', {}, T'Friendly options')
-        self.organisation = shadow_root:list(T'Organisation', {}, T'Organisation')
-        self.bounty = shadow_root:list(T'Bounty', {}, T'Bounty', function()
-            util.create_tick_handler(function()
-                local item = menu.get_current_menu_list()
-                if item.menu_name ~= T'Bounty' and item:getParent().menu_name ~= T'Trolling' then
-                    return false
-                end
-                
-                local bounty_data = self.ScriptGlobal(Globals:PlayerBountyData(pid))
-                local reward_data = self.ScriptGlobal(Globals:PlayerBountyRewardData(pid))
-
-                util.draw_debug_text(T'Active' .. ': ' .. ((self.ReadByte(bounty_data) ~= 0) and T'Yes' or T'No'))
-                util.draw_debug_text(T'Amount' .. ': ' .. (self.ReadShort(bounty_data + 0x8)))
-                util.draw_debug_text(T'Reward' .. ': ' .. (self.ReadShort(reward_data)))
-                util.draw_debug_text(T'Modded' .. ': ' .. ((self.ReadByte(bounty_data) ~= 0 and S:IsModdedBounty(self.ReadShort(bounty_data + 0x8))) and T'Yes' or T'No'))
-
-                self.bounty_active.menu_name = T'Active' .. ': ' .. ((self.ReadByte(bounty_data) ~= 0) and T'Yes' or T'No')
-                self.bounty_amount.menu_name = T'Amount' .. ': ' .. (self.ReadShort(bounty_data + 0x8))
-                self.bounty_reward.menu_name = T'Reward' .. ': ' .. (self.ReadShort(reward_data))
-                self.bounty_modded.menu_name = T'Modded' .. ': ' .. ((self.ReadByte(bounty_data) ~= 0 and S:IsModdedBounty(self.ReadShort(bounty_data + 0x8))) and T'Yes' or T'No')
-            end)
-        end)
-        self.toxic = shadow_root:list(T'Toxic', {}, T'Toxic')
-        self.veh_trolling = shadow_root:list(T'Vehicle', {}, T'Vehicle Trolling')
-        self.crashes = shadow_root:list(T'Crashes', {}, T'Crashes')
-
-        self.veh_menu:toggle(T'Force Scripthost', {}, T'Forces you to become scripthost, this is not needed for trolling features to work but it can help when they fail', function(state) 
-            Settings:Set(Bits.ForceScriptHost)
-        end, Settings:IsSet(Bits.ForceScriptHost))
-
-        if pid ~= PlayerID then
-            self.veh_menu:toggle(T'Spectate', {}, T'Spectate the player', function(state)
-                local spectate = menu.ref_by_rel_path(root, T'Spectate>Nuts Method')
-
-                if spectate:isValid() then
-                    spectate.value = state
-                end
-            end)
-        end
-
-        self.lock_doors = self.veh_menu:toggle_loop(T'Lock Doors', {}, T'Locks the doors of the player\'s vehicle', function()
-            if Settings:IsSet(Bits.ForceScriptHost) then S:ForceScriptHost() end 
-            local veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                S:RequestControl(veh)
-                self.SetVehicleDoorsLockedForPlayer(veh, pid, true)
-                self.SetVehicleDoorsShut(veh, true)
-            else
-                self.lock_doors.value = false
-                self:DisplayRangeMessage(pid)
-            end
-        end,
-        function()
-            local veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                self.SetVehicleDoorsLockedForPlayer(veh, pid, false)
-                self.SetVehicleDoorsShut(veh, false)
-            end
-        end)
-
-        self.send_veh_to_heaven = self.veh_menu:toggle_loop(T'Send Vehicle To Heaven', {}, T'Sends the player\'s vehicle to heaven', function()
-            if Settings:IsSet(Bits.ForceScriptHost) then S:ForceScriptHost() end  
-            veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                pcall(function()
-                    S:RequestControl(veh)
-                    self.SetVehicleDoorsShut(veh, false)
-                end)
-            else
-                self.send_veh_to_heaven.value = false
-                self:DisplayRangeMessage(pid)
-            end
-        end,
-        function() 
-            veh = self:GetVehicleFromNetId(pid)
-            if veh ~= nil then
-                self.SetVehicleDoorsShut(veh, true)
-            end
-        end)
-
-        self.deny_control_requests = self.veh_menu:toggle_loop(T'Deny Control Requests', {}, T'Prevents the player from taking control of their vehicle', function()
-            if Settings:IsSet(Bits.ForceScriptHost) then S:ForceScriptHost() end 
-            veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                pcall(function()
-                    local ptr = entities.handle_to_pointer(veh)
-                    S:RequestControl(veh)
-                    entities.set_can_migrate(ptr, false)
-                end)
-            else
-                self.deny_control_requests.value = false
-                self:DisplayRangeMessage(pid)
-            end
-        end,
-        function()
-            veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                local ptr = entities.handle_to_pointer(veh)
-                entities.set_can_migrate(ptr, true)
-            end
-        end)
-
-        self.spoof_vehicle = self.veh_menu:toggle(T'Spoof Vehicle', {}, T'Spoof this players personal vehicle as your own', function(state)
-            if Settings:IsSet(Bits.ForceScriptHost) then S:ForceScriptHost() end
-            if self:GetVehicleFromNetId(pid) ~= 0 then
-                self:SpoofVehicle(pid, PlayerID, state)
-            else
-                self:DisplayRangeMessage(pid)
-                self.spoof_vehicle.value = false
-            end
-        end)
-
-        self.conceal_vehicle = self.veh_menu:toggle_loop(T'Conceal Vehicle', {}, T'Stops the vehicle from being networked', function()
-            local Veh = self:GetVehicleFromNetId(pid)
-            if Veh ~= 0 then
-                if not self.NetworkIsEntityConcealed(Veh) then
-                    self.NetworkConcealEntity(Veh, true, true)
-                end
-            end
-        end,
-        function()
-            local Veh = self:GetVehicleFromNetId(pid)
-            if Veh ~= 0 then
-                if self.NetworkIsEntityConcealed(Veh) then
-                    self.NetworkConcealEntity(Veh, false, false)
-                end
-            end
-        end)
-
-        self.veh_menu:action(T'Add Explosive Device', {}, T'Add explosive device to the players vehicle', function()
-            local veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                self.AddVehiclePhoneExplosiveDevice(veh)
-            else
-                local veh = self.GetVehiclePedIsIn(self.GetPlayerPed(pid), false)
-                if veh ~= 0 then
-                    self.AddVehiclePhoneExplosiveDevice(veh)
-                end 
-            end
-        end)
-
-        self.veh_menu:action(T'Remove Explosive Device', {}, T'Remove explosive device from the players vehicle', function()
-            local veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                self.ClearVehiclePhoneExplosiveDevice(veh)
-            else
-                local veh = self.GetVehiclePedIsIn(self.GetPlayerPed(pid), true)
-                if veh ~= 0 then
-                    self.ClearVehiclePhoneExplosiveDevice(veh)
-                end
-            end
-        end)
-
-        self.veh_menu:action(T'Explode Device', {}, T'Explode the explosive device in the players vehicle', function(state)
-            local veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                self.DetonateVehiclePhoneExplosiveDevice(veh)
-            else
-                local veh = self.GetVehiclePedIsIn(self.GetPlayerPed(pid), true)
-                if veh ~= 0 then
-                    self.DetonateVehiclePhoneExplosiveDevice(veh)
-                end
-            end
-        end)
-
-        self.veh_menu:action(T'Force Respawn', {}, T'Force the player\'s personal vehicle to respawn', function()
-            if Settings:IsSet(Bits.ForceScriptHost) then S:ForceScriptHost() end
-            self:ForceVehRespawn(pid)
-        end)
-
-        self.veh_menu:divider('')
-        local veh_kicks = self.veh_menu:list(T'Kicks', {}, T'Vehicle kicks')
-        veh_kicks:action(T'Takeover', {}, T'Takeover kick (a discrete vehicle kick)', function()
-            if Settings:IsSet(Bits.ForceScriptHost) then S:ForceScriptHost() end
-            self:TakeoverKick(pid)
-        end)
-
-        local decor_editor = self.veh_menu:list(T'Decor Editor', {}, T'Edit vehicle decors')
-        local bitset = decor_editor:list(T'MPBitset', {}, '')
-
-        for i = 0, 31 do
-            bitset:toggle(T'Bit ' .. i, {}, '', function(state)
-                if not SCRIPT_CAN_CONTINUE then return end
-                local veh = self:GetVehicleFromNetId(pid)
-                if veh ~= 0 then
-                    self:SoftSpoof(pid, PlayerID, true)
-                    local bitset = self.DecorGetInt(veh, 'MPBitset')
-                    self.DecorSetInt(veh, 'MPBitset', state ? (Bit:Set(bitset, i)) : (Bit:Clear(bitset, i)))
-
-                    self:SoftSpoof(pid, PlayerID, false)
-                end
-            end, Bit:Check(self.DecorGetInt(self:GetVehicleFromNetId(pid), 'MPBitset'), i))
-        end
-        
-        decor_editor:text_input(T'Player_Vehicle', {T'editdecorpv'}, T'The player vehicle decor', function(value)
-            if not SCRIPT_CAN_CONTINUE then return end
-            local veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                self:SoftSpoof(pid, PlayerID, true)
-                self.DecorSetInt(veh, 'Player_Vehicle', tonumber(value))
-                self:SoftSpoof(pid, PlayerID, false)
-            end
-        end, self.DecorGetInt(self:GetVehicleFromNetId(pid), 'Player_Vehicle'))
-
-        decor_editor:text_input(T'Previous_Owner', {T'editdecorpo'}, T'The previous owner decor', function(value)
-            if not SCRIPT_CAN_CONTINUE then return end
-            local veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                self:SoftSpoof(pid, PlayerID, true)
-                self.DecorSetInt(veh, 'Previous_Owner', tonumber(value))
-                self:SoftSpoof(pid, PlayerID, false)
-            end
-        end, self.DecorGetInt(self:GetVehicleFromNetId(pid), 'Previous_Owner'))
-
-        decor_editor:text_input(T'PV_Slot', {T'editdecorpvs'}, T'The PV_Slot decor', function(value)
-            if not SCRIPT_CAN_CONTINUE then return end
-            local veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                self:SoftSpoof(pid, PlayerID, true)
-                self.DecorSetInt(veh, 'PV_Slot', tonumber(value))
-                self:SoftSpoof(pid, PlayerID, false)
-            end
-        end, self.DecorGetInt(self:GetVehicleFromNetId(pid), 'PV_Slot'))
-
-        decor_editor:text_input(T'Veh_Modded_By_Player', {T'editdecorvmbp'}, T'The Veh_Modded_By_Player decor', function(value)
-            if not SCRIPT_CAN_CONTINUE then return end
-            local veh = self:GetVehicleFromNetId(pid)
-            if veh ~= 0 then
-                self:SoftSpoof(pid, PlayerID, true)
-                self.DecorSetInt(veh, 'Veh_Modded_By_Player', tonumber(value))
-                self:SoftSpoof(pid, PlayerID, false)
-            end
-        end, self.DecorGetInt(self:GetVehicleFromNetId(pid), 'Veh_Modded_By_Player'))
-
-        self.organisation = self.trolling:attach(self.organisation)
-        self.organisation:toggle_loop(T'Force Join', {}, T'Force join the players organisation, they cannot kick you as you will instantly join back', function()
-            if Settings:IsSet(Bits.ForceScriptHost) then S:ForceScriptHost() end
-            self:SetOrgId(pid)
-        end)
-
-        self.script_events = self.trolling:attach(self.script_events)
-            
-        local events = {
-            'Fake Register CEO', 
+local ScriptEvents = {
+    'Fake Register CEO', 
             'Fake Register MC', 
             'Fake Register VIP',
             'Fake Off The Radar',
@@ -351,12 +35,275 @@ pluto_class Players
             'Marked For Death',
             'Interior Invite',
             'Mugger Killed'
+}
+
+local DetachableWheels = {
+    {index = 0, name = T'Left Front'},
+    {index = 1, name = T'Right Front'},
+    {index = 2, name = T'Left Rear'},
+    {index = 3, name = T'Right Rear'},
+    {index = 4, name = T'Left Middle'},
+    {index = 5, name = T'Right Middle'},
+}
+
+pluto_class Players
+    cayo_targets = {
+        'Tequila',
+        'Madrazo Files',
+        'Pink Diamond',
+        'Bearer Bonds',
+        'Ruby Necklace',
+        'Sapphire Panther',
+        'Invalid'
+    }
+
+    function __construct(root)
+        self.spawned_vehicles = {}
+        self.gamer_handle = memory.alloc(104)
+        self.updating = {
+            player_info = false,
+            personal_vehicle = false,
+            bounty = false,
+            wheels_states = false
         }
 
-        self.event_choice = self.script_events:list_select(T'Event', {}, T'The script event to send', events, 1, function(index) end)
-        self.script_events:action(T'Send', {}, T'Send the script event to the player', function()
-            local index = self.event_choice.value
-            local event = events[index]
+        local partial = S:Partial(self.PlayerLoop, self)
+        H.PlayerLoop = partial
+    end
+
+    function PlayerLoop(pid, root)
+        network.network_handle_from_player(pid, self.gamer_handle, 104 // 8)
+        S:AddPlayer(pid)
+        if network.network_is_friend(self.gamer_handle) and pid ~= players.user() then S:AddFriend(pid) end
+
+        local name = players.get_name(pid)
+        root:divider('Mr.Robot')
+        self.root = root:list('Mr.Robot', {}, 'Mr.Robot')
+
+        self.pinfo = self.root:list(T'Player Info', {}, T'Player Info', nil, nil, || -> self:UpdatePlayerInfo(pid))
+        self.pinfo:readonly('', '') -- badsport
+        self.pinfo:readonly('', '') -- cheater
+
+        self.pv = self.root:list(T'Personal Vehicle', {}, T'Personal Vehicle', nil, nil, || -> self:UpdatePersonalVehicle(pid))
+        self.pv:divider(T'Vehicle Info')
+        self.pv:readonly('', '') -- model
+        self.pv:readonly('', '') -- health
+        self.pv:readonly('', '') -- godmode
+        self.pv:readonly('', '') -- frozen
+        self.pv:readonly('', '') -- invisible
+        self.pv:readonly('', '') -- can migrate
+
+        self.pv:divider('')
+        self.pv:toggle(T'Force Script Host', {}, T'Forces you to become script host (helps with trolling features)', function(state)
+            Settings:SetBool(Bits.ForceScriptHost, state)
+        end, Settings:IsSet(Bits.ForceScriptHost))
+
+        if pid ~= players.user() then
+            self.pv:toggle(T'Spectate', {}, T'Spectate the player', function(state)
+                local spect = menu.ref_by_rel_path(root, T'Spectate>Nuts Method')
+                if spect:isValid() then
+                    spect.value = state
+                end
+            end)
+        end
+
+        local lock_doors
+        ock_doors = self.pv:toggle_loop(T'Lock Door', {}, T'Locks the door of the player\'s vehicle', function()
+            if Settings:IsSet(Bits.ForceScriptHost) then Network.BecomeScriptHost() end
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if Network.RequestControl(veh) then
+                    vehicle.set_vehicle_doors_locked_for_player(veh, pid, true)
+                    vehicle.set_vehicle_doors_shut(veh, true)
+                else
+                    Network.FailedToRequestControl(veh)
+                end
+            else
+                lock_doors.value = false
+                self:OutOfRange()
+            end
+        end, function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                vehicle.set_vehicle_doors_locked_for_player(veh, pid, false)
+                vehicle.set_vehicle_doors_shut(veh, false)
+            end
+        end)
+
+        local deny_request
+        deny_requests = self.pv:toggle_loop(T'Deny Control Requests', {}, T'Prevent the player from being able to take control over their vehicle', function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if entities.get_can_migrate(veh) then
+                    entities.set_can_migrate(veh, false)
+                end
+            else
+                deny_requests.value = false
+                self:OutOfRange()
+            end
+        end, function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if not entities.get_can_migrate(veh) then
+                    entities.set_can_migrate(veh, true)
+                end
+            end
+        end)
+
+        local conceal_vehicle
+        conceal_vehicle = self.pv:toggle_loop(T'Conceal Vehicle', {}, T'Stops the vehicle from being networked', function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if Network.RequestControl(veh) then
+                    if not network.network_is_entity_concealed(veh) then
+                        network.network_conceal_entity(veh, true)
+                    end
+                else
+                    Network.FailedToRequestControl(veh)
+                end
+            end
+        end, function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if Network.RequestControl(veh) then
+                    if network.network_is_entity_concealed(veh) then
+                        network.network_conceal_entity(veh, false)
+                    end
+                else
+                    Network.FailedToRequestControl(veh)
+                end
+            end
+        end)
+
+        local send_to_heaven
+        send_to_heaven = self.pv:toggle_loop(T'Send Vehicle To Heaven', {}, T'Send the players vehicle to heaven, this does not work on every vehicle!', function()
+            if Settings:IsSet(Bits.ForceScriptHost) then Network.BecomeScriptHost() end
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if Network.RequestControl(veh) then
+                    vehicle.set_vehicle_doors_shut(veh, false)
+                else
+                    Network.FailedToRequestControl(veh)
+                end
+            else
+                send_to_heaven.value = false
+                self:OutOfRange()
+            end
+        end)
+
+        self.pv:divider('')
+        self.pv:action(T'Add Explosive Device', {}, T'Add explosive device to the players vehicle', function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if Network.RequestControl(veh) then
+                    vehicle.add_vehicle_phone_explosive_device(veh)
+                else
+                    Network.FailedToRequestControl(veh)
+                end
+            else
+                local veh = ped.get_vehicle_ped_is_in(player.get_player_ped(pid), false)
+                if veh ~= 0 then
+                    if Network.RequestControl(veh) then
+                        vehicle.add_vehicle_phone_explosive_device(veh)
+                    else
+                        Network.FailedToRequestControl(veh)
+                    end
+                end
+            end
+        end)
+
+        self.pv:action(T'Clear Explosive Device', {}, T 'Removes the explosive device from the players vehicle', function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if Network.RequestControl(veh) then
+                    vehicle.clear_vehicle_phone_explosive_device(veh)
+                else
+                    Network.FailedToRequestControl(veh)
+                end
+            else
+                local veh = ped.get_vehicle_ped_is_in(player.get_player_ped(pid), false)
+                if veh ~= 0 then
+                    if Network.RequestControl(veh) then
+                        vehicle.clear_vehicle_phone_explosive_device(veh)
+                    else
+                        Network.FailedToRequestControl(veh)
+                    end
+                end
+            end
+        end)
+
+        self.pv:action(T'Detonate Explosive Device', {}, T'Detonate the explosive device', function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if Network.RequestControl(veh) then
+                    vehicle.detonate_vehicle_phone_explosive_device(veh)
+                else
+                    Network.FailedToRequestControl(veh)
+                end
+            else
+                local veh = ped.get_vehicle_ped_is_in(player.get_player_ped(pid), false)
+                if veh ~= 0 then
+                    if Network.RequestControl(veh) then
+                        vehicle.detonate_vehicle_phone_explosive_device(veh)
+                    else
+                        Network.FailedToRequestControl(veh)
+                    end
+                end
+            end
+        end)
+
+        self.pv:action(T'Force Respawn', {}, T'Force the players vehicle to respawn', function()
+            if Settings:IsSet(Bits.ForceScriptHost) then Network.BecomeScriptHost() end
+            self:ForceVehicleRespawn(pid)
+        end)
+
+        self.pv:action(T'Unlock Vehicle', {}, T'Bypass vehicle access settings', function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                vehicle.set_vehicle_doors_locked_for_player(veh, players.user(), false)
+            end
+        end)
+
+        self.pv:action(T'Repair', {}, T'Repair their vehicle', function()
+            local veh = Network.GetPVFromNetworkID(pid)
+            if veh ~= 0 then
+                if Network.RequestControl(veh) then
+                    vehicle.set_vehicle_fixed(veh)
+                else
+                    Network.FailedToRequestControl(veh)
+                end
+            else
+                self:OutOfRange()
+            end
+        end)
+        self.pv:divider('')
+        self.veh_kicks = self.pv:list(T'Kicks', {}, T'Vehicle kicks')
+        self.veh_kicks:action(T'Takeover Kick', {}, T'Takeover kick (a discrete vehicle kick)', function()
+            if Settings:IsSet(Bits.ForceScriptHost) then Network.BecomeScriptHost() end
+            self:TakeoverKick(pid)
+        end)
+
+        self.veh_kicks:action(T'Regular Kick', {}, T'Interaction menu kick', function()
+            self:RegularKick(pid)
+        end)
+
+        self.trolling = self.root:list(T'Trolling', {}, T'Trolling')
+        if pid ~= players.user() then
+            self.organisation = self.trolling:list(T'Organisation', {}, T'Organisation')
+
+            self.organisation:toggle_loop(T'Force Join', {}, T'Force join the players organisation, you will instatly rejoin if they kick you', function()
+                Network.SetOrganisationID(pid)
+            end)
+        end
+
+        self.script_events = self.trolling:list(T'Script Events', {}, T'Script Events')
+        local event_amount = self.script_events:slider(T'Amount', {T'amount'}, T'Amount of times to trigger the event', 1, math.max_int, 1, 1, function(value) end)
+        local event_choice = self.script_events:list_select(T'Event', {}, T'The event to send', ScriptEvents, 1, function(index) end)
+        self.script_events:action(T'Send', {}, T 'Send the event to the player', function()
+            local index = event_choice.value
+            local event = ScriptEvents[index]
+            local player_id = players.user()
+            local amount = event_amount.value
 
             pluto_switch event do
                 case 'Fake Register CEO':
@@ -375,40 +322,40 @@ pluto_class Players
                     S:GhostOrg(pid)
                     break
                 case 'Mugged':
-                    S:SuccessfullyMugged(pid, S.MAX_INT)
+                    S:SuccessfullyMugged(pid, math.max_int)
                     break
                 case 'Ewo':
-                    S:PlayerEwo(pid, PlayerID)
+                    S:PlayerEwo(pid, player_id)
                     break
                 case 'Ghosted':
-                    Shared:BecomeGhosted(pid, PlayerID)
+                    S:BecomeGhosted(pid, player_id)
                     break
                 case 'Destroyed Vehicle Cargo':
-                    S:DestroyedVehicleCargo(pid, PlayerID)
+                    S:DestroyedVehicleCargo(pid, player_id)
                     break
                 case 'Cash Stolen':
-                    S:CashStolen(pid, tonumber(S.DisplayOnscreenKeyboard()))
+                    S:CashStolen(pid, amount)
                     break
                 case 'Cash Banked':
-                    S:CashBanked(pid, tonumber(S.DisplayOnscreenKeyboard()))
+                    S:CashBanked(pid, amount)
                     break
                 case 'Cash Removed':
-                    S:CashRemoved(pid, tonumber(S.DisplayOnscreenKeyboard()))
+                    S:CashRemoved(pid, amount)
                     break
                 case 'Jammer Activated':
                     S:JammerActivated(pid)
                     break
                 case 'Delivered Motorcycle':
-                    S:DeliveredMotorcycle(pid, PlayerID)
+                    S:DeliveredMotorcycle(pid, player_id)
                     break
                 case 'Joined Organisation':
-                    S:JoinedOrg(pid, PlayerID)
+                    S:JoinedOrg(pid, player_id)
                     break
                 case 'Quit Organisation':
-                    S:QuitOrg(pid, PlayerID)
+                    S:QuitOrg(pid, player_id)
                     break
                 case 'Marked For Death':
-                    S:MarkedForDeath(pid, PlayerID)
+                    S:MarkedForDeath(pid, player_id)
                     break
                 case 'Interior Invite':
                     S:InteriorInvite(pid, PlayerID)
@@ -419,547 +366,563 @@ pluto_class Players
             end
         end)
 
-        self.script_events:divider('')
-        self.script_events:toggle_loop(T'Annoy Player', {}, T'Spam the player with loads of notifications', function()
-            S:SuccessfullyMugged(pid, math.random(S.MIN_INT, S.MAX_INT))
-            util.yield(100)
-        end)
-
-        self.bounty = self.trolling:attach(self.bounty)
-            
-        self.bounty:divider(T'Bounty')
-        self.bounty_active = self.bounty:readonly(T'Active' .. ': ' .. T'No')
-        self.bounty_amount = self.bounty:readonly(T'Amount' .. ': ' .. T'0')
-        self.bounty_reward = self.bounty:readonly(T'Reward' .. ': ' .. T'0')
-        self.bounty_modded = self.bounty:readonly(T'Modded' .. ': ' .. T'No')
+        self.bounty = self.trolling:list(T'Bounty', {}, T'Bounty', nil, nil, || -> self:UpdateBountyInfo(pid))
+        self.bounty:divider(T'Bounty Info')
+        self.bounty:readonly('', '') -- Active
+        self.bounty:readonly('', '') -- Amount
+        self.bounty:readonly('', '') -- Reward
+        self.bounty:readonly('', '') -- Modded
         self.bounty:divider('')
 
-        self.bounty:text_input(T'Set Bounty', {T'setbounty'}, T'Set an anonymous undetectable bounty on the player, they will never even know that they have a bounty on them', function(amount)
+        local bounty_input_amount
+        bounty_input_amount = self.bounty:text_input(T'Bounty', {T'rpbounty'}, T'Set an anonymous undetectable bounty on the player', function(amount)
             amount = tonumber(amount)
             if amount ~= nil then
                 if amount < 0 or amount > 10000 then
                     return util.toast(T'Invalid amount')
                 end
 
-                S:SetPlayerBounty(pid, 0, false)
-                S:SetPlayerBounty(pid, amount, true)
+                Network.SetBounty(pid, 0, false)
+                Network.SetBounty(pid, amount, true)
             end
         end, '10000')
 
-        self.bounty:action(T'Max Bounty', {}, T'Set the maximum bounty a player can have', function()
-            S:SetPlayerBounty(pid, 0, false)
-            S:SetPlayerBounty(pid, 10000, true)
-        end)
-
-        self.bounty:action(T'Remove Bounty', {}, T'Remove the bounty on the player', function()
-            S:SetPlayerBounty(pid, 0, false)
-        end)
-
-        self.loop_bounty = self.bounty:toggle(T'Bounty Loop', {}, 'Loop set a bounty on the player', function(state)
-            if state then
-                local amount = tonumber(S:DisplayOnscreenKeyboard())
+        local bounty_reward_amount
+        bounty_reward_amount = self.bounty:text_input(T'Reward', {T'rpbountyreward'}, T'Set the reward amount for the players bounty (anyone that kills them will get this amount instead of the amount that was set)', function(amount)
+            amount = tonumber(amount)
+            if amount ~= nil then
                 if amount < 0 or amount > 10000 then
-                    amount = 0
+                    return util.toast(T'Invalid amount')
                 end
 
-                util.create_tick_handler(function()
-                    if self.loop_bounty.value == false then
-                        return false
-                    end
+                Network.SetBountyReward(pid, amount)
+            end
+        end, '10000')
+        self.bounty:divider('')
 
-                    if not S:PlayerHasBounty(pid) then
-                        S:SetPlayerBounty(pid, 10000, true)
-                    end
-                end)
+        self.bounty:action(T'Max Bounty', {T'rpmaxbounty'}, T'Set the players bounty to the maximum amount', function()
+            Network.SetBounty(pid, 0, false)
+            Network.SetBounty(pid, 10000, true)
+        end)
+
+        self.bounty:action(T'Remove Bounty', {T'rpremovebounty'}, T'Remove the bounty from the player', function()
+            Network.SetBounty(pid, 0, false)
+        end)
+
+        self.bounty:divider('')
+        self.bounty:toggle_loop(T'Bounty Loop', {T'rpbountyloop'}, T'Loop set a bounty on the player', function()
+            local amount = tonumber(bounty_input_amount.value)
+            if amount ~= nil then
+                if amount < 0 or amount > 10000 then
+                    return util.toast(T'Invalid amount')
+                end
+
+                Network.SetBounty(pid, 0, false)
+                Network.SetBounty(pid, amount, true)
             end
         end)
 
-        self.set_bounty_reward = self.bounty:toggle(T'Set Bounty Reward', {}, T'Set the reward amount for the players bounty, this is how much the player that kills them will get', function(state)
-            local ref = self.set_bounty_reward
-
-            if state then
-                local amount = tonumber(S:DisplayOnscreenKeyboard())
-                if amount ~= nil then
-                    if amount < 0 or amount > 10000 then
-                        amount = 10000
-                    end
-
-                    util.create_tick_handler(function()
-                        if not ref.value then
-                            return false
-                        end
-                        
-                        S:SetPlayerBountyReward(pid, amount)
-                    end)
+        self.bounty:toggle_loop(T'Set Bounty Reward', {T'rpsetbountyreward'}, T'Set the reward amount for the players bounty', function()
+            local amount = tonumber(bounty_reward_amount.value)
+            if amount ~= nil then
+                if amount < 0 or amount > 10000 then
+                    return util.toast(T'Invalid amount')
                 end
+
+                Network.SetBountyReward(pid, amount)
             end
         end)
 
-        self.bounty:toggle_loop(T'Max Bounty Reward', {}, T'Set the maximum bounty reward a player can have', function()
-            S:SetPlayerBountyReward(pid, 10000)
+        self.bounty:toggle_loop(T'Max Bounty Reward', {T'rpmaxbountyrewardloop'}, T'Set the players bounty reward to the maximum amount', function()
+            Network.SetBountyReward(pid, 10000)
         end)
 
-        self.bounty:toggle_loop(T'Remove Bounty Reward', {}, T'Remove the bounty reward on the player', function()
-            S:SetPlayerBountyReward(pid, 0)
+        self.bounty:toggle_loop(T'Remove Bounty Reward', {T'rpremovebountyrewardloop'}, T'Remove the bounty reward for the player', function()
+            Network.SetBountyReward(pid, 0)
         end)
 
-        self.toxic = self.trolling:attach(self.toxic)
-            
-        self.toxic:action(T'Send Corrupted Interior Invite', {}, T'This will result in a black screen for anyone that accepts the invite', function()
-            local interior = self.ScriptGlobal(Globals.Interior)
-            self.WriteInt(interior, -1)
+        self.toxic = self.trolling:list(T'Toxic', {}, T'Toxic')
+        self.toxic:action(T'Send Corrupted Invite', {}, T'Send a corrupted invite to the player', function()
+            memory.write_int(memory.script_global(Globals.Interior), -1)
             S:InteriorInvite(pid)
         end)
 
-        self.veh_trolling = self.trolling:attach(self.veh_trolling)
-        self.wheels = self.veh_trolling:list(T'Wheels', {}, T'Wheels related trolling')
-        self.individual_wheels = self.wheels:list(T'Individual Wheels', {}, T'')
+        self.veh_trolling = self.trolling:list(T'Vehicle', {}, T'Vehicle')
+        self.wheels = self.veh_trolling:list(T'Wheels', {}, T'Wheels', nil, nil, || -> self:UpdateWheelsInfo(pid))
+        self.wheels:divider(T'Wheels')
+        self.wheels:readonly(T'Wheel 1: ?', '') -- index 1
+        self.wheels:readonly(T'Wheel 2: ?', '') -- index 2
+        self.wheels:readonly(T'Wheel 3: ?', '') -- index 3
+        self.wheels:readonly(T'Wheel 4: ?', '') -- index 4
+        self.wheels:readonly(T'Wheel 5: ?', '') -- index 5
+        self.wheels:readonly(T'Wheel 6: ?', '') -- index 6
+        self.wheels:readonly(T'Wheel 7: ?', '') -- index 7
+        self.wheels:readonly(T'Wheel 8: ?', '') -- index 8
+        self.wheels:divider('')
 
+        self.individual_wheels = self.wheels:list(T'Individual Wheels', {}, T'Individual Wheels')
         self.wheels:action(T'Detach Wheels', {}, T'Detach wheels from the players vehicle', function()
-            local ped = self.GetPlayerPed(pid)
-            if self.IsPedInAnyVehicle(ped) then
-                local veh = self.GetVehiclePedIsIn(ped, false)
-                if veh ~= 0 then
-                    local ptr = entities.handle_to_pointer(veh)
-                    S:RequestControlCB(veh, function(control)
-                        if control then
-                            for i = 0, 7 do
+            local player_ped = player.get_player_ped(pid)
+            local veh = ped.get_vehicle_ped_is_in(player_ped, false)
+            if veh ~= 0 then
+                local ptr = entities.handle_to_pointer(veh)
+                if ptr ~= 0 then
+                    if Network.RequestControl(veh) then
+                        local state = memory.read_short(ptr + 0xA48)
+                        for i = 0, 7 do
+                            if not memory.bits:check(state, i) then
                                 entities.detach_wheel(ptr, i)
                             end
-                        else
-                            util.toast(T'Failed to request control of vehicle')
                         end
-                    end)
+                    else
+                        Network.FailedToRequestControl(veh)
+                    end
                 end
             end
         end)
 
-        local detachable_wheels = {
-            {index = 0, name = T'Left Front'},
-            {index = 1, name = T'Right Front'},
-            {index = 2, name = T'Left Rear'},
-            {index = 3, name = T'Right Rear'},
-            {index = 4, name = T'Left Middle'},
-            {index = 5, name = T'Right Middle'},
-        }
-
-        for i, wheel_data in pairs(detachable_wheels) do
-            self.individual_wheels:action(wheel_data.name, {}, T'Detach a wheel from the players vehicle', function()
-                local ped = self.GetPlayerPed(pid)
-                if self.IsPedInAnyVehicle(ped) then
-                    local veh = self.GetVehiclePedIsIn(ped, false)
-                    if veh ~= 0 then
-                        local ptr = entities.handle_to_pointer(veh)
-                        S:RequestControlCB(veh, function(control)
-                            if control then
-                                entities.detach_wheel(ptr, wheel_data.index)
-                            else
-                                util.toast(T'Failed to request control of vehicle')
-                            end
-                        end)
+        for DetachableWheels as wheel do
+            self.individual_wheels:action(wheel.name, {}, T'Detach a wheel from the players vehicle', function()
+                local player_ped = player.get_player_ped(pid)
+                local veh = ped.get_vehicle_ped_is_in(player_ped, false)
+                if veh ~= 0 then
+                    local ptr = entities.handle_to_pointer(veh)
+                    if ptr ~= 0 then
+                        if Network.RequestControl(veh) then
+                            entities.detach_wheel(ptr, wheel.index)
+                        else
+                            Network.FailedToRequestControl(veh)
+                        end
                     end
                 end
             end)
         end
 
         self.wheels:toggle_loop(T'Wheels Spam', {}, T'Spam the player with wheels by detaching and fixing their vehicle', function()
-            local ped = self.GetPlayerPed(pid)
-            if self.IsPedInAnyVehicle(ped) then
-                local veh = self.GetVehiclePedIsIn(ped, false)
-                if veh ~= 0 then
-                    local ptr = entities.handle_to_pointer(veh)
-                    S:RequestControlCB(veh, function(control)
-                        if control then
-                            for i = 0, 7 do
-                                entities.detach_wheel(ptr, i)
-                            end
-
-                            util.yield(50)
-                            self.SetVehicleFixed(veh)
+            local player_ped = player.get_player_ped(pid)
+            local veh = ped.get_vehicle_ped_is_in(player_ped, false)
+            if veh ~= 0 then
+                local ptr = entities.handle_to_pointer(veh)
+                if ptr ~= 0 then
+                    if Network.RequestControl(veh) then
+                        for i = 0, 7 do
+                            entities.detach_wheel(ptr, i)
                         end
-                    end)
-                end
-            end
-        end)
-
-        self.veh_trolling:toggle_loop(T'Set Off Alarm', {}, T'Make their vehicles alarm constantly go off', function()
-            local ped = self.GetPlayerPed(pid)
-            if self.IsPedInAnyVehicle(ped) then
-                local veh = self.GetVehiclePedIsIn(ped, false)
-                if veh ~= 0 then
-                    S:RequestControlCB(veh, function(control)
-                        if control then
-                            if not self.IsVehicleAlarmActivated(veh) then
-                                self.SetVehicleAlarm(veh, true)
-                                self.StartVehicleAlarm(veh)
-                            end
-                        else
-                            util.toast(T'Failed to request control of vehicle')
-                        end
-                    end)
-                end
-            end
-        end)
-
-        self.veh_trolling:toggle_loop(T'Disrupt Driving', {}, T'Make the vehicle hard to drive, this also fucks with their minimap', function()
-            local ped = self.GetPlayerPed(pid)
-            if self.IsPedInAnyVehicle(ped) then
-                local veh = self.GetVehiclePedIsIn(ped, false)
-                if veh ~= 0 then
-                    S:RequestControlCB(veh, function(control)
-                        if control then
-                            self.SetInvertVehicleControls(veh, true)
-                            self.SetVehicleLightMultiplier(veh, 0.0)
-                            if not self.IsVehicleAlarmActivated(veh) then
-                                self.SetVehicleAlarm(veh, true)
-                                self.StartVehicleAlarm(veh)
-                            end
-                        else
-                            util.toast(T'Failed to request control of vehicle')
-                        end
-                    end)
-                end
-            end
-        end)
-
-        self.veh_trolling:toggle_loop(T'Horn Boost', {}, T'Give the player horn boost', function()
-            local base = self.ScriptGlobal(Globals:PlayerStatesBase(pid)) + PlayerStates.VehStateBitfield
-            local bitfield = Bitfield.new(self.ReadInt(base))
-
-            if bitfield:IsSet(VehStateBitfield.InVehicle) then
-                if bitfield:IsSet(VehStateBitfield.UsingHorn) then
-                    local veh = self.GetVehiclePedIsIn(self.GetPlayerPed(pid), false)
-                    if veh ~= 0 then
-                        S:RequestControlCB(veh, function(control)
-                            if control then
-                                self.SetVehicleForwardSpeed(veh, 100.0)
-                            end
-                        end)
+                        util.yield(50)
+                        vehicle.set_vehicle_fixed(veh)
                     else
-                        if bitfield:IsSet(VehStateBitfield.InVehicle) then
-                            util.toast('Spectate the player or wait for them to get closer')
-                        end
+                        Network.FailedToRequestControl(veh)
                     end
                 end
             end
         end)
 
-        self.crashes = self.trolling:attach(self.crashes)
-            
-        self.crashes:action(T'Wheel Crash', {}, T'Crashes the player by using a buggy wheel model', function()
-            local logo = directx.create_texture(ScriptImages .. '/Loser.png')
-            local alpha, reverse_alpha = 0.0, false
-
-            util.create_tick_handler(function()
-                directx.draw_texture(logo, 0.15, 0.15, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
-
-                if alpha < 1.7 and not reverse_alpha then
-                    alpha += 0.007
-                else
-                    reverse_alpha = true
-                    alpha -= 0.007
-                end
-
-                if alpha <= 0 then
-                    return false
-                end
-            end)
+        self.crashes = self.trolling:list(T'Crashes', {}, T'Crashes')
+        self.crashes:action(T'Wheel Crash', {}, T'Crashes the player with a buggy wheel model', function()
+            S:PlayAnimation($'{filesystem.script_root()}/images/Loser.png', 1.7, 0.20)
         end)
 
         self.trolling:divider('')
-            
         self.trolling:action(T'Owned Orbital Strike', {}, T'Launch an owned orbital strike on the player', function()
-            S:RequestNamedPtfxAsset_('scr_xm_orbital')
-            local ped = self.GetPlayerPed(pid)
-            local pos = self.GetEntityCoords(ped)
-            S:SetUsingOrbitalCannon(true)
+            S:RequestNamedPtfxAsset('scr_xm_orbital')
+            local player_ped = player.get_player_ped(pid)
+            local pos = players.get_position(pid)
+            Network.OrbitalCannon(true)
 
-            self.StartNetworkedParticleFxNonLoopedOnEntity('scr_xm_orbital_blast', ped, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, false, false, false)
-            self.StartNetworkedParticleFxNonLoopedOnEntity('scr_xm_orbital_blast', ped, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 20.0, false, false, false)
-            self.StartNetworkedParticleFxNonLoopedOnEntity('scr_xm_orbital_blast', ped, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 30.0, false, false, false)
+            graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, false, false, false)
+            graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 20.0, false, false, false)
+            graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 30.0, false, false, false)
 
             for i = 0, 5 do
-                self.AddOwnedExplosion(players.user_ped(), pos.x + (10 * i), pos.y + (10 * i), pos.z + (10 * i), 60, 100000.0, true, false, 1.0)
+                fire.add_owned_explosion(players.user_ped(), pos.x + (10 * i), pos.y + (10 * i), pos.z + (10 * i), 60, 100000.0, true, false, 1.0)
             end
 
             util.yield(1000)
-            S:SetUsingOrbitalCannon(false)
+            Network.OrbitalCannon(false)
         end)
 
-        self.trolling:action(T'Orbital Strike', {}, T'Launch an orbital strike on the player', function()
-            S:RequestNamedPtfxAsset_('scr_xm_orbital')
-            local ped = self.GetPlayerPed(pid)
-            local pos = self.GetEntityCoords(ped)
+        self.trolling:action(T'Oribtal Strike', {}, T'Launch an orbital strike on the player', function()
+            S:RequestNamedPtfxAsset('scr_xm_orbital')
+            local player_ped = player.get_player_ped(pid)
+            local pos = players.get_position(pid)
 
-            self.StartNetworkedParticleFxNonLoopedOnEntity('scr_xm_orbital_blast', ped, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, false, false, false)
-            self.StartNetworkedParticleFxNonLoopedOnEntity('scr_xm_orbital_blast', ped, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 20.0, false, false, false)
-            self.StartNetworkedParticleFxNonLoopedOnEntity('scr_xm_orbital_blast', ped, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 30.0, false, false, false)
+            graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, false, false, false)
+            graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 20.0, false, false, false)
+            graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 30.0, false, false, false)
 
             for i = 0, 5 do
-                self.AddExplosion(pos.x + (10 * i), pos.y + (10 * i), pos.z + (10 * i), 60, 100000.0, true, false, 1.0)
+                fire.add_explosion(pos.x + (10 * i), pos.y + (10 * i), pos.z + (10 * i), 60, 100000.0, true, false, 1.0)
             end
         end)
 
         self.trolling:action(T'Send Mugger', {}, T'Send a mugger to mug the player', function()
-            S:SendMugger(pid)
+            Network.SendAttacker(pid, 'Mugger')
         end)
 
         self.trolling:action(T'Send Mercenaries', {}, T'Send mercenaries to kill the player', function()
-            S:SendMercenaries(pid)
+            Network.SendAttacker(pid, 'Mercenaries')
         end)
 
         self.trolling:action(T'Send Strike Team (Level 1)', {}, T'Send a strike team to kill the player', function()
-            S:SendStrikeTeam(pid, 1)
+            Network.SendAttacker(pid, 'Strike Team', 1)
         end)
 
         self.trolling:action(T'Send Strike Team (Level 2)', {}, T'Send a strike team to kill the player', function()
-            S:SendStrikeTeam(pid, 2)
+            Network.SendAttacker(pid, 'Strike Team', 2)
         end)
 
         self.trolling:action(T'Send Strike Team (Level 3)', {}, T'Send a strike team to kill the player', function()
-            S:SendStrikeTeam(pid, 3)
-        end)
-
-        self.ram = self.veh_trolling:list(T'Ram With Vehicle', {}, T'Ram the player with a vehicle of your choice')
-        local model_name = 'adder'
-        
-        self.ram:text_input(T'Custom Vehicle Model', {T'rammodel'}, T'The model of the vehicle to ram the player with', function(text)
-            model_name = text
-        end, model_name)
-
-        self.ram_predefined_vehicle = self.ram:list_select(T'Predefined Models', {}, T'Pre-defined models to ram the player with', VehModels, 1, function(index) end)
-
-        self.ram:action(T'Ram Custom', {}, T'Ram the player with the vehicle', function()
-            self:RamPlayer(pid, util.joaat(model_name))
-        end)
-
-        self.ram:action(T'Ram Predefined', {}, T'Ram the player with the vehicle', function()
-            self:RamPlayer(pid, util.joaat(VehModels[self.ram_predefined_vehicle.value]))
-        end)
-
-        self.ram:action(T'Clear Vehicles', {}, T'Clear all vehicles spawned', function()
-            for _, veh in ipairs(self.spawned_vehicles) do
-                entities.delete_by_handle(veh)
-            end
+            Network.SendAttacker(pid, 'Strike Team', 3)
         end)
 
         self.trolling:divider('')
-            
-        self.trolling:toggle_loop(T'Block Passive Mode', {}, T'Prevent the player from being able to go into passive mode or become ghosted to you (tested and working against Stand, should work against most if not all other menus)', function()
-            if not S:PlayerHasBounty(pid) then
-                S:SetPlayerBounty(pid, -1, true)
-            end
-        end,
-        function()
-            if S:PlayerHasBounty(pid) then
-                S:SetPlayerBounty(pid, 0, false)
-            end
+        self.trolling:toggle_loop(T'Block Passive Mode', {}, T'Prevent the player from going passive', function()
+            Network.SetBounty(pid, 0, true)
+        end, function()
+            Network.SetBounty(pid, 0, false)
         end)
 
-        self.friendly_bounty = self.friendly:list(T'Bounty', {}, T'Friendly bounty options')
+        self.friendly = self.root:list(T'Friendly', {}, T'Friendly')
+        self.friendly_bounty = self.friendly:list(T'Bounty', {}, T'Bounty')
         self.friendly_bounty:toggle_loop(T'Anti-Bounty', {}, T'Prevent other players from placing a bounty on them', function()
-            if S:GetPlayerBounty(pid) > 0 then
-                S:SetPlayerBounty(pid, 0, false)
-                S:SetPlayerBountyReward(pid, 0)
+            if players.get_bounty(pid) ~= nil then
+                Network.SetBounty(pid, 0, false)
             end
         end)
 
-        self.friendly_bounty:toggle_loop(T'Anti-Modded Bounty', {}, T'Prevent other players from placing a modded bounty on them', function()
-            local amount = S:GetPlayerBounty(pid)
-            if amount > 0 then
-                if S:IsModdedBounty(amount) then
-                    S:SetPlayerBounty(pid, 0, false)
-                    S:SetPlayerBountyReward(pid, 0)
+        self.friendly_bounty:toggle_loop(T'Anti-Modded Bounty', {}, T'Prevent modders from placing a modded bounty on them', function()
+            local amount = players.get_bounty(pid)
+            if amount ~= nil and Network.IsBountyModded(amount or 1000) then
+                Network.SetBounty(pid, 0, false)
+            end
+        end)
 
-                    util.toast(T'Removed $' .. amount .. T' bounty from ' .. name)
+        self.neutral = self.root:list(T'Neutral', {}, T'Neutral')
+        self.cayo = self.neutral:list(T'Cayo Perico', {}, T'Cayo Perico')
+        self.target_choice = self.cayo:list_select(T'Target', {}, T'Target that will be set for this player in the heist', self.cayo_targets, 1, function(index) end)
+        self.cayo:toggle_loop(T'Set Target', {}, T'Set the target for this player in the heist (changing the target mid-heist will change the take)', function()
+            local target = memory.script_global(Globals:PlayerCayoPrimaryTarget(pid))
+            memory.write_int(target, self.target_choice.value - 1)
+        end)
+    end
+
+    function UpdatePlayerInfo(pid)
+        if not self.updating.player_info then
+            self.updating.player_info = true
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= T'Player Info' then 
+                    self.updating.player_info = false
+                    return false 
                 end
-            end
-        end)
-
-        self.friendly:divider('')
-        self.friendly:action(T'Teleport To Player', {}, T'This will teleport to them even if they spoof their position', function()
-            local g = self.ScriptGlobal(2657704 + 1 + (pid * 463))
-            local x = self.ReadFloat(g + 0x678)
-            local y = self.ReadFloat(g + 0x680)
-            local z = self.ReadFloat(g + 0x688)
-            self.SetEntityCoordsNoOffset(players.user_ped(), x, y, z, false, false, false)
-        end)
-    end
-
-    function GetNetworkId(pid)
-        return self.ReadInt(self.ScriptGlobal(Globals:PlayerPVNetworkID(pid)))
-    end
-    
-    function SetNetworkId(pid, net_id)
-        self.WriteInt(self.ScriptGlobal(Globals:PlayerPVNetworkID(pid)), net_id)
-    end
-    
-    function GetVehicleFromNetId(pid)
-        return self.NetToVeh(self:GetNetworkId(pid))
-    end
-
-    function RamPlayer(pid, model)
-        local ped = self.GetPlayerPed(pid)
-        local pos = self.GetOffsetFromEntityInWorldCoords(ped, 0.0, -5.0, 0.0)
-    
-        S:LoadModel(model)
-    
-        local veh = entities.create_vehicle(model, pos, self.GetEntityHeading(ped))
-        self.SetVehicleForwardSpeed(veh, S.MAX_FLOAT)
-        if #self.spawned_vehicles > 10 then
-            for _, veh in ipairs(self.spawned_vehicles) do
-                entities.delete_by_handle(veh)
-            end
+                local children = item:getChildren()
+                if #children == 2 then
+                    local badsport, cheater = children[1], children[2]
+                    if badsport:isValid() then
+                        badsport.menu_name = T'Badsport: ' .. ((Network.StatsPlayerIsBadSport(pid)) ? T'Yes' : T'No')
+                    end
+                    if cheater:isValid() then
+                        cheater.menu_name = T'Cheater: ' .. ((Network.StatsPlayerIsCheater(pid)) ? T'Yes' : T'No')
+                    end
+                end
+            end)
         end
-    
-        table.insert(self.spawned_vehicles, veh)
     end
 
-    function SetPersonalVehicleSlot(slot)
-        self.WriteInt(self.ScriptGlobal(Globals.ActivePVSlot), slot)
+    function UpdatePersonalVehicle(pid)
+        if not self.updating.personal_vehicle then
+            self.updating.personal_vehicle = true
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= T'Personal Vehicle' then 
+                    self.updating.personal_vehicle = false
+                    return false 
+                end
+                local veh = Network.GetPVFromNetworkID(pid)
+                local children = item:getChildren()
+                local model, health, godmode, frozen, invisible, can_migrate = children[2], children[3], children[4], children[5], children[6], children[7]
+
+                if model:isValid() then
+                    if veh ~= 0 then
+                        model.menu_name = T'Model: ' .. util.get_label_text(util.reverse_joaat(entity.get_entity_model(veh)))
+                    else
+                        model.menu_name = T'Model: None'
+                    end
+                end
+
+                if health:isValid() then
+                    if veh ~= 0 then
+                        health.menu_name = T'Health: ' .. entity.get_entity_health(veh)
+                    else
+                        health.menu_name = T'Health: None'
+                    end
+                end
+
+                if godmode:isValid() then
+                    if veh ~= 0 then
+                        godmode.menu_name = T'Godmode: ' .. ((self:IsEntityGodmode(veh)) ? T'Yes' : T'No')
+                    else
+                        godmode.menu_name = T'Godmode: None'
+                    end
+                end
+
+                if frozen:isValid() then
+                    if veh ~= 0 then
+                        frozen.menu_name = T'Frozen: ' .. ((self:IsEntityFrozen(veh)) ? T'Yes' : T'No')
+                    else
+                        frozen.menu_name = T'Frozen: None'
+                    end
+                end
+
+                if invisible:isValid() then
+                    if veh ~= 0 then
+                        invisible.menu_name = T'Invisible: ' .. ((self:IsEntityInvisible(veh)) ? T'Yes' : T'No')
+                    else
+                        invisible.menu_name = T'Invisible: None'
+                    end
+                end
+
+                if can_migrate:isValid() then
+                    if veh ~= 0 then
+                        can_migrate.menu_name = T'Can Migrate: ' .. ((entities.get_can_migrate(veh)) ? T'Yes' : T'No')
+                    else
+                        can_migrate.menu_name = T'Can Migrate: None'
+                    end
+                end
+            end)
+        end
     end
 
-    function SpoofVehicle(target, localplayer, state)
-        local remote_veh = self:GetVehicleFromNetId(target)
-        local remote_hash = self.NetworkHashFromPlayerHandle(target)
-        local local_hash = self.NetworkHashFromPlayerHandle(localplayer)
-    
-        if remote_veh ~= 0 then
-            if state then
-                local veh_data = self.ScriptGlobal(Globals:PersonalVehicleData(0))
-                local bitfield = Bitfield.new(self.ReadInt(veh_data + Offsets.VehicleBitfield))
-                bitfield.address = veh_data + Offsets.VehicleBitfield
-    
-                self:SetPersonalVehicleSlot(0)
-                bitfield:Set(1 << 0)
-                self:SetNetworkId(localplayer, self:GetNetworkId(target))
-    
-                self.DecorSetInt(remote_veh, 'Player_Vehicle', local_hash)
-                self.DecorSetInt(remote_veh, 'Previous_Owner', local_hash)
+    function UpdateBountyInfo(pid)
+        if not self.updating.bounty then
+            self.updating.bounty = true
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= T'Bounty' then
+                    self.updating.bounty = false
+                    return false
+                end
+                local children = item:getChildren()
+                local active, amount, reward, modded = children[2], children[3], children[4], children[5]
+
+                local bounty = Network.GetBounty(pid)
+                if active:isValid() then
+                    active.menu_name = T'Active: ' .. ((bounty.has_bounty) ? T'Yes' : T'No')
+                end
+
+                if amount:isValid() then
+                    amount.menu_name = T'Amount: ' .. bounty.amount
+                end
+
+                if reward:isValid() then
+                    reward.menu_name = T'Reward: ' .. bounty.reward
+                end
+
+                if modded:isValid() then
+                    modded.menu_name = T'Modded: ' .. ((Network.IsBountyModded(bounty.amount) and bounty.has_bounty) ? T'Yes' : T'No')
+                end
+            end)
+        end
+    end
+
+    function UpdateWheelsInfo(pid)
+        if not self.updating.wheels_states then
+            self.updating.wheels_states = true
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= T'Wheels' then
+                    self.updating.wheels_states = false
+                    return false
+                end
+                local player_ped = player.get_player_ped(pid)
+                local veh = ped.get_vehicle_ped_is_in(player_ped, false)
+                if veh ~= 0 then
+                    local ptr = entities.handle_to_pointer(veh)
+                    if ptr ~= 0 then
+                        local state = memory.read_short(ptr + 0xA48)
+                        local children = item:getChildren()
+                        local index1, index2, index3, index4, index5, index6, index7, index8 = children[2], children[3], children[4], children[5], children[6], children[7], children[8], children[9]
+                        if index1:isValid() then
+                            index1.menu_name = T'Wheel 1: ' .. ((state & (1 << 0) ~= (1 << 0)) ? T'Attached' : T'Detached')
+                        end
+
+                        if index2:isValid() then
+                            index2.menu_name = T'Wheel 2: ' .. ((state & (1 << 1) ~= (1 << 1)) ? T'Attached' : T'Detached')
+                        end
+
+                        if index3:isValid() then
+                            index3.menu_name = T'Wheel 3: ' .. ((state & (1 << 2) ~= (1 << 2)) ? T'Attached' : T'Detached')
+                        end
+
+                        if index4:isValid() then
+                            index4.menu_name = T'Wheel 4: ' .. ((state & (1 << 3) ~= (1 << 3)) ? T'Attached' : T'Detached')
+                        end
+
+                        if index5:isValid() then
+                            index5.menu_name = T'Wheel 5: ' .. ((state & (1 << 4) ~= (1 << 4)) ? T'Attached' : T'Detached')
+                        end
+
+                        if index6:isValid() then
+                            index6.menu_name = T'Wheel 6: ' .. ((state & (1 << 5) ~= (1 << 5)) ? T'Attached' : T'Detached')
+                        end
+
+                        if index7:isValid() then
+                            index7.menu_name = T'Wheel 7: ' .. ((state & (1 << 6) ~= (1 << 6)) ? T'Attached' : T'Detached')
+                        end
+
+                        if index8:isValid() then
+                            index8.menu_name = T'Wheel 8: ' .. ((state & (1 << 7) ~= (1 << 7)) ? T'Attached' : T'Detached')
+                        end
+                    else
+                        if index1:isValid() then
+                            index1.menu_name = T'Wheel 1: ?'
+                        end
+
+                        if index2:isValid() then
+                            index2.menu_name = T'Wheel 2: ?'
+                        end
+
+                        if index3:isValid() then
+                            index3.menu_name = T'Wheel 3: ?'
+                        end
+
+                        if index4:isValid() then
+                            index4.menu_name = T'Wheel 4: ?'
+                        end
+
+                        if index5:isValid() then
+                            index5.menu_name = T'Wheel 5: ?'
+                        end
+
+                        if index6:isValid() then
+                            index6.menu_name = T'Wheel 6: ?'
+                        end
+
+                        if index7:isValid() then
+                            index7.menu_name = T'Wheel 7: ?'
+                        end
+
+                        if index8:isValid() then
+                            index8.menu_name = T'Wheel 8: ?'
+                        end
+                    end
+                end
+            end)
+        end
+    end
+
+    function IsEntityGodmode(ent)
+        local ptr = entities.handle_to_pointer(ent)
+        local mask = 0x1F0
+        if ptr ~= 0 then
+            local damage_flags = memory.read_int(ptr + 0x188)
+            return damage_flags & mask ~= 0
+        end
+        return false
+    end
+
+    function IsEntityFrozen(ent)
+        local ptr = entities.handle_to_pointer(ent)
+        if ptr ~= 0 then
+            return memory.read_long(ptr + 0x0028) & (1 << 49) ~= 0
+        end
+        return false
+    end
+
+    function IsEntityInvisible(ent)
+        local ptr = entities.handle_to_pointer(ent)
+        local mask = 0x10000100000000
+        if ptr ~= 0 then
+            return memory.read_long(ptr + 0x0028) & mask == 0
+        end
+        return false
+    end
+
+    function OutOfRange()
+        util.toast(T'Player is out of range, spectate them or get closer!')
+    end
+
+    function ForceVehicleRespawn(pid)
+        local veh = Network.GetPVFromNetworkID(pid)
+        if veh ~= 0 then
+            local target_nethash = network.network_hash_from_player_handle(pid)
+            if not ped.is_ped_in_any_vehicle(player.get_player_ped(pid)) then
+                if Network.RequestControl(veh) then
+                    self:SoftSpoof(pid, true)
+                    decorator.decor_set_int(veh, 'Previous_Owner', target_nethash)
+                else
+                    Network.FailedToRequestControl(veh)
+                end
             else
-                local veh_data = self.ScriptGlobal(Globals:PersonalVehicleData(0))
-                local bitfield = Bitfield.new(self.ReadInt(veh_data + Offsets.VehicleBitfield))
-                bitfield.address = veh_data + Offsets.VehicleBitfield
-    
-                self.DecorSetInt(remote_veh, 'Player_Vehicle', remote_hash)
-                self.DecorSetInt(remote_veh, 'Previous_Owner', remote_hash)
-    
-                self:SetPersonalVehicleSlot(0)
-                bitfield:Clear(1 << 0)
-                self:SetNetworkId(localplayer, -1)
+                util.toast(T'They are in their vehicle, kick them from it first!')
             end
+        else
+            self:OutOfRange()
         end
     end
 
-    function SoftSpoof(target, localplayer, state)
-        local remote_veh = self:GetVehicleFromNetId(target)
-        local remote_hash = self.NetworkHashFromPlayerHandle(target)
-        local local_hash = self.NetworkHashFromPlayerHandle(localplayer)
-    
-        if remote_veh ~= 0 then
-            if state then
-                self:SetNetworkId(localplayer, self:GetNetworkId(target))
-            else
-                self:SetNetworkId(localplayer, -1)
-            end
+    function SoftSpoof(pid, state)
+        local player_id = players.user()
+        if state then
+            Network.SetPVNetworkID(player_id, Network.GetPVNetworkID(pid))
+        else
+            Network.SetPVNetworkID(player_id, -1)
         end
     end
-    
-    function GetTheFuckOut(remote_target)
-        util.trigger_script_event(1 << remote_target, {-306678306, 1, 0, 1, 0})
+
+    function SpoofVehicle(pid, state)
+        local veh = Network.GetPVFromNetworkID(pid)
+        local target_nethash, my_nethash = network.network_hash_from_player_handle(pid), network.network_hash_from_player_handle(players.user())
+        if veh ~= 0 then
+            if state then
+                S:RequestPVInSlot(0)
+                Network.SetPVNetworkID(players.user(), Network.GetPVNetworkID(pid))
+                decorator.decor_set_int(veh, 'Player_Vehicle', my_nethash)
+                decorator.decor_set_int(veh, 'Previous_Owner', my_nethash)
+            else
+                decorator.decor_set_int(veh, 'Player_Vehicle', target_nethash)
+                decorator.decor_set_int(veh, 'Previous_Owner', target_nethash)
+                S:ReturnPVInSlot(0)
+                Network.SetPVNetworkID(players.user(), -1)
+            end
+        else
+            self:OutOfRange()
+        end
     end
-    
-    function TakeoverKick(remote_target)
-        local remote_veh = self:GetVehicleFromNetId(remote_target)
-        local local_hash = self.NetworkHashFromPlayerHandle(PlayerID)
-    
-        if remote_veh ~= 0 then
-            self:SpoofVehicle(remote_target, PlayerID, true)
-            util.yield(100)
-            self:GetTheFuckOut(remote_target)
-    
+
+    function TakeoverKick(pid)
+        local veh = Network.GetPVFromNetworkID(pid)
+        local player_id = players.user()
+        if veh ~= 0 then
+            S:ReturnActivePV()
+            local my_nethash = network.network_hash_from_player_handle(player_id)
+            self:SpoofVehicle(pid, true)
+            util.yield(1000)
+            Network.VehicleKick(pid)
+
             repeat
                 util.yield_once()
-            until not self.IsPedInAnyVehicle(self.GetPlayerPed(remote_target), false)
-    
+            until not ped.is_ped_in_any_vehicle(player.get_player_ped(pid), false)
             util.yield(200)
-            self:SpoofVehicle(remote_target, PlayerID, false)
+            self:SpoofVehicle(pid, false)
+        else
+            self:OutOfRange()
         end
     end
-    
-    function ForceVehRespawn(remote_player)
-        local remote_veh = self:GetVehicleFromNetId(remote_player)
-        local remote_hash = self.NetworkHashFromPlayerHandle(remote_player)
-    
-        if self.IsPedInAnyVehicle(self.GetPlayerPed(remote_player)) then
-            self:TakeoverKick(remote_player)
-            repeat
-                util.yield_once()
-            until not self.IsPedInAnyVehicle(self.GetPlayerPed(remote_target), false)
-            util.yield(200)
+
+    function RegularKick(pid)
+        local veh = Network.GetPVFromNetworkID(pid)
+        local player_id = players.user()
+        if veh ~= 0 then
+            S:ReturnActivePV()
+            local my_nethash = network.network_hash_from_player_handle(player_id)
+            local target_nethash = network.network_hash_from_player_handle(pid)
+            Network.SetPVNetworkID(player_id, Network.GetPVNetworkID(pid))
+            decorator.decor_set_int(veh, 'MPBitset', 0)
+        else
+            self:OutOfRange()
         end
-    
-        self:SoftSpoof(remote_player, PlayerID, true)
-        self.DecorSetInt(remote_veh, 'Previous_Owner', remote_hash)
     end
-    
-    function SetOrgId(target)
-        local target_org = self.ScriptGlobal(Globals:PlayerOrganisationBase(target) + 10) -- Global_1895156[player /*609*/].f_10
-        local localplayer_org = self.ScriptGlobal(Globals:PlayerOrganisationBase(PlayerID) + 10)
-    
-        self.WriteInt(localplayer_org, self.ReadInt(target_org))
-    end
-
-    function DisplayRangeMessage()
-        util.toast('You are out of range, spectate or get closer')
-    end
-
-    function GetPlayerIsBadsport(pid)
-        local g = self.ScriptGlobal(Globals:PlayerStatSpoofing(pid)) + SpoofingOffsets.PlayerReports
-        local result = self.ReadByte(g) & Masks.IsBadSport == Masks.IsBadSport
-        return (result) and 'Yes' or 'No'
-    end
-
-    function GetPlayerIsCheater(pid)
-        local g = self.ScriptGlobal(Globals:PlayerStatSpoofing(pid)) + SpoofingOffsets.PlayerReports
-        local result = self.ReadByte(g) & Masks.IsCheater == Masks.IsCheater
-        return (result) and 'Yes' or 'No'
-    end
-
-    --[[void]] static function NetworkHandleFromPlayer(--[[Player (int)]] player,--[[Any* (pointer)]] gamerHandle,--[[int]] gamerHandleSize)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_pointer(gamerHandle)native_invoker.push_arg_int(gamerHandleSize)native_invoker.end_call_2(0x388EB2B86C73B6B3)end
-    --[[BOOL (bool)]] static function NetworkIsFriend(--[[Any* (pointer)]] gamerHandle)native_invoker.begin_call()native_invoker.push_arg_pointer(gamerHandle)native_invoker.end_call_2(0x1A24A179F9B31654)return native_invoker.get_return_value_bool()end
-    --[[Hash (int)]] static function GetEntityModel(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x9F47B058362C84B5)return native_invoker.get_return_value_int()end
-    --[[void]] static function SetVehicleDoorsShut(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] closeInstantly)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(closeInstantly)native_invoker.end_call_2(0x781B3D62BB013EF5)end
-    --[[void]] static function DetonateVehiclePhoneExplosiveDevice()native_invoker.begin_call()native_invoker.end_call_2(0xEF49CF0270307CBE)end
-    --[[Vehicle (int)]] static function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
-    --[[Hash (int)]] static function NetworkHashFromPlayerHandle(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0xBC1D768F2F5D6C05)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
-    --[[BOOL (bool)]] static function DecorSetInt(--[[Entity (int)]] entity,--[[string]] propertyName,--[[int]] value)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.push_arg_int(value)native_invoker.end_call_2(0x0CE3AA5E1CA19E10)return native_invoker.get_return_value_bool()end
-    --[[void]] static function ClearVehiclePhoneExplosiveDevice()native_invoker.begin_call()native_invoker.end_call_2(0xAA3F739ABDDCF21F)end
-    --[[Vehicle (int)]] static function NetToVeh(--[[int]] netHandle)native_invoker.begin_call()native_invoker.push_arg_int(netHandle)native_invoker.end_call_2(0x367B936610BA360C)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function HasVehiclePhoneExplosiveDevice()native_invoker.begin_call()native_invoker.end_call_2(0x6ADAABD3068C5235)return native_invoker.get_return_value_bool()end
-    --[[Ped (int)]] static function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x43A66C31C68491C0)return native_invoker.get_return_value_int()end
-    --[[void]] static function AddVehiclePhoneExplosiveDevice(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x99AD4CCCB128CBC9)end
-    --[[BOOL (bool)]] static function StartNetworkedParticleFxNonLoopedOnEntity(--[[string]] effectName,--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ,--[[float]] rotX,--[[float]] rotY,--[[float]] rotZ,--[[float]] scale,--[[BOOL (bool)]] axisX,--[[BOOL (bool)]] axisY,--[[BOOL (bool)]] axisZ)native_invoker.begin_call()native_invoker.push_arg_string(effectName)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.push_arg_float(rotX)native_invoker.push_arg_float(rotY)native_invoker.push_arg_float(rotZ)native_invoker.push_arg_float(scale)native_invoker.push_arg_bool(axisX)native_invoker.push_arg_bool(axisY)native_invoker.push_arg_bool(axisZ)native_invoker.end_call_2(0xC95EB1DB6E92113D)return native_invoker.get_return_value_bool()end
-    --[[Vector3 (vector3)]] static function GetEntityCoords(--[[Entity (int)]] entity,--[[BOOL (bool)]] alive)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(alive)native_invoker.end_call_2(0x3FEF770D40960D5A)return native_invoker.get_return_value_vector3()end
-    --[[void]] static function AddOwnedExplosion(--[[Ped (int)]] ped,--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.end_call_2(0x172AA1B624FA1013)end
-    --[[void]] static function StartVehicleAlarm(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0xB8FF7AB45305C345)end
-    --[[BOOL (bool)]] static function IsVehicleAlarmActivated(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x4319E335B71FFF34)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SetInvertVehicleControls(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(state)native_invoker.end_call_2(0x5B91B229243351A8)end
-    --[[void]] static function SetVehicleFixed(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x115722B1B9C14C1C)end
-    --[[Vector3 (vector3)]] static function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
-    --[[float]] static function GetEntityHeading(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xE83D4F9BA2A38914)return native_invoker.get_return_value_float()end
-    --[[void]] static function SetVehicleForwardSpeed(--[[Vehicle (int)]] vehicle,--[[float]] speed)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_float(speed)native_invoker.end_call_2(0xAB54A438726D25D5)end
-    --[[void]] static function SetEntityVisible(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0xEA1C610A04DB6BBB)end
-    --[[int]] static function DecorGetInt(--[[Entity (int)]] entity,--[[string]] propertyName)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.end_call_2(0xA06C969B02A97298)return native_invoker.get_return_value_int()end
-    --[[void]] static function SetVehicleDoorsLockedForPlayer(--[[Vehicle (int)]] vehicle,--[[Player (int)]] player,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(player)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x517AAF684BB50CD1)end
-    --[[void]] static function SetVehicleLightMultiplier(--[[Vehicle (int)]] vehicle,--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xB385454F8791F57C)end
-    --[[void]] static function SetVehicleAlarm(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(state)native_invoker.end_call_2(0xCDE5E70C1DDB954C)end
-    --[[void]] static function SetEntityCoordsNoOffset(--[[Entity (int)]] entity,--[[float]] xPos,--[[float]] yPos,--[[float]] zPos,--[[BOOL (bool)]] xAxis,--[[BOOL (bool)]] yAxis,--[[BOOL (bool)]] zAxis)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(xPos)native_invoker.push_arg_float(yPos)native_invoker.push_arg_float(zPos)native_invoker.push_arg_bool(xAxis)native_invoker.push_arg_bool(yAxis)native_invoker.push_arg_bool(zAxis)native_invoker.end_call_2(0x239A3351AC1DA385)end
-    --[[void]] static function AddExplosion(--[[float]] x,--[[float]] y,--[[float]] z,--[[int]] explosionType,--[[float]] damageScale,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] cameraShake,--[[BOOL (bool)]] noDamage)native_invoker.begin_call()native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.push_arg_int(explosionType)native_invoker.push_arg_float(damageScale)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(cameraShake)native_invoker.push_arg_bool(noDamage)native_invoker.end_call_2(0xE3AD2BDBAEE269AC)end
-    --[[void]] static function NetworkConcealEntity(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x1632BE0AC1E62876)end
-    --[[BOOL (bool)]] static function NetworkIsEntityConcealed(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x71302EC70689052A)return native_invoker.get_return_value_bool()end
-    --[[BOOL (bool)]] static function IsPlayerPressingHorn(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0xFA1E2BF8B10598F9)return native_invoker.get_return_value_bool()end
 end
 
 return Players

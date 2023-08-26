@@ -1,17 +1,17 @@
-math.log2 = function(x)
+_G.math.log2 = function(x)
     return math.log(x, 2)
 end
 
-math.exp2 = function(x)
+_G.math.exp2 = function(x)
     return 2 ** x
 end
 
-math.round = function(num, dp)
+_G.math.round = function(num, dp)
     local mult = 10 ^ (dp or 0)
     return math.floor(num * mult + 0.5) / mult
 end
 
-math.factorial = function(n)
+_G.math.factorial = function(n)
     if n == 0 then
         return 1
     end

@@ -1,6 +1,19 @@
+local meta = {
+    __index = function(self, key)
+        for k, v in pairs(self) do
+            if k:lower() == key:lower() then
+                return v
+            end
+        end
+    end,
+    __name = 'BitMask'
+}
+
 local Bit = {}
 local BitMask = {}
 local Pack = {}
+
+BitMask = setmetatable(BitMask, meta)
 
 function Bit:Set(value, bit)
     return value | (1 << bit)
@@ -90,6 +103,14 @@ end
 
 function BitMask:Replace(value, offset, length, replace)
     return (value & ~(((1 << length) - 1) << offset)) | ((replace & ((1 << length) - 1)) << offset)
+end
+
+function BitMask:SetBool(value, mask, bool)
+    if bool then
+        return BitMask:Set(value, mask)
+    else
+        return BitMask:Clear(value, mask)
+    end
 end
 
 function Pack:Pack(size, ...)

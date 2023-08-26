@@ -1,59 +1,55 @@
-local SCRIPT_START = os.clock()
-util.keep_running()
+util.require_natives('natives-2944a')
 
-ModuleBase = memory.scan('')
-local sha256 = require('crypto').sha256
+_G.string.sha256 = function(data) return (require('crypto').sha256)(data) end
+_G.filesystem.script_root = function() return filesystem.scripts_dir() .. '/MrRobot' end
+_G.async_http.host = 'sodamnez.xyz'
+_G.async_http.update_path = '/Stand/MrRobot'
+_G.util.log = function(msg) return print($'[MrRobot] {msg}') end
+_G.string.joaat = function(str) return util.joaat(str) end
+_G.util.error = function(err) util.toast($'Error occured: {msg}') end
+
+function _G.async_http.get(url, path, callback)
+    url = url or async_http.host
+    async_http.init(url, path, callback)
+    async_http.dispatch()
+end
+
+function _G.async_http.post(url, path, data, content_type, callback)
+    url = url or async_http.host
+    async_http.init(url, path, callback)
+    async_http.set_post(content_type, data)
+    async_http.dispatch()
+end
 
 pluto_class MrRobot
-    images = {
-        'MrRobot.png',
-        'Loser.png',
-        'Jesus.png'
-    }
-
+    images = { 'MrRobot.png', 'Loser.png', 'Jesus.png' }
     modules = {
-        'players', 'settings', 'tools', 'credits', 'self_options', 'online',
-        'stand_repo', 'vehicles', 'world', 'protections', 'cooldowns',
-        'weapons',  'ped_manager', 'collectables', 'unlocks',
-        'tunables', 'heists', 'module_loader', 'cellphone', 'nightclub',
-        'arcade', 'agency'
+        'players', 'credits', 'settings', 'self', 'online', 'vehicles', 'weapons', 'world',
+        'entities', 'gunvan', 'protections', 'cooldowns', 'collectables', 'tunables', 'cellphone',
+        'moduleloader', 'nightclub', 'arcade', 'agency', 'unlocks', 'heists'
     }
-
-    utils = {
-        'translations',
-        'vehicle_handling',
-        'pedlist',
-        'vehicle_models',
-        'cutscenes',
-        'shared',
-        'script_globals',
-        'weapons_list',
-        'offsets',
-        'masks',
-        'handler'
-    }
-
-    libs = {
-        'bit',
-        'bitfield',
-        'scaleform',
-        'math'
-    }
-
     sub_modules = {
-        'ped_aimbot',
-        'player_aimbot',
-        'pvm'
+        'pvm', 'ped_aimbot', 'player_aimbot'
+    }
+    utils = {
+        'translations', 'handler', 'entity', 'vehicle_handling', 'pedlist',
+        'vehicle_models', 'cutscenes', 'weapons_list', 'offsets', 'masks',
+        'script_globals', 'shared', 'network', 'vehicle', 'zone_info', 'notifications',
+        'gate_manager'
+    }
+    libs = {
+        'inspect', 'bitfield', 'bit', 'math'
     }
 
     charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
-    function __construct(version, gta_version)
-        self.SCRIPT_VERSION = version
-        self.GTAO_VERSION = gta_version
+    function __construct(version, gtao_version)
+        _G.SCRIPT_VERSION = version
+        self.script_version = version
+        self.gtao_version = gtao_version
         self.root = menu.my_root()
         self.shadow_root = menu.shadow_root()
-        self.sroot = filesystem.scripts_dir() .. '/MrRobot'
+        self.sroot = filesystem.script_root()
         self.simages = self.sroot .. '/images'
         self.sutils = self.sroot .. '/utils'
         self.smodules = self.sroot .. '/modules'
@@ -61,36 +57,20 @@ pluto_class MrRobot
         self.slibs = self.sroot .. '/libs'
         self.ssubmodules = self.smodules .. '/sub_modules'
         self.spvcustom = self.sroot .. '/personal_vehicles'
-        self.json = soup.json
+        self.module_instances = {}
 
         self.dirs = {
-            self.sroot,
-            self.simages,
-            self.sutils,
-            self.smodules,
-            self.scustom,
-            self.slibs,
-            self.ssubmodules,
-            self.spvcustom
+            self.sroot, self.simages, self.sutils,
+            self.smodules, self.scustom, self.slibs,
+            self.ssubmodules, self.spvcustom
         }
 
-        self.host = 'sodamnez.xyz'
-        self.update_path = '/Stand/MrRobot'
-
-        -- clean up files that are not needed
-        if filesystem.exists(self.smodules .. '/dev') then io.remove(self.smodules .. '/dev') end
-        if filesystem.exists(self.sutils .. '/online_utils') then io.remove(self.sutils .. '/online_utils') end
-    end
-
-    function GetOnlineVersion()
-        native_invoker.begin_call()
-        native_invoker.end_call_2(0xFCA9373EF340AC0A)
-        return native_invoker.get_return_value_string()
-    end
-
-    function CheckGameVersion()
-        if self:GetOnlineVersion() ~= self.GTAO_VERSION then
-            util.toast('Script is not updated to the latest game version and as a result some of the features may not work as intended')
+        for self.dirs as dir do
+            if not filesystem.exists(dir) then
+                if not io.makedir(dir) then
+                    util.log($'Failed to create directory {dir}')
+                end
+            end
         end
     end
 
@@ -122,190 +102,80 @@ pluto_class MrRobot
         end))
     end
 
-    function FixMissingDirs()
-        for self.dirs as dir do
-            if not filesystem.exists(dir) then
-                if not io.makedir(dir) then
-                    print('[MrRobot] Failed to create directory ' .. dir)
-                end
-            end
+    function GetOnlineVersion()
+        local addr = memory.scan('4C 8D 05 ? ? ? ? 48 8D 15 ? ? ? ? 48 8B C8 E8 ? ? ? ? 48 8D 15 ? ? ? ? 48 8D 4C 24 20 E8')
+        if addr ~= 0 then
+            return memory.read_string(memory.rip(addr + 3))
+        else
+            return self.gtao_version
         end
+    end
+
+    function CheckGameVersion()
+        return self.gtao_version == self.GetOnlineVersion()
     end
 
     function FindMissingFiles()
         local missing = {
             images = {},
             modules = {},
-            utils = {},
-            libs = {},
             sub_modules = {},
+            utils = {},
+            libs = {}
         }
 
-        for self.images as image do
-            if not filesystem.exists(self.simages .. '/' .. image) then
-                table.insert(missing.images, image)
+        for k, _ in pairs(missing) do
+            for (self[k]) as item do
+                local dir =  self['s' .. k:gsub('_', '')]
+                if not filesystem.exists($'{dir}/{item}') then
+                    table.insert(missing[k], item)
+                end
             end
         end
 
-        for self.modules as module do
-            if not filesystem.exists(self.smodules .. '/' .. module) then
-                table.insert(missing.modules, module)
-            end
-        end
-
-        for self.utils as util do
-            if not filesystem.exists(self.sutils .. '/' .. util) then
-                table.insert(missing.utils, util)
-            end
-        end
-
-        for self.libs as lib do
-            if not filesystem.exists(self.slibs .. '/' .. lib) then
-                table.insert(missing.libs, lib)
-            end
-        end
-
-        for self.sub_modules as sub_module do
-            if not filesystem.exists(self.ssubmodules .. '/' .. sub_module) then
-                table.insert(missing.sub_modules, sub_module)
-            end
-        end
-
-        return missing
+        return soup.json.encode(missing), #missing.images + #missing.modules + #missing.sub_modules + #missing.utils + #missing.libs > 0, 0
     end
 
     function FixMissingFiles()
-        local missing = self:FindMissingFiles()
-        if #missing.modules + #missing.utils + #missing.libs + #missing.images + #missing.sub_modules == 0 then
-            return
-        end
-        missing = self.json.encode(missing)
+        local missing, is_missing, bytes = self:FindMissingFiles()
+        if not is_missing then return end
 
-        local bytes = 0
-        async_http.init(self.host, self.update_path .. '/index.php?missing=true', function(body, headers, status_code)
+        async_http.post(nil, $'{async_http.update_path}/index.php?missing=true', missing, 'application/json', function(body, headers, status_code)
             if status_code == 200 then
                 local hash = headers['X-Robot-Hash']
-                if sha256(body) ~= hash then
-                    util.toast('Failed to verify integrity of the files')
-                    print('[MrRobot] Failed to verify integrity of the files')
+                if body:sha256() ~= hash then
                     util.yield(2000)
                     util.stop_script()
-                    return
-                else
-                    util.toast('Successfully verified integrity of the files')
-                    print('[MrRobot] Successfully verified integrity of the files')
                 end
 
-                local missing = self.json.decode(body)
-
-                util.execute_in_os_thread(function()
-                    for missing['sub_modules'] as sub_module do
-                        local file <close> = assert(io.open(self.ssubmodules .. '/' .. sub_module.name, 'wb'))
-                        file:write(sub_module.content)
-                        file:close()
+                local missing = soup.json.decode(body)
+                for k, v in pairs(missing) do
+                    for (self[k]) as item do
+                        local path = self['s' .. k:gsub('_', '')] .. '/' .. item
+                        local data = v[item]
+                        if data then
+                            local file <close> = assert(io.open(path, 'wb'))
+                            if not 'images' in path then
+                                file:write(data.content)
+                                file:close()
+                            else
+                                file:write(self:b64decode(data.content))
+                                file:close()
+                            end
+                        end
                     end
-    
-                    for missing['images'] as image do
-                        local file <close> = assert(io.open(self.simages .. '/' .. image.name, 'wb'))
-                        file:write(self:b64decode(image.content))
-                        file:close()
-                    end
-    
-                    for missing['modules'] as module do
-                        local file <close> = assert(io.open(self.smodules .. '/' .. module.name, 'wb'))
-                        file:write(module.content)
-                        file:close()
-                    end
-    
-                    for missing['utils'] as util do
-                        local file <close> = assert(io.open(self.sutils .. '/' .. util.name, 'wb'))
-                        file:write(util.content)
-                        file:close()
-                    end
-    
-                    for missing['libs'] as lib do
-                        local file <close> = assert(io.open(self.slibs .. '/' .. lib.name, 'wb'))
-                        file:write(lib.content)
-                        file:close()
-                    end
-
-                    bytes = body
-                end)
-            else
-                print('[MrRobot : {status_code}] Failed to request missing files')
-                print()
+                end
+                bytes = body
             end
         end)
 
-        async_http.set_post('application/json', missing)
-        async_http.dispatch()
-
         repeat
-            util.draw_debug_text('Downloading missing files ...', ALIGN_CENTRE, 0.8, (0xFF4DA6 >> 16 & 0xFF) / 255, (0xFF4DA6 >> 8 & 0xFF) / 255, (0xFF4DA6 & 0xFF) / 255, 1)
             util.yield_once()
+            util.draw_debug_text('Please wait, downloading missing files ...', ALIGN_CENTRE, 0.8, (0xFF4DA6 >> 16 & 0xFF) / 255, (0xFF4DA6 >> 8 & 0xFF) / 255, (0xFF4DA6 & 0xFF) / 255, 1)
         until bytes ~= 0
     end
 
-    function CheckForUpdates()
-        async_http.init(self.host, self.update_path .. '/index.php', function(body, headers, status_code)
-            if status_code == 200 then
-                self.discord_invite = headers['X-Robot-Discord']
-                if self:CheckVersion(body) then
-                    util.toast('v' .. body .. ' is now available')
-                    local bytes = 0
-                    local update_button
-                    update_button = self.shadow_root:action('Update v' .. body, {}, '', function()
-                        async_http.init(self.host, self.update_path .. '/MrRobot.lua', function(body, headers, status_code)
-                            if status_code == 200 then
-                                local file <close> = assert(io.open(filesystem.scripts_dir() .. SCRIPT_RELPATH, 'wb'))
-                                file:write(body)
-                                file:close()
-
-                                for self.modules as mod do
-                                    io.remove(self.smodules .. '/' .. mod)
-                                end
-
-                                for self.utils as util do
-                                    io.remove(self.sutils .. '/' .. util)
-                                end
-
-                                for self.libs as lib do
-                                    io.remove(self.slibs .. '/' .. lib)
-                                end
-
-                                for self.sub_modules as s do
-                                    io.remove(self.ssubmodules .. '/' .. s)
-                                end
-
-                                bytes = body
-                            else
-                                print('[MrRobot : ' .. status_code .. '] Failed to update')
-                            end
-                        end)
-
-                        async_http.dispatch()
-
-                        repeat
-                            util.yield_once()
-                        until bytes ~= 0
-
-                        util.restart_script()
-                    end)
-
-                    local stop = self.root:getChildren()[1]
-                    if stop:isValid() then
-                        stop:attachAfter(update_button)
-                    end
-                else
-                    
-                end
-            end
-        end)
-
-        async_http.dispatch()
-    end
-
-    function ClearPackageLoaded()
+    function ClearPackagePath()
         for self.modules as mod do package.loaded[mod] = nil end
         for self.utils as util do package.loaded[util] = nil end
         for self.libs as lib do package.loaded[lib] = nil end
@@ -315,115 +185,173 @@ pluto_class MrRobot
     function SetupPackagePath()
         package.path = ''
         package.path = package.path .. ';' .. self.smodules .. '/?'
-        package.path = package.path .. ';' .. self.sutils .. '/?'
-        package.path = package.path .. ';' .. self.scustom .. '/?'
-        package.path = package.path .. ';' .. self.slibs .. '/?'
         package.path = package.path .. ';' .. self.ssubmodules .. '/?'
+        package.path = package.path .. ';' .. self.sutils .. '/?'
+        package.path = package.path .. ';' .. self.slibs .. '/?'
+        package.path = package.path .. ';' .. self.scustom .. '/?'
     end
 
-    function CheckVersion(version)
-        local a = version:gsub('-%w+', ''):split('.')
-        local b = self.SCRIPT_VERSION:gsub('-%w+', ''):split('.')
-        for i = 1, #a do a[i] = tonumber(a[i]) end
-        for i = 1, #b do b[i] = tonumber(b[i]) end
+    function CheckForUpdates()
+        local T = self.T
+        async_http.get(nil, $'{async_http.update_path}/index.php', function(body, headers, status_code)
+            if status_code == 200 then
+                self.discord_invite = headers['X-Robot-Discord']
+                local version_compare = soup.version_compare(body, self.script_version)
+                if version_compare == 1 then
+                    util.toast(T($'v{body} is now available'))
+                    self:CreateUpdateButton($'v{body}')
+                elseif version_compare == 0 then
+                    util.toast(T'You are up to date')
+                elseif version_compare == -1 then
+                    util.toast(T($'You are using v{self.script_version}-dev which is newer than v{body}'))
+                end
+            end
+        end)
+    end
 
-        local x = (a[1] << 4) | (a[2] << 8) + a[3]
-        local y = (b[1] << 4) | (b[2] << 8) + b[3]
+    function CreateUpdateButton(text)
+        local bytes = 0
+        local update_button = self.shadow_root:action(text, {}, '', function()
+            async_http.get(nil, $'{async_http.update_path}/MrRobot.lua', function(body, headers, status_code)
+                if status_code == 200 then
+                    local file <close> = assert(io.open(filesystem.scripts_dir() .. SCRIPT_RELPATH, 'wb'))
+                    file:write(body)
+                    file:close()
 
-        return x > y
+                    for self.modules as mod do
+                        io.remove(self.smodules .. '/' .. mod)
+                    end
+
+                    for self.utils as util do
+                        io.remove(self.sutils .. '/' .. util)
+                    end
+
+                    for self.libs as lib do
+                        io.remove(self.slibs .. '/' .. lib)
+                    end
+
+                    for self.sub_modules as s do
+                        io.remove(self.ssubmodules .. '/' .. s)
+                    end
+                end
+
+                bytes = body
+            end)
+
+            repeat
+                util.yield_once()
+            until bytes ~= 0 
+            util.restart_script()
+        end)
+
+        local stop = self.root:getChildren()[1]
+        if stop:isValid() then stop:attachAfter(update_button) end
+    end
+
+    function Requires()
+        self:ClearPackagePath()
+        self:SetupPackagePath()
+
+        self.T = require('translations')
+        self.S = require('shared')
+        self.H = require('handler')
+
+        _G.table.inspect = require('inspect')
+        require('cutscenes')
+        require('entity')
+        require('masks')
+        require('offsets')
+        require('pedlist')
+        require('script_globals')
+        require('vehicle_handling')
+        require('vehicle_models')
+        require('weapons_list')
+        require('vehicle')
+        require('zone_info')
+        require('network')
+        require('notifications')
+        require('door_manager')
     end
 
     function PlayStartupAnimation(play)
         if play then
-            local logo = directx.create_texture(self.simages .. '/MrRobot.png')
-            local alpha, reverse_alpha = 0.0, false
-
-            util.create_tick_handler(function()
-                directx.draw_texture(logo, 0.04, 0.04, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=0, b=0, a=alpha })
-
-                if alpha < 1.7 and not reverse_alpha then
-                    alpha += 0.007
-                else
-                    reverse_alpha = true
-                    alpha -= 0.007
-                end
-
-                if alpha <= 0 then
-                    return false
-                end
-            end)
+            self.S:PlayAnimation(self.simages .. '/MrRobot.png')
         end
+    end
+
+    function ModifyNatives()
+        local meta = {
+            __index = function(self, key)
+                if not key:match('^[A-Z_]+_[A-Z_]+_[A-Z_]+$') then
+                    --local snake_case_pattern = '^[a-z_]+_[a-z_]+_[a-z_]+$'
+                    local snake_case_pattern = '^[a-z_]+'
+                    local pascal_case_pattern = '^[A-Z][a-z]+[A-Z][a-z]+[A-Z][a-z]+$' -- TODO: Fix this
+                    local camel_case_pattern = '^[a-z]+[A-Z][a-z]+[A-Z][a-z]+$' -- TODO: Fix this
+        
+                    if key:match(snake_case_pattern) then
+                        key = key:upper()
+                    elseif key:match(pascal_case_pattern) then
+                        key = key:gsub('([A-Z])', '_%1'):sub(2):upper()
+                    elseif key:match(camel_case_pattern) then
+                        local first = key:sub(1, 1):upper()
+                        key = first .. key:gsub('([A-Z])', '_%1'):sub(2):upper()
+                    end
+                end
+        
+                return rawget(self, key)
+            end
+        }
+        
+        for ({
+            'CUTSCENE', 'DECORATOR', 'ENTITY', 'FIRE', 'GRAPHICS', 'HUD', 'INTERIOR', 'NETSHOPPING', 
+            'NETWORK', 'OBJECT', 'PAD', 'PED', 'PLAYER', 'STATS', 'VEHICLE', 'WEAPON','CAM', 'TASK',
+            'AUDIO', 'MISC', 'STREAMING', 'CUTSCENE', 'SCRIPT', 'ZONE', 'SHAPETEST'
+        }) as key do
+            _G[key:lower()] = setmetatable(_G[key], meta)
+        end
+    end
+
+    function LoadModule(name)
+        local state, err = pcall(require, name)
+        if not state then
+            local line = err:match(':(%d+):')
+            Notifications.Show($'Failed to load module {name}, check the console for more info', name:gsub('^%w', string.upper), $'Error is on line {line}', Notifications.HUD_COLOUR_REDDARK)
+            util.log($'Failed to load module {name}: {err}')
+        else
+            local err_type = type(err)
+            if err_type == 'table' then
+                table.insert(self.module_instances, pluto_new err(self.root, self.script_version))
+            elseif err_type == 'function' then
+                err()
+            end
+        end   
     end
 
     function ModuleLoader()
-        local LoadingStart = os.clock()
-        for self.modules as mod do
-            if filesystem.exists(self.smodules .. '/' .. mod) then
-                if package.loaded[mod] ~= nil then
-                    package.loaded[mod] = nil
-                end
-               
-                local file <close> = assert(io.open(self.smodules .. '/' .. mod, 'rb'))
-                local content = file:read('*all')
-                file:close()
-
-                local state, err = pcall(load(content))
-                if not state then
-                    util.toast('Failed to load module ' .. mod .. ', check the console for more info')
-                    print('[MrRobot | ' .. mod .. '] ' .. err)
-                else
-                    if type(err) == 'table' then
-                        xpcall(function()
-                            local instance = pluto_new err(self.root, self.SCRIPT_VERSION)
-                        end, function(salt)
-                            util.toast(salt)
-                        end)
-                    end
-                end
-            end
-        end
-        print('[MrRobot] Loaded in ' .. math.round((os.clock() - LoadingStart) * 1000, 0) .. ' ms')
+        for self.modules as name do self:LoadModule(name) end
 
         players.add_command_hook(function(pid, root)
-            pcall(function()
-                if type(self.Handler.PlayerLoop) then self.Handler.PlayerLoop(pid, root) end
-                if type(self.Handler.GhostingLoop) ~= nil then self.Handler.GhostingLoop(pid, root) end
-                if type(self.Handler.PlayerAimbotAddTarget) ~= nil then self.Handler.PlayerAimbotAddTarget(pid, root) end
-            end)
+            if type(self.H.PlayerLoop) then self.H.PlayerLoop(pid, root) end
+            if type(self.H.GhostingLoop) then self.H.GhostingLoop(pid, root) end
+            if type(self.H.PlayerAimbotAdd) then self.H.PlayerAimbotAdd(pid, root) end
         end)
+
         players.on_leave(function(pid, name)
-            pcall(function()
-                if type(self.Handler.GhostingRemovePlayer) ~= nil then self.Handler.GhostingRemovePlayer(pid) end
-                if type(self.Handler.PlayerAimbotRemoveTarget) ~= nil then self.Handler.PlayerAimbotRemoveTarget(pid) end
-            end)
+            if type(self.H.GhostingRemovePlayer) then self.H.GhostingRemovePlayer(pid, name) end
+            if type(self.H.PlayerAimbotRemove) then self.H.PlayerAimbotRemove(pid, name) end
         end)
-    end
 
-    function Requires()
-        self.Shared = require('shared')
-        self.Handler = require('handler')
-
-        require('script_globals')
-        require('offsets')
-        require('translations')
-
-        self.Shared.CHAR_SLOT = util.get_char_slot()
-        self.Shared.PLAYER_ID = players.user()
-
-        util.on_transition_finished(function()
-            self.Shared.CHAR_SLOT = util.get_char_slot()
-            self.Shared.PLAYER_ID = players.user()
+        util.on_pre_stop(function()
+            if type(self.H.PedRemoveBlips) then self.H.PedRemoveBlips() end
+            if type(self.H.CollectablesRemoveBlips) then self.H.CollectablesRemoveBlips() end
         end)
     end
 end
 
-local Script = pluto_new MrRobot('1.6.6', '1.67')
-Script:CheckGameVersion()
-Script:SetupPackagePath()
-Script:FixMissingDirs()
-Script:FixMissingFiles()
-Script:CheckForUpdates()
-Script:ClearPackageLoaded()
-Script:Requires()
-Script:PlayStartupAnimation(SCRIPT_MANUAL_START and not SCRIPT_SILENT_START)
-Script:ModuleLoader()
+local MrRobot = pluto_new MrRobot('2.0.0', '1.67')
+MrRobot:FixMissingFiles()
+MrRobot:Requires()
+MrRobot:CheckForUpdates()
+MrRobot:PlayStartupAnimation(SCRIPT_MANUAL_START and not SCRIPT_SILENT_START)
+MrRobot:ModifyNatives()
+MrRobot:ModuleLoader()

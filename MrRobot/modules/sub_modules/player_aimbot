@@ -1,352 +1,338 @@
 local T, S, H = require('translations'), require('shared'), require('handler')
 local Bitfield = require('bitfield')
 
-local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
+enum FOVTypes begin
+    Normal = 1,
+    Precision = 2
+end
 
 pluto_class PlayerAimbot
-    ReadInt = memory.read_int
-
     function __construct(root)
-        self.root = root:list(T'Player', {}, T'Player aimbot')
-        self.bounds = { x = 0.5 - (0.02 / 2), y = 0.5 - (0.03 / 2) }
-        self.target_bitfield = Bitfield.new(0)
+        self.root = root:list(T'Player', {T'rplayeraimbot'}, T'Player Aimbot')
+        self.targets = pluto_new Bitfield(0)
 
         self.bone = 31086
         self.use_fov = true
-        self.custom_fov = true
-        self.ignore_vehicles = false
+        self.ignore_vehicles = true
         self.target_friends = false
         self.show_target = true
         self.damage_override = false
         self.chance_based = false
         self.spectate = true
-        self.max_distance = 100000.0
 
         self.fov = 1
+        self.fov_types = {'Normal', 'Precision'}
+        self.fov_type = 1
         self.damage = 100
         self.chance = 100
-        self.in_fov = false
 
         self.sx_ptr = memory.alloc(4)
         self.sy_ptr = memory.alloc(4)
-        self.entity_ptr = memory.alloc(4)
+        self.ent_ptr = memory.alloc(4)
 
         self:Init()
-        self:HooksInit()
     end
 
     function Init()
-        self.root:toggle_loop(T'Aimbot', {}, T'Enable Aimbot', S:Partial(self.Aimbot, self))
-        self.root:toggle_loop(T'Unfair Aimbot', {}, T'Enable Unfair Aimbot, the most blatant kind of aimbot that exists', S:Partial(self.UnfairAimbot, self))
-        self.root:toggle_loop(T'Trigger Bot', {}, T'Enable Trigger Bot', S:Partial(self.TriggerBot, self))
+        self.root:toggle_loop(T'Aimbot', {}, T'Aimbot', || -> self:Aimbot())
+        self.root:toggle_loop(T'Unfair Aimbot', {}, T'A very unfair variant of aimbot', || -> self:UnfairAimbot())
+        self.root:toggle_loop(T'Trigger Bot', {}, T'Shoots when your crosshair is on an enemy', || -> self:TriggerBot())
+        self.root:toggle_loop(T'Unfair Trigger Bot', {}, T'Unfair variant of trigger bot', || -> self:UnfairTriggerBot())
         self.root:divider('')
 
-        self.root:toggle(T'Use FOV', {}, T'Use FOV', function(state)
+        self.root:toggle(T'Use FOV', {}, T'Will the aimbot use FOV or just annihilate them regardless of where you aim?', function(state)
             self.use_fov = state
         end, self.use_fov)
 
-        self.root:toggle(T'Custom FOV', {}, T'Custom FOV', function(state)
-            self.custom_fov = state
-        end, self.custom_fov)
-
-        self.root:toggle(T'Ignore Vehicles', {}, T'Ignore Vehicles', function(state)
+        self.root:toggle(T'Ignore Vehicles', {}, T'Will the aimbot ignore vehicles?', function(state)
             self.ignore_vehicles = state
         end, self.ignore_vehicles)
 
-        self.root:toggle(T'Target Friends', {}, T'Target Friends', function(state)
+        self.root:toggle(T'Target Friends', {}, T'Will the aimbot target friends?', function(state)
             self.target_friends = state
         end, self.target_friends)
 
-        self.root:toggle(T'Show Target', {}, T'Show Target', function(state)
+        self.root:toggle(T'Show Target', {}, T'Will the aimbot show the target?', function(state)
             self.show_target = state
         end, self.show_target)
 
-        self.root:toggle(T'Damage Override', {}, T'Damage Override', function(state)
+        self.root:toggle(T'Damage Override', {}, T'Will the aimbot override the damage?', function(state)
             self.damage_override = state
         end, self.damage_override)
 
-        self.root:toggle(T'Chance Based', {}, T'Chance Based', function(state)
+        self.root:toggle(T'Chance Based', {}, T'Will the aimbot be chance based?', function(state)
             self.chance_based = state
         end, self.chance_based)
 
-        self.root:toggle(T'Spectate', {}, T'Spectate the player before shooting to ensure they die', function(state)
+        self.root:toggle(T'Spectate', {}, T'Automatically spectate when outside of a certain range (this only applies to snipers)', function(state)
             self.spectate = state
         end, self.spectate)
 
+        self.root:divider('')
         self.root:list_select(T'Bone', {}, T'Bone to target', {'Head', 'Chest', 'Stomach', 'Left Foot', 'Right Leg', 'Left Hand', 'Right Hand', 'Pelvis', 'Left Leg', 'Left Knee', 'Left Arm'}, 1, function(index)
             self.bone = S.AimbotBones[index] or 31086
         end, self.bone)
 
-        self.root:slider(T'FOV', {}, T'The FOV the player must be in for the aimbot to aimbot', 1, 180, self.fov, 1, function(fov)
-            self.fov = fov
+        self.root:list_select(T'FOV Type', {}, T'The type of FOV', self.fov_types, 1, function(index)
+            self.fov_type = index
+            if index == FOVTypes.Normal then
+                self.fov = self.normal_fov.value
+            else
+                self.fov = self.precise_fov.value / 100
+            end
         end)
 
-        self.root:slider(T'Damage', {}, T'The damage the aimbot will do', 1, S.MAX_INT, self.damage, 1, function(damage)
-            self.damage = damage
+        self.normal_fov = self.root:slider(T'FOV', {T'rpedaimbotfov'}, T'The FOV of the aimbot', 0, 180, self.fov, 1, function(value)
+            if self.fov_type == FOVTypes.Normal then
+                self.fov = value
+            end
         end)
 
-        self.root:slider(T'Chance', {}, T'How often will the aimbot miss intentionally', 0, 100, self.chance, 1, function(chance)
-            self.chance = chance
+        self.precise_fov = self.root:slider_float(T'Precision FOV', {T'rpedaimbotfovp'}, T'A more precise FOV for the aimbot', 0.0, 180.0 * 100, self.fov * 100, 1.0, function(value)
+            if self.fov_type == FOVTypes.Precision then
+                self.fov = value / 100
+            end
         end)
 
-        self.target_list = self.root:list(T'Targets', {}, T'Who will the aimbot target?')
+        self.root:slider(T'Damage', {T'rpedaimbotdamage'}, T'The damage of the aimbot', 0, math.max_int, self.damage, 1, function(value)
+            self.damage = value
+        end)
+
+        self.root:slider(T'Chance', {T'rpedaimbotchance'}, T'The chance of the aimbot', 0, 100, self.chance, 1, function(value)
+            self.chance = value
+        end)
+
+        self.root:divider('')
+        self.target_list = self.root:list(T'Targets', {}, T'Players that the aimbot will target')
+        self:HandleTargetsUpdating()
     end
 
-    function HooksInit()
-        H.PlayerAimbotAddTarget = S:Partial(function(self, pid, root) 
-            self.target_bitfield:Set(1 << pid)
-            local Name = players.get_name(pid)
-            local Ref = menu.ref_by_rel_path(self.target_list, Name)
-            if pid == PlayerID and Name ~= 'UndiscoveredPlayer' then return end
-
-            if not Ref:isValid() then
-                self.target_list:toggle(Name, {}, 'Should this player be targetted by the aimbot?', function(state)
-                    if state then
-                        self.target_bitfield:Set(1 << pid)
-                    else
-                        self.target_bitfield:Clear(1 << pid)
-                    end
-                end, self.target_bitfield:IsSet(1 << pid))
+    function HandleTargetsUpdating()
+        H.PlayerAimbotAdd = S:Partial(function(self, pid, root)
+            local name = players.get_name(pid)
+            local ref = self.target_list:refByRelPath(name)
+            if S:PlayerExists(pid) and pid ~= players.user() then
+                if not ref:isValid() then
+                    self.targets:Set(1 << pid)
+                    self.target_list:toggle(name, {}, T'Should this player be targetted by the aimbot?', function(state)
+                        self.targets:SetBool(1 << pid, state)
+                    end, self.targets:IsSet(1 << pid))
+                end
             end
         end, self)
 
-        H.PlayerAimbotRemoveTarget = S:Partial(function(self, pid, name) 
-            self.target_bitfield:Clear(1 << pid)
-            local Ref = menu.ref_by_rel_path(self.target_list, name)
-
-            if Ref:isValid() then
-                Ref:delete()
+        H.PlayerAimbotRemove = S:Partial(function(self, pid, name)
+            self.targets:Clear(1 << pid)
+            local ref = self.target_list:refByRelPath(name)
+            if ref:isValid() then
+                ref:delete()
             end
         end, self)
     end
 
     function Aimbot()
-        local player = nil
-        local player_ped = players.user_ped()
-
-
-        if self.custom_fov then
-            player = self:GetClosestPlayer()
-        else
-            local pid = 0
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    local ped = self.GetPlayerPed(pid)
-                    if ped ~= player_ped then
-                        if not self.target_friends and S:IsPlayerFriend(pid) then
-                            goto continue
-                        end
-
-                        if self.IsPedFacingPed(player_ped, ped, self.fov) then
-                            player = pid
-                            break
-                        end
-
-                        ::continue::
-                    end
+        if not util.is_session_started() then return end
+        local target = self:GetTarget()
+        local localplayer = players.localplayer()
+        if target ~= nil then
+            if self.show_target then
+                local coords = ped.get_ped_bone_coords(target.ped, self.bone, 0.0, 0.0, 0.0)
+                if graphics.get_screen_coord_from_world_coord(coords.x, coords.y, coords.z, self.sx_ptr, self.sy_ptr) then
+                    local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
+                    directx.draw_line(0.5, 0.5, sx, sy, { r=1, g=0, b=0, a=1 })
                 end
             end
-        end
 
-        if player ~= nil then
-            local ped = self.GetPlayerPed(player)
-            local visible = self.HasEntityClearLosToEntity(player_ped, ped, 17)
-    
-            if self.show_target and ped ~= player_ped then
-                local ped_bone = self.GetPedBoneCoords(ped, self.bone, 0.0, 0.0, 0.0)
-                util.draw_ar_beacon(ped_bone)
-                util.draw_debug_text('Target: ' .. players.get_name(player))
-            end
-    
-            if visible then
-                if self.use_fov then
-                    for S.AimbotBones as bone do
-                        if self:BoneWithinBounds(ped, bone) then
-                            self.in_fov = true
-                            break
-                        else
-                            self.in_fov = false
-                        end
-                    end
+            if localplayer:is_ped_shooting() and localplayer:has_entity_clear_los_to_entity(target.ped, 17) then
+                local weapon_hash = localplayer:get_selected_ped_weapon()
+                local damage = self.damage_override ? self.damage : weapon.get_weapon_damage(weapon_hash, self.bone)
+                local chance = (self.chance_based) ? math.random(1, 100) : 100
+
+                if chance > self.chance then return end
+                if not ped.is_ped_in_any_vehicle(target.ped) then
+                    local from = self:GetWeaponBarrelCoords()
+                    local to = ped.get_ped_bone_coords(target.ped, self.bone, 0.0, 0.0, 0.0)
+                    self:ShootBullet(localplayer.entity, weapon_hash, damage, from, to)
                 else
-                    self.in_fov = true
-                end
-    
-                if self.IsPedShooting(player_ped) and self.in_fov then
-                    local weapon = self.GetSelectedPedWeapon(player_ped)
-                    local weapon_damage = self.GetWeaponDamage(weapon, 0)
-    
-                    if self.damage_override then
-                        weapon_damage = self.damage
-                    end
-    
-                    if self.IsPedInAnyVehicle(ped) and self.ignore_vehicles then
-                        return
-                    end
-    
-                    if self.IsEntityDead(ped) then
-                        return
-                    end
-    
-                    if self.chance_based then
-                        local chance = math.random(1, 100)
-                        if chance <= self.chance then
-                            return
-                        end
-    
-                        local from = self.GetPedBoneCoords(player_ped, 31086, 0.0, 0.0, 0.0)
-                        local to = self.GetPedBoneCoords(ped, self.bone, 0.0, 0.0, 0.0)
-    
-                        if from ~= nil and to ~= nil then
-                            self:ShootBullet(player_ped, weapon, weapon_damage, from, to)
-                        end
-                    else
-                        local from = self.GetPedBoneCoords(player_ped, 31086, 0.0, 0.0, 0.0) 
-                        local to = self.GetPedBoneCoords(ped, self.bone, 0.0, 0.0, 0.0)
-                        
-                        if from ~= nil and to ~= nil then
-                            self:ShootBullet(player_ped, weapon, weapon_damage, from, to)
-                        end
-                    end
+                    local from = ped.get_ped_bone_coords(target.ped, 24816, 0.0, 1.0, 0.2)
+                    local to = ped.get_ped_bone_coords(target.ped, self.bone, 0.0, 0.0, 0.0)
+                    self:ShootBullet(localplayer.entity, weapon_hash, damage, from, to)
                 end
             end
         end
     end
 
     function UnfairAimbot()
-        local player = self:GetClosestPlayer()
-        local player_ped = self.GetPlayerPed(PlayerID)
-        
-        if player ~= nil then
-            local ped = self.GetPlayerPed(player)
-            if self.show_target and ped ~= player_ped then
-                local ped_bone = self.GetPedBoneCoords(ped, self.bone, 0.0, 0.0, 0.0)
-                util.draw_ar_beacon(ped_bone)
+        if not util.is_session_started() then return end
+        local target = self:GetClosestPlayer()
+        if target == nil then return end
+        if not self.targets:IsSet(1 << target) then return end
+
+        local pped = player.get_player_ped(target)
+        local localplayer = players.localplayer()
+        local coords = ped.get_ped_bone_coords(pped, self.bone, 0.0, 0.0, 0.0)
+        if self.show_target then
+            if graphics.get_screen_coord_from_world_coord(coords.x, coords.y, coords.z, self.sx_ptr, self.sy_ptr) then
+                local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
+                directx.draw_line(0.5, 0.5, sx, sy, { r=1, g=0, b=0, a=1 })
+            end
+        end
+
+        if localplayer:is_ped_shooting() and not entity.is_entity_dead(pped) then
+            local pcoords = players.get_position(players.user())
+            local weapon_hash = localplayer:get_selected_ped_weapon()
+            local damage = entity.get_entity_health(pped) + ped.get_ped_armour(pped)
+            local speed = entity.get_entity_speed(pped)
+            local from = ped.get_ped_bone_coords(pped, 39317, 0.0, 0.0, 0.0)
+            local to = ped.get_ped_bone_coords(pped, 31086, 0.0, 0.0, 0.0)
+
+            if ped.is_ped_in_any_vehicle(pped) then
+                local distance = coords:distance(pcoords)
+                local time = distance / speed
+                local velocity = entity.get_entity_velocity(pped)
+                local prediction = v3.new(velocity.x * time, velocity.y * time, velocity.z * time)
+                to:add(prediction)
+            else
+                from = ped.get_ped_bone_coords(pped, 24816, 0.0, 1.0, 0.2)
+                to = ped.get_ped_bone_coords(pped, 31086, 0.0, 0.0, 0.0)
             end
 
-            if self.IsPedShooting(player_ped) and not self.IsEntityDead(ped) then
-                local weapon = self.GetSelectedPedWeapon(player_ped)
-                local weapon_damage = self.GetWeaponDamage(weapon, 0)
-
-                if self.damage_override then
-                    weapon_damage = self.damage
+            if self.spectate and coords:distance(pcoords) >= 490 then
+                local spect = menu.player_root(target):refByRelPath(T'Spectate>Nuts Method')
+                if spect:isValid() then
+                    spect.value = true
+                    util.yield(100)
+                    self:ShootBullet(localplayer.entity, weapon_hash, damage, from, to)
+                    util.yield(200)
+                    spect.value = false
                 end
-
-                local from = self.GetPedBoneCoords(ped, self.bone, 0.0, -0.1, 0.0) 
-                local to = self.GetPedBoneCoords(ped, self.bone, 0.0, 0.0, 0.0)
-                
-                if from ~= nil and to ~= nil then
-                    if self.spectate then
-                        local spectate = menu.player_root(player):refByRelPath('Spectate>Nuts Method')
-                        if spectate:isValid() then
-                            spectate.value = true
-                            util.yield(100)
-                            self:ShootBullet(player_ped, weapon, weapon_damage, from, to)
-                            util.yield(200)
-                            spectate.value = false
-                        end
-                    else
-                        self:ShootBullet(player_ped, weapon, weapon_damage, from, to)
-                    end
-                end
+            else
+                self:ShootBullet(localplayer.entity, weapon_hash, damage, from, to)
             end
         end
     end
 
     function TriggerBot()
-        if self.GetEntityPlayerIsFreeAimingAt(players.user(), self.entity_ptr) then
-            local entity = self.ReadInt(self.entity_ptr)
-            if entity ~= 0 then
-                local model = util.reverse_joaat(self.GetEntityModel(entity))
+        if player.get_entity_player_is_free_aiming_at(players.user(), self.ent_ptr) then
+            local ent = memory.read_int(self.ent_ptr)
+            if ent ~= 0 then
+                local model = util.reverse_joaat(entity.get_entity_model(ent))
+                local pid = network.network_get_player_index_from_ped(ent)
                 if model:find('freemode') then
-                    if not self.IsEntityDead(entity) and not self.IsEntityAGhost(entity) then
+                    if not entity.is_entity_dead(ent) and not network.is_entity_a_ghost(ent) then
+                        if not self.target_friends and S:IsFriend(pid) then return end
+                        if not self.targets:IsSet(1 << pid) then return end
                         for i = 0, 8 do
-                            self.SetControlValueNextFrame(0, 24, 1)
+                            pad.set_control_value_next_frame(0, 24, 1)
                         end
                     end
                 end
             end
         end
+    end
+
+    function UnfairTriggerBot()
+        if player.get_entity_player_is_free_aiming_at(players.user(), self.ent_ptr) then
+            local ent = memory.read_int(self.ent_ptr)
+            if ent ~= 0 then
+                local model = util.reverse_joaat(entity.get_entity_model(ent))
+                local pid = network.network_get_player_index_from_ped(ent)
+                if model:find('freemode') then
+                    if not entity.is_entity_dead(ent) and not network.is_entity_a_ghost(ent) then
+                        if not self.target_friends and S:IsFriend(pid) then return end
+                        if not self.targets:IsSet(1 << pid) then return end
+                        for i = 0, 8 do
+                            pad.set_control_value_next_frame(0, 24, 1)
+                        end
+                        local to = ped.get_ped_bone_coords(ent, self.bone, 0.0, 0.0, 0.0)
+                        local from = self:GetWeaponBarrelCoords()
+                        local localplayer = players.localplayer()
+                        local weapon_hash = localplayer:get_selected_ped_weapon()
+                        local damage = weapon.get_weapon_damage(weapon_hash, self.bone)
+                        self:ShootBullet(localplayer.entity, weapon_hash, damage, from, to)
+                    end
+                end
+            end
+        end
+    end
+
+    function GetTarget()
+        local target = nil
+        local player_coords = players.get_position(players.user())
+        local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
+        local current_weapon = memory.read_long(weapon_manager + 0x0020)
+        local max_distance = memory.read_float(current_weapon + 0x028C)
+        for pid = 0, players.max_players do
+            if S:PlayerExists(pid) and pid ~= players.user() and self.targets:IsSet(1 << pid) then
+                local player_ped = player.get_player_ped(pid)
+                local coords = players.get_position(pid)
+                if not entity.is_entity_dead(player_ped) then
+                    local distance = player_coords:distance(coords)
+                    if distance <= max_distance then
+                        if self.ignore_vehicles and ped.is_ped_in_any_vehicle(player_ped) then
+                            goto continue
+                        end
+
+                        if not self.target_friends and S:IsFriend(pid) then
+                            goto continue
+                        end
+
+                        if players.is_in_interior(pid) then
+                            goto continue
+                        end
+
+                        local fov = (self.use_fov) ? self.fov : 180
+                        if ped.is_ped_facing_ped(players.user_ped(), player_ped, fov) then
+                            target = { pid = pid, ped = player_ped }
+                            break
+                        end
+                    end
+                end
+            end
+
+            ::continue::
+        end
+
+        return target
     end
 
     function ShootBullet(owner, weapon, damage, from, to)
-        self.ShootSingleBulletBetweenCoordsIgnoreEntity(from.x, from.y, from.z, to.x, to.y, to.z, damage, true, weapon, owner, true, false, 1.0, owner, true)
+        misc.shoot_single_bullet_between_coords_ignore_entity(from.x, from.y, from.z, to.x, to.y, to.z, damage, true, weapon, owner, true, false, 100.0, owner, true)
+    end
+
+    function GetWeaponBarrelCoords()
+        local localplayer = players.localplayer()
+        local weapon_hash = localplayer:get_selected_ped_weapon(self.bone)
+        local ent = localplayer:get_current_ped_weapon_entity_index(false)
+        if ent ~= 0 then
+            local coords = entity.get_offset_from_entity_in_world_coords(ent, 0.0, -0.19, 0.0)
+            return coords
+        end
+        return nil
     end
 
     function GetClosestPlayer()
-        local distances = {}
-        local player_ped = players.user_ped()
-        local player_pos = self.GetOffsetFromEntityInWorldCoords(player_ped, 0.0, 0.0, 0.0)
-
-        for pid = 0, S.MAX_PLAYERS do
-            if pid ~= PlayerID then
-                if S:PlayerInList(pid) then
-                    if self.target_bitfield:IsSet(1 << pid) then
-                        local ped = self.GetPlayerPed(pid)
-                        if not self.target_friends and S:IsPlayerFriend(pid) then
-                            goto continue
-                        end
-                        if not self.IsEntityDead(ped) and not players.is_in_interior(pid) then
-                            local pos = self.GetOffsetFromEntityInWorldCoords(ped, 0.0, 0.0, 0.0)
-                            local dist = player_pos:distance(pos)
-
-                            distances[pid] = dist
-                        end
+        local target = nil
+        local dist = 20000000.0
+        
+        for pid = 0, players.max_players do
+            if S:PlayerExists(pid) and pid ~= players.user() then
+                local tpos = players.get_position(pid)
+                local kpos = players.get_position(players.user())
+                local pped = player.get_player_ped(pid)
+                if not self.target_friends and S:IsFriend(pid) then goto continue end
+                if not entity.is_entity_dead(pped) and not players.is_in_interior(pid) and not players.is_godmode(pid) then
+                    if tpos:distance(kpos) < dist then
+                        target = pid
+                        dist = tpos:distance(kpos)
                     end
                 end
-
-                ::continue::
             end
+            ::continue::
         end
 
-        local smallest_distance = self.max_distance
-        local closest_entity = nil
-
-        for pid, distance in pairs(distances) do
-            if distance < smallest_distance then
-                smallest_distance = distance
-                closest_entity = pid
-            end
-        end
-
-        return closest_entity
+        return target
     end
-
-    function BoneWithinBounds(ped, bone)
-        local bone_coords = self.GetPedBoneCoords(ped, bone, 0.0, 0.0, 0.0)
-        local world_coords = S:WorldToScreen(bone_coords, self.sx_ptr, self.sy_ptr)
-        bone_coords.z = bone_coords.z + 0.15
-        
-        if world_coords ~= nil then
-            local x1, y1 = world_coords.x, world_coords.y
-            local x2, y2 = self.bounds.x, self.bounds.y
-            local dist = (x2 - x1) ^ 2 + (y2 - y1) ^ 2
-    
-            if dist <= self.fov / 180 then
-                return true
-            else
-                return false
-            end
-        end
-    end
-
-    --[[BOOL (bool)]] static function IsPedFacingPed(--[[Ped (int)]] ped,--[[Ped (int)]] otherPed,--[[float]] angle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(otherPed)native_invoker.push_arg_float(angle)native_invoker.end_call_2(0xD71649DB0A545AA3)return native_invoker.get_return_value_bool()end
-    --[[Vector3 (vector3)]] static function GetPedBoneCoords(--[[Ped (int)]] ped,--[[int]] boneId,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(boneId)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x17C07FC640E86B4E)return native_invoker.get_return_value_vector3()end
-    --[[BOOL (bool)]] static function HasEntityClearLosToEntity(--[[Entity (int)]] entity1,--[[Entity (int)]] entity2,--[[int]] traceType)native_invoker.begin_call()native_invoker.push_arg_int(entity1)native_invoker.push_arg_int(entity2)native_invoker.push_arg_int(traceType)native_invoker.end_call_2(0xFCDFF7B72D23A1AC)return native_invoker.get_return_value_bool()end
-    --[[void]] static function ShootSingleBulletBetweenCoordsIgnoreEntity(--[[float]] x1,--[[float]] y1,--[[float]] z1,--[[float]] x2,--[[float]] y2,--[[float]] z2,--[[int]] damage,--[[BOOL (bool)]] p7,--[[Hash (int)]] weaponHash,--[[Ped (int)]] ownerPed,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] speed,--[[Entity (int)]] entity,--[[Any (int)]] p14)native_invoker.begin_call()native_invoker.push_arg_float(x1)native_invoker.push_arg_float(y1)native_invoker.push_arg_float(z1)native_invoker.push_arg_float(x2)native_invoker.push_arg_float(y2)native_invoker.push_arg_float(z2)native_invoker.push_arg_int(damage)native_invoker.push_arg_bool(p7)native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(ownerPed)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(speed)native_invoker.push_arg_int(entity)native_invoker.push_arg_int(p14)native_invoker.end_call_2(0xE3A7742E0B7A2F8B)end
-    --[[BOOL (bool)]] static function IsPedShooting(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x34616828CD07F1A1)return native_invoker.get_return_value_bool()end
-    --[[Hash (int)]] static function GetSelectedPedWeapon(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x0A6DB4965674D243)return native_invoker.get_return_value_int()end
-    --[[float]] static function GetWeaponDamage(--[[Hash (int)]] weaponHash,--[[Hash (int)]] componentHash)native_invoker.begin_call()native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(componentHash)native_invoker.end_call_2(0x3133B907D8B32053)return native_invoker.get_return_value_float()end
-    --[[Ped (int)]] static function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x43A66C31C68491C0)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function IsEntityDead(--[[Entity (int)]] entity,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0x5F9532F3B5CC2551)return native_invoker.get_return_value_bool()end
-    --[[Vector3 (vector3)]] static function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
-    --[[float]] static function GetDistanceBetweenCoords(--[[float]] x1,--[[float]] y1,--[[float]] z1,--[[float]] x2,--[[float]] y2,--[[float]] z2,--[[BOOL (bool)]] useZ)native_invoker.begin_call()native_invoker.push_arg_float(x1)native_invoker.push_arg_float(y1)native_invoker.push_arg_float(z1)native_invoker.push_arg_float(x2)native_invoker.push_arg_float(y2)native_invoker.push_arg_float(z2)native_invoker.push_arg_bool(useZ)native_invoker.end_call_2(0xF1B760881820C952)return native_invoker.get_return_value_float()end
-    --[[BOOL (bool)]] static function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
-    --[[BOOL (bool)]] static function GetEntityPlayerIsFreeAimingAt(--[[Player (int)]] player,--[[Entity* (pointer)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_pointer(entity)native_invoker.end_call_2(0x2975C866E6713290)return native_invoker.get_return_value_bool()end
-    --[[Hash (int)]] static function GetEntityModel(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x9F47B058362C84B5)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function SetControlValueNextFrame(--[[int]] control,--[[int]] action,--[[float]] value)native_invoker.begin_call()native_invoker.push_arg_int(control)native_invoker.push_arg_int(action)native_invoker.push_arg_float(value)native_invoker.end_call_2(0xE8A25867FBA3B05E)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SetPlayerWeaponDamageModifier(--[[Player (int)]] player,--[[float]] modifier)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_float(modifier)native_invoker.end_call_2(0xCE07B9F7817AADA3)end
-    --[[BOOL (bool)]] static function IsEntityAGhost(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x21D04D7BC538C146)return native_invoker.get_return_value_bool()end
 end
 
 return PlayerAimbot

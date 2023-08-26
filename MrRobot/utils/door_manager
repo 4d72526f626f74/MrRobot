@@ -1,0 +1,130 @@
+enum DoorState begin
+    UNLOCKED = 0,
+    LOCKED,
+    DOORSTATE_FORCE_LOCKED_UNTIL_OUT_OF_AREA,
+    DOORSTATE_FORCE_UNLOCKED_THIS_FRAME,
+    DOORSTATE_FORCE_LOCKED_THIS_FRAME,
+    DOORSTATE_FORCE_OPEN_THIS_FRAME,
+    DOORSTATE_FORCE_CLOSED_THIS_FRAME,
+end
+
+pluto_class DoorManager
+    function __construct()
+        self.models = {'door', 'gate'}
+        self.ptr = memory.alloc(4)
+    end
+
+    function FindEntityByModel(iter, model, can_migrate=false)
+        for iter() as ent do
+            local ent_model = util.reverse_joaat(entities.get_model_hash(ent))
+            if ent_model:find(model) then
+                local handle = entities.pointer_to_handle(ent)
+                if Network.RequestControl(handle) then
+                    entities.set_can_migrate(ent, can_migrate)
+                    return ent
+                end
+            end
+        end
+        return nil
+    end
+
+    function FindEntityByModels(iter, models, can_migrate=false)
+        for iter() as ent do
+            for _, model in ipairs(models) do
+                local ent_model = util.reverse_joaat(entities.get_model_hash(ent))
+                if ent_model:find(model) then
+                    local handle = entities.pointer_to_handle(ent)
+                    if Network.RequestControl(handle) then
+                        entities.set_can_migrate(ent, can_migrate)
+                        return ent
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    function FindEntitiesByModel(iter, model, can_migrate=false)
+        local ents = {}
+        for iter() as ent do
+            local ent_model = util.reverse_joaat(entities.get_model_hash(ent))
+            if ent_model:find(model) then
+                local handle = entities.pointer_to_handle(ent)
+                if Network.RequestControl(handle) then
+                    entities.set_can_migrate(ent, can_migrate)
+                    table.insert(ents, ent)
+                end
+            end
+        end
+        return ents
+    end
+
+    function FindEntitiesByModels(iter, models, can_migrate=false)
+        local ents = {}
+        for iter() as ent do
+            local ent_model = util.reverse_joaat(entities.get_model_hash(ent))
+            for _, model in ipairs(models) do
+                if ent_model:find(model) then
+                    local handle = entities.pointer_to_handle(ent)
+                    if Network.RequestControl(handle) then
+                        entities.set_can_migrate(ent, can_migrate)
+                        table.insert(ents, ent)
+                    end
+                end
+            end
+        end
+        return ents
+    end
+
+    function GetDoorAtCoord(coords)
+        for entities.get_all_objects_as_pointers() as ent do
+            local pos = entities.get_position(ent)
+            local model = entities.get_model_hash(ent)
+            if object.door_system_find_existing_door(pos.x, pos.y, pos.z, model, self.ptr) then
+                return {
+                    hash = memory.read_int(hash),
+                    entity = entities.pointer_to_handle(ent),
+                    model = model,
+                    name = util.reverse_joaat(model),
+                    pos = pos
+                }
+            end
+            return 0
+        end
+    end
+
+    function FindAllDoors()
+        local ents = self:FindEntitiesByModels(entities.get_all_objects_as_pointers, self.models)
+        local mapped = {}
+        for ents as ent do
+            local ent = entities.pointer_to_handle(ent)
+            local pos = entity.get_entity_coords(ent)
+            local model = entity.get_entity_model(ent)
+            if object.door_system_find_existing_door(pos.x, pos.y, pos.z, model, self.ptr) then
+                local hash = memory.read_int(self.ptr)
+                table.insert(mapped, {
+                    hash = hash,
+                    entity = ent,
+                    model = model,
+                    name = util.reverse_joaat(model),
+                    pos = pos
+                })
+            end
+        end
+        return mapped
+    end
+
+    function Unlock(hash, open_ratio=0.0)
+        object.door_system_set_door_state(hash, DoorState.UNLOCKED, 0, 0)
+        object.door_system_set_hold_open(hash, true, true)
+        object.door_system_set_open_ratio(hash, open_ratio, true, true)
+    end
+
+    function Lock(hash)
+        object.door_system_set_door_state(hash, DoorState.LOCKED, 0, 0)
+        object.door_system_set_hold_open(hash, false, true)
+        object.door_system_set_open_ratio(hash, 0.0, true, true)
+    end
+end
+
+return DoorManager

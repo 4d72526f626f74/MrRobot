@@ -1,563 +1,147 @@
-local Shared = {}
-Shared.__index = Shared
-
-local T = require('translations')
-local BitModule = require('bit')
+local Entity = require('entity')
 local Bitfield = require('bitfield')
-Shared.Bit, Shared.BitMask, Shared.Pack = BitModule.Bit, BitModule.BitMask, BitModule.Pack
-local Bit, BitMask = BitModule.Bit, BitModule.BitMask
+local Bit = require('bit')
+local Vehicle = require('vehicle')
+local T = require('translations')
+local Globals = require('script_globals')
+local ScriptOffsets = require('offsets')
+
+local VehicleOffsets = ScriptOffsets.Vehicles.LSCustoms
+local VehicleBitfield = ScriptOffsets.Vehicles.VehicleBitfield
+
+local Shared = {}
 
 if package.loaded['math'] == nil then
     require('math')
 end
 
-local ScriptHostRef = menu.ref_by_path("Online>Session>Become Script Host")
-
-Shared.MAX_INT = (1 << 31) - 1
-Shared.MIN_INT = -(1 << 31)
-Shared.MAX_FLOAT = Shared.MAX_INT + 0.0
-Shared.MIN_FLOAT = Shared.MIN_INT + 0.0
-Shared.MAX_PLAYERS = 31
-
-Shared.SettingsBits = {
-    ShowAlerts = 1 << 0,
-    DevMode = 1 << 1,
-    RemoveTransactionError = 1 << 2,
-    ExperimentalMode = 1 << 3
-}
-Shared.Settings = Bitfield.new(
-    Shared.SettingsBits.ShowAlerts 
-    | Shared.SettingsBits.RemoveTransactionError
-)
-
-Shared.VehicleBitfield = {}
-Shared.VehicleBitfield.Active = 1 << 0
-Shared.VehicleBitfield.Request = 1 << 0
-Shared.VehicleBitfield.Destroyed = 1 << 1
-Shared.VehicleBitfield.Insured = 1 << 2
-Shared.VehicleBitfield.Impounded = 1 << 6
-Shared.VehicleBitfield.Delivered = 1 << 10
-Shared.VehicleBitfield.SpawnMorsMutual = 1 << 11
-
-Shared.Refs = {}
-
-pluto_class SG
-    function __construct(...)
-        local args = {...}
-
-        if #args == 1 and type(args[1]) == 'number' then
-            self.address = Shared.ScriptGlobal(args[1])
-        elseif #args == 2 and type(args[1]) == 'string' then
-            self.address = Shared.ScriptLocal(args[1], args[2])
-        end
-    end
-
-    function WriteByte(value, offset)
-        offset = offset or 0
-        memory.write_byte(self.address + offset, value & 0xFF)
-    end
-
-    function WriteShort(value, offset)
-        offset = offset or 0
-        memory.write_short(self.address + offset, value & 0xFFFF)
-    end
-
-    function WriteInt(value, offset)
-        offset = offset or 0
-        memory.write_int(self.address + offset, value & 0xFFFFFFFF)
-    end
-
-    function WriteLong(value, offset)
-        offset = offset or 0
-        memory.write_long(self.address + offset, value)
-    end
-
-    function WriteFloat(value, offset)
-        offset = offset or 0
-        memory.write_float(self.address + offset, value)
-    end
-
-    function WriteString(value, offset)
-        offset = offset or 0
-        memory.write_string(self.address + offset, value)
-    end
-
-    function ReadByte(offset)
-        offset = offset or 0
-        return memory.read_byte(self.address + offset)
-    end
-
-    function ReadShort(offset)
-        offset = offset or 0
-        return memory.read_short(self.address + offset)
-    end
-
-    function ReadInt(offset)
-        offset = offset or 0
-        return memory.read_int(self.address + offset)
-    end
-
-    function ReadLong(offset)
-        offset = offset or 0
-        return memory.read_long(self.address + offset)
-    end
-
-    function ReadFloat(offset)
-        offset = offset or 0
-        return memory.read_float(self.address + offset)
-    end
-
-    function ReadString(offset)
-        offset = offset or 0
-        return memory.read_string(self.address + offset)
-    end
-
-    function Write(value, offset)
-        offset = offset or 0
-        local bits = math.floor(math.log(value, 2)) + 1
-
-        if bits <= 8 then
-            self:WriteByte(value, offset)
-        elseif bits <= 16 then
-            self:WriteShort(value, offset)
-        elseif bits <= 32 then
-            self:WriteInt(value, offset)
-        else
-            self:WriteLong(value, offset)
-        end
-    end
-end
-
-Shared.SG = SG
-
-Shared.Data = {
-    Achievements = {
-        ["1"] = "Welcome to Los Santos",       
-        ["2"] = "A Friendship Resurrected",    
-        ["3"] = "A Fair Day's Pay",
-        ["4"] = "The Moment of Truth",
-        ["5"] = "To Live or Die in Los Santos",
-        ["6"] = "Diamond Hard",
-        ["7"] = "Subversive",
-        ["8"] = "Blitzed",
-        ["9"] = "Small Town, Big Job",
-        ["10"] = "The Government Gimps",       
-        ["11"] = "The Big One!",
-        ["12"] = "Solid Gold, Baby!",
-        ["13"] = "Career Criminal",
-        ["14"] = "San Andreas Sightseer",
-        ["15"] = "All's Fare in Love and War",
-        ["16"] = "TP Industries Arms Race",
-        ["17"] = "Multi-Disciplined",
-        ["18"] = "From Beyond the Stars",
-        ["19"] = "A Mystery, Solved",
-        ["20"] = "Waste Management",
-        ["21"] = "Red Mist",
-        ["22"] = "Show Off",
-        ["23"] = "Kifflom!",
-        ["24"] = "Three Man Army",
-        ["25"] = "Out of Your Depth",
-        ["26"] = "Altruist Acolyte",
-        ["27"] = "A Lot of Cheddar",
-        ["28"] = "Trading Pure Alpha",
-        ["29"] = "Pimp My Sidearm",
-        ["30"] = "Wanted: Alive Or Alive",
-        ["31"] = "Los Santos Customs",
-        ["32"] = "Close Shave",
-        ["33"] = "Off the Plane",
-        ["34"] = "Three-Bit Gangster",
-        ["35"] = "Making Moves",
-        ["36"] = "Above the Law",
-        ["37"] = "Numero Uno",
-        ["38"] = "The Midnight Club",
-        ["39"] = "Unnatural Selection",
-        ["40"] = "Backseat Driver",
-        ["41"] = "Run Like The Wind",
-        ["42"] = "Clean Sweep",
-        ["43"] = "Decorated",
-        ["44"] = "Stick Up Kid",
-        ["45"] = "Enjoy Your Stay",
-        ["46"] = "Crew Cut",
-        ["47"] = "Full Refund",
-        ["48"] = "Dialling Digits",
-        ["49"] = "American Dream",
-        ["50"] = "A New Perspective",
-        ["51"] = "Be Prepared",
-        ["52"] = "In the Name of Science",
-        ["53"] = "Dead Presidents",
-        ["54"] = "Parole Day",
-        ["55"] = "Shot Caller",
-        ["56"] = "Four Way",
-        ["57"] = "Live a Little",
-        ["58"] = "Can't Touch This",
-        ["59"] = "Mastermind",
-        ["60"] = "Vinewood Visionary",
-        ["61"] = "Majestic",
-        ["62"] = "Humans of Los Santos",
-        ["63"] = "First Time Director",
-        ["64"] = "Animal Lover",
-        ["65"] = "Ensemble Piece",
-        ["66"] = "Cult Movie",
-        ["67"] = "Location Scout",
-        ["68"] = "Method Actor",
-        ["69"] = "Cryptozoologist",
-        ["70"] = "Getting Started",
-        ["71"] = "The Data Breaches",
-        ["72"] = "The Bogdan Problem",
-        ["73"] = "The Doomsday Scenario",
-        ["74"] = "A World Worth Saving",
-        ["75"] = "Orbital Obliteration",
-        ["76"] = "Elitist",
-        ["77"] = "Masterminds",
-    },
-    BunkerResearch = {
-        ["APC Sam Battery"] = 21806 + 129,
-        ["Ballistic Equipment"] = 21807 + 129,
-        ["Half Track 20MM Quad Cannons"] = 21808 + 129,
-        ["Weaponized Tampa Dual Remote Minigun"] = 21809 + 129,        
-        ["Weaponized Tampa Rear Firing Mortar"] = 21810 + 129,
-        ["Weaponized Tampa Front Missile Launchers"] = 21811 + 129,    
-        ["Weaponized Tampa Heavy Chassis Armor"] = 21812 + 129,        
-        ["Dune Fav 40MM Grenade Launcher"] = 21813 + 129,
-        ["Dune Fav 762MM Minigun"] = 21814 + 129,
-        ["Insurgent Pick Up Custom 50 Cal Minigun"] = 21815 + 129,     
-        ["Insurgent Pick Up Custom Heavy Armor Plating"] = 21816 + 129,
-        ["Technical Custom 762MM Minigun"] = 21817 + 129,
-        ["Technical Custom Ram Bar"] = 21818 + 129,
-        ["Technical Custom Brute Bar"] = 21819 + 129,
-        ["Technical Custom Heavy Chassis Armor"] = 21820 + 129,
-        ["Oppressor Rockets"] = 21821 + 129,
-        ["Fractal Livery Set"] = 21822 + 129,
-        ["Digital Livery Set"] = 21823 + 129,
-        ["Geometric Livery Set"] = 21824 + 129,
-        ["Nature Reserve Livery"] = 21825 + 129,
-        ["Naval Battle Livery"] = 21826 + 129,
-        ["Anti Aircraft Trailer Dual 20MM Flak Cannon"] = 21827 + 129,
-        ["Anti Aircraft Trailer Homing Missile Battery"] = 21828 + 129,
-        ["Mobile Operations Center Rear Turrets"] = 21829 + 129,
-        ["Incendiary Rounds"] = 21830 + 129,
-        ["Hollow Point Rounds"] = 21831 + 129,
-        ["Armor Piercing Rounds"] = 21832 + 129,
-        ["Full Metal Jacket Rounds"] = 21833 + 129,
-        ["Explosive Rounds"] = 21834 + 129,
-        ["Pistol MK II Rail Mount"] = 21835 + 129,
-        ["Pistol MK II Compensator"] = 21836 + 129,
-        ["Smg MK II Holographic Sight"] = 21837 + 129,
-        ["Smg MK II Heavy Barrel"] = 21838 + 129,
-        ["Heavy Sniper MK II Night Vision Scope"] = 21839 + 129,
-        ["Heavy Sniper MK II Thermal Scope"] = 21840 + 129,
-        ["Heavy Sniper MK II Heavy Barrel"] = 21841 + 129,
-        ["Combat Mg MK II Holographic Sight"] = 21842 + 129,
-        ["Combat Mg MK II Heavy Barrel"] = 21843 + 129,
-        ["Assault Rifle MK II Holographic Sight"] = 21844 + 129,
-        ["Assault Rifle MK II Heavy Barrel"] = 21845 + 129,
-        ["Carbine Rifle MK II Holographic Sight"] = 21846 + 129,
-        ["Carbine Rifle MK II Heavy Barrel"] = 21847 + 129,
-        ["Proximity Mines"] = 21848 + 129,
-        ["Tiger Stripe"] = 21849 + 129,
-        ["Skull"] = 21850 + 129,
-        ["Sessanta Nove"] = 21851 + 129,
-        ["Perseus"] = 21852 + 129,
-        ["Leopard Print"] = 21853 + 129,
-        ["Zebra Stripe"] = 21854 + 129,
-        ["Geometry"] = 21855 + 129,
-        ["Book"] = 21856 + 129
-    },
-    AircraftTradeIn = {
-        ["Ultralight"] = 22712 + 180,
-        ["Rogue"] = 22713 + 180,
-        ["Alpha-Z1"] = 22714 + 180,
-        ["Havok"] = 22715 + 180,
-        ["LF-22 Starling"] = 22716 + 180,
-        ["V-65 Molotok"] = 22717 + 180,
-        ["Tula"] = 22718 + 180,
-        ["RM-10 Bombushka"] = 22719 + 180,
-        ["Howard NX-25"] = 22720 + 180,
-        ["Mogul"] = 22721 + 180,
-        ["Pyro"] = 22722 + 180,
-        ["Seabreeze"] = 22723 + 180,
-        ["P-45 Nakota"] = 22724 + 180,
-        ["FH-1 Hunter"] = 22725 + 180
-    },
-    CasinoCards = {
-        v3(-423, 1212.2420654297, 325.75823974609),
-        v3(251.75042724609, 214.47691345215, 106.2868347168),
-        v3(726.65893554688, 4187.9926757812, 40.709247589111),
-        v3(98.641494750977, 6620.3461914062, 32.435325622559),
-        v3(-284.32104492188, 6225.0498046875, 31.497802734375),
-        v3(-746.65942382812, 5599.1127929688, 41.654636383057),
-        v3(-1582.5842285156, 5201.306640625, 3.9842200279236),
-        v3(-2302.9250488281, 3387.6613769531, 31.256513595581),
-        v3(-525.26916503906, 4192.5961914062, 193.7311706543),
-        v3(76.81307220459, 3704.1840820312, 41.077209472656),
-        v3(-1101.5334472656, 2715.1713867188, 19.113943099976),
-        v3(-289.46228027344, 2544.1696777344, 75.415725708008),
-        v3(899.43041992188, 3555.9985351562, 33.827239990234),
-        v3(1692.1530761719, 3589.4685058594, 35.620971679688),
-        v3(1989.9505615234, 3045.7651367188, 47.215061187744),
-        v3(1705.8336181641, 4919.57421875, 42.063674926758),
-        v3(2122.9821777344, 4785.626953125, 40.970268249512),
-        v3(2693.8247070312, 4325.2573242188, 45.851989746094),
-        v3(2940.1257324219, 5325.48046875, 100.9655456543),
-        v3(3689.2438964844, 4570.0986328125, 25.107622146606),
-        v3(2750.11328125, 3467.5876464844, 55.711933135986),
-        v3(-3147.9494628906, 1114.5297851562, 20.846366882324),
-        v3(-3046.32421875, 584.15051269531, 7.9089274406433),
-        v3(-1827.4471435547, 798.64654541016, 138.16368103027),
-        v3(-1839.5356445312, -1233.5810546875, 13.017261505127),
-        v3(-1513.4025878906, -104.87504577637, 54.184757232666),
-        v3(-1152.6549072266, -525.74230957031, 32.125282287598),
-        v3(-1167.3082275391, -232.46827697754, 37.947425842285),
-        v3(-968.50933837891, 104.63013458252, 55.666194915771),
-        v3(-1286.1337890625, -1117.7790527344, 6.990110874176),
-        v3(-1205.1097412109, -1557.8605957031, 4.6167182922363),
-        v3(-167.74485778809, -299.07723999023, 39.733310699463),
-        v3(-410.2529296875, 586.95886230469, 124.61524963379),
-        v3(-1029.8304443359, -2744.5158691406, 13.842164039612),
-        v3(812.63977050781, -2978.5576171875, 6.0206537246704),
-        v3(-72.862899780273, -2003.5484619141, 18.275272369385),
-        v3(825.76293945312, -2158.7817382812, 29.619009017944),
-        v3(989.45788574219, -1797.9250488281, 31.635583877563),
-        v3(1130.9044189453, -980.15997314453, 46.415859222412),
-        v3(204.16436767578, -1645.7397460938, 29.803215026855),
-        v3(119.6584854126, -1295.4942626953, 29.269523620605),
-        v3(11.997032165527, -1103.1140136719, 29.797031402588),
-        v3(182.15174865723, -683.46136474609, 43.140930175781),
-        v3(547.30261230469, -189.86305236816, 54.481349945068),
-        v3(1160.9501953125, -314.63861083984, 69.205039978027),
-        v3(2565.671875, 299.03778076172, 108.73483276367),
-        v3(1486.19140625, 1128.1567382812, 114.33664703369),
-        v3(2340.3068847656, 2570.3623046875, 47.730003356934),
-        v3(731.86688232422, 2514.689453125, 73.170501708984),
-        v3(188.28002929688, 3074.34375, 43.082084655762),
-        v3(1874.6353759766, 6409.7607421875, 46.654632568359),
-        v3(-535.78289794922, -1277.8481445312, 26.901580810547),
-        v3(-102.85450744629, 366.66351318359, 112.88076019287)
-    },
-    SignalJammers = {
-        v3(1006.372, -2881.68, 30.422),
-        v3(-980.242, -2637.703, 88.528),
-        v3(-688.195, -1399.329, 23.331),
-        v3(1120.696, -1539.165, 54.871),
-        v3(2455.134, -382.585, 112.635),
-        v3(793.878, -717.299, 48.083),
-        v3(-168.3, -590.153, 210.936),
-        v3(-1298.3429, -435.8369, 108.129),
-        v3(-2276.4841, 335.0941, 195.723),
-        v3(-667.25, 228.545, 154.051),
-        v3(682.561, 567.5302, 153.895),
-        v3(2722.561, 1538.1031, 85.202),
-        v3(758.539, 1273.6871, 445.181),
-        v3(-3079.2578, 768.5189, 31.569),
-        v3(-2359.338, 3246.831, 104.188),
-        v3(1693.7318, 2656.602, 60.84),
-        v3(3555.018, 3684.98, 61.27),
-        v3(1869.0221, 3714.4348, 117.068),
-        v3(2902.552, 4324.699, 101.106),
-        v3(-508.6141, 4426.661, 87.511),
-        v3(-104.417, 6227.2783, 63.696),
-        v3(1607.5012, 6437.3154, 32.162),
-        v3(2792.933, 5993.922, 366.867),
-        v3(1720.6129, 4822.467, 59.7),
-        v3(-1661.0101, -1126.742, 29.773),
-        v3(-1873.49, 2058.357, 154.407),
-        v3(2122.4602, 1750.886, 138.114),
-        v3(-417.424, 1153.1431, 339.128),
-        v3(3303.9011, 5169.7925, 28.735),
-        v3(-1005.8481, 4852.1475, 302.025),
-        v3(-306.627, 2824.859, 69.512),
-        v3(1660.6631, -28.07, 179.137),
-        v3(754.647, 2584.067, 133.904),
-        v3(-279.9081, -1915.608, 54.173),
-        v3(-260.4421, -2411.8071, 126.019),
-        v3(552.132, -2221.8528, 73),
-        v3(394.3919, -1402.144, 76.267),
-        v3(1609.7911, -2243.767, 130.187),
-        v3(234.2919, 220.771, 168.981),
-        v3(-1237.1211, -850.4969, 82.98),
-        v3(-1272.7319, 317.9532, 90.352),
-        v3(0.088, -1002.4039, 96.32),
-        v3(470.5569, -105.049, 135.908),
-        v3(-548.5471, -197.9911, 82.813),
-        v3(2581.0469, 461.9421, 115.095),
-        v3(720.14, 4097.634, 38.075),
-        v3(1242.4711, 1876.0681, 92.242),
-        v3(2752.1128, 3472.779, 67.911),
-        v3(-2191.856, 4292.4077, 55.013),
-        v3(450.475, 5581.514, 794.0683),
-    },
-    PropertyIds = {
-        ["Invalid"] = 0,
-        ["Eclipse Towers 31"] = 1,
-        ["Eclipse Towers 9"] = 2,
-        ["Eclipse Towers 40"] = 3,
-        ["Eclipse Towers 5"] = 4,
-        ["3 Alta St, Apt 10"] = 5,
-        ["3 Alta St, Apt 57"] = 6,
-        ["Del Perro Heights, Apt 20"] = 7,
-        ["Power St, Apt 3"] = 8,
-        ["Spanish Ave, Apt 1"] = 9,
-        ["Las Lagunas Blv, 4"] = 10,
-        ["Milton Rd, Apt 13"] = 11,
-        ["The Royale, Apt 19"] = 12,
-        ["S Mo Milton Drive"] = 13,
-        ["Bay City Ave, Apt 45"] = 14,
-        ["0325 S Rockford Dr"] = 15,
-        ["Dream Tower, Apt 15"] = 16,
-        ["Las Lagunas Blv, 9"] = 17,
-        ["San Vitas St, Apt 2"] = 18,
-        ["0112 S Rockford Dr, 13"] = 19,
-        ["Vespucci Blvd, Apt 1"] = 20,
-        ["Cougar Ave, Apt 19"] = 21,
-        ["Prosperity St, 21"] = 22,
-        ["Blvd Del Perro, 18"] = 23,
-        ["Murrieta Heights"] = 24,
-        ["Unit 14 Popular St"] = 25,
-        ["Unit 2 Popular St"] = 26,
-        ["331 Supply St"] = 27,
-        ["Unit 1 Olympic Fwy"] = 28,
-        ["Roy Lowenstein Blvd"] = 29,
-        ["Little Bighorn Ave"] = 30,
-        ["Unit 124 Popular St"] = 31,
-        ["Roy Lowenstein Blvd"] = 32,
-        ["0432 Davis Ave"] = 33,
-        ["Del Perro Heights, 7"] = 34,
-        ["Weazel Plaza, 101"] = 35,
-        ["Weazel Plaza, 70"] = 36,
-        ["Weazel Plaza, 26"] = 37,
-        ["Integrity Way, 30"] = 38,
-        ["Integrity Way, 35"] = 39,
-        ["Richards Majestic, 4"] = 40,
-        ["Richards Majestic, 51"] = 41,
-        ["Tinsel Towers, Apt 45"] = 42,
-        ["Tinsel Towers, Apt 29"] = 43,
-        ["Paleto Blvd"] = 44,
-        ["Strawberry Ave"] = 45,
-        ["Grapeseed Ave"] = 46,
-        ["Senora Way"] = 47,
-        ["Great Ocean Highway"] = 48,
-        ["197 Route 68"] = 49,
-        ["870 Route 68"] = 50,
-        ["1200 Route 68"] = 51,
-        ["8754 Route 68"] = 52,
-        ["1905 Davis Ave"] = 53,
-        ["South Shambles St"] = 54,
-        ["4531 Dry Dock St"] = 55,
-        ["Exceptionalists Way"] = 56,
-        ["Greenwich Parkway"] = 57,
-        ["Innocence Blvd"] = 58,
-        ["Blvd Del Perro"] = 59,
-        ["Mirror Park Blvd"] = 60,
-        ["Eclipse Towers 3"] = 61,
-        ["Del Perro Heights 4"] = 62,
-        ["Richards Majestics, 2"] = 63,
-        ["Tinsel Towers, Apt 42"] = 64,
-        ["Integrity Way, 28"] = 65,
-        ["4 Hangman Ave"] = 66,
-        ["12 Sustancia Rd"] = 67,
-        ["4584 Procopio Dr"] = 68,
-        ["4401 Procopio Dr"] = 69,
-        ["0232 Paleto Blvd"] = 70,
-        ["140 Zancudo Ave"] = 71,
-        ["1893 Grapeseed Ave"] = 72,
-        ["3655 Wild Oats Dr"] = 73,
-        ["2044 North Conker Ave"] = 74,
-        ["2868 Hillcrest Ave"] = 75,
-        ["2862 Hillcrest Ave"] = 76,
-        ["3677 Whispymound Dr"] = 77,
-        ["2117 Milton Rd"] = 78,
-        ["2866 Hillcrest Ave"] = 79,
-        ["2874 Hillcrest Ave"] = 80,
-        ["2113 Mad Wayne T Dr"] = 81,
-        ["2045 North Conker Ave"] = 82,
-        ["Eclipse Penthouse, Suite 1"] = 83,
-        ["Eclipse Penthouse, Suite 2"] = 84,
-        ["Eclipse Penthouse, Suite 3"] = 85,
-        ["Invalid (1)"] = 86,
-        ["Lombank West"] = 87,
-        ["Maze Bank West"] = 88,
-        ["Arcadius"] = 89,
-        ["Maze Bank Tower"] = 90,
-        ["Rancho Clubhouse"] = 91,
-        ["Del Perro Beach Clubhouse"] = 92,
-        ["Philbox Hill Clubhouse"] = 93,
-        ["Great Chaparral Clubhouse"] = 94,
-        ["Paleto Bay Clubhouse"] = 95,
-        ["Sandy Shores Clubhouse"] = 96,
-        ["La Mesa Clubhouse"] = 97,
-        ["Vinewood Clubhouse"] = 98,
-        ["Hawick Clubhouse"] = 99,
-        ["Grapeseed Clubhouse"] = 100,
-        ["Paleto Bay Clubhouse (0)"] = 101,
-        ["Vespucci Beach Clubhouse"] = 102,
-        ["Office Garage 1 (Lombank)"] = 103,
-        ["Office Garage 2 (Lombank)"] = 104,
-        ["Office Garage 3 (Lombank)"] = 105,
-        ["Office Garage 1 (Maze Bank West)"] = 106,
-        ["Office Garage 2 (Maze Bank West)"] = 107,
-        ["Office Garage 3 (Maze Bank West)"] = 108,
-        ["Office Garage 1 (Arcadius)"] = 109,
-        ["Office Garage 2 (Arcadius)"] = 110,
-        ["Office Garage 3 (Arcadius)"] = 111,
-        ["Office Garage 1 (Maze Bank Tower)"] = 112,
-        ["Office Garage 2 (Maze Bank Tower)"] = 113,
-        ["Office Garage 3 (Maze Bank Tower)"] = 114,
-        ["Vehicle Warehouse"] = 115,
-        ["Definitely Invalid"] = (1 << 31) - 1
-    },
-    Models = {
-        BST = "prop_drug_package_02", -- Bull Shark Testosterone
-        PRBUBBLE_FIGURE = "vm_prop_vm_colle_prbubble", -- PR Bubble Figure (casino)
-    }
-}
-
-Shared.Contacts = {
-    { name = 'Lester', contact_id = 12 },
-    { name = 'Ron', contact_id = 20 },
-    { name = 'Mors Mutual', contact_id = 91 },
-    { name = 'Merry Weather', contact_id = 85 },
-    { name = 'Pegasus', contact_id = 41 },
-    { name = 'Mechanic', contact_id = 89 },
-    { name = 'Agent 14', contact_id = 76 },
-    { name = 'Assistant', contact_id = 74 },
-    { name = 'Franklin', contact_id = 175 },
-    { name = 'Yohan', contact_id = 181 },
-    { name = 'Charlie', contact_id = 190 },
-    { name = 'Downtown Cab', contact_id = 131 },
-    { name = 'English Dave', contact_id = 153 },
-    { name = 'Gerald', contact_id = 86 },
-    { name = 'Simeon', contact_id = 18 },
-    { name = 'Pavel', contact_id = 169 },
-    { name = 'Brucie', contact_id = 84 },
-}
-
---[[void]] function Shared.SetPackedStatBoolCode(--[[int]] index,--[[BOOL (bool)]] value,--[[int]] characterSlot)native_invoker.begin_call()native_invoker.push_arg_int(index)native_invoker.push_arg_bool(value)native_invoker.push_arg_int(characterSlot)native_invoker.end_call_2(0xDB8A58AEAA67CD07)end
---[[int]] function Shared.GetNetworkTime()native_invoker.begin_call()native_invoker.end_call_2(0x7A5487FE9FAA6B48)return native_invoker.get_return_value_int()end
---[[void]] function Shared.RequestNamedPtfxAsset(--[[string]] fxName)native_invoker.begin_call()native_invoker.push_arg_string(fxName)native_invoker.end_call_2(0xB80D8756B4668AB6)end
---[[BOOL (bool)]] function Shared.HasNamedPtfxAssetLoaded(--[[string]] fxName)native_invoker.begin_call()native_invoker.push_arg_string(fxName)native_invoker.end_call_2(0x8702416E512EC454)return native_invoker.get_return_value_bool()end
---[[void]] function Shared.UseParticleFxAsset(--[[string]] name)native_invoker.begin_call()native_invoker.push_arg_string(name)native_invoker.end_call_2(0x6C38AF3693A69A91)end
---[[Hash (int)]] function Shared.GetStatHashForCharacterStat(--[[int]] dataType,--[[int]] statIndex,--[[int]] charSlot)native_invoker.begin_call()native_invoker.push_arg_int(dataType)native_invoker.push_arg_int(statIndex)native_invoker.push_arg_int(charSlot)native_invoker.end_call_2(0xD69CE161FE614531)return native_invoker.get_return_value_int()end
---[[BOOL (bool)]] function Shared.NetworkRequestControlOfEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xB69317BF5E782347)return native_invoker.get_return_value_bool()end
---[[BOOL (bool)]] function Shared.NetworkHasControlOfEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x01BF60A500E28887)return native_invoker.get_return_value_bool()end
---[[void]] function Shared.RequestModel(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x963D27A58DF860AC)end
---[[BOOL (bool)]] function Shared.HasModelLoaded(--[[Hash (int)]] model)native_invoker.begin_call()native_invoker.push_arg_int(model)native_invoker.end_call_2(0x98A4EB5D89A0C952)return native_invoker.get_return_value_bool()end
---[[void]] function Shared.SetRemotePlayerAsGhost(--[[Player (int)]] player,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xA7C511FA1C5BDA38)end
---[[BOOL (bool)]] function Shared.GetEntityPlayerIsFreeAimingAt(--[[Player (int)]] player,--[[Entity* (pointer)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_pointer(entity)native_invoker.end_call_2(0x2975C866E6713290)return native_invoker.get_return_value_bool()end
-
-Shared.BlipIds = (614 | (740 << 0xA) | (779 << 0x14) | (569 << 0x1E) | (521 << 0x28) | (765 << 0x32))
-
---[[
-    blip_ids & 0x3FF = NIGHTCLUB
-    (blip_ids >> 0xA) & 0x3FF = ARCADE
-    (blip_ids >> 0x14) & 0x3FF = AUTOSHOP
-    (blip_ids >> 0x1E) & 0x3FF = HANGAR
-    (blip_ids >> 0x28) & 0x3FF = LAPTOP
-    (blip_ids >> 0x32) & 0x3FF = CAYO_PRIMARY_TARGET
-]]
-
+Shared.Memory = {}
 Shared.PlayerList = 0
-Shared.PLAYER_ID = 0
-Shared.CHAR_SLOT = 0
+
+Shared.Models = {
+    BST = 'prop_drug_package_02', -- Bull Shark Testosterone
+    PRBUBBLE_FIGURE = 'vm_prop_vm_colle_prbubble', -- PR Bubble Figure (casino)
+}
+
+Shared.PropertyIds = {
+    ["Invalid"] = 0,
+    ["Eclipse Towers 31"] = 1,
+    ["Eclipse Towers 9"] = 2,
+    ["Eclipse Towers 40"] = 3,
+    ["Eclipse Towers 5"] = 4,
+    ["3 Alta St, Apt 10"] = 5,
+    ["3 Alta St, Apt 57"] = 6,
+    ["Del Perro Heights, Apt 20"] = 7,
+    ["Power St, Apt 3"] = 8,
+    ["Spanish Ave, Apt 1"] = 9,
+    ["Las Lagunas Blv, 4"] = 10,
+    ["Milton Rd, Apt 13"] = 11,
+    ["The Royale, Apt 19"] = 12,
+    ["S Mo Milton Drive"] = 13,
+    ["Bay City Ave, Apt 45"] = 14,
+    ["0325 S Rockford Dr"] = 15,
+    ["Dream Tower, Apt 15"] = 16,
+    ["Las Lagunas Blv, 9"] = 17,
+    ["San Vitas St, Apt 2"] = 18,
+    ["0112 S Rockford Dr, 13"] = 19,
+    ["Vespucci Blvd, Apt 1"] = 20,
+    ["Cougar Ave, Apt 19"] = 21,
+    ["Prosperity St, 21"] = 22,
+    ["Blvd Del Perro, 18"] = 23,
+    ["Murrieta Heights"] = 24,
+    ["Unit 14 Popular St"] = 25,
+    ["Unit 2 Popular St"] = 26,
+    ["331 Supply St"] = 27,
+    ["Unit 1 Olympic Fwy"] = 28,
+    ["Roy Lowenstein Blvd"] = 29,
+    ["Little Bighorn Ave"] = 30,
+    ["Unit 124 Popular St"] = 31,
+    ["Roy Lowenstein Blvd"] = 32,
+    ["0432 Davis Ave"] = 33,
+    ["Del Perro Heights, 7"] = 34,
+    ["Weazel Plaza, 101"] = 35,
+    ["Weazel Plaza, 70"] = 36,
+    ["Weazel Plaza, 26"] = 37,
+    ["Integrity Way, 30"] = 38,
+    ["Integrity Way, 35"] = 39,
+    ["Richards Majestic, 4"] = 40,
+    ["Richards Majestic, 51"] = 41,
+    ["Tinsel Towers, Apt 45"] = 42,
+    ["Tinsel Towers, Apt 29"] = 43,
+    ["Paleto Blvd"] = 44,
+    ["Strawberry Ave"] = 45,
+    ["Grapeseed Ave"] = 46,
+    ["Senora Way"] = 47,
+    ["Great Ocean Highway"] = 48,
+    ["197 Route 68"] = 49,
+    ["870 Route 68"] = 50,
+    ["1200 Route 68"] = 51,
+    ["8754 Route 68"] = 52,
+    ["1905 Davis Ave"] = 53,
+    ["South Shambles St"] = 54,
+    ["4531 Dry Dock St"] = 55,
+    ["Exceptionalists Way"] = 56,
+    ["Greenwich Parkway"] = 57,
+    ["Innocence Blvd"] = 58,
+    ["Blvd Del Perro"] = 59,
+    ["Mirror Park Blvd"] = 60,
+    ["Eclipse Towers 3"] = 61,
+    ["Del Perro Heights 4"] = 62,
+    ["Richards Majestics, 2"] = 63,
+    ["Tinsel Towers, Apt 42"] = 64,
+    ["Integrity Way, 28"] = 65,
+    ["4 Hangman Ave"] = 66,
+    ["12 Sustancia Rd"] = 67,
+    ["4584 Procopio Dr"] = 68,
+    ["4401 Procopio Dr"] = 69,
+    ["0232 Paleto Blvd"] = 70,
+    ["140 Zancudo Ave"] = 71,
+    ["1893 Grapeseed Ave"] = 72,
+    ["3655 Wild Oats Dr"] = 73,
+    ["2044 North Conker Ave"] = 74,
+    ["2868 Hillcrest Ave"] = 75,
+    ["2862 Hillcrest Ave"] = 76,
+    ["3677 Whispymound Dr"] = 77,
+    ["2117 Milton Rd"] = 78,
+    ["2866 Hillcrest Ave"] = 79,
+    ["2874 Hillcrest Ave"] = 80,
+    ["2113 Mad Wayne T Dr"] = 81,
+    ["2045 North Conker Ave"] = 82,
+    ["Eclipse Penthouse, Suite 1"] = 83,
+    ["Eclipse Penthouse, Suite 2"] = 84,
+    ["Eclipse Penthouse, Suite 3"] = 85,
+    ["Invalid (1)"] = 86,
+    ["Lombank West"] = 87,
+    ["Maze Bank West"] = 88,
+    ["Arcadius"] = 89,
+    ["Maze Bank Tower"] = 90,
+    ["Rancho Clubhouse"] = 91,
+    ["Del Perro Beach Clubhouse"] = 92,
+    ["Philbox Hill Clubhouse"] = 93,
+    ["Great Chaparral Clubhouse"] = 94,
+    ["Paleto Bay Clubhouse"] = 95,
+    ["Sandy Shores Clubhouse"] = 96,
+    ["La Mesa Clubhouse"] = 97,
+    ["Vinewood Clubhouse"] = 98,
+    ["Hawick Clubhouse"] = 99,
+    ["Grapeseed Clubhouse"] = 100,
+    ["Paleto Bay Clubhouse (0)"] = 101,
+    ["Vespucci Beach Clubhouse"] = 102,
+    ["Office Garage 1 (Lombank)"] = 103,
+    ["Office Garage 2 (Lombank)"] = 104,
+    ["Office Garage 3 (Lombank)"] = 105,
+    ["Office Garage 1 (Maze Bank West)"] = 106,
+    ["Office Garage 2 (Maze Bank West)"] = 107,
+    ["Office Garage 3 (Maze Bank West)"] = 108,
+    ["Office Garage 1 (Arcadius)"] = 109,
+    ["Office Garage 2 (Arcadius)"] = 110,
+    ["Office Garage 3 (Arcadius)"] = 111,
+    ["Office Garage 1 (Maze Bank Tower)"] = 112,
+    ["Office Garage 2 (Maze Bank Tower)"] = 113,
+    ["Office Garage 3 (Maze Bank Tower)"] = 114,
+    ["Vehicle Warehouse"] = 115,
+    ["Definitely Invalid"] = (1 << 31) - 1
+}
 
 Shared.AimbotBones = {
     31086, -- head (SKEL_Head)
@@ -573,6 +157,25 @@ Shared.AimbotBones = {
     61163, -- left arm (SKEL_L_UpperArm)
 }
 
+Shared.SettingsBits = {
+    ShowAlerts = 1 << 0,
+    RemoveTransactionError = 1 << 1,
+    MemoryHook = 1 << 2,
+    Debug = 1 << 3,
+    SuppressRequestControlFailures = 1 << 4
+}
+
+Shared.Settings = pluto_new Bitfield(
+    Shared.SettingsBits.ShowAlerts 
+    | Shared.SettingsBits.RemoveTransactionError
+)
+
+if Shared.Settings:IsSet(Shared.SettingsBits.Debug) then
+    util.create_tick_handler(function()
+        directx.draw_text(0.01, 0.01, $'v{SCRIPT_VERSION}-dbg', ALIGN_TOP_LEFT, 0.8, {r=1, g=0, b=0, a=1})
+    end)
+end
+
 function Shared:AddPlayer(pid)
     self.PlayerList = self.PlayerList | (1 << pid)
 end
@@ -581,135 +184,227 @@ function Shared:RemovePlayer(pid)
     self.PlayerList = self.PlayerList & ~(1 << pid)
 end
 
-function Shared:AddFriend(pid)
-    if pid == self.PLAYER_ID then return end
-    self.PlayerList = self.PlayerList | (1 << (pid + 0x20))
-end
-
-function Shared:RemoveFriend(pid)
-    self.PlayerList = self.PlayerList & ~(1 << (pid + 0x20))
-end
-
-function Shared:IsPlayerFriend(pid)
-    return self.PlayerList & (1 << (pid + 0x20)) == (1 << (pid + 0x20))
-end
-
-function Shared:PlayerInList(pid)
+function Shared:PlayerExists(pid)
     return self.PlayerList & (1 << pid) == (1 << pid)
 end
 
-function Shared:BitfieldTest(script_global, bits)
-    local root = menu.my_root()
-    local bitfield = root:list('bitfield', {}, '')
-    script_global = self.ScriptGlobal(script_global)
+function Shared:AddFriend(pid)
+    pid = pid + 0x20
+    self.PlayerList = self.PlayerList | (1 << pid)
+end
 
-    for i = 0, bits - 1 do
-        bitfield:toggle(tostring(i), {}, tostring(i), function(state)
-            if SCRIPT_CAN_CONTINUE then
-                self.WriteInt(script_global, self.ReadInt(script_global) ~ (1 << i))
+function Shared:RemoveFriend(pid)
+    pid = pid + 0x20
+    self.PlayerList = self.PlayerList & ~(1 << pid)
+end
+
+function Shared:IsFriend(pid)
+    pid = pid + 0x20
+    return self.PlayerList & (1 << pid) == (1 << pid)
+end
+
+_G.memory.write = function(addr, value)
+    local value_type = type(value)
+
+    if value_type == 'number' then
+        local bits = math.floor(math.log(value, 2)) + 1
+        if bits <= 8 then
+            memory.write_byte(addr, value)
+        elseif bits <= 16 then
+            memory.write_short(addr, value)
+        elseif bits <= 32 then
+            memory.write_int(addr, value)
+        elseif bits <= 64 then
+            memory.write_long(addr, value)
+        end
+    elseif value_type == 'string' then
+        memory.write_string(addr, value)
+    end
+end
+
+_G.memory.alloc = (function(func)
+    return function(size)
+        size = size or 24
+        if not Shared.Memory[size] then Shared.Memory[size] = {} end
+        if size <= 8 then
+            if #Shared.Memory[size] <= 10 then
+                local addr = func(size)
+                table.insert(Shared.Memory[size], addr)
+                return addr
+            else
+                local rand = math.random(1, #Shared.Memory[size])
+                return Shared.Memory[size][rand]
             end
-        end, self.ReadInt(script_global) & (1 << i) == (1 << i))
-    end
-end
-
-function Shared:BitfieldDebug(script_global, bits)
-    local g = self.ScriptGlobal(script_global)
-    self.CreateTickHandler(function()
-        for i = 0, bits - 1 do
-            self.Debug(tostring(i) .. ': ' .. tostring(self.ReadInt(g) & (1 << i) == (1 << i)))
+        else
+            if #Shared.Memory[size] <= 0 then
+                local addr = func(size)
+                table.insert(Shared.Memory[size], addr)
+                return addr
+            else
+                return Shared.Memory[size][1]
+            end
         end
-    end)
-end
+    end
+end)(memory.alloc)
 
+_G.entities.entity = Entity
 
-Shared.GetAllVehiclesAsPointers = entities.get_all_vehicles_as_pointers
-Shared.GetAllPedsAsPointers = entities.get_all_peds_as_pointers
-Shared.GetAllObjectsAsPointers = entities.get_all_objects_as_pointers
-Shared.GetAllPickupsAsPointers = entities.get_all_pickups_as_pointers
-Shared.DeleteByPointer = entities.delete_by_pointer
-Shared.DeleteByHandle = entities.delete_by_handle
-Shared.HandleToPointer = entities.handle_to_pointer
-Shared.PointerToHandle = entities.pointer_to_handle
-Shared.ReverseJoaat = util.reverse_joaat
-Shared.GetModelHash = entities.get_model_hash
-Shared.GetName = players.get_name
-Shared.RefByPath = menu.ref_by_path
-Shared.RefByRelPath = menu.ref_by_rel_path
-Shared.MarkedAsAdmin = players.marked_as_admin
-Shared.IsGodmode = players.is_godmode
-Shared.MarkedAsModder = players.marked_as_modder
-Shared.IsInInterior = players.is_in_interior
-Shared.SpoofScript = util.spoof_script
-Shared.GetPosition = entities.get_position
-Shared.ReadByte = memory.read_byte
-Shared.ReadShort = memory.read_short
-Shared.ReadInt = memory.read_int
-Shared.ReadFloat = memory.read_float
-Shared.ReadLong = memory.read_long
-Shared.ReadString = memory.read_string
-Shared.WriteByte = memory.write_byte
-Shared.WriteShort = memory.write_short
-Shared.WriteInt = memory.write_int
-Shared.WriteFloat = memory.write_float
-Shared.WriteLong = memory.write_long
-Shared.WriteString = memory.write_string
-Shared.Alloc = memory.alloc
-Shared.AllocInt = memory.alloc_int
-Shared.TriggerScriptEvent = util.trigger_script_event
-Shared.Debug = util.draw_debug_text
-Shared.RemoveBlip = util.remove_blip
-Shared.OnPreStop = util.on_pre_stop
-Shared.ReverseJoaat = util.reverse_joaat
-Shared.RefByRelPath = menu.ref_by_rel_path
-Shared.RefByPath = menu.ref_by_path
-Shared.StopThread = util.stop_thread
-Shared.GetModelHash = entities.get_model_hash
-Shared.Joaat = util.joaat
-Shared.Scan = memory.scan
-Shared.CreateTickHandler = util.create_tick_handler
-Shared.IsSessionStarted = util.is_session_started
-Shared.GetRPRequiredForRank = util.get_rp_required_for_rank
+_G.players.localplayer = (function(func)
+    local cached = nil
+    return function()
+        if cached ~= nil then
+            cached.entity = players.user_ped()
+            cached.ptr = entities.handle_to_pointer(cached.entity)
+            return cached
+        else
+            cached = func()
+            if cached.entity ~= players.user_ped() then
+                cached.entity = players.user_ped()
+                cached.ptr = entities.handle_to_pointer(cached.entity)
+            end
+            return cached
+        end
+    end
+end)(function()
+    return pluto_new Entity(players.user_ped())
+end)
 
-util.toast = (function(func)
+_G.players.localplayer_vehicle = (function(func)
+    local cached = nil
+    return function()
+        local vehicle = ped.get_vehicle_ped_is_in(players.user_ped())
+        if cached ~= nil then
+            cached.entity = vehicle
+            cached.ptr = entities.handle_to_pointer(cached.entity)
+            return cached
+        else
+            cached = func(vehicle)
+            if cached.entity ~= vehicle then
+                cached.entity = vehicle
+                cached.ptr = entities.handle_to_pointer(cached.entity)
+            end
+            return cached
+        end
+    end
+end)(function(entity)
+    return pluto_new Vehicle(entity)
+end)
+
+Shared.NewVehicle = (function(func)
+    local vehs = { pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0) }
+    return function(entity)
+        if #vehs < 4 then
+            local veh = func(entity)
+            table.insert(vehs, veh)
+            return veh
+        else
+            local choice = nil
+            for vehs as veh do
+                if veh.entity == entity then
+                    choice = veh
+                end
+            end
+            if choice ~= nil then
+                return choice
+            else
+                local rand = math.random(1, #vehs)
+                local veh = vehs[rand]
+                veh.entity = entity
+                veh.ptr = entities.handle_to_pointer(veh.entity)
+                return veh
+            end
+        end
+    end
+end)(function(entity)
+    return pluto_new Vehicle(entity)
+end)
+
+Shared.NewEntity = (function(func)
+    local ents = { pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0) }
+    return function(entity)
+        if #ents < 4 then
+            local ent = func(entity)
+            table.insert(ents, ent)
+            return ent
+        else
+            local choice = nil
+            for ents as ent do
+                if ent.entity == entity then
+                    choice = ent
+                end
+            end
+            if choice ~= nil then
+                return choice
+            else
+                local rand = math.random(1, #ents)
+                local ent = ents[rand]
+                ent.entity = entity
+                ent.ptr = entities.handle_to_pointer(ent.entity)
+                return ent
+            end
+            return ent
+        end
+    end
+end)(function(entity)
+    return pluto_new Entity(entity)
+end)
+
+_G.math.max_int = (1 << 31) - 1
+_G.math.min_int = -(1 << 31)
+_G.math.max_float = ((1 << 31) - 1) + 0.0
+_G.math.min_float = -((1 << 31) - 1) + 0.0
+_G.memory.bits = Bit.BitMask
+_G.players.max_players = 31
+
+_G.util.toast = (function(func)
     return function(...)
-        if Shared.Settings:IsSet(Shared.SettingsBits.ShowAlerts) then
-            func(...)
-        end
+        if not Shared.Settings:IsSet(Shared.SettingsBits.ShowAlerts) then return util.log(...) end
+        return func(...)
     end
-end)(util.toast)
+end)(_G.util.toast)
 
-menu.trigger_commands = function()
-    Shared:UnlockAll()
-end
-
-Shared.ScriptGlobal = (function(func) 
+_G.memory.script_global = (function(func)
     local cache = {}
     return function(sg)
-        if cache[sg] == nil or cache[sh] == 0 then
-            cache[sg] = func(sg)
+        if not cache[sg] then
+            local result = func(sg)
+            cache[sg] = result
+            return result
         end
-
         return cache[sg]
     end
-end)(memory.script_global)
+end)(_G.memory.script_global)
 
-Shared.ScriptLocal = (function(func) 
+_G.directx.create_texture = (function(func)
     local cache = {}
-    return function(script_name, sl)
-        if cache[sl] == nil or cache[sl] == 0 then
-            cache[sl] = func(script_name, sl)
+    return function(path)
+        if not cache[path] then
+            local result = func(path)
+            cache[path] = result
+            return result
         end
-
-        return cache[sl]
+        return cache[path]
     end
-end)(memory.script_local)
+end)(_G.directx.create_texture)
 
-players.add_detection = (function(func)
+_G.util.joaat = (function(func)
+    local cache = {}
+    return function(str)
+        if not cache[str] then
+            local result = func(str)
+            cache[str] = result
+            return result
+        end
+        return cache[str]
+    end
+end)(_G.util.joaat)
+
+_G.players.add_detection = (function(func)
     return function(pid, detection, toast_flags, severity)
         toast_flags = toast_flags or TOAST_DEFAULT
         severity = severity or 100
 
-        if Shared:PlayerInList(pid) then
+        if Shared:PlayerExists(pid) then
             for menu.player_root(pid):getChildren() as child do
                 if child:getType() == COMMAND_LIST_CUSTOM_SPECIAL_MEANING and not child:refByRelPath(detection):isValid() then
                     func(pid, detection, toast_flags, severity)
@@ -719,132 +414,27 @@ players.add_detection = (function(func)
     end
 end)(players.add_detection)
 
-function Shared:RegisterCEO(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 514341487, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:RegisterVIP(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 514341487, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:RegisterMC(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 514341487, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:OffRadar(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 1, -1496350145, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:GhostOrg(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 1, 688031806, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0}) end
-function Shared:SuccessfullyMugged(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1079941038, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
-function Shared:MuggerKilled(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -578453253, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
-function Shared:AttackedArmouredTruck(pid, attacker) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1964206081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:EmptyNotification(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashBanked(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 94410750, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashStolen(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -295926414, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashRemoved(pid, amount) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -242911964, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:JammerActivated(pid) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1957780196, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CollectPinkSlip(pid, collector) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1919354072, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0}) end
-function Shared:PlayerEwo(pid, ewo) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1269083963, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0}) end
-function Shared:DestroyedVehicleCargo(pid, target) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1537935777, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:DeliveredMotorcycle(pid, target) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1532850163, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:JoinedOrg(pid, target) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 1601625667, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:QuitOrg(pid, target) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1995714668, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:MarkedForDeath(pid, marked_by) self.TriggerScriptEvent(1 << pid, {-642704387, 0, 110435988, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
-function Shared:BecomeGhosted(pid, ghosted_to) self.TriggerScriptEvent(1 << pid, {-642704387, 0, -1233120647, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
-function Shared:InteriorInvite(pid) self.TriggerScriptEvent(1 << pid, {996099702, 0, 0}) end
-
-function Shared:SendMugger(pid)
-    local attacker = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867)) -- Global_1853910[PLAYER::PLAYER_ID() /*862*/]
-    local bitfield = self.ReadInt(attacker + 0x460)
-    
-    self.WriteInt(attacker + 0x460, Bit:Set(bitfield, 0))
-    self.WriteInt(attacker + 0x468, pid)
-end
-
-function Shared:SendMercenaries(pid)
-    local attacker = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867))
-    local bitfield = self.ReadInt(attacker + 0x460)
-    
-    self.WriteInt(attacker + 0x460, Bit:Set(bitfield, 1))
-    self.WriteInt(attacker + 0x468, pid)
-end
-
-function Shared:SendStrikeTeam(pid, level)
-    local attacker = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867))
-    local bitfield = self.ReadInt(attacker + 0x460)
-
-    self.WriteInt(attacker + 0x5A0, pid)
-    self.WriteInt(attacker + 0x468, pid)
-    self.WriteInt(attacker + 0x5C0, level)
-    self.WriteInt(attacker + 0x5A8, self.GetNetworkTime())
-    self.WriteInt(attacker + 0x5B0, 1)
-    self.WriteInt(attacker + 0x460, Bit:Set(bitfield, 1))
-end
-
-function Shared:RenameAcidLab(name)
-    local lab = self.ScriptGlobal(1914706 + 1 + (self.PLAYER_ID * 299) + 283) -- Global_1914706[plParam0 /*299*/].f_283
-    self.WriteString(lab, name)
-end
-
-function Shared:GetAcidLabName()
-    local lab = self.ScriptGlobal(1914706 + 1 + (self.PLAYER_ID * 299) + 283)
-    return self.ReadString(lab)
-end
-
-function Shared:CompleteFlightSchool()
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_0'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_1'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_2'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_3'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_4'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_5'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_6'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_7'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_8'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_ASPASSEDLESSON_9'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_0'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_1'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_2'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_3'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_4'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_5'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_6'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_7'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_8'), 1, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_PILOT_SCHOOL_MEDAL_9'), 1, true)
-end
-
-function Shared:CompleteBunkerShootingRange()
-    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_1'), 900, true)
-    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_2'), 2400, true)
-    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_3'), 3400, true)
-    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_4'), 3300, true)
-    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_5'), 4100, true)
-    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_HIGHSCORE_6'), 550, true)
-
-    self.StatSetInt(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_WEAPON_BIT_SET'), 262143, true)
-
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_TIER_1_REWARD'), true, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_INCREASE_THROW_CAP'), true, true)
-    self.StatSetBool(util.joaat('MP' .. self.CHAR_SLOT .. '_SR_TIER_3_REWARD'), true, true)
-end
-
-function Shared:UnlockAll()
-    for i = 0, 1000000 do
-        self.SetPackedStatBoolCode(i, true, self.CHAR_SLOT)
+local function MemoryWriteHook(func)
+    return function(addr, value)
+        local bits = math.floor(math.log(addr, 2)) + 1
+        if bits < 38 then
+            return func(memory.script_global(addr), value)
+        end
+        return func(addr, value)
     end
-
-    self:CompleteFlightSchool()
-    self:CompleteBunkerShootingRange()
 end
 
-function Shared:Unlock50CarGarage(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 505)
-    self.WriteByte(unlock, state ? 1 : 0)
+if Shared.Settings:IsSet(Shared.SettingsBits.MemoryHook) then
+    for ({'write_byte', 'write_short', 'write_int', 'write_long', 'write_string', 'write_float'}) as name do
+        _G.memory[name] = MemoryWriteHook(_G.memory[name])
+    end
 end
 
-function Shared:Is50CarGarageUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (Shared.PLAYER_ID * 862) + 267 + 505)
-    return self.ReadByte(unlock)
-end
-
-function Shared:UnlockBunker(state)
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 259)
-    self.WriteByte(unlock, state ? (BitMask:Set(self.ReadInt(unlock), 0x1C)) : (BitMask:Clear(self.ReadInt(unlock), 0x1C)))
-end
-
-function Shared:IsBunkerUnlocked()
-    local unlock = self.ScriptGlobal(1853910 + 1 + (self.PLAYER_ID * 862) + 267 + 259)
-    return BitMask:Check(self.ReadByte(unlock), 0x1C)
+function Shared:Partial(func, ...)
+    local args = {...}
+    return function(...)
+        return func(table.unpack(args), table.unpack{...})
+    end
 end
 
 function Shared:SortTable(t, sortFunction)
@@ -856,295 +446,109 @@ function Shared:SortTable(t, sortFunction)
     return sortedTable
 end
 
-function Shared:Partial(func, ...)
-    local args = {...}
-    return function(...)
-        return func(table.unpack(args), table.unpack{...})
+function Shared:PlayAnimation(logo_path, threshold=1.7, scale=0.04)
+    local logo = directx.create_texture(logo_path)
+    local alpha, reverse = 0.0, false
+    util.create_tick_handler(function()
+        directx.draw_texture(logo, scale, scale, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
+        if alpha < threshold and not reverse then alpha += 0.007 else alpha -= 0.007; reverse = true end
+        if alpha <= 0 then return false end
+    end)
+end
+
+function Shared:RegisterCEO(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:RegisterVIP(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:RegisterMC(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:OffRadar(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 1, -1496350145, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:GhostOrg(pid) util.trigger_script_event(1 << pid, {-642704387, 1, 688031806, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0}) end
+function Shared:SuccessfullyMugged(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -1079941038, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+function Shared:MuggerKilled(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -578453253, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+function Shared:AttackedArmouredTruck(pid, attacker) util.trigger_script_event(1 << pid, {-642704387, 0, 1964206081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:EmptyNotification(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CashBanked(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, 94410750, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CashStolen(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -295926414, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CashRemoved(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -242911964, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:JammerActivated(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1957780196, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+function Shared:CollectPinkSlip(pid, collector) util.trigger_script_event(1 << pid, {-642704387, 0, 1919354072, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0}) end
+function Shared:PlayerEwo(pid, ewo) util.trigger_script_event(1 << pid, {-642704387, 0, 1269083963, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0}) end
+function Shared:DestroyedVehicleCargo(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1537935777, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:DeliveredMotorcycle(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1532850163, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:JoinedOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1601625667, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:QuitOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1995714668, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+function Shared:MarkedForDeath(pid, marked_by) util.trigger_script_event(1 << pid, {-642704387, 0, 110435988, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
+function Shared:BecomeGhosted(pid, ghosted_to) util.trigger_script_event(1 << pid, {-642704387, 0, -1233120647, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
+function Shared:InteriorInvite(pid) util.trigger_script_event(1 << pid, {996099702, 0, 0}) end
+
+function Shared:RandomString(length=16)
+    local str = ''
+    for i = 1, length do
+        str = str .. string.char((i % math.random(1, length / 2) == 0) ? math.random(97, 122) : math.random(97, 122) ~ 0x20)
     end
+    return str
 end
 
-function Shared:IsPlayerUsingDrone(pid)
-    local g = self.ScriptGlobal(1853988 + 1 + (pid * 867) + 267 + 366)
-    return Bit:Check(self.ReadInt(g), 26)
-end
-
-function Shared.SimulateControlKey(key, times, control=0, delay=300)
-    for i = 1, times do
-        SetControlValueNextFrame(control, key, 1)
-        util.yield(delay)
-    end
-
-    util.yield(100)
-end
-
-function Shared.Distance(v1, v2)
-    return (v1.x - v2.x) ^ 2 + (v1.y - v2.y) ^ 2 + (v1.z - v2.z) ^ 2
-end
-
-function Shared:RequestControl(entity, timeout)
-    timeout = os.time() + 5 or os.time() + timeout
-
-    repeat
-        self.NetworkRequestControlOfEntity(entity)
-        util.yield_once()
-    until self.NetworkHasControlOfEntity(entity) or os.time() > timeout
-
-    if not NetworkHasControlOfEntity(entity) then
-        error("Failed to get control")
-    end
-end
-
-function Shared:RequestControlCB(entity, callback, timeout=5)
-    timeout = os.time() + timeout or os.time() + 5
-    repeat
-        self.NetworkRequestControlOfEntity(entity)
-        util.yield_once()
-    until self.NetworkHasControlOfEntity(entity) or os.time() > timeout
-
-    if not self.NetworkHasControlOfEntity(entity) then
-        callback(false)
-    else
-        callback(true)
-    end
-end
-
-function Shared:DeletePlayer(pid, state)
-    local player_invis = self.ScriptGlobal(2657704 + 1 + (pid * 463) + 254)
-    local off_radar = self.ScriptGlobal(2657704 + 1 + (pid * 463) + 321)
-    local pause_menu = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 192)
-    local become_interior = self.ScriptGlobal(1853988 + 1 + (self.PLAYER_ID * 867) + 267 + 31)
-    local otr_val = self.ReadShort(off_radar)
-
-   self.SetRemotePlayerAsGhost(pid, state)
-
-    self.WriteByte(player_invis, state ? 1 : 0)
-    self.WriteShort(off_radar, state ? (otr_val | 0xA) : (otr_val & ~0xA))
-    self.WriteByte(pause_menu, state ? 1 : 0)
-    self.WriteByte(become_interior, state ? 1 : 0)
-end
-
-function Shared:IsModdedBounty(bounty)
-    return bounty & 0xF ~= 0x8
-end
-
-function Shared:GetEntityAimingAt(pid)
-    if self.GetEntityPlayerIsFreeAimingAt(pid, entity_ptr) then
-        return self.ReadInt(entity_ptr)
-    end
-
-    return 0
-end
-
-function Shared:IsPlayerTheBeast(pid)
-    local beast = self.ScriptGlobal(2657704 + 1 + (pid * 463) + 199)
-    return Bit:Check(self.ReadInt(beast), 29)
-end
-
-function Shared:LoadModel(model)
+function Shared:RequestNamedPtfxAsset(asset)
     local timeout = os.time() + 3
-
-    self.RequestModel(model)
-    while not self.HasModelLoaded(model) do
+    streaming.request_named_ptfx_asset(asset)
+    repeat
         util.yield_once()
         if os.time() > timeout then
-            error("Failed to load model")
+            error(T'Failed to load PTFX asset')
+            return false
         end
-    end
-end
-
-function Shared:RequestNamedPtfxAsset_(asset)
-    local timeout = os.time() + 3
-    
-    self.RequestNamedPtfxAsset(asset)
-    while not self.HasNamedPtfxAssetLoaded(asset) do
-        util.yield_once()
-        if os.time() > timeout then
-            error("Failed to load ptfx asset")
-        end
-    end
-    self.UseParticleFxAsset(asset) 
-end
-
-function Shared:TriggerDetection(pid, detection)
-    local proot = menu.player_root(pid)
-    local msg = players.get_name(pid) .. ' triggered a detection: ' .. detection
-    local classifications = nil
-
-    for i, child in pairs(proot:getChildren()) do
-        if child:isValid() then
-            local child_name = child.menu_name
-            if type(child_name) == 'string' then
-                if child_name:find('Classification') then
-                    classifications = child
-                    break
-                end
-            end
-        end
-    end
-
-    if classifications:isValid() then
-        if not menu.ref_by_rel_path(classifications, detection):isValid() then
-            util.toast(msg)
-            classifications:action(detection, {}, 'Click to remove this detection.', function()
-                for i, child in pairs(classifications:getChildren()) do
-                    if child:isValid() then
-                        local child_name = child.menu_name
-                        if type(child_name) == 'string' then
-                            if child_name:find(detection) then
-                                child:delete()
-                                break
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end
-
-function Shared:DisplayOnscreenKeyboard(text_length)
-    DisplayOnscreenKeyboard(1, 'FMMC_KEY_TIP8', '', '', '', '', '', text_length or 100)
-    while UpdateOnscreenKeyboard() == 0 do
-        util.yield_once()
-    end
-
-    if UpdateOnscreenKeyboard() == 1 then
-        local text = GetOnscreenKeyboardResult()
-        return text
-    end
-
-    return '0'
+    until streaming.has_named_ptfx_asset_loaded(asset)
+    graphics.use_particle_fx_asset(asset)
+    return true
 end
 
 function Shared:GetRandomPlayer()
-    local pid = math.random(0, 32)
-
-    while pid == self.PLAYER_ID or self:PlayerInList(pid) do
-        pid = math.random(0, 32)
-    end
-
-    return pid
-end
-
-function Shared:RandomOrgName(length)
-    length = length or 98
-    local charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    local name = ''
-
-    for i = 1, length do
-        local rand = math.random(1, string.len(charset))
-        name = name .. string.sub(charset, rand, rand)
-    end
-
-    return name
-end
-
-function Shared:ForceScriptHost()
-    local timeout = os.time()
-    repeat
-        if ScriptHostRef:isValid() then
-            ScriptHostRef:trigger()
-        end
-        util.yield_once()
-    until os.time() > timeout or players.get_script_host() == self.PLAYER_ID
-end
-
-function Shared:SetPlayerBounty(pid, amount, state)
-    self:ForceScriptHost()
-    local bounty = self.ScriptGlobal(1835504 + 4 + 1 + (pid * 3))
-    
-    self.WriteByte(bounty, state ? 1 : 0)
-    self.WriteShort(bounty + 0x8, amount)
-end
-
-function Shared:SetPlayerBountyReward(pid, amount)
-    self:ForceScriptHost()
-    local reward = self.ScriptGlobal(1895156 + 1 + (pid * 609) + 600)
-    self.WriteShort(reward, amount)
-end
-
-function Shared:GetPlayerBounty(pid)
-    self:ForceScriptHost()
-    local bounty = self.ScriptGlobal(1835504 + 4 + 1 + (pid * 3))
-    return self.ReadShort(bounty + 0x8)
-end
-
-function Shared:GetPlayerBountyReward(pid)
-    self:ForceScriptHost()
-    local reward = self.ScriptGlobal(1895156 + 1 + (pid * 609) + 600)
-    return self.ReadShort(reward)
-end
-
-function Shared:PlayerHasBounty(pid)
-    local bounty = self.ScriptGlobal(1835504 + 4 + 1 + (pid * 3))
-    return self.ReadByte(bounty) == 1
-end
-
-function Shared:IsUsingOrbitalCannon(pid)
-    local cannon = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 424)
-    return self.ReadInt(cannon) & (1 << 0) == (1 << 0)
-end
-
-function Shared:SetUsingOrbitalCannon(state)
-    local cannon = self.ScriptGlobal(2657704 + 1 + (self.PLAYER_ID * 463) + 424)
-    if state then
-        self.WriteInt(cannon, self.ReadInt(cannon) | (1 << 0))
+    local p = players.list(false)
+    if #p > 1 then
+        return p[math.random(1, #p)]
     else
-        self.WriteInt(cannon, self.ReadInt(cannon) & ~(1 << 0))
+        return -1
+    end
+    return -1
+end
+
+function Shared:NewSessionMsg()
+    util.toast(T'Join a session to apply the changes!')
+end
+
+function Shared:ReturnPVInSlot(slot)
+    local data = memory.script_global(Globals:PersonalVehicleData(slot))
+    local addr = data + VehicleOffsets.VehicleBitfield
+    local bitfield = memory.read_int(addr)
+    memory.write_short(memory.script_global(Globals.ActivePVSlot), slot)
+    memory.write_int(addr, memory.bits:clear(bitfield, VehicleBitfield.Active))
+end
+
+function Shared:RequestPVInSlot(slot)
+    local data = memory.script_global(Globals:PersonalVehicleData(slot))
+    local addr = data + VehicleOffsets.VehicleBitfield
+    local bitfield = memory.read_int(addr)
+    memory.write_short(memory.script_global(Globals.ActivePVSlot), slot)
+    memory.write_int(addr, memory.bits:set(bitfield, VehicleBitfield.Request))
+end
+
+function Shared:ReturnActivePV()
+    local slot = memory.read_short(memory.script_global(Globals.ActivePVSlot))
+    if slot ~= -1 then
+        self:ReturnPVInSlot(slot)
     end
 end
 
-function Shared:SetPassiveMode(state)
-    local passive = self.ScriptGlobal(1894573 + 1 + (self.PLAYER_ID * 609) + 8)
-    self.WriteByte(passive, state ? 1 : 0)
-end
-
-function Shared:SetPlayerPassiveMode(state, pid)
-    local passive = Shared.ScriptGlobal(1894573 + 1 + (pid * 609) + 8)
-    Shared.WriteByte(passive, state ? 1 : 0)
-end
-
-function Shared:ClothingUnlock(x)
-    Shared.BeginTextCommandThefeedPost(x)
-    Shared.EndTextCommandThefeedPostUnlockTu('CLOTHES_UNLOCK', 7, x, 1)
-end
-
-function Shared:WorldToScreen(pos, sx_ptr, sy_ptr)
-    if GetScreenCoordFromWorldCoord(pos.x, pos.y, pos.z, sx_ptr, sy_ptr) then
-        local sx, sy = self.ReadFloat(sx_ptr), self.ReadFloat(sy_ptr)
-        return {x = sx, y = sy}
-    end
-end
-
-function Shared:SetOrgType(boss_type)
-    local g = self.ScriptGlobal(1895156 + 1 + (self.PLAYER_ID * 609) + 10 + 429)
-    self.WriteInt(g, boss_type)
-end
-
-function Shared:RegisterAsCEO()
-    local g = self.ScriptGlobal(1895156 + 1 + (self.PLAYER_ID * 609) + 10)
-    self.WriteInt(g, self.PLAYER_ID)
-    self:SetOrgType(0)
-end
-
-function Shared:RegisterAsMC()
-    local g = self.ScriptGlobal(1895156 + 1 + (self.PLAYER_ID * 609) + 10)
-    self.WriteInt(g, self.PLAYER_ID)
-    self:SetOrgType(1)
-end
-
-function Shared:TriggerTransaction(hash, amount, category)
-    local base = self.ScriptGlobal(4536533) -- This global is from OPMONEYLUA_V1 script
-    category = category or util.joaat('CATEGORY_SERVICE_WITH_THRESHOLD')
-    self.WriteInt(base + 0x8, self.MAX_INT - 1)
-    self.WriteInt(base + 0x38, self.MAX_INT)
-    self.WriteInt(base + 0x30, 0)
-    self.WriteInt(base + 0x28, category)
-    self.WriteInt(base + 0x18, hash)
-    self.WriteInt(base + 0x10, amount)
-    self.WriteByte(base, 1)
-    util.yield_once()
-    self.WriteByte(base, 0)
+function Shared:RequestNamedPtfxAsset(asset)
+    local timeout = os.time() + 3
+    streaming.request_named_ptfx_asset(asset)
+    repeat
+        util.yield_once()
+        if os.time() > timeout then
+            error(T'Failed to load PTFX asset')
+            return false
+        end
+    until streaming.has_named_ptfx_asset_loaded(asset)
+    graphics.use_particle_fx_asset(asset)
 end
 
 return Shared

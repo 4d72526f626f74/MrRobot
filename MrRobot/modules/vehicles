@@ -1,544 +1,470 @@
-local shadow_root = menu.shadow_root()
 local T, S = require('translations'), require('shared')
-local Bitfield = require('bitfield')
 local VehModels = require('vehicle_models')
+local VehicleHandling = require('vehicle_handling')
 local Globals = require('script_globals')
 local ScriptOffsets = require('offsets')
 local Masks = require('masks')
 local PVM = require('pvm')
-local VehicleHandling = require('vehicle_handling')
 
-local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
 local Offsets = ScriptOffsets.Vehicles.LSCustoms
 local VehicleBitfield = ScriptOffsets.Vehicles.VehicleBitfield
 
 pluto_class Vehicles
-    ScriptGlobal = S.ScriptGlobal
-    ReadByte = memory.read_byte
-    ReadShort = memory.read_short
-    ReadInt = memory.read_int
-    ReadFloat = memory.read_float
-    ReadString = memory.read_string
-    WriteByte = memory.write_byte
-    WriteShort = memory.write_short
-    WriteInt = memory.write_int
-    WriteFloat = memory.write_float
-    WriteString = memory.write_string
+    AIHandling = {
+        'AVERAGE',
+        'TRUCK',
+        'CRAP',
+        'SPORTS_CAR'
+    }
 
     function __construct(root)
-        self.vehicles = root:list(T'Vehicles', {T'rvehicles'}, T'Vehicles')
-        self.gifting = self.vehicles:list(T'Gifting', {T'rgifting'}, T'Gifting')
-        self.mors = self.vehicles:list(T'Mors Mutual', {T'rmors'}, T'Mors Mutual')
-        self.tunables = self.ScriptGlobal(262145)
+        self.vehicles = root:list(T'Vehicles', {T'rvehicles'}, '')
+        self.root = self.vehicles
+        self.max_slots = 415
 
         self:CreateGiftingOptions()
         self:CreateMorsOptions()
-        self:CreatePVManager()
         self:CreateCounterMeasures()
         self:CreateTunableOptions()
         self:CreateHandlingEditor()
         self:CreateProximityConcealment()
+        self:CreatePVManager()
 
-        local AIHandling = {
-            'AVERAGE',
-            'TRUCK',
-            'CRAP',
-            'SPORTS_CAR'
+        self.horn_boost = self.root:list(T'Horn Boost', {T'rhornboost'}, T'Horn Boost')
+        self.torque = self.root:list(T'Torque', {T'rvtorque'}, T'Torque')
+
+        self.root:divider('')
+        self.improved_wheelie = self.root:toggle(T'Improved Wheelie', {T'rvimprovedwheelie'}, T'Improves the wheelie handling of bikes, allowing you to wheelie at high speeds and lean back pretty far', function(state)
+            if state then
+                util.create_tick_handler(function()
+                    local localplayer = players.localplayer()
+                    local veh = players.localplayer_vehicle()
+                    if localplayer:is_ped_in_any_vehicle() then
+                        local ptr = veh.ptr
+                        if ptr ~= 0 then
+                            local CHandlingData = entities.vehicle_get_handling(ptr)
+                            local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
+
+                            if CBikeHandlingData ~= 0 then
+                                memory.write_float(CBikeHandlingData + 0x14, self.improved_wheelie.value ? 25.0 : 13.0)
+                                memory.write_float(CBikeHandlingData + 0x3C, self.improved_wheelie.value ? -60.0 : -1.0)
+                                memory.write_float(CBikeHandlingData + 0x40, self.improved_wheelie.value ? 70.0 : 60.0)
+                                
+                                if not self.improved_wheelie.value then
+                                    return false
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+
+        self.bmx_superjump = self.root:toggle(T'BMX Super Jump', {T'rvbmxsuperjump'}, T'Allows you to jump higher on a bmx', function(state)
+            if state then
+                util.create_tick_handler(function()
+                    local localplayer = players.localplayer()
+                    local veh = players.localplayer_vehicle()
+                    if localplayer:is_ped_in_any_vehicle() then
+                        local ptr = veh.ptr
+                        if ptr ~= 0 then
+                            local CHandlingData = entities.vehicle_get_handling(ptr)
+                            local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
+
+                            if CBikeHandlingData ~= 0 then
+                                memory.write_float(CBikeHandlingData + 0x58, self.bmx_superjump.value ? 20.0 : 5.0)
+                                
+                                if not self.bmx_superjump.value then
+                                    return false
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+
+        self.enable_kers = self.root:toggle(T'Enable Kers', {}, T'Enable kers boost for your vehicle', function(state)
+            local localplayer = players.localplayer()
+            local veh = players.localplayer_vehicle()
+            if localplayer:is_ped_in_any_vehicle() then
+                local ptr = veh.ptr
+                local CHandlingData = entities.vehicle_get_handling(ptr)
+                local addr = CHandlingData + 0x128
+                memory.write_byte(addr, memory.bits:setbool(memory.read_byte(addr), 1 << 2, state))
+                veh:set_vehicle_kers_allowed(true)
+            end
+        end)
+
+        self.horn_boost:divider(T'Settings')
+        self.horn_boost_speed = self.horn_boost:slider(T'Horn Boost Speed', {T'rhornboostspeed'}, T'Set the speed of the Horn Boost', 0, math.max_int, 100, 1, function(value) end)
+        self.horn_boost_speed_rel = self.horn_boost:toggle(T'Horn Boost Speed Relative', {T'rhornboostrelspeed'}, T'Make the horn boost speed be added relative to your current speed', function() end)
+
+        self.horn_boost:divider('')
+        self.horn_boost_toggle = self.horn_boost:toggle_loop(T'Horn Boost', {T'rhornboost'}, T'Boost your vehicle with the horn', function(state)
+            local localplayer = players.localplayer()
+            local veh = players.localplayer_vehicle()
+            if localplayer:is_ped_in_any_vehicle() then
+                local speed = self.horn_boost_speed
+                local speed_rel = self.horn_boost_speed_rel
+                if player.is_player_pressing_horn(players.user()) then
+                    if not speed_rel.value then
+                        veh:set_vehicle_forward_speed(speed.value)
+                    else
+                        veh:set_vehicle_forward_speed(veh:get_entity_speed() + speed.value)
+                    end
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Drift', {}, T'Hold shift to drift', function()
+            local localplayer = players.localplayer()
+            local veh = players.localplayer_vehicle()
+            if localplayer:is_ped_in_any_vehicle() then
+                if util.is_key_down(0xA0) then
+                    veh:set_drift_tyres(true)
+                else
+                    veh:set_drift_tyres(false)
+                end
+            end
+            util.yield(120)
+        end)
+
+        self.root:toggle(T'Interior Light', {}, T'Enables the dashboard light within your vehicle', function(state)
+            local localplayer = players.localplayer()
+            local veh = players.localplayer_vehicle()
+            if localplayer:is_ped_in_any_vehicle() then
+                veh:set_vehicle_interiorlight(state)
+                veh:set_vehicle_force_interiorlight(state)
+            end
+        end)
+
+        self.root:toggle_loop(T'Demi God', {}, T'Make your car very very durable', function()
+            local localplayer = players.localplayer()
+            local veh = players.localplayer_vehicle()
+            if veh.entity then
+                veh:set_vehicle_strong(true)
+                veh:set_vehicle_has_strong_axles(true)
+                veh:set_vehicle_explodes_on_high_explosion_damage(false)
+                memory.write_float(veh.ptr + 0x0284, math.max_int) -- max health
+                memory.write_float(veh.ptr + 0x280, math.max_int) -- health
+                memory.write_float(veh.ptr + 0x08E8, math.max_int) -- engine health
+                memory.write_float(veh.ptr + 0x0824, math.max_int) -- petrol tank health
+            end
+        end)
+
+        self.torque:toggle_loop(T'Set Torque Multiplier', {}, T'Set the torque multiplier of your vehicle', function()
+            local localplayer = players.localplayer()
+            local veh = players.localplayer_vehicle()
+            if localplayer:is_ped_in_any_vehicle() then
+                local torque = self.torque_multiplier
+                veh:set_vehicle_cheat_power_increase(torque.value / 100)
+            end
+            util.yield(120)
+        end)
+        self.torque_multiplier = self.torque:slider_float(T'Torque Multiplier', {T'rtorquemultiplier'}, T'Set the torque multiplier of the vehicle', 0.0, math.max_float, 1.0 * 100, 1.0 * 100, function(value) end)
+
+        self.root:divider('')
+        self.root:text_input(T'Change License Plate', {T'rvmodlicenseplate'}, T'Change the license plate of your vehicle (works on personal vehicles too)', function(text)
+            if not SCRIPT_CAN_CONTINUE then return end
+            local localplayer = players.localplayer()
+            local veh = localplayer:get_vehicle_ped_is_in()
+            local personal = Network.GetPVFromNetworkID(players.user())
+            if veh ~= personal then
+                veh = S.NewVehicle(veh)
+                veh:set_vehicle_number_plate_text(text)
+            else
+                local slot = memory.read_short(memory.script_global(Globals.ActivePVSlot))
+                local data = memory.script_global(Globals:PersonalVehicleData(slot))
+                local addr = data + Offsets.LicensePlate
+                memory.write_string(addr, text)
+            end
+        end, '12ABC345')
+
+        self.root:list_select(T'AIHandling', {}, T'Change the handling meta for your vehicle', self.AIHandling, 1, function(index)
+            local value = self.AIHandling[index]
+            local veh = players.localplayer_vehicle()
+            if veh.entity ~= 0 then
+                veh:set_vehicle_handling_override(value:joaat())
+                util.toast(T'Changed handling to ' .. value)
+            end
+        end)
+
+        local commands = {}
+        local mapped = {
+            { args = { T'Detach Windscreen', commands, T'Detach the windscreen of your vehicle' }, func = 'pop_out_vehicle_windscreen', func_args = nil },
+            { args = { T'Pop Off Roof', commands, T'Pops off the roof, does not work for all vehicles (which is most of them)' }, func = 'pop_off_vehicle_roof_with_impulse', func_args = { 0.0, 0.0, 0.0 } },
+            { args = { T'Fix Vehicle', commands, T'Fixes the vehicle, what else?' }, func = 'set_vehicle_fixed', func_args = nil },
+            { args = { T'Fix Deformation', commands, T'Fixes deformation but doesn\'t restore the vehicles health' }, func = 'set_vehicle_deformation_fixed', func_args = nil },
+            { args = { T'Roll Down Windows', commands, T'Roll down all the windows of your vehicle' }, func = 'roll_down_windows', func_args = nil },
         }
 
-        self.vehicles:divider('')
-        self.vehicles:toggle_loop(T'Improved Wheelie', {T'rimprovedwheelie'}, T'Improves the wheelie handling of bikes, allowing you to wheelie at high speeds and lean back pretty far', function(state)
-            if self.IsPedInAnyVehicle(players.user_ped()) then
-                local Veh = entities.get_user_vehicle_as_pointer()
-                if Veh ~= 0 then
-                    local CHandlingData = entities.vehicle_get_handling(Veh)
-                    local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
-
-                    if CBikeHandlingData ~= 0 then
-                        if self.ReadFloat(CBikeHandlingData + 0x14) ~= 25.0 then
-                            self.WriteFloat(CBikeHandlingData + 0x14, 25.0)
-                        end
-
-                        if self.ReadFloat(CBikeHandlingData + 0x3C) ~= -60.0 then
-                            self.WriteFloat(CBikeHandlingData + 0x3C, -60.0)
-                        end
-
-                        if self.ReadFloat(CBikeHandlingData + 0x40) ~= 70.0 then
-                            self.WriteFloat(CBikeHandlingData + 0x40, 70.0)
-                        end
-                    end
-                end
-            end
-        end,
-        function()
-            if self.IsPedInAnyVehicle(players.user_ped()) then
-                local Veh = entities.get_user_vehicle_as_pointer()
-                if Veh ~= 0 then
-                    local CHandlingData = entities.vehicle_get_handling(Veh)
-                    local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
-
-                    if CBikeHandlingData ~= 0 then
-                        self.WriteFloat(CBikeHandlingData + 0x14, 13.0)
-                        self.WriteFloat(CBikeHandlingData + 0x3C, -1.0)
-                        self.WriteFloat(CBikeHandlingData + 0x40, 60.0)
-                    end
-                end
-            end
-        end)
-
-        self.vehicles:toggle_loop(T'BMX Superjump', {T'rbmxsuperjump'}, T'Jump higher on a BMX', function(state)
-            if self.IsPedInAnyVehicle(players.user_ped()) then
-                local Veh = entities.get_user_vehicle_as_pointer()
-                if Veh ~= 0 then
-                    local CHandlingData = entities.vehicle_get_handling(Veh)
-                    local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
-
-                    if CBikeHandlingData ~= 0 then
-                        if self.ReadFloat(CBikeHandlingData + 0x58) ~= 20.0 then
-                            self.WriteFloat(CBikeHandlingData + 0x58, 20.0)
-                        end
-                    end
-                end
-            end
-        end,
-        function()
-            if self.IsPedInAnyVehicle(players.user_ped()) then
-                local Veh = entities.get_user_vehicle_as_pointer()
-                if Veh ~= 0 then
-                    local CHandlingData = entities.vehicle_get_handling(Veh)
-                    local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
-
-                    if CBikeHandlingData ~= 0 then
-                        self.WriteFloat(CBikeHandlingData + 0x58, 5.0)
-                    end
-                end
-            end
-        end)
-
-        self.enable_kers = self.vehicles:toggle(T'Enable Kers', {}, T'Enables kers on the vehicle', function(state)
-            if self.IsPedInAnyVehicle(players.user_ped()) then
-                local Veh = entities.get_user_vehicle_as_pointer()
-                if Veh ~= 0 then
-                    local CHandlingData = entities.vehicle_get_handling(Veh)
-                    local Address = CHandlingData + 0x128
-                    if state then
-                        self.WriteByte(Address, self.ReadByte(Address) | (1 << 2))
+        for mapped as data do
+            data.args[4] = function()
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    local args = data.func_args
+                    if args ~= nil then
+                        veh[data.func](veh, table.unpack(args))
                     else
-                        self.WriteByte(Address, self.ReadByte(Address) & ~(1 << 2))
+                        veh[data.func](veh)
                     end
-                    self.SetVehicleKersAllowed(entities.pointer_to_handle(Veh), true)
-                end
-            else
-                self.enable_kers.value = false
-            end
-        end)
-
-        self.horn_boost = self.vehicles:toggle_loop(T'Horn Boost', {T'rhornboost'}, T'Boost your vehicle by honking', function(state)
-            if self.IsPedInAnyVehicle(players.user_ped()) then
-                local Veh = entities.get_user_vehicle_as_pointer()
-                if Veh ~= 0 then
-                    local Speed = self.horn_boost_speed
-                    local Relative = self.horn_boost_speed_rel
-                    local Handle = entities.pointer_to_handle(Veh)
-                    if self.IsPlayerPressingHorn(PlayerID) then
-                        if not Relative.value then
-                            self.SetVehicleForwardSpeed(Handle, Speed.value)
-                        else
-                            self.SetVehicleForwardSpeed(Handle, self.GetEntitySpeed(Handle) + Speed.value)
-                        end
-                    end
-                else
-                    self.horn_boost.value = false
                 end
             end
-        end)
-
-        self.vehicles:toggle_loop(T'Drift', {}, T'Hold shift to drift', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                if util.is_key_down(0xA0) then
-                    self.SetDriftTyres(Veh, true)
-                else
-                    self.SetDriftTyres(Veh, false)
-                end
-            end
-    
-            util.yield(120)
-        end,
-        function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.SetDriftTyres(Veh, false)
-            end
-        end)
-
-        self.vehicles:toggle(T'Interior Light', {}, T'Enables the dashboard light within your vehicle', function(state)
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.SetVehicleInteriorlight(Veh, state)
-                self.SetVehicleForceInteriorlight(Veh, state)
-            end
-        end)
-
-        self.vehicles:toggle_loop(T'Set Torque Multiplier', {}, T'Set the torque multiplier of your vehicle', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                local Torque = self.torque_multiplier
-                self.SetVehicleCheatPowerIncrease(Veh, Torque.value / 100)
-            end
-    
-            util.yield(120)
-        end)
-
-        self.vehicles:toggle(T'Inverted Controls', {}, T'Inverts the controls of your vehicle', function(state)
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.SetInvertVehicleControls(Veh, state)
-            end
-        end)
-
-        self.request_restrictions = self.vehicles:toggle(T'Disable Request Restrictions', {}, T'Request your vehicles regardless of where you are, you will no longer be told that you are too far from a suitable road etc', function(state)
-            self.WriteInt(self.ScriptGlobal(Globals.PersonalVehicleRequestRestrictions), state ? 1 : -1)
-        end)
-        self.request_restrictions.visible = false
-
-        self.vehicles:divider('')
-
-        self.vehicles:action(T'Change License Plate', {}, T'Change the license plate of your vehicle (works on personal vehicles)', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            local Personal = self:GetVehicleFromNetId(PlayerID)
-            if Veh ~= Personal then
-                local Plate = S:DisplayOnscreenKeyboard()
-                self.SetVehicleNumberPlateText(Veh, Plate)
-            else
-                local PvSlot = self.ScriptGlobal(Globals.ActivePVSlot)
-                local Data = self.ScriptGlobal(Globals:PersonalVehicleData(self.ReadShort(PvSlot)))
-                local Plate = S:DisplayOnscreenKeyboard()
-                self.WriteString(Data + Offsets.LicensePlate, Plate)
-            end
-        end)
-
-        self.vehicles:list_select(T'AIHandling', {}, T'Change the vehicles handling meta', AIHandling, 1, function(index)
-            local Value = AIHandling[index]
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.SetVehicleHandlingOverride(Veh, joaat(Value))
-                util.toast(T'Changed handling to ' .. Value)
-            end
-        end)
-
-        self.vehicles:action(T'Detach Windscreen', {}, T'Detach the windscreen of your vehicle', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.PopOutVehicleWindscreen(Veh)
-            end
-        end)
-
-        self.vehicles:action(T'Pop Off Roof', {}, T'Pops off the roof, does not work for all vehicles', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.PopOffVehicleRoofWithImpulse(Veh, 0.0, 0.0, 0.0)
-            end
-        end)
-
-        self.vehicles:action(T'Smash Windows', {}, T'Smash all the windows of your vehicle', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                for i = 0, 7 do
-                    self.SmashVehicleWindow(Veh, i)
-                end
-            end
-        end)
-
-        self.vehicles:action(T'Roll Down Windows', {}, T'Roll down all the windows of your vehicle', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.RollDownWindows(Veh)
-            end
-        end)
-
-        self.vehicles:action(T'Roll Up Windows', {}, T'Roll up all the windows of your vehicle', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.RollUpWindow(Veh, 0)
-            end
-        end)
-
-        self.vehicles:action(T'Fix Windows', {}, T'Fix all the windows of your vehicle', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                for i = 0, 7 do
-                    self.FixVehicleWindow(Veh, i)
-                end
-            end
-        end)
-
-        self.vehicles:action(T'Remove Windows', {}, T'Remove all the windows of your vehicle', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                for i = 0, 7 do
-                    self.RemoveVehicleWindow(Veh, i)
-                end
-            end
-        end)
-
-        self.vehicles:action(T'Fix Vehicle', {}, T'Fixes the vehicle, what else?', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.SetVehicleFixed(Veh)
-            end
-        end)
-
-        self.vehicles:action(T'Fix Deformation', {}, T'Fixes deformation but doesn\'t restore the vehicles health', function()
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.SetVehicleDeformationFixed(Veh)
-            end
-        end)
-
-        self.vehicles:divider('')
-
-        self.horn_boost_speed = self.vehicles:slider(T'Horn Boost Speed', {T'rhornboostspeed'}, T'Set the speed of the Horn Boost', 0, S.MAX_INT, 100, 1, function(value) end)
-        self.horn_boost_speed_rel = self.vehicles:toggle(T'Horn Boost Speed Relative', {T'rhornboostrelspeed'}, T'Make the horn boost speed be added relative to your current speed', function() end)
-        
-        self.vehicles:slider_float(T'Vehicle Headlights Multiplier', {T'rvehlightmultiplier'}, T'Set the multiplier for vehicle lights', 0.0, S.MAX_FLOAT, 1.0 * 100, 1.0 * 100, function(value) 
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.SetVehicleLightMultiplier(Veh, value / 100)
-            end
-        end)
-    
-        self.vehicles:slider_float(T'Set Max Speed', {T'rmaxspeed'}, T'Set the max speed of the vehicle', 0.0, S.MAX_FLOAT, 0.0, 1.0 * 100, function(value) 
-            local Veh = self:GetPedVehicle(players.user_ped())
-            if Veh ~= 0 then
-                self.SetVehicleMaxSpeed(Veh, value / 100)
-                self.SetEntityMaxSpeed(Veh, value / 100)
-            end
-        end)
-        
-        self.torque_multiplier = self.vehicles:slider_float(T'Torque Multiplier', {T'rtorquemultiplier'}, T'Set the torque multiplier of the vehicle', 0.0, S.MAX_FLOAT, 1.0 * 100, 1.0 * 100, function(value) end)
-    end
-
-    function ToggleOwnerCheck(state)
-        self.WriteByte(self.ScriptGlobal(Globals.PVOwnershipBypass), state ? 1 : 0)
-    end
-
-    function ClaimVehicle(Slot, Respawn=false)
-        local Data = self.ScriptGlobal(Globals:PersonalVehicleData(Slot))
-        local VBitfield = Bitfield.new(self.ReadInt(Data + Offsets.VehicleBitfield))
-        VBitfield.address = Data + Offsets.VehicleBitfield
-
-        if VBitfield:IsSet(VehicleBitfield.Destroyed) or VBitfield:IsSet(VehicleBitfield.Impounded) then
-            VBitfield:Clear(0x23)
-            if not Respawn then
-                VBitfield:Set(VehicleBitfield.Insured)
-            else
-                VBitfield:Set(0x5)
-            end
+            self.root:action(table.unpack(data.args))
         end
-    end
+        mapped = nil
+        commands = nil
 
-    function GetNetworkId(pid)
-        return self.ReadInt(self.ScriptGlobal(Globals:PlayerPVNetworkID(pid))) -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_38
-    end
-    
-    function GetVehicleFromNetId(pid)
-        return self.NetToVeh(self:GetNetworkId(pid))
-    end
-    
-    function GetPedVehicle(ped)
-        if self.IsPedInAnyVehicle(ped) then
-            return self.GetVehiclePedIsIn(ped, false)
-        else
-            return 0
-        end
+        self.root:action(T'Roll Up Windows', {}, T'Opposite of rolling them down', function()
+            local veh = players.localplayer_vehicle()
+            if veh.entity ~= 0 then
+                for i = 0, 7 do
+                    veh:roll_up_window(i)
+                end
+            end
+        end)
+
+        self.root:action(T'Smash Windows', {}, T'Smash all the windows of your vehicle', function()
+            local veh = players.localplayer_vehicle()
+            if veh.entity ~= 0 then
+                for i = 0, 7 do
+                    veh:smash_vehicle_window(i)
+                end
+            end
+        end)
+
+        self.root:action(T'Fix Windows', {}, T'Fix all the windows of your vehicle', function()
+            local veh = players.localplayer_vehicle()
+            if veh.entity ~= 0 then
+                for i = 0, 7 do
+                    veh:fix_vehicle_window(i)
+                end
+            end
+        end)
+
+        self.root:action(T'Remove Windows', {}, T'Remove all the windows of your vehicle', function()
+            local veh = players.localplayer_vehicle()
+            if veh.entity ~= 0 then
+                for i = 0, 7 do
+                    veh:remove_vehicle_window(i)
+                end
+            end
+        end)
+
+        self.root:slider_float(T'Vehicle Headlights Multiplier', {T'rvehlightmultiplier'}, T'Set the multiplier for vehicle lights', 0.0, math.max_float, 1.0 * 100, 1.0 * 100, function(value) 
+            local veh = players.localplayer_vehicle()
+            if veh ~= 0 then
+                veh:set_vehicle_light_multiplier(value / 100)
+            end
+        end)
+
+        self.root:slider_float(T'Set Max Speed', {T'rmaxspeed'}, T'Set the max speed of the vehicle', 0.0, math.max_float, 0.0, 1.0 * 100, function(value) 
+            local veh = players.localplayer_vehicle()
+            if veh ~= 0 then
+                veh:set_vehicle_max_speed(value / 100)
+                veh:set_entity_max_speed(value / 100)
+            end
+        end)
     end
 
     function CreateGiftingOptions()
-        self.gifting:action(T'Gift Vehicle', {T'rgiftself'}, T'Improved version of Stand\'s gift vehicle (THIS IS NOT FOR OTHER PLAYERS!)', function()
-            local Ped = players.user_ped()
-            if not self.IsPedInAnyVehicle(Ped, false) then
-                util.toast('You are not in a vehicle!')
+        self.gifting = self.vehicles:list(T'Gifting', {T'rgifting'}, T'Gifting')
+        self.gifting:action(T'Gift Vehicle', {T'rgiftself'}, T'Improved version of Stand\'s gift vehicle (THIS DOES NOT WORK FOR OTHER PLAYERS)', function()
+            local localplayer = players.localplayer()
+            local veh = players.localplayer_vehicle()
+            if not localplayer:is_ped_in_any_vehicle() then
+                return util.toast(T'You are not in a vehicle')
             end
-            local Veh = self:GetPedVehicle(Ped)
-            local Start = os.time() + 30
+            local start = os.time() + 30
+            local net_hash = network.network_hash_from_player_handle(players.user())
 
-            if Veh == 0 or Veh == nil then
-                return
-            end
-
-            local NetHash = self.NetworkHashFromPlayerHandle(PlayerID)
-            local PlayerVeh = entities.get_user_vehicle_as_pointer()
-
-            self.DecorSetInt(Veh, 'MPBitset', self.DecorGetInt(PlayerVeh, 'MPBitset') | Masks.VehicleGifting)
+            veh:decor_set_int('MPBitset', veh:decor_get_int('MPBitset') | Masks.VehicleGifting)
             self:ToggleOwnerCheck(false)
-            for {'Player_Vehicle', 'Veh_Modded_By_Player'} as Decor do self.DecorSetInt(Veh, Decor, NetHash) end
-            for {'Previous_Owner', 'PV_Slot'} as Decor do self.DecorSetInt(Veh, Decor, 0) end
-            self.SetVehicleIsStolen(Veh, false)
+            for { 'Player_Vehicle', 'Veh_Modded_By_Player' } as decor do veh:decor_set_int(decor, net_hash) end
+            for { 'Previous_Owner', 'PV_Slot' } as decor do veh:decor_set_int(decor, 0) end
+            veh:set_vehicle_is_stolen(false)
 
-            local Interior = self.GetInteriorFromEntity(Ped)
             repeat
                 util.yield_once()
-                if os.time() >= Start then
+                if os.time() > start then
+                    util.toast(T'Failed to gift vehicle, you took too long')
                     self:ToggleOwnerCheck(true)
-                    return util.toast('Failed to gift vehicle, timed out because you took to long')
+                    util.stop_thread()
                 end
-                Interior = self.GetInteriorFromEntity(Ped)
-            until Interior ~= 0
+            until players.is_in_interior(players.user())
+
             repeat
                 util.yield_once()
-                Interior = self.GetInteriorFromEntity(Ped)
-            until Interior == 0
-
+            until not players.is_in_interior(players.user())
             util.yield(1000)
+
             if self.delete_vehicle:isValid() then
                 self.delete_vehicle:trigger()
                 util.yield_once()
                 self.delete_vehicle:trigger()
             end
-
-            self:ToggleOwnerCheck(true)
         end)
 
-        self.delete_vehicle = self.gifting:action(T'Delete Obstructing Vehicle', {}, T'Delete the invisible vehicle infront of the garage', function()
-            for entities.get_all_vehicles_as_pointers() as Entity do
-                local Handle = entities.pointer_to_handle(Entity)
-                if not self.IsEntityVisible(Handle) then
-                    entities.delete_by_pointer(Entity)
-                    util.toast('Deleted ' .. Handle)
+        self.delete_vehicle = self.gifting:action(T'Delete Invisible Vehicle', {}, T'Delete the annoying invisible car infront of your garage', function()
+            for entities.get_all_vehicles_as_pointers() as ent do
+                local coords = entities.get_position(ent)
+                local player_coords = players.get_position(players.user())
+                if coords:distance(player_coords) < 100 then
+                    local veh = S.NewVehicle(entities.pointer_to_handle(ent))
+                    if not veh:is_entity_visible() then
+                        entities.delete_by_pointer(veh.ptr)
+                        util.toast(T($'Deleted {veh.entity}'))
+                    end
                 end
             end
+        end)
+
+        self.fix_owner_check = self.gifting:action(T'Fix Owner Check', {}, T'Fix the owner check so that the game functions correctly (only use this if your personal vehicle is out but not showing on the map after using gifting)', function()
+            self:ToggleOwnerCheck(true)
         end)
     end
 
     function CreateMorsOptions()
+        self.mors = self.vehicles:list(T'Mors', {T'rmors'}, T'Mors')
         self.mors:divider('Settings')
-        self.mors_respawn = self.mors:toggle(T'Respawn Next To You', {}, T'Should the vehicle respawn next to you after being claimed?', function() end)
+        self.mors_respawn = self.mors:toggle(T'Respawn', {}, T'Should your vehicle respawn right next to you?', function(state) end)
         self.mors:divider('')
-        
-        self.mors_claim_all = self.mors:action(T'Claim All Personal Vehicles', {}, T'Claims all your personal vehicles from mors mutual', function()
-            for Slot = 0, 415 do
-                self:ClaimVehicle(Slot)
+
+        self.mors_claim_all = self.mors:action(T'Claim All', {}, T'Reclaim all personal vehicles from mors mutual', function()
+            for slot = 0, self.max_slots do
+                self:ClaimVehicle(slot)
             end
         end)
 
-        self.mors_claim_current = self.mors:action(T'Claim Personal Vehicle', {}, T'Claim your active personal vehicle', function()
-            self:ClaimVehicle(self.ReadShort(self.ScriptGlobal(Globals.ActivePVSlot)), self.mors_respawn.value)
+        self.mors_claim_current = self.mors:action(T'Claim Current', {}, T'Reclaim your current personal vehicle from mors mutual', function()
+            local slot = memory.read_short(memory.script_global(Globals.ActivePVSlot))
+            self:ClaimVehicle(slot, self.mors_respawn.value)
         end)
 
         self.mors:divider('')
-        self.mors:toggle_loop(T'Auto Claim All', {}, T'Automatically claim all your vehicles', function() self.mors_claim_all:trigger() end)
-        self.mors:toggle_loop(T'Auto Claim Current', {}, T'Automatically claim your current vehicle', function() self.mors_claim_current:trigger() end)
-    end
+        self.mors:toggle_loop(T'Auto Claim All', {}, T'Automatically claim all vehicles', function()
+            if self.mors_claim_all:isValid() then
+                self.mors_claim_all:trigger()
+            end
+        end)
 
-    function CreatePVManager()
-        local Manager = pluto_new PVM(self.vehicles)
+        self.mors:toggle_loop(T'Auto Claim Current', {}, T'Automatically claim your current vehicle', function()
+            if self.mors_claim_current:isValid() then
+                self.mors_claim_current:trigger()
+            end
+        end)
     end
 
     function CreateCounterMeasures()
-        local VehCM = self.vehicles:list(T'Counter Measures', {}, T'Vehicle counter measures')
-        VehCM:action(T'Fire Flares', {}, T'Fire flare countermeasure', function()
-            if self.IsPedInAnyVehicle(players.user_ped()) then
-                local Veh = self.GetVehiclePedIsIn(players.user_ped(), false)
-                local Coords = self.GetEntityCoords(Veh)
-                local Heading = self.GetEntityHeading(Veh)
-                local Model = self.GetEntityModel(Veh)
-                local Offset = {x=0, y=0, z=0}
-    
-                if util.reverse_joaat(Model) == 'oppressor2' then
-                    Offset.x = 1
-                    Offset.y = 4
-                    Offset.z = 0.2
-                else
-                    Offset.x = 3
-                    Offset.y = 4
-                    Offset.z = 0.2
-                end
-    
-                local SpawnPos = self.GetOffsetFromCoordAndHeadingInWorldCoords(Coords.x, Coords.y, Coords.z, Heading, -Offset.x, Offset.y, Offset.z)
-                self.ShootSingleBulletBetweenCoordsIgnoreEntityNew(SpawnPos.x, SpawnPos.y, SpawnPos.z, Coords.x, Coords.y, Coords.z, 0, true, util.joaat('WEAPON_FLAREGUN'), players.user_ped(), true, false, -1, 0, false, true, 0, true, 1, 0, 0)
-                SpawnPos = self.GetOffsetFromCoordAndHeadingInWorldCoords(Coords.x, Coords.y, Coords.z, Heading, Offset.x, Offset.y, Offset.z)
-                self.ShootSingleBulletBetweenCoordsIgnoreEntityNew(SpawnPos.x, SpawnPos.y, SpawnPos.z, Coords.x, Coords.y, Coords.z, 0, true, util.joaat('WEAPON_FLAREGUN'), players.user_ped(), true, false, -1, 0, false, true, 0, true, 1, 0, 0)
-                self.PlaySoundFromEntity(-1, 'flares_released', Veh, 'DLC_SM_Countermeasures_Sounds', true, 0)
+        self.cm = self.vehicles:list(T'Counter Measures', {T'rcm'}, T'Counter Measures')
+        self.flares_cm_offsets = {0, 0, 0}
+        self.cm:action(T'Fire Flares', {}, T'Fire flare countermeasure (works on all vehicles)', function()
+            local veh = players.localplayer_vehicle()
+            local coords = veh:get_entity_coords()
+            local heading = veh:get_entity_heading()
+            local model = veh:get_entity_model()
+
+            if ('oppressor2'):joaat() == model then
+                self.flares_cm_offsets.x = 1
+                self.flares_cm_offsets.y = 4
+                self.flares_cm_offsets.z = 0.2
+            else
+                self.flares_cm_offsets.x = 3
+                self.flares_cm_offsets.y = 4
+                self.flares_cm_offsets.z = 0.2
             end
+
+            local spawn_pos = object.get_offset_from_coord_and_heading_in_world_coords(coords.x, coords.y, coords.z, heading, -self.flares_cm_offsets.x, self.flares_cm_offsets.y, self.flares_cm_offsets.z)
+            misc.shoot_single_bullet_between_coords_ignore_entity_new(spawn_pos.x, spawn_pos.y, spawn_pos.z, coords.x, coords.y, coords.z, 0, true, ('WEAPON_FLAREGUN'):joaat(), players.user(), true, false, -1, 0, false, true, 0, true, 1, 0, 0)
+            spawn_pos = object.get_offset_from_coord_and_heading_in_world_coords(coords.x, coords.y, coords.z, heading, self.flares_cm_offsets.x, self.flares_cm_offsets.y, self.flares_cm_offsets.z)
+            misc.shoot_single_bullet_between_coords_ignore_entity_new(spawn_pos.x, spawn_pos.y, spawn_pos.z, coords.x, coords.y, coords.z, 0, true, ('WEAPON_FLAREGUN'):joaat(), players.user(), true, false, -1, 0, false, true, 0, true, 1, 0, 0)
+            audio.play_sound_from_entity(-1, 'flares_released', veh.entity, 'DLC_SM_Countermeasures_Sounds', true, 0)
         end)
 
-        VehCM:action(T'Fire Chaff', {}, T'Fire chaff countermeasure', function()
-            if self.IsPedInAnyVehicle(players.user_ped()) then
+        self.cm:action(T'Fire Chaff', {}, T'Fire chaff countermeasure (works on all vehicles)', function()
+            local veh = players.localplayer_vehicle()
+            if veh.entity then
                 S:RequestNamedPtfxAsset('scr_sm_counter')
-                local Veh = self.GetVehiclePedIsIn(players.user_ped(), false)
-                local Timeout = os.time() + 15
-                
-                self.StartNetworkedParticleFxNonLoopedOnEntity('scr_sm_counter_chaff', Veh, 0, 0, 0, 0, 0, 0, 3, false, false, false)
-                self.SetVehicleAllowHomingMissleLockonSynced(Veh, false)
-    
+                local timeout = os.time() + 15
+                graphics.start_networked_particle_fx_non_looped_on_entity('scr_sm_counter_chaff', veh.entity, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, false, false, false)
+                veh:set_vehicle_allow_homing_missle_lockon_synced(false)
+
                 util.create_tick_handler(function()
-                    if os.time() > Timeout then
-                        self.SetVehicleAllowHomingMissleLockonSynced(Veh, true)
+                    if os.time() > timeout then
+                        veh:set_vehicle_allow_homing_missle_lockon_synced(true)
                         return false
                     end
                 end)
             end
         end)
 
-        VehCM:action(T'Refill Counter Measures', {}, T'Refill vehicle countermeasures', function()
-            if self.IsPedInAnyVehicle(players.user_ped()) then
-                local Veh = self.GetVehiclePedIsIn(players.user_ped(), false)
-                self.SetVehicleCountermeasureAmmo(Veh, 2)
+        self.cm:action(T'Refill Counter Measures', {}, T'Refill vehicle countermeasures for more countering', function()
+            local veh = players.localplayer_vehicle()
+            if veh.entity then
+                veh:set_vehicle_countermeasure_ammo(math.max_int)
             end
         end)
-    
-        VehCM:action(T'Delete Flares', {}, T'Delete flares', function()
-            for entities.get_all_objects_as_pointers() as Entity do
-                local Model = util.reverse_joaat(entities.get_model_hash(Entity))
-                if Model:find('flare') then
-                    entities.delete_by_pointer(Entity)
+
+        self.cm:action(T'Delete All Flares', {}, T'Delete flares', function()
+            for entities.get_all_objects_as_pointers() as ent do
+                local model = util.reverse_joaat(entities.get_model_hash(ent))
+                if model:find('flare') then
+                    entities.delete_by_pointer(ent)
                 end
             end
         end)
     end
 
     function CreateTunableOptions()
-        local Tunables = self.vehicles:list(T'Tunables', {}, T'Vehicle tunables')
-    
-        Tunables:action(T'Remove Vehicle Sell Timer', {}, T'Remove sell timer so you can sell as many vehicles as you want', function()
-            self.StatSetInt(util.joaat('MPPLY_VEHICLE_SELL_TIME'), 0)
+        self.tunables = self.vehicles:list(T'Tunables', {T'rtunables'}, T'Tunables')
+        local base = memory.script_global(262145)
+
+        self.tunables:action(T'Remove Vehicle Sell Timer', {}, T'Remove the sell timer so you can sell as many vehicles as you want', function()
+            stats.stat_set_int(('MPPLY_VHEICLE_SELL_TIMER'):joaat(), 0, true)
         end)
-    
-        Tunables:toggle(T'Remove Sell Limitations', {}, T'Remove sell limitations so you can sell any vehicle regardless of the value', function(state)
-            self.WriteInt(self.tunables + 0x578, state ? S.MAX_INT : 50000)
-            self.WriteInt(self.tunables + 0x9530, state ? S.MAX_INT : 1000000)
-            self.WriteInt(self.tunables + 0xDD28, state ? S.MAX_INT : 1000000)
-            self.WriteInt(self.tunables + 0xDD20, state ? S.MAX_INT : 1000000)
-            self.WriteInt(self.tunables + 0x27648, state ? 1 : 0)
-            self.WriteInt(self.tunables + 0xDCE8, state ? S.MAX_INT : 1)
+
+        self.tunables:toggle(T'Remove Sell Limitations', {}, T'Remove sell limitations so that you can sell any vehicle regardles of the value', function()
+            memory.write_int(base + 0x578, state ? math.max_int : 50000)
+            memory.write_int(base + 0x9530, state ? math.max_int : 1000000)
+            memory.write_int(base + 0xDD28, state ? math.max_int : 1000000)
+            memory.write_int(base + 0xDD20, state ? math.max_int : 1000000)
+            memory.write_int(base + 0x27648, state ? 1 : 0)
+            memory.write_int(base + 0xDCE8, state ? math.max_int : 1)
         end)
     end
 
     function CreateHandlingEditor()
-        self.handling = self.vehicles:list(T'Handling Editor', {}, T'Edit vehicle handling and flags', function()
-            for self.handling:getChildren() as child do
-                if child:isValid() then child:delete() end
+        self.handling = self.vehicles:list(T'Handling', {T'rhandling'}, T'Handling', function()
+            local children = self.handling:getChildren()
+            if #children > 0 then
+                for children as child do
+                    if child:isValid() then
+                        child:delete()
+                    end
+                end
             end
 
-            if not self.IsPedInAnyVehicle(players.user_ped()) then
+            local localplayer = players.localplayer()
+
+            if not localplayer:is_ped_in_any_vehicle() then
                 return util.toast(T'You are not in a vehicle')
             end
 
-            local ModelFlags = self.handling:list(T'Model Flags', {}, '')
-            local HandlingFlags = self.handling:list(T'Handling Flags', {}, '')
-            local DamageFlags = self.handling:list(T'Damage Flags', {}, '')
-            local AdvancedFlags = self.handling:list(T'Advanced Flags', {}, '')
-            local CarHandling = self.handling:list(T'Car Handling', {}, '')
-            local BikeHandling = self.handling:list(T'Bike Handling', {}, '')
-            local FlyingHandling = self.handling:list(T'Flying Handling', {}, '')
-            local BoatHandling = self.handling:list(T'Boat Handling', {}, '')
-            local SeaPlaneHandling = self.handling:list(T'Sea Plane Handling', {}, '')
-            local SubmarineHandling = self.handling:list(T'Submarine Handling', {}, '')
-            local TrailerHandling = self.handling:list(T'Trailer Handling', {}, '')
+            local model_flags = self.handling:list(T'Model Flags', {}, T'Model flags')
+            local handling_flags = self.handling:list(T'Handling Flags', {}, T'Handling flags')
+            local damage_flags = self.handling:list(T'Damage Flags', {}, T'Damage flags')
+            local advanced_flags = self.handling:list(T'Advanced Flags', {}, T'Advanced flags')
+            local car_handling = self.handling:list(T'Car Handling', {}, T'Car handling')
+            local bike_handling = self.handling:list(T'Bike Handling', {}, T'Bike handling')
+            local flying_handling = self.handling:list(T'Flying Handling', {}, T'Flying handling')
+            local boat_handling = self.handling:list(T'Boat Handling', {}, T'Boat handling')
+            local sea_plane_handling = self.handling:list(T'Sea Plane Handling', {}, T'Sea plane handling')
+            local submarine_handling = self.handling:list(T'Submarine Handling', {}, T'Submarine handling')
+            local trailer_handling = self.handling:list(T'Trailer Handling', {}, T'Trailer handling')
 
-            local Veh = entities.get_user_vehicle_as_pointer()
-            local CHandlingData = entities.vehicle_get_handling(Veh)
+            local veh = entities.get_user_vehicle_as_pointer()
+            local CHandlingData = entities.vehicle_get_handling(veh)
             local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
             local CFlyingHandlingData = entities.handling_get_subhandling(CHandlingData, 1)
             local CBoatHandlingData = entities.handling_get_subhandling(CHandlingData, 3)
@@ -547,248 +473,149 @@ pluto_class Vehicles
             local CTrailerHandlingData = entities.handling_get_subhandling(CHandlingData, 7)
             local CCarHandlingData = entities.handling_get_subhandling(CHandlingData, 8)
 
-            for Index, Flag in pairs(VehicleHandling.model) do
-                ModelFlags:toggle(Flag.name, {}, Flag.desc, function(state)
-                    if not SCRIPT_CAN_CONTINUE then return end
-                    local Address = CHandlingData + VehicleHandling.MF_OFFSET
-                    if state then
-                        self.WriteInt(Address, self.ReadInt(Address) | Flag.bit)
-                    else
-                        self.WriteInt(Address, self.ReadInt(Address) & ~Flag.bit)
-                    end
-                end, self.ReadInt(CHandlingData + VehicleHandling.MF_OFFSET) & Flag.bit == Flag.bit)
-            end
+            advanced_flags.visible = CCarHandlingData & 0xFFFF ~= 0
+            bike_handling.visible = CBikeHandlingData & 0xFFFF ~= 0
+            flying_handling.visible = CFlyingHandlingData & 0xFFFF ~= 0
+            boat_handling.visible = CBoatHandlingData & 0xFFFF ~= 0
+            sea_plane_handling.visible = CSeaPlaneHandlingData & 0xFFFF ~= 0
+            submarine_handling.visible = CSubmarineHandlingData & 0xFFFF ~= 0
+            trailer_handling.visible = CTrailerHandlingData & 0xFFFF ~= 0
 
-            for Index, Flag in pairs(VehicleHandling.handling) do
-                HandlingFlags:toggle(Flag.name, {}, Flag.desc, function(state)
-                    if not SCRIPT_CAN_CONTINUE then return end
-                    local Address = CHandlingData + VehicleHandling.HF_OFFSET
-                    if state then
-                        self.WriteInt(Address, self.ReadInt(Address) | Flag.bit)
-                    else
-                        self.WriteInt(Address, self.ReadInt(Address) & ~Flag.bit)
-                    end
-                end, self.ReadInt(CHandlingData + VehicleHandling.HF_OFFSET) & Flag.bit == Flag.bit)
-            end
+            local mapped = {
+                { name = 'model', offset = VehicleHandling.MF_OFFSET, root = model_flags },
+                { name = 'handling', offset = VehicleHandling.HF_OFFSET, root = handling_flags },
+                { name = 'damage', offset = VehicleHandling.DF_OFFSET, root = damage_flags },
+                { name = 'advanced', offset = VehicleHandling.CF_OFFSET, root = advanced_flags }
+            }
 
-            for Index, Flag in pairs(VehicleHandling.damage) do
-                DamageFlags:toggle(Flag.name, {}, Flag.desc, function(state)
-                    if not SCRIPT_CAN_CONTINUE then return end
-                    local Address = CHandlingData + VehicleHandling.DF_OFFSET
-                    if state then
-                        self.WriteInt(Address, self.ReadInt(Address) | Flag.bit)
-                    else
-                        self.WriteInt(Address, self.ReadInt(Address) & ~Flag.bit)
-                    end
-                end, self.ReadInt(CHandlingData + VehicleHandling.DF_OFFSET) & Flag.bit == Flag.bit)
-            end
-
-            AdvancedFlags.visible = CCarHandlingData & 0xFFFF ~= 0
-            BikeHandling.visible = CBikeHandlingData & 0xFFFF ~= 0
-            FlyingHandling.visible = CFlyingHandlingData & 0xFFFF ~= 0
-            BoatHandling.visible = CBoatHandlingData & 0xFFFF ~= 0
-            SeaPlaneHandling.visible = CSeaPlaneHandlingData & 0xFFFF ~= 0
-            SubmarineHandling.visible = CSubmarineHandlingData & 0xFFFF ~= 0
-            TrailerHandling.visible = CTrailerHandlingData & 0xFFFF ~= 0
-
-            if AdvancedFlags.visible then
-               for Index, Flag in pairs(VehicleHandling.advanced) do
-                    AdvancedFlags:toggle(Flag.name, {}, Flag.desc, function(state)
-                        if not SCRIPT_CAN_CONTINUE then return end
-                        local Address = CCarHandlingData + VehicleHandling.CF_OFFSET
-                        if state then
-                            self.WriteInt(Address, self.ReadInt(Address) | Flag.bit)
-                        else
-                            self.WriteInt(Address, self.ReadInt(Address) & ~Flag.bit)
-                        end
-                    end, self.ReadInt(CCarHandlingData + VehicleHandling.CF_OFFSET) & Flag.bit == Flag.bit)
-                end
-            end
-
-            if BikeHandling.visible then
-                for Index = 1, #VehicleHandling.bike do
-                    local Name, Offset = VehicleHandling.bike[Index][1], VehicleHandling.bike[Index][2]
-                    BikeHandling:slider_float(T(Name), {T(Name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(self.ReadFloat(CBikeHandlingData + Offset) * 100), 1.0, function(value)
-                        if not SCRIPT_CAN_CONTINUE then return end
-                        self.WriteFloat(CBikeHandlingData + Offset, value / 100)
-                    end)
-                end
-            end
-
-            if FlyingHandling.visible then
-                for Index = 1, #VehicleHandling.flying do
-                    local Name, Offset = VehicleHandling.flying[Index][1], VehicleHandling.flying[Index][2]
-                    FlyingHandling:slider_float(T(Name), {T(Name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(self.ReadFloat(CFlyingHandlingData + Offset) * 100), 1.0, function(value)
-                        if not SCRIPT_CAN_CONTINUE then return end
-                        self.WriteFloat(CFlyingHandlingData + Offset, value / 100)
-                    end)
-                end
-            end
-
-            if BoatHandling.visible then
-                for Index = 1, #VehicleHandling.boat do
-                    local Name, Offset = VehicleHandling.boat[Index][1], VehicleHandling.boat[Index][2]
-                    BoatHandling:slider_float(T(Name), {T(Name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(self.ReadFloat(CBoatHandlingData + Offset) * 100), 1.0, function(value)
-                        if not SCRIPT_CAN_CONTINUE then return end
-                        self.WriteFloat(CBoatHandlingData + Offset, value / 100)
-                    end)
-                end
-            end
-
-            if SeaPlaneHandling.visible then
-                for Index = 1, #VehicleHandling.seaplane do
-                    local Name, Offset = VehicleHandling.seaplane[Index][1], VehicleHandling.seaplane[Index][2]
-                    SeaPlaneHandling:slider_float(T(Name), {T(Name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(self.ReadFloat(CSeaPlaneHandlingData + Offset) * 100), 1.0, function(value)
-                        if not SCRIPT_CAN_CONTINUE then return end
-                        self.WriteFloat(CSeaPlaneHandlingData + Offset, value / 100)
-                    end)
-                end
-            end
-
-            if SubmarineHandling.visible then
-                for Index = 1, #VehicleHandling.submarine do
-                    local Name, Offset = VehicleHandling.submarine[Index][1], VehicleHandling.submarine[Index][2]
-                    SubmarineHandling:slider_float(T(Name), {T(Name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(self.ReadFloat(CSubmarineHandlingData + Offset) * 100), 1.0, function(value)
-                        if not SCRIPT_CAN_CONTINUE then return end
-                        self.WriteFloat(CSubmarineHandlingData + Offset, value / 100)
-                    end)
-                end
-            end
-
-            if TrailerHandling.visible then
-                for Index = 1, #VehicleHandling.trailer do
-                    local Name, Offset = VehicleHandling.trailer[Index][1], VehicleHandling.trailer[Index][2]
-                    TrailerHandling:slider_float(T(Name), {T(Name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(self.ReadFloat(CTrailerHandlingData + Offset) * 100), 1.0, function(value)
-                        if not SCRIPT_CAN_CONTINUE then return end
-                        self.WriteFloat(CTrailerHandlingData + Offset, value / 100)
-                    end)
-                end
-            end
-
-            if CarHandling.visible then
-                pcall(function()
-                    for Index = 1, #VehicleHandling.ccarsub do
-                        local Name, OFfset = VehicleHandling.ccarsub[Index][1], VehicleHandling.ccarsub[Index][2]
-                        CarHandling:slider_float(T(Name), {T(Name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(self.ReadFloat(CHandlingData + OFfset) * 100), 1.0, function(value)
+            for mapped as data do
+                if data.root:isValid() then
+                    if data.root.visible then
+                        for index, flag in pairs(VehicleHandling[data.name]) do
                             if not SCRIPT_CAN_CONTINUE then return end
-                            self.WriteFloat(CHandlingData + OFfset, value / 100)
+                            local addr = CHandlingData + data.offset
+                            data.root:toggle(flag.name, {}, flag.desc, function(state)
+                                if not SCRIPT_CAN_CONTINUE then return end
+                                memory.write_int(addr, memory.bits:setbool(memory.read_int(addr), flag.bit, state))
+                            end, memory.read_int(CHandlingData + data.offset) & flag.bit == flag.bit)
+                        end
+                    end
+                end
+            end
+
+            mapped = {
+                { name = 'bike', root = bike_handling, base = CBikeHandlingData },
+                { name = 'flying', root = flying_handling, base = CFlyingHandlingData },
+                { name = 'boat', root = boat_handling, base = CBoatHandlingData },
+                { name = 'sea_plane', root = sea_plane_handling, base = CSeaPlaneHandlingData },
+                { name = 'submarine', root = submarine_handling, base = CSubmarineHandlingData },
+                { name = 'trailer', root = trailer_handling, base = CTrailerHandlingData },
+            }
+
+            for mapped as data do
+                if data.root:isValid() then
+                    if data.root.visible then
+                        for index = 1, #VehicleHandling[data.name] do
+                            local handling_data = VehicleHandling[data.name][index]
+                            local name, offset = handling_data[1], handling_data[2]
+                            data.root:slider_float(T(name), {T(name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(memory.read_float(data.base + offset) * 100), 1.0, function(value)
+                                if not SCRIPT_CAN_CONTINUE then return end
+                                memory.write_float(data.base + offset, value / 100)
+                            end)
+                        end
+                    end
+                end
+            end
+
+            if car_handling.visible then
+                local state, err = pcall(function()
+                    for index = 1, #VehicleHandling.ccarsub do
+                        local handling_data = VehicleHandling.ccarsub[index]
+                        local name, offset = handling_data[1], handling_data[2]
+                        car_handling:slider_float(T(name), {T(name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(memory.read_float(CHandlingData + offset) * 100), 1.0, function(value)
+                            if not SCRIPT_CAN_CONTINUE then return end
+                            memory.write_float(CHandlingData + offset, value / 100)
                         end)
                     end
     
-                    for Index = 1, #VehicleHandling.ccar do
-                        local Name, Offset = VehicleHandling.ccar[Index][1], VehicleHandling.ccar[Index][2]
-                        if not Name:find('nInitialDriveGears') then
-                            CarHandling:slider_float(T(Name), {T(Name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(self.ReadFloat(CCarHandlingData + Offset) * 100), 1.0, function(value)
+                    for index = 1, #VehicleHandling.ccar do
+                        local handling_data = VehicleHandling.ccar[index]
+                        local name, offset = handling_data[1], handling_data[2]
+                        if not name:find('nInitialDriveGears') then
+                            car_handling:slider_float(T(name), {T(name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(memory.read_float(CCarHandlingData + offset) * 100), 1.0, function(value)
                                 if not SCRIPT_CAN_CONTINUE then return end
-                                self.WriteFloat(CCarHandlingData + Offset, value / 100)
+                                memory.write_float(CCarHandlingData + offset, value / 100)
                             end)
                         else
-                            CarHandling:slider(T(Name), {T(Name)}, '', 1, 10, self.ReadInt(CCarHandlingData + Offset), 1, function(value)
+                            car_handling:slider(T(name), {T(name)}, '', 1, 10, memory.read_int(CCarHandlingData + offset), 1, function(value)
                                 if not SCRIPT_CAN_CONTINUE then return end
-                                self.WriteInt(CCarHandlingData + Offset, value)
+                                memory.write_int(CCarHandlingData + offset, value)
                             end)
                         end
                     end
                 end)
             end
+
+            mapped = nil
         end)
     end
 
     function CreateProximityConcealment()
-        self.proximity_concealment = self.vehicles:list(T'Proximity Concealment', {}, T'')
+        self.proxy = self.vehicles:list(T'Proximity Concealment', {T'rproxy'}, T'Proximity Concealment')
         self.last_veh_coords = v3.new()
 
-        self.proximity_concealment:toggle_loop(T'Proximity Concealment', {}, T'Proximity based denetworking of your personal vehicle, this will prevent the vehicle being synced with other players when you are outside of a certain proximity to your vehicle', function()
-            local ActivePV = self.ScriptGlobal(Globals.ActivePVHandle)
-            local Veh = self.ReadInt(ActivePV)
-            local Proximity = self.proximity.value / 100
+        self.proxy:toggle_loop(T'Proximity Concealment', {}, T'Proximity based denetworking of your personal vehicle, this will prevent the vehicle being synced with other players when you are outside of a certain proximity to your vehicle', function()
+            local veh = S.NewVehicle(memory.read_int(memory.script_global(Globals.ActivePVHandle)))
+            local proximity = self.proximity.value / 100
 
-            if Veh ~= -1 then
-                local Coords = self.GetEntityCoords(Veh)
-                local PlayerCoords = players.get_position(PlayerID)
-                local Dist = Coords:distance(PlayerCoords)
-                
-                if Dist >= Proximity then
-                    if not self.NetworkIsEntityConcealed(Veh) then
-                        self.NetworkConcealEntity(Veh, true)
-                        self.last_veh_coords = Coords
+            if veh ~= -1 then
+                local coords = veh:get_entity_coords()
+                local player_coords = players.get_position(players.user())
+                local dist = coords:distance(player_coords)
+
+                if dist >= proximity then
+                    if not network.network_is_entity_concealed(veh.entity) then
+                        network.network_conceal_entity(veh.entity, true)
+                        self.veh_last_coords = coords
                     end
                 end
 
-                if self.NetworkIsEntityConcealed(Veh) then
-                    if Coords:distance(self.last_veh_coords) <= Proximity then
-                        self.NetworkConcealEntity(Veh, false)
+                if network.network_is_entity_concealed(veh.entity) then
+                    if coords:distance(self.veh_last_coords) <= proximity then
+                        network.network_conceal_entity(veh.entity, false)
                     end
                 end
             end
         end)
 
-        self.proximity = self.proximity_concealment:slider_float(T'Proximity', {}, T'Set the proximity for the concealment', 0.0, S.MAX_FLOAT, 50.0 * 100, 1.0 * 100, function(value) end)
+        self.proximity = self.proxy:slider_float(T'Proximity', {T'rvproximity'}, T'Set the proximity for the concealment (set this value to 2 if you want the vehicle to appear only when you are right next to it)', 0.0, math.max_float, 50.0 * 100, 1.0 * 100, function(value) end)
     end
 
-    --[[void]] static function SetVehicleDoorsShut(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] closeInstantly)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(closeInstantly)native_invoker.end_call_2(0x781B3D62BB013EF5)end
-    --[[int]] static function DecorGetInt(--[[Entity (int)]] entity,--[[string]] propertyName)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.end_call_2(0xA06C969B02A97298)return native_invoker.get_return_value_int()end
-    --[[Vehicle (int)]] static function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
-    --[[Hash (int)]] static function GetEntityModel(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x9F47B058362C84B5)return native_invoker.get_return_value_int()end
-    --[[void]] static function ClearVehiclePhoneExplosiveDevice()native_invoker.begin_call()native_invoker.end_call_2(0xAA3F739ABDDCF21F)end
-    --[[BOOL (bool)]] static function DecorSetInt(--[[Entity (int)]] entity,--[[string]] propertyName,--[[int]] value)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.push_arg_int(value)native_invoker.end_call_2(0x0CE3AA5E1CA19E10)return native_invoker.get_return_value_bool()end
-    --[[void]] static function AddVehiclePhoneExplosiveDevice(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x99AD4CCCB128CBC9)end
-    --[[Vehicle (int)]] static function NetToVeh(--[[int]] netHandle)native_invoker.begin_call()native_invoker.push_arg_int(netHandle)native_invoker.end_call_2(0x367B936610BA360C)return native_invoker.get_return_value_int()end
-    --[[void]] static function DetonateVehiclePhoneExplosiveDevice()native_invoker.begin_call()native_invoker.end_call_2(0xEF49CF0270307CBE)end
-    --[[BOOL (bool)]] static function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
-    --[[Ped (int)]] static function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x50FAC3A3E030A6E1)return native_invoker.get_return_value_int()end
-    --[[Hash (int)]] static function NetworkHashFromPlayerHandle(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0xBC1D768F2F5D6C05)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function HasVehiclePhoneExplosiveDevice()native_invoker.begin_call()native_invoker.end_call_2(0x6ADAABD3068C5235)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SetVehicleDoorsLockedForPlayer(--[[Vehicle (int)]] vehicle,--[[Player (int)]] player,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(player)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x517AAF684BB50CD1)end
-    --[[void]] static function SetVehicleIsStolen(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] isStolen)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(isStolen)native_invoker.end_call_2(0x67B2C79AA7FF5738)end
-    --[[Interior (int)]] static function GetInteriorFromEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x2107BA504071A6BB)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function StatSetInt(--[[Hash (int)]] statName,--[[int]] value,--[[BOOL (bool)]] save)native_invoker.begin_call()native_invoker.push_arg_int(statName)native_invoker.push_arg_int(value)native_invoker.push_arg_bool(save)native_invoker.end_call_2(0xB3271D7AB655B441)return native_invoker.get_return_value_bool()end
-    --[[Vector3 (vector3)]] static function GetEntityCoords(--[[Entity (int)]] entity,--[[BOOL (bool)]] alive)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(alive)native_invoker.end_call_2(0x3FEF770D40960D5A)return native_invoker.get_return_value_vector3()end
-    --[[float]] static function GetEntityHeading(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xE83D4F9BA2A38914)return native_invoker.get_return_value_float()end
-    --[[Vector3 (vector3)]] static function GetOffsetFromCoordAndHeadingInWorldCoords(--[[float]] xPos,--[[float]] yPos,--[[float]] zPos,--[[float]] heading,--[[float]] xOffset,--[[float]] yOffset,--[[float]] zOffset)native_invoker.begin_call()native_invoker.push_arg_float(xPos)native_invoker.push_arg_float(yPos)native_invoker.push_arg_float(zPos)native_invoker.push_arg_float(heading)native_invoker.push_arg_float(xOffset)native_invoker.push_arg_float(yOffset)native_invoker.push_arg_float(zOffset)native_invoker.end_call_2(0x163E252DE035A133)return native_invoker.get_return_value_vector3()end
-    --[[void]] static function ShootSingleBulletBetweenCoordsIgnoreEntityNew(--[[float]] x1,--[[float]] y1,--[[float]] z1,--[[float]] x2,--[[float]] y2,--[[float]] z2,--[[int]] damage,--[[BOOL (bool)]] p7,--[[Hash (int)]] weaponHash,--[[Ped (int)]] ownerPed,--[[BOOL (bool)]] isAudible,--[[BOOL (bool)]] isInvisible,--[[float]] speed,--[[Entity (int)]] entity,--[[BOOL (bool)]] p14,--[[BOOL (bool)]] p15,--[[Entity (int)]] targetEntity,--[[BOOL (bool)]] p17,--[[Any (int)]] p18,--[[Any (int)]] p19,--[[Any (int)]] p20)native_invoker.begin_call()native_invoker.push_arg_float(x1)native_invoker.push_arg_float(y1)native_invoker.push_arg_float(z1)native_invoker.push_arg_float(x2)native_invoker.push_arg_float(y2)native_invoker.push_arg_float(z2)native_invoker.push_arg_int(damage)native_invoker.push_arg_bool(p7)native_invoker.push_arg_int(weaponHash)native_invoker.push_arg_int(ownerPed)native_invoker.push_arg_bool(isAudible)native_invoker.push_arg_bool(isInvisible)native_invoker.push_arg_float(speed)native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(p14)native_invoker.push_arg_bool(p15)native_invoker.push_arg_int(targetEntity)native_invoker.push_arg_bool(p17)native_invoker.push_arg_int(p18)native_invoker.push_arg_int(p19)native_invoker.push_arg_int(p20)native_invoker.end_call_2(0xBFE5756E7407064A)end
-    --[[void]] static function PlaySoundFromEntity(--[[int]] soundId,--[[string]] audioName,--[[Entity (int)]] entity,--[[string]] audioRef,--[[BOOL (bool)]] isNetwork,--[[Any (int)]] p5)native_invoker.begin_call()native_invoker.push_arg_int(soundId)native_invoker.push_arg_string(audioName)native_invoker.push_arg_int(entity)native_invoker.push_arg_string(audioRef)native_invoker.push_arg_bool(isNetwork)native_invoker.push_arg_int(p5)native_invoker.end_call_2(0xE65F427EB70AB1ED)end
-    --[[BOOL (bool)]] static function StartParticleFxNonLoopedOnEntity(--[[string]] effectName,--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ,--[[float]] rotX,--[[float]] rotY,--[[float]] rotZ,--[[float]] scale,--[[BOOL (bool)]] axisX,--[[BOOL (bool)]] axisY,--[[BOOL (bool)]] axisZ)native_invoker.begin_call()native_invoker.push_arg_string(effectName)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.push_arg_float(rotX)native_invoker.push_arg_float(rotY)native_invoker.push_arg_float(rotZ)native_invoker.push_arg_float(scale)native_invoker.push_arg_bool(axisX)native_invoker.push_arg_bool(axisY)native_invoker.push_arg_bool(axisZ)native_invoker.end_call_2(0x0D53A3B8DA0809D2)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SetVehicleAllowHomingMissleLockonSynced(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] canBeLockedOn,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(canBeLockedOn)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0x1DDA078D12879EEE)end
-    --[[BOOL (bool)]] static function StartNetworkedParticleFxNonLoopedOnEntity(--[[string]] effectName,--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ,--[[float]] rotX,--[[float]] rotY,--[[float]] rotZ,--[[float]] scale,--[[BOOL (bool)]] axisX,--[[BOOL (bool)]] axisY,--[[BOOL (bool)]] axisZ)native_invoker.begin_call()native_invoker.push_arg_string(effectName)native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.push_arg_float(rotX)native_invoker.push_arg_float(rotY)native_invoker.push_arg_float(rotZ)native_invoker.push_arg_float(scale)native_invoker.push_arg_bool(axisX)native_invoker.push_arg_bool(axisY)native_invoker.push_arg_bool(axisZ)native_invoker.end_call_2(0xC95EB1DB6E92113D)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SetVehicleCountermeasureAmmo(--[[Vehicle (int)]] vehicle,--[[int]] counterMeasureCount)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(counterMeasureCount)native_invoker.end_call_2(0x9BDA23BF666F0855)end
-    --[[BOOL (bool)]] static function IsPlayerPressingHorn(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0xFA1E2BF8B10598F9)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SetVehicleForwardSpeed(--[[Vehicle (int)]] vehicle,--[[float]] speed)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_float(speed)native_invoker.end_call_2(0xAB54A438726D25D5)end
-    --[[float]] static function GetEntitySpeed(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xD5037BA82E12416F)return native_invoker.get_return_value_float()end
-    --[[void]] static function SetVehicleHandlingOverride(--[[Vehicle (int)]] vehicle,--[[Hash (int)]] hash)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(hash)native_invoker.end_call_2(0x10655FAB9915623D)end
-    --[[void]] static function SetOverrideNitrousLevel(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] toggle,--[[float]] level,--[[float]] power,--[[float]] rechargeTime,--[[BOOL (bool)]] disableSound)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(toggle)native_invoker.push_arg_float(level)native_invoker.push_arg_float(power)native_invoker.push_arg_float(rechargeTime)native_invoker.push_arg_bool(disableSound)native_invoker.end_call_2(0xC8E9B6B71B8E660D)end
-    --[[void]] static function SetSubmarineCrushDepths(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] p1,--[[float]] depth1,--[[float]] depth2,--[[float]] depth3)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(p1)native_invoker.push_arg_float(depth1)native_invoker.push_arg_float(depth2)native_invoker.push_arg_float(depth3)native_invoker.end_call_2(0xC59872A5134879C7)end
-    --[[void]] static function SetVehicleKersAllowed(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x99C82F8A139F3E4E)end
-    --[[void]] static function SetVehicleNumberPlateText(--[[Vehicle (int)]] vehicle,--[[string]] plateText)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_string(plateText)native_invoker.end_call_2(0x95A88F0B409CDA47)end
-    --[[void]] static function SetDriftTyres(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x5AC79C98C5C17F05)end
-    --[[void]] static function SetVehicleReduceGrip(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x222FF6A823D122E2)end
-    --[[void]] static function SetVehicleReduceGripLevel(--[[Vehicle (int)]] vehicle,--[[int]] val)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(val)native_invoker.end_call_2(0x6DEE944E1EE90CFB)end
-    --[[void]] static function SetEntityHeading(--[[Entity (int)]] entity,--[[float]] heading)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(heading)native_invoker.end_call_2(0x8E2530AA8ADA980E)end
-    --[[void]] static function SetEntityRotation(--[[Entity (int)]] entity,--[[float]] pitch,--[[float]] roll,--[[float]] yaw,--[[int]] rotationOrder,--[[BOOL (bool)]] p5)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(pitch)native_invoker.push_arg_float(roll)native_invoker.push_arg_float(yaw)native_invoker.push_arg_int(rotationOrder)native_invoker.push_arg_bool(p5)native_invoker.end_call_2(0x8524A8B0171D5E07)end
-    --[[Vector3 (vector3)]] static function GetEntityRotation(--[[Entity (int)]] entity,--[[int]] rotationOrder)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_int(rotationOrder)native_invoker.end_call_2(0xAFBD61CC738D9EB9)return native_invoker.get_return_value_vector3()end
-    --[[void]] static function SetVehicleLightMultiplier(--[[Vehicle (int)]] vehicle,--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xB385454F8791F57C)end
-    --[[void]] static function SetVehicleInteriorlight(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xBC2042F090AF6AD3)end
-    --[[void]] static function SetVehicleForceInteriorlight(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x8821196D91FA2DE5)end
-    --[[void]] static function PopOutVehicleWindscreen(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x6D645D59FB5F5AD3)end
-    --[[void]] static function PopOffVehicleRoofWithImpulse(--[[Vehicle (int)]] vehicle,--[[float]] x,--[[float]] y,--[[float]] z)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_float(x)native_invoker.push_arg_float(y)native_invoker.push_arg_float(z)native_invoker.end_call_2(0xE38CB9D7D39FDBCC)end
-    --[[void]] static function SmashVehicleWindow(--[[Vehicle (int)]] vehicle,--[[int]] windowIndex)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(windowIndex)native_invoker.end_call_2(0x9E5B5E4D2CCD2259)end
-    --[[void]] static function RollDownWindows(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x85796B0549DDE156)end
-    --[[void]] static function RollUpWindow(--[[Vehicle (int)]] vehicle,--[[int]] windowIndex)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(windowIndex)native_invoker.end_call_2(0x602E548F46E24D59)end
-    --[[void]] static function FixVehicleWindow(--[[Vehicle (int)]] vehicle,--[[int]] windowIndex)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(windowIndex)native_invoker.end_call_2(0x772282EBEB95E682)end
-    --[[void]] static function RemoveVehicleWindow(--[[Vehicle (int)]] vehicle,--[[int]] windowIndex)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(windowIndex)native_invoker.end_call_2(0xA711568EEDB43069)end
-    --[[void]] static function SetVehicleHasUnbreakableLights(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x1AA8A837D2169D94)end
-    --[[void]] static function SetVehicleFixed(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x115722B1B9C14C1C)end
-    --[[void]] static function SetVehicleDeformationFixed(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x953DA1E1B12C0491)end
-    --[[void]] static function SetVehicleMaxSpeed(--[[Vehicle (int)]] vehicle,--[[float]] speed)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_float(speed)native_invoker.end_call_2(0xBAA045B4E42F3C06)end
-    --[[void]] static function SetEntityMaxSpeed(--[[Entity (int)]] entity,--[[float]] speed)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(speed)native_invoker.end_call_2(0x0E46A3FCBDE2A1B1)end
-    --[[void]] static function SetVehicleCheatPowerIncrease(--[[Vehicle (int)]] vehicle,--[[float]] value)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_float(value)native_invoker.end_call_2(0xB59E4BD37AE292DB)end
-    --[[void]] static function SetInvertVehicleControls(--[[Vehicle (int)]] vehicle,--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_bool(state)native_invoker.end_call_2(0x5B91B229243351A8)end
-    --[[Vehicle (int)]] static function NetToVeh(--[[int]] netHandle)native_invoker.begin_call()native_invoker.push_arg_int(netHandle)native_invoker.end_call_2(0x367B936610BA360C)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function DecorRemove(--[[Entity (int)]] entity,--[[string]] propertyName)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.end_call_2(0x00EE9F297C738720)return native_invoker.get_return_value_bool()end
-    --[[Vector3 (vector3)]] static function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
-    --[[BOOL (bool)]] static function IsEntityVisible(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x47D6F43D77935C75)return native_invoker.get_return_value_bool()end
-    --[[void]] static function NetworkConcealEntity(--[[Entity (int)]] entity,--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x1632BE0AC1E62876)end
-    --[[BOOL (bool)]] static function NetworkIsEntityConcealed(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x71302EC70689052A)return native_invoker.get_return_value_bool()end
+    function CreatePVManager()
+        local manager = pluto_new PVM(self.root)
+    end
+
+    function ToggleOwnerCheck(state)
+        memory.write_byte(memory.script_global(Globals.PVOwnershipBypass), state ? 1 : 0)
+    end
+
+    function ClaimVehicle(slot, respawn=false)
+        local data = memory.script_global(Globals:PersonalVehicleData(slot))
+        local addr = data + Offsets.VehicleBitfield
+        local value = memory.read_byte(addr)
+        if memory.bits:check(value, VehicleBitfield.Destroyed) or memory.bits:check(value, VehicleBitfield.Impounded) then
+            local mask = VehicleBitfield.Request | VehicleBitfield.Destroyed | VehicleBitfield.Impounded
+            value = memory.bits:clear(value, mask)
+            memory.write_byte(addr, value)
+            util.yield_once()
+            if not respawn then
+                memory.write_byte(addr, memory.bits:set(value, VehicleBitfield.Insured))
+            else
+                local mask = VehicleBitfield.Request | VehicleBitfield.Insured
+                memory.write_byte(addr, memory.bits:set(value, mask))
+            end
+        end
+    end
 end
 
 return Vehicles

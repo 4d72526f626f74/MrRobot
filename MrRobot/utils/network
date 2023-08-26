@@ -1,0 +1,397 @@
+local T, S = require('translations'), require('shared')
+local ScriptOffsets = require('offsets')
+local Globals = require('script_globals')
+local Masks = require('masks')
+local Notifications = require('notifications')
+local WalletOffset = ScriptOffsets.Other.Wallet
+local BankOffset = ScriptOffsets.Other.Bank
+local SelfBits = ScriptOffsets.Self.Bits
+local OrgBits = ScriptOffsets.Online.Organisation
+local SpoofingOffsets = ScriptOffsets.Online.SpoofingOffsets
+local Base = memory.scan('')
+
+pluto_class Network
+    static function TransferToBank(amount=nil, char_slot=nil)
+        amount = amount or nil
+        char_slot = char_slot or util.get_char_slot()
+        local wallet = memory.read_int(Base + WalletOffset)
+        if wallet > 0 then
+            amount = amount or wallet
+            netshopping.net_gameserver_transfer_wallet_to_bank(char_slot, amount)
+        end
+    end
+
+    static function GetWallet()
+        return memory.read_int(Base + WalletOffset)
+    end
+
+    static function GetBank()
+        return memory.read_int(Base + BankOffset)
+    end
+
+    static function BecomeScriptHost()
+        local scripthost_ref = menu.ref_by_path('Online>Session>Become Script Host')
+        if players.get_script_host() ~= players.user() then
+            if scripthost_ref:isValid() then
+                scripthost_ref:trigger()
+            end
+        end
+    end
+
+    static function ToggleStealthMode(state)
+        local stealth = memory.script_global(Globals.StealthMode)
+        local value = memory.read_short(stealth)
+        value = memory.bits:setbool(value, SelfBits.StealthMode, state)
+        memory.write_short(stealth, value)
+    end
+
+    static function ToggleBribeAuthorities(state)
+        local bribe = memory.script_global(Globals.BribeAuthorities)
+        local value = memory.read_byte(bribe)
+        value = memory.bits:setbool(value, SelfBits.BribeAuthorities, state)
+        memory.write_byte(bribe, value)
+    end
+
+    static function ToggleInvisibility(state)
+        local localplayer = players.localplayer()
+        local invis = memory.script_global(Globals.Invisibility)
+        if localplayer:is_entity_dead() then
+            memory.write_byte(invis, 0)
+        else
+            memory.write_byte(invis, state ? 1 : 0)
+        end
+    end
+
+    static function SpoofInteriorState(state)
+        local interior_state = memory.script_global(Globals.SpoofInteriorState)
+        local value = memory.read_short(interior_state)
+        value = memory.bits:setbool(value, SelfBits.SpoofInteriorState, state)
+        memory.write_short(interior_state, value)
+    end
+
+    static function SetOTRGhostOrgTimer(time=nil)
+        time = time or network.get_network_time()
+        local timer = memory.script_global(Globals.OtrGhostTimer)
+        memory.write_int(timer, time)
+    end
+
+    static function ToggleIsInInterior(state)
+        local become_interior = memory.script_global(Globals.BecomeInterior)
+        local value = memory.read_byte(become_interior)
+        value = memory.bits:setbool(value, SelfBits.BecomeInterior, state)
+        memory.write_byte(become_interior, value)
+    end
+
+    static function TogglePauseMenu(state)
+        memory.write_byte(memory.script_global(Globals.PauseMenuActive), state ? 1 : 0)
+    end
+
+    static function ToggleOutOfSight(state)
+        local toggle = memory.script_global(Globals.OutOfSight)
+        local area = toggle + 0x8
+
+        local localplayer = players.localplayer()
+        local coords = localplayer:get_offset_from_entity_in_world_coords(0.0, 0.0, 0.0)
+        local x, y, z = coords.x, coords.y, coords.z
+
+        memory.write_byte(toggle, state ? 1 : 0)
+        memory.write_float(area, x)
+        memory.write_float(area + 0x8, y)
+        memory.write_float(area + 0x10, z)
+    end
+
+    static function SetBounty(pid, amount, state)
+        Network.BecomeScriptHost()
+        local bounty = memory.script_global(Globals:PlayerBounty(pid))
+        local bounty_amount = bounty + 0x8
+        memory.write_byte(bounty, state ? 1 : 0)
+        memory.write_int(bounty_amount, amount)
+    end
+
+    static function SetBountyReward(pid, amount)
+        Network.BecomeScriptHost()
+        local bounty = memory.script_global(Globals:PlayerBountyReward(pid))
+        memory.write_int(bounty, amount)
+    end
+
+    static function GetBounty(pid)
+        local bounty = memory.script_global(Globals:PlayerBounty(pid))
+        local bounty_amount = bounty + 0x8
+        local bounty_reward = memory.script_global(Globals:PlayerBountyReward(pid))
+
+        return {
+            has_bounty = memory.read_byte(bounty) == 0 ? false : true,
+            amount = memory.read_int(bounty_amount),
+            reward = memory.read_int(bounty_reward)
+        }
+    end
+    
+    static function IsBountyModded(amount)
+        return amount & 0xF ~= 0x8
+    end
+
+    static function ToggleOffTheRadar(state, ghost_org)
+        local radar = memory.script_global(Globals.LegitOffTheRadar)
+        local timer = memory.script_global(Globals.OtrGhostTimer)
+        local force_ghost = memory.script_global(Globals.AbilitiesBitfield)
+        memory.write_byte(force_ghost, memory.bits:setbool(memory.read_byte(force_ghost), SelfBits.ForceGhostOrg, ghost_org))
+        memory.write_byte(radar, state ? 1 : 0)
+        memory.write_int(timer, network.get_network_time())
+    end
+
+    static function RemoveMoney(amount)
+        amount = amount or 0
+        memory.write_int(memory.script_global(Globals.SinRemoverTimer), 0)
+        memory.write_int(memory.script_global(Globals.SinRemover), amount)
+    end
+
+    static function SetOrganisationName(name)
+        local org = memory.script_global(Globals.OrganisationBase)
+        memory.write_string(org + OrgBits.Name, name)
+    end
+
+    static function GetOrganisationName()
+        return memory.read_string(memory.script_global(Globals.OrganisationBase) + OrgBits.Name)
+    end
+
+    static function SpoofSpecialPropertyOwner(pid)
+        memory.write_short(memory.script_global(Globals.SpoofSpecialPropertyOwner), pid)
+    end
+
+    static function HideFromPlayerList(state)
+        local stats = memory.script_global(Globals.StatSpoofing)
+        memory.write_byte(stats + SpoofingOffsets.HideFromPlayerList, state ? 8 : 9)
+    end
+
+    static function SpoofTotalMoney(amount)
+        local stats = memory.script_global(Globals.StatSpoofing)
+        memory.write_int(stats + SpoofingOffsets.TotalMoney, amount)
+    end
+
+    static function SpoofWallet(amount)
+        local stats = memory.script_global(Globals.StatSpoofing)
+        memory.write_int(stats + SpoofingOffsets.Wallet, amount)
+    end
+
+    static function SpoofRP(amount)
+        local stats = memory.script_global(Globals.StatSpoofing)
+        memory.write_int(stats + SpoofingOffsets.RP, amount)
+    end
+
+    static function SpoofRank(rank)
+        local stats = memory.script_global(Globals.StatSpoofing)
+        local rp = util.get_rp_required_for_rank(rank)
+        memory.write_int(stats + SpoofingOffsets.RP, rp)
+        memory.write_int(stats + SpoofingOffsets.Rank, rank)
+    end
+
+    static function SpoofKills(amount)
+        local stats = memory.script_global(Globals.StatSpoofing)
+        memory.write_int(stats + SpoofingOffsets.PlayerKills, amount)
+    end
+
+    static function SpoofDeaths(amount)
+        local stats = memory.script_global(Globals.StatSpoofing)
+        memory.write_int(stats + SpoofingOffsets.PlayerDeaths, amount)
+    end
+
+    static function SpoofKD(amount)
+        local stats = memory.script_global(Globals.StatSpoofing)
+        memory.write_float(stats + SpoofingOffsets.PlayerKD, amount)
+    end
+
+    static function SpoofIsBadSport(state)
+        local stats = memory.script_global(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+        memory.write_byte(stats, memory.bits:setbool(memory.read_byte(stats), Masks.IsBadSport, state))
+    end
+
+    static function SpoofIsCheater(state)
+        local stats = memory.script_global(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+        memory.write_byte(stats, memory.bits:setbool(memory.read_byte(stats), Masks.IsCheater, state))
+    end
+
+    static function StatsGetTotalMoney()
+        local stats = memory.script_global(Globals.StatSpoofing)
+        return memory.read_int(stats + SpoofingOffsets.TotalMoney)
+    end
+
+    static function StatsGetWallet()
+        local stats = memory.script_global(Globals.StatSpoofing)
+        return memory.read_int(stats + SpoofingOffsets.Wallet)
+    end
+
+    static function StatsGetRP()
+        local stats = memory.script_global(Globals.StatSpoofing)
+        return memory.read_int(stats + SpoofingOffsets.RP)
+    end
+
+    static function StatsGetRank()
+        local stats = memory.script_global(Globals.StatSpoofing)
+        return memory.read_int(stats + SpoofingOffsets.Rank)
+    end
+
+    static function StatsGetKills()
+        local stats = memory.script_global(Globals.StatSpoofing)
+        return memory.read_int(stats + SpoofingOffsets.PlayerKills)
+    end
+
+    static function StatsGetDeaths()
+        local stats = memory.script_global(Globals.StatSpoofing)
+        return memory.read_int(stats + SpoofingOffsets.PlayerDeaths)
+    end
+
+    static function StatsGetKD()
+        local stats = memory.script_global(Globals.StatSpoofing)
+        return memory.read_float(stats + SpoofingOffsets.PlayerKD)
+    end
+
+    static function StatsIsBadSport()
+        local stats = memory.script_global(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+        return memory.bits:check(memory.read_byte(stats), Masks.IsBadSport)
+    end
+
+    static function StatsIsCheater()
+        local stats = memory.script_global(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+        return memory.bits:check(memory.read_byte(stats), Masks.IsCheater)
+    end
+
+    static function StatsPlayerIsBadSport(pid)
+        local stats = memory.script_global(Globals:PlayerStatSpoofing(pid)) + SpoofingOffsets.PlayerReports
+        return memory.bits:check(memory.read_byte(stats), Masks.IsBadSport)
+    end
+
+    static function StatsPlayerIsCheater(pid)
+        local stats = memory.script_global(Globals:PlayerStatSpoofing(pid)) + SpoofingOffsets.PlayerReports
+        return memory.bits:check(memory.read_byte(stats), Masks.IsCheater)
+    end
+
+    static function GetInterior()
+        return memory.read_byte(memory.script_global(Globals.Interior))
+    end
+
+    static function SetInterior(interior_id)
+        local interior = memory.script_global(Globals.Interior)
+        if memory.read_int(interior) == interior_id then return end
+        memory.write_int(interior, 0)
+        util.yield(50)
+        memory.write_byte(interior, interior_id)
+    end
+
+    static function GetTheBeast()
+        for pid = 0, players.max_players do
+            local beast = memory.script_global(Globals:PlayerBeast(pid))
+            if memory.bits:check(memory.read_int(beast), Masks.Beast) then
+                return pid
+            end
+        end
+        return -1
+    end
+
+    static function GetPVNetworkID(pid)
+        return memory.read_int(memory.script_global(Globals:PlayerPVNetworkID(pid)))
+    end
+
+    static function SetPVNetworkID(pid, network_id)
+        memory.write_int(memory.script_global(Globals:PlayerPVNetworkID(pid)), network_id)
+    end
+
+    static function GetPVFromNetworkID(pid)
+        return network.net_to_veh(Network.GetPVNetworkID(pid))
+    end
+
+    static function RegisterAsBoss(org_type)
+        local boss = memory.script_global(Globals.OrganisationBase + 10)
+        local org = memory.script_global(Globals.OrganisationBase + 10 + 429)
+        memory.write_int(boss, players.user())
+        memory.write_int(org, org_type)
+    end
+
+    static function PassiveMode(pid, state)
+        memory.write_byte(memory.script_global(Globals:PlayerPassiveMode(pid)), state ? 1 : 0)
+    end
+
+    static function IsPassiveMode(pid)
+        return memory.read_byte(memory.script_global(Globals:PlayerPassiveMode(pid))) == 1
+    end
+
+    static function IsUsingOrbitalCannon(pid)
+        return memory.bits:check(memory.read_int(memory.script_global(Globals:PlayerOrbitalCannon(pid))), Masks.UsingOrbitalCannon)
+    end
+
+    static function OrbitalCannon(state)
+        memory.write_byte(memory.script_global(Globals:PlayerOrbitalCannon(players.user())), state ? 1 : 0)
+    end
+
+    static function IsUsingDrone(state)
+        return memory.bits:check(memory.read_int(memory.script_global(Globals:PlayerUsingDrone(players.user()))), Masks.UsingDrone)
+    end
+
+    static function RequestControl(ent, timeout=3)
+        timeout = os.time() + timeout
+        if not network.network_has_control_of_entity(ent) then
+            network.network_request_control_of_entity(ent)
+            repeat
+                util.yield_once()
+            until os.time() >= timeout or network.network_has_control_of_entity(ent)
+        end
+        return network.network_has_control_of_entity(ent)
+    end
+
+    static function FailedToRequestControl(ent)
+        local model = util.get_label_text(util.reverse_joaat(entity.get_entity_model(ent)))
+        if not S.Settings:IsSet(S.SettingsBits.SuppressRequestControlFailures) then
+            Notifications.Show(T'Failed to request control of ' .. model, nil, nil, Notifications.HUD_COLOUR_REDDARK)
+        end
+    end
+
+    static function VehicleKick(pid)
+        util.trigger_script_event(1 << pid, {-306678306, 1, 0, 1, 0})
+    end
+
+    static function GetOrganisationID(pid)
+        return memory.read_int(memory.script_global(Globals:PlayerOrganisationBase(pid) + 10))
+    end
+
+    static function SetOrganisationID(pid)
+        memory.write_int(memory.script_global(Globals.OrganisationBase + 10), Network.GetOrganisationID(pid))
+    end
+
+    static function SendAttacker(pid, attacker, level=0)
+        local atk = memory.script_global(Globals.GangCallAttacker)
+        switch attacker do
+            case 'Mugger':
+                memory.write_int(atk + 0x460, memory.bits:set(memory.read_byte(atk + 0x460), 1 << 0))
+                memory.write_int(atk + 0x468, pid)
+                break
+            case 'Mercenaries':
+                memory.write_int(atk + 0x460, memory.bits:set(memory.read_byte(atk + 0x460), 1 << 1))
+                memory.write_int(atk + 0x468, pid)
+                break
+            case 'Strike Team':
+                memory.write_int(atk + 0x5A0, pid)
+                memory.write_int(atk + 0x468, pid)
+                memory.write_int(atk + 0x5C0, level)
+                memory.write_int(atk + 0x5A8, network.get_network_time())
+                memory.write_int(atk + 0x5B0, 1)
+                memory.write_int(atk + 0x460, memory.bits:set(memory.read_byte(atk + 0x460), 1 << 1))
+                break
+        end
+    end
+
+    static function UsingBST(pid)
+        local pped = player.get_player_ped(pid)
+        local ptr = entities.handle_to_pointer(pped)
+        local player_info = entities.get_player_info(ptr)
+        if player_info ~= 0 then
+            local weapon_defense = memory.read_float(player_info + 0x0D60)
+            if weapon_defense < 0.99 then
+                return true
+            else
+                return false
+            end
+        end
+        return false
+    end
+end
+
+return Network

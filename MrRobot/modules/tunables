@@ -1,76 +1,59 @@
 local T, S = require('translations'), require('shared')
 
 pluto_class Tunables
-    ScriptGlobal = S.ScriptGlobal
-    WriteByte = memory.write_byte
-    WriteShort = memory.write_short
-    WriteInt = memory.write_int
-    WriteFloat = memory.write_float
-    WriteLong = memory.write_long
-    WriteString = memory.write_string
-    ReadByte = memory.read_byte
-    ReadShort = memory.read_short
-    ReadInt = memory.read_int
-    ReadFloat = memory.read_float
-    ReadLong = memory.read_long
-    ReadString = memory.read_string
-
     function __construct(root)
-        self.root = root:list(T'Tunables', {T'rtunableseditor'}, T'Tunables editor')
-        self.tunable = self.root:text_input(T'Tunable', {T'tunable'}, T'Tunable that you want to edit, you do not need to add 262145 as that is done for you', function(value) end, '0')
+        self.root = root:list(T'Tunables', {T'rtunables'}, '')
+        self.base = memory.script_global(262145)
+        self.tunable = self.root:text_input(T'Tunable', {T'rttunable'}, T'Tunable that you want to edit, you do not need to add 262145 as that is done for you', function(value) end, '0')
         self.value = self.root:text_input(T'Value', {T'value'}, T'Value that you want to set the tunable to', function(value) end, '0')
     
-        self.root:divider('Write Tunable')
-    
-        self.root:action('Write Int', {}, 'Write Int', function()
-            self.WriteInt(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
-        end)
-    
-        self.root:action('Write Float', {}, 'Write Float', function()
-            self.WriteFloat(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
-        end)
-    
-        self.root:action('Write Byte', {}, 'Write Byte', function()
-            self.WriteByte(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
-        end)
-    
-        self.root:action('Write Short', {}, 'Write Short', function()
-            self.WriteShort(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
-        end)
-    
-        self.root:action('Write Long', {}, 'Write Long', function()
-            self.WriteLong(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
-        end)
-    
-        self.root:action('Write String', {}, 'Write String', function()
-            self. WriteString(self.ScriptGlobal(262145 + tonumber(self.tunable.value)), self.value.value)
-        end)
-    
-        self.root:divider('Read Tunable')
-    
-        self.root:action('Read Int', {}, 'Read an int', function()
-            util.toast(self.ReadInt(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
-        end)
-    
-        self.root:action('Read Float', {}, 'Read a float', function()
-            util.toast(self.ReadFloat(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
-        end)
-    
-        self.root:action('Read Byte', {}, 'Read a byte', function()
-            util.toast(self.ReadByte(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
-        end)
-    
-        self.root:action('Read Short', {}, 'Read a short (16 bits)', function()
-            util.toast(self.ReadShort(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
-        end)
-    
-        self.root:action('Read Long', {}, 'Read a long (64 bits)', function()
-            util.toast(self.ReadLong(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
-        end)
-    
-        self.root:action('Read String', {}, 'Read a string', function()
-            util.toast(self.ReadString(self.ScriptGlobal(262145 + tonumber(self.tunable.value))))
-        end)
+        self.commands = {}
+        self.root:divider('')
+        for ({
+            { args = { T'Write Long', self.commands, T'Write a long (64 bits)' }, func = 'write_long' },
+            { args = { T'Write Int', self.commands, T'Write an int (32 bits)' }, func = 'write_int' },
+            { args = { T'Write Short', self.commands, T'Write a short (16 bits)' }, func = 'write_short' },
+            { args = { T'Write Byte', self.commands, T'Write a byte (8 bits)' }, func = 'write_byte' },
+            { args = { T'Write Float', self.commands, T'Write a float' }, func = 'write_float' },
+            { args = { T'Write String', self.commands, T'Write a string' }, func = 'write_string' }
+        }) as data do
+            local args = data.args
+            args[4] = function()
+                local tunable = tonumber(self.tunable.value)
+                local value = self.value.value
+                if not (data.func == 'write_string') then
+                    value = tonumber(value)
+                end
+                if type(value) == 'number' or type(value) == 'string' then
+                    memory[data.func](self.base + (tunable << 3), value)
+                else
+                    util.toast('Invalid value')
+                end
+            end
+            self.root:action(table.unpack(args))
+        end
+
+        self.root:divider('')
+        for ({
+            { args = { T'Read Long', self.commands, T'Read a long (64 bits)' }, func = 'read_long' },
+            { args = { T'Read Int', self.commands, T'Read an int (32 bits)' }, func = 'read_int' },
+            { args = { T'Read Short', self.commands, T'Read a short (16 bits)' }, func = 'read_short' },
+            { args = { T'Read Byte', self.commands, T'Read a byte (8 bits)' }, func = 'read_byte' },
+            { args = { T'Read Float', self.commands, T'Read a float' }, func = 'read_float' },
+            { args = { T'Read String', self.commands, T'Read a string' }, func = 'read_string' }
+        }) as data do
+            local args = data.args
+            args[4] = function()
+                local tunable = tonumber(self.tunable.value)
+                local value = memory[data.func](self.base + (tunable << 3))
+                if data.func == 'read_string' then
+                    util.toast(value)
+                else
+                    util.toast(tostring(value))
+                end
+            end
+            self.root:action(table.unpack(args))
+        end
     end
 end
 

@@ -1,35 +1,54 @@
 local T, S = require('translations'), require('shared')
+local Notifications = require('notifications')
 
-pluto_class Cellphone
-    ScriptGlobal = S.ScriptGlobal
-    WriteInt = memory.write_int
+local contacts = {
+    { name = 'Lester', contact_id = 12 },
+    { name = 'Ron', contact_id = 20 },
+    { name = 'Mors Mutual', contact_id = 91 },
+    { name = 'Merry Weather', contact_id = 85 },
+    { name = 'Pegasus', contact_id = 41 },
+    { name = 'Mechanic', contact_id = 89 },
+    { name = 'Agent 14', contact_id = 76 },
+    { name = 'Assistant', contact_id = 74 },
+    { name = 'Franklin', contact_id = 175 },
+    { name = 'Yohan', contact_id = 181 },
+    { name = 'Charlie', contact_id = 190 },
+    { name = 'Downtown Cab', contact_id = 131 },
+    { name = 'English Dave', contact_id = 153 },
+    { name = 'Gerald', contact_id = 86 },
+    { name = 'Simeon', contact_id = 18 },
+    { name = 'Pavel', contact_id = 169 },
+    { name = 'Brucie', contact_id = 84 },
+}
 
+contacts = S:SortTable(contacts, |a, b| -> a.name < b.name)
+
+pluto_class Contacts
     function __construct(root)
         self.root = root:list(T'Cellphone', {T'rcellphone'}, '')
-        local contacts = S:SortTable(S.Contacts, |a, b| -> a.name < b.name)
-        
+
         for contacts as contact do
             self.root:action(T'Call ' .. contact.name, {T'call' .. contact.name}, '', function()
                 self:Call(contact.contact_id)
             end)
         end
-        
+
         self.root:divider('')
 
         self.root:action(T'Fix Phone', {}, T'Fixes your phone if calling someone doesn\'t work (usually results in phone and interaction menu being un-usable)', function()
-            self.WriteInt(self.ScriptGlobal(20500 + 1), 0)
-            self.WriteInt(self.ScriptGlobal(20500 + 2), 0)
+            memory.write_int(memory.script_global(20500 + 1), 0)
+            memory.write_int(memory.script_global(20500 + 2), 0)
         end)
     end
 
     function Call(contact)
-        self.WriteInt(self.ScriptGlobal(22868), 0)
-        self.WriteInt(self.ScriptGlobal(22866), 0)
+        memory.write_int(memory.script_global(22868), 0)
+        memory.write_int(memory.script_global(22866), 0)
         util.yield_once()
-        self.WriteInt(self.ScriptGlobal(7685), contact)
-        self.WriteInt(self.ScriptGlobal(20500 + 1), 10)
-        self.WriteInt(self.ScriptGlobal(20500 + 2), 6)
+        memory.write_int(memory.script_global(7685), contact)
+        memory.write_int(memory.script_global(20500 + 1), 10)
+        memory.write_int(memory.script_global(20500 + 2), 6)
     end
 end
 
-return Cellphone
+return Contacts

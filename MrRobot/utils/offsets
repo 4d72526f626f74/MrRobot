@@ -63,6 +63,15 @@ Offsets.Online.LesterLocate = {
 	Plane = 1 << 6
 }
 
+Offsets.Online.CEOVehicle = {
+	VehicleHash = 0x1F0,
+	Request = 0x1E0
+}
+
+Offsets.Online.Organisation = {
+	Name = 0x398
+}
+
 Offsets.Self.Bits = {
     HealthThreshold = 0x7F,
     ModdedHealth = 1 << 8,
@@ -124,7 +133,7 @@ Offsets.Vehicles.LSCustoms = {
 	VehicleBulletProofTiresToggle = 0x330,
 	VehicleTiresSmokeColourRed = 0x1F0,
 	VehicleTiresSmokeColourGreen = 0x1F8,
-	VehicleTriesSmokeColourBlue = 0x200,
+	VehicleTiresSmokeColourBlue = 0x200,
 	VehicleWindows = 0x208
 }
 
@@ -153,6 +162,14 @@ Offsets.VehStateBitfield = {
 	UsingWeapon = 1 << 4,
 	InVehicle = 1 << 6,
 	UsingHorn = 1 << 7
+}
+
+Offsets.Other = {
+	Wallet = 0x1D59BC0, 
+	Bank = 0x1D59BC8,
+	RequestState = 0x958,
+	RequestSlot = 0x1EC8,
+	RequestTrigger = 0x1D00
 }
 
 return Offsets

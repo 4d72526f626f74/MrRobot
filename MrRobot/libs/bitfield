@@ -1,99 +1,57 @@
-local Bitfield = {}
-Bitfield.__index = Bitfield
-
-function Bitfield.new(value)
-    local self = setmetatable({}, Bitfield)
-    self.value = value
-    self.address = nil
-    return self
-end
-
-function Bitfield:IsSet(mask) -- old BitTest
-    return self.value & mask == mask
-end
-
-function Bitfield:Set(mask) -- old BitSet
-    self.value |= mask
-    if self.address ~= nil then
-        local bl = self.BitLength(mask)
-        local size = bl <= 8 and 8 or bl <= 16 and 16 or bl <= 32 and 32 or 64
-        self(self.address, size)
-    end
-end
-
-function Bitfield:Get(mask)
-    return self.value & mask
-end
-
-function Bitfield:Clear(mask) -- old BitClear
-    self.value &= ~mask
-    if self.address ~= nil then
-        local bl = self.BitLength(mask)
-        local size = bl <= 8 and 8 or bl <= 16 and 16 or bl <= 32 and 32 or 64
-        self(self.address, size)
-    end
-end
-
-function Bitfield:Toggle(mask) -- old BitToggle
-    self.value = self.value ~ mask
-    if self.address ~= nil then
-        local bl = self.BitLength(mask)
-        local size = bl <= 8 and 8 or bl <= 16 and 16 or bl <= 32 and 32 or 64
-        self(self.address, size)
-    end
-end
-
-function Bitfield:ExtractBits(offset, length)
-    return (self.value >> offset) & ((1 << length) - 1)
-end
-
-function Bitfield:ModifyBits(offset, length, bits)
-    local mask = ((1 << length) - 1) << offset
-    self.value = (self.value & ~mask) | ((bits << offset) & mask)
-    if self.address ~= nil then
-        local bl = self.BitLength(mask)
-        local size = bl <= 8 and 8 or bl <= 16 and 16 or bl <= 32 and 32 or 64
-        self(self.address, size)
-    end
-end
-
-function Bitfield:Reset()
-    self.value = 0
-    if self.address ~= nil then
-        self(self.address, 32)
-    end
-end
-
-function Bitfield.BitLength(value)
-    local length = 0
-
-    while value > 0 do
-        value >>= 1
-        length = length + 1
+pluto_class Bitfield
+    function __construct(value=0, addr=nil)
+        self.value = value
+        self.addr = addr
     end
 
-    return length
-end
+    function __call()
+        if self.addr then memory.write_int(self.addr, self.value) end
+    end
 
-function Bitfield:__tostring()
-    return string.format("0x%X", self.value)
-end
+    function IsSet(mask)
+        return self.value & mask == mask
+    end
 
-function Bitfield:__eq(other)
-    return self.value == other.value
-end
+    function Get(mask)
+        return self.value & mask
+    end
 
-function Bitfield:__call(addr, size)
-    if size <= 8 then
-        memory.write_byte(addr, self.value)
-    elseif size <= 16 then
-        memory.write_short(addr, self.value)
-    elseif size <= 32 then
-        memory.write_int(addr, self.value)
-    elseif size <= 64 then
-        memory.write_long(addr, self.value)
-    else
-        error("Bitfield:__call() - size must be <= 64")
+    function Set(mask)
+        self.value = self.value | mask
+        self()
+    end
+
+    function Clear(mask)
+        self.value = self.value & ~mask
+        self()
+    end
+
+    function Toggle(mask)
+        self.value = self.value ~ mask
+        self()
+    end
+
+    function ExtractBits(offset, length)
+        return (self.value >> offset) & ((1 << length) - 1)
+    end
+
+    function ModifyBits(offset, length, bits)
+        local mask = ((1 << length) - 1) << offset
+        self.value = (self.value & ~mask) | ((bits << offset) & mask)
+        self()
+    end
+
+    function SetBool(mask, bool)
+        if bool then
+            self:Set(mask)
+        else
+            self:Clear(mask)
+        end
+    end
+
+    function Reset()
+        self.value = 0
+        self()
     end
 end
 

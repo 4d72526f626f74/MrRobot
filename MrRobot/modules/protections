@@ -1,32 +1,19 @@
 local T, S = require('translations'), require('shared')
-local Bitfield = require('bitfield')
 local Globals = require('script_globals')
 
-local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
-
-pluto_class Protections
-    ScriptGlobal = S.ScriptGlobal
-    ScriptLocal = S.ScriptLocal
-    ReadByte = memory.read_byte
-    ReadShort = memory.read_short
-    ReadInt = memory.read_int
-    ReadFloat = memory.read_float
-    ReadString = memory.read_string
-    WriteByte = memory.write_byte
-    WriteShort = memory.write_short
-    WriteInt = memory.write_int
-    WriteFloat = memory.write_float
-    WriteString = memory.write_string
-
+pluto_class Protections 
     function __construct(root)
-        self.root = root:list(T'Protections', {T'rprotections'}, T'Protections')
-        self.vehicle_protections = self.root:list(T'Vehicle', {}, T'Vehicle protections')
-        self.player_protections = self.root:list(T'Player', {}, T'Player protections')
-        self.events = self.root:list(T'Events', {}, T'Events')
-        self.notif_protections = self.root:list(T'Notifications', {}, T'Notification protections')
-        self.vehicle_spoofing = self.vehicle_protections:list(T'Vehicle Spoofing', {}, T'Vehicle spoofing')
-        self.detections = root:list(T'Detections', {T'rdetections'}, T'Detections')
-        self.local_hash = self.NetworkHashFromPlayerHandle(PlayerID)
+        self.root = root:list(T'Protections', {T'rprotections'}, '')
+        self.net_hash = network.network_hash_from_player_handle(players.user())
+        self.vehicle = self.root:list(T'Vehicle', {T'rvehicle'}, T'Vehicle Protections')
+        self.player = self.root:list(T'Player', {T'rplayer'}, T'Player Protections')
+        self.events = self.root:list(T'Events', {T'revents'}, T'Script Event Protections')
+        self.notifs = self.root:list(T'Notifications', {T'rnotifs'}, T'Notification Protections')
+        self.veh_spoofing = self.vehicle:list(T'Vehicle Spoofing', {T'rvehiclespoofing'}, T'Vehicle spoofing protection')
+        self.detections = root:list(T'Detections', {T'rdetections'}, '')
+
+        self.stand_pos_spoof = menu.ref_by_command_name('spoofpos')
+        self.stand_spoofed_pos = menu.ref_by_command_name('spoofedposition')
 
         self:CreateVehicleProtections()
         self:CreatePlayerProtections()
@@ -35,42 +22,278 @@ pluto_class Protections
         self:CreateEvents()
     end
 
-    function GetNetworkId(pid)
-        return self.ReadInt(self.ScriptGlobal(Globals:PlayerPVNetworkID(pid)))
-    end
-    
-    function SetNetworkId(pid, net_id)
-        self.WriteInt(self.ScriptGlobal(Globals:PlayerPVNetworkID(pid)), net_id)
-    end
-    
-    function GetVehicleFromNetId(pid)
-        return self.NetToVeh(self:GetNetworkId(pid))
+    function CreateVehicleProtections()
+        self.veh_kick = self.vehicle:toggle(T'Vehicle Kick', {}, T'Prevents you from being kicked from your vehicle', function(state)
+            memory.write_byte(memory.script_global(Globals.VehicleKickProtection), state ? 1 : 0)
+        end)
+
+        self.smart_veh_kick = self.vehicle:toggle_loop(T'Smart Vehicle Kick', {}, T'Vehicle kick protection will only be enabled when you enter a personal vehicle (this prevents missions from breaking)', function()
+            local veh = memory.read_int(memory.script_global(Globals.ActivePVHandle))
+            local localplayer = players.localplayer()
+
+            if veh ~= -1 and localplayer:is_ped_in_any_vehicle() then
+                if self.veh_kick:isValid() then
+                    self.veh_kick.value = true
+                end
+            else
+                if self.veh_kick:isValid() then
+                    self.veh_kick.value = false
+                end
+            end
+        end)
+
+        self.ignore_entities = {}
+        self.anti_harry = self.vehicle:toggle_loop(T'Anti-Oppressor MKII', {}, T'Delete broomsticks before shitbags get the chance to use them', function()
+            for entities.get_all_vehicles_as_pointers() as ent do
+                local model = entities.get_model_hash(ent)
+                if model == ('oppressor2'):joaat() and not self.ignore_entities[ent] then
+                    local passengers = memory.read_byte(ent + 0x0C42)
+                    if passengers < 0 then
+                        entities.delete_by_pointer(ent)
+                    else
+                        entities.delete_by_pointer(ent)
+                        self.ignore_entities[ent] = true
+                    end
+                end
+            end
+        end)
+
+        self.veh_spoofing:toggle_loop(T'Vehicle Spoofing', {}, T'Revert other player attempts at spoofing your personal vehicle (works best if you are the host)', function()
+            local player_id = players.user()
+            local network_id = Network.GetPVNetworkID(player_id)
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= player_id then
+                    if Network.GetPVNetworkID(pid) == network_id then
+                        local veh = Network.GetPVFromNetworkID(player_id)
+                        if veh ~= 0 then
+                            local veh = S.NewVehicle(veh)
+                            veh:decor_set_int('Player_Vehicle', self.net_hash)
+                            veh:decor_set_int('Previous_Owner', 0)
+                            util.yield(100)
+                            Network.SetPVNetworkID(pid, -1)
+                        end
+                    end
+                end
+            end
+        end)
     end
 
-    function CalculateEntropy(str)
-        local entropy = 0
-        local len = #str
-        local chars = {}
-    
-        for i = 1, len do
-            local char = str:sub(i, i)
-            if not chars[char] then
-                chars[char] = 1
-            else
-                chars[char] += 1
+    function CreatePlayerProtections()
+        self.player:divider('Settings')
+        self.bounty_notify = self.player:toggle(T'Bounty Notify', {}, T'Notify you when your bounty is removed', function(state) end)
+        self.player:divider('')
+        
+        self.anti_orbital = self.player:toggle_loop(T'Anti-Orbital Cannon', {}, T'Prevents you from being targetted by the orbital cannon (they can still get you with manual targetting but it is unlikely anyone will try that)', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= player_id then
+                    network.set_remote_player_as_ghost(pid, Network.IsUsingOrbitalCannon(pid))
+                end
             end
+        end)
+
+        self.ghost_godmode_trash = self.player:toggle_loop(T'Ghost Godmode Trash', {}, T'Prevents you from being killed by trash players in godmode by ghosting them', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= player_id then
+                    if not players.is_in_interior(pid) and players.is_godmode(pid) then
+                        network.set_remote_player_as_ghost(pid, true)
+                    else
+                        network.set_remote_player_as_ghost(pid, false)
+                    end
+                end
+            end
+        end)
+
+        self.anti_attacker = self.player:toggle_loop(T'Anti-Attacker', {}, T'Prevent other players from sending mercenaries, muggers or strike teams to kill you', function()
+            util.spoof_script(Globals.GangCall, function()
+                local sender = memory.script_local(Globals.GangCall, Globals.AttackerSender)
+                local target = sender + 0x8
+                memory.write_byte(sender, players.user())
+                memory.write_byte(target, -1)
+            end)
+        end)
+
+        self.anti_beast = self.player:toggle_loop(T'Anti-Beast', {}, T'Prevents you from becoming the beast', function()
+            util.spoof_script(Globals.HuntTheBeast, script.terminate_this_thread)
+        end)
+
+        self.bounty = self.player:toggle_loop(T'Anti-Bounty', {}, T'Automatically remove any bounties that are set on you', function()
+            local player_id = players.user()
+            if players.get_bounty(player_id) ~= nil then
+                Network.SetBounty(player_id, 0, false)
+                Network.SetBountyReward(player_id, -1)
+            end
+        end)
+
+        self.modded_bounty = self.player:toggle_loop(T'Anti-Modded Bounty', {}, T'Automatically remove modded bounties that are set on you', function()
+            local player_id = players.user()
+            local bounty = players.get_bounty(player_id)
+            if bounty ~= nil then
+                if Network.IsBountyModded(bounty) then
+                    Network.SetBounty(player_id, 0, false)
+                    Network.SetBountyReward(player_id, -1)
+                end
+            end
+        end)
+
+        self.session_bounty = self.player:toggle_loop(T'Anti-Bounty (Session-Wide)', {}, T'Automatically remove bounties from everyone in the session', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    if players.get_bounty(pid) ~= nil then
+                        Network.SetBounty(pid, 0, false)
+                        Network.SetBountyReward(pid, -1)
+                    end
+                end
+            end
+        end)
+
+        self.session_modded_bounty = self.player:toggle_loop(T'Anti-Modded Bounty (Session-Wide)', {}, T'Automatically remove modded bounties from everyone in the session', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    local bounty = players.get_bounty(pid)
+                    if bounty ~= nil then
+                        if Network.IsBountyModded(bounty) then
+                            Network.SetBounty(pid, 0, false)
+                            Network.SetBountyReward(pid, -1)
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.anti_bst = self.player:toggle_loop(T'Anti-BST', {}, T'Disable the effects of BST when someone is using BST (they will still deal 2x damage to you but the damage you deal to them will be the same as if they didn\'t have BST active)', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    local ped = player.get_player_ped(pid)
+                    local ptr = entities.handle_to_pointer(ped)
+                    if ptr ~= 0 then
+                        local player_info = entities.get_player_info(ptr)
+                        if player_info then
+                            local weapon_defense = memory.read_float(player_info + 0x0D60)
+                            if weapon_defense < 0.99607843160629 then
+                                memory.write_float(player_info + 0x0D60, 0.99607843160629)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+
+    function CreateNotifProtections()
+        self.notifs:toggle(T'Block Mugger Notification', {}, T'Block mugger notification spam', function(state)
+            memory.write_byte(memory.script_global(Globals.MuggerEventProtection), state ? 1 : 0)
+        end)
+
+        self.notifs:toggle(T'Block Stand Notification Spam', {}, T'Block Stand cash removed/banked notification spam', function(state)
+            local block = memory.script_global(Globals.StandNotificationSpamProtection)
+            for i = 0, 3 do memory.write_byte(block + (i << 3), state ? 1 : 0) end
+        end)
+
+        self.notifs:toggle(T'Block All Notifications', {}, T'Block all notifications', function(state)
+            memory.write_byte(memory.script_global(Globals.BlockAllNotifications), state ? 1 : 0)
+        end)
+    end
+
+    function CreateDetections()
+        self.entropy_threshold = 2.4
+
+        self.detections:toggle_loop(T'Vehicle Spoofing', {}, T'Detects when a player is spoofing your personal vehicle', function()
+            local player_id = players.user()
+            local network_id = Network.GetPVNetworkID(player_id)
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= player_id then
+                    if Network.GetPVNetworkID(pid) == network_id then
+                        players.add_detection(pid, T'Vehicle Spoofing')
+                    end
+                end
+            end
+        end)
+
+        self.detections:toggle_loop(T'Position Spoofing', {}, T'Detects when a player is spoofing their position (detection is not 100% accurate)', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= player_id then
+                    local base = memory.script_global(Globals:PlayerBase(pid))
+                    local pos = v3()
+                    local i = 0
+
+                    for ({'x', 'y', 'z'}) as k do
+                        pos[k] = memory.read_float(base + (i << 3))
+                        i = i + 1
+                    end
+                end
+            end
+        end)
+
+        self.plate_detection = self.detections:list(T'Modded License Plate', {}, '')
+        self.plate_detection:toggle_loop(T'Modded License Plate', {}, T'Detects players that have a modded license plate', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    local player_ped = player.get_player_ped(pid)
+                    local veh = S.NewVehicle(ped.get_vehicle_ped_is_using(player_ped, false))
+                    local plate = veh:get_vehicle_number_plate_text()
+                    local bitset = veh:decor_get_int('MPBitset')
+                    for ({0x8, 0xC00, 0x2800, 0x2C00, 0x100000, 0x1000000}) as mask do if memory.bits:check(bitset, mask) then return end end
+
+                    if veh ~= 0 then
+                        if plate ~= nil and not veh:decor_get_bool('CreatedByPegasus') then
+                            local entropy = self:CalculateEntropy(plate)
+                            if not self:IsValidPlate(plate) then
+                                players.add_detection(pid, T'Modded Plate')
+                            else
+                                local diff = (entropy - self.entropy_threshold) * 100
+                                if diff >= 100 then
+                                    players.add_detection(pid, T'Modded Plate (Very High Entropy)', TOAST_DEFAULT, 80)
+                                elseif diff >= 75 then
+                                    players.add_detection(pid, T'Modded Plate (High Entropy)', TOAST_DEFAULT, 50)
+                                elseif diff >= 50 then
+                                    players.add_detection(pid, T'Modded Plate (Medium Entropy)', TOAST_DEFAULT, 30)
+                                elseif diff >= 25 then
+                                    players.add_detection(pid, T'Modded Plate (Low Entropy)', TOAST_DEFAULT, 10)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.plate_detection:slider_float(T'Entropy Threshold', {}, T'The entropy threshold for a license plate to be considered modded', 0.0, 1000, self.entropy_threshold * 100, 10, function(value)
+            self.entropy_threshold = value / 100
+        end)
+    end
+
+    function CreateEvents()
+        local commands = {}
+        for ({
+            { args = { T'Block CEO/MC Invites', commands, T'Block CEO/MC invites from other players in the session' }, sg = Globals.BlockCEOMCInviteProtection },
+            { args = { T'Block Island Heist Invite', commands, T'Block island heist invites from other players in the session' }, sg = Globals.BlockIslandHeistInviteProtection },
+            { args = { T'Block Remove Wanted Level', {}, T'Block remove wanted level from other players in the session' }, sg = Globals.BlockRemoveWantedLevelProtection },
+            { args = { T'Block Property Invite', {}, T'Block property invites from other players in the session' }, sg = Globals.BlockPropertyInviteProtection },
+            { args = { T'Block Bounty', {}, T'Block bounty event' }, sg = Globals.Bounty },
+            { args = { T'Block Remote Off The Radar', {}, T'Block remote off the radar event' }, sg = Globals.BlockRemoteOffTheRadarProtection },
+            { args = { T'Block CEO Money Loop', {}, T'Block CEO money loop event' }, sg = Globals.BlockCEOMoneyLoopProtection }
+        }) as data do
+            local args = data.args
+            args[4] = function(state)
+                memory.write_byte(memory.script_global(data.sg), state ? 1 : 0)
+            end
+            self.events:toggle(table.unpack(args))
         end
-    
-        for _, count in pairs(chars) do
-            local p = count / len
-            entropy -= p * math.log(p, 2)
-        end
-    
-        return entropy
+
+        self.ceo_kick_event = self.events:toggle_loop(T'Block CEO/MC Kick', {}, T'Block CEO/MC kick event', function()
+            local ceo_kick = memory.script_global(Globals.CeoKickProtection1)
+            memory.write_byte(memory.script_global(Globals.CeoKickProtection), 1)
+            memory.write_byte(ceo_kick, memory.read_byte(ceo_kick) & ~(1 << 5))
+        end, function()
+            memory.write_byte(memory.script_global(Globals.CeoKickProtection), 0)
+        end)
     end
 
     function IsValidPlate(plate)
-        return string.match(plate, '%d%d%a%a%a%d%d%d') ~= nil
+        return plate:match('%d%d%a%a%a%d%d%d') ~= nil
     end
 
     function IsModdedPlate(plate)
@@ -127,288 +350,27 @@ pluto_class Protections
         end
     end
 
-    function CreateVehicleProtections()
-        self.veh_kick = self.vehicle_protections:toggle(T'Vehicle Kick', {}, T'Prevents you from being kicked from your vehicle', function(state)
-            local Protect = self.ScriptGlobal(Globals.VehicleKickProtection)
-            self.WriteByte(Protect, state ? 1 : 0)
-        end)
-
-        self.smart_veh_kick = self.vehicle_protections:toggle_loop(T'Smart Vehicle Kick', {}, T'Vehicle kick protection will only be enabled when you are in a personal vehicle, this will prevent any negative side effects like breaking missions', function()
-            local Veh = self:GetVehicleFromNetId(PlayerID)
-            local Ped = players.user_ped()
-            if Veh ~= 0 and self.IsPedInAnyVehicle(Ped) then
-                if self.veh_kick:isValid() then
-                    self.veh_kick.value = true
-                end
-            elseif Veh ~= 0 and not self.IsPedInAnyVehicle(Ped) then
-                if self.veh_kick:isValid() then
-                    self.veh_kick.value = false
-                end
-            end
-        end)
-
-        self.anti_harry = self.vehicle_protections:toggle_loop(T'Anti-Oppressor MKII', {}, T'Delete broomsticks before shitbags get the chance to use them', function()
-            for entities.get_all_vehicles_as_pointers() as Entity do
-                local Model = util.reverse_joaat(entities.get_model_hash(Entity))
-                if Model:find('oppressor2') then
-                    entities.delete_by_pointer(Entity)
-                end
-            end
-        end)
-
-        self.veh_spoofing = self.vehicle_spoofing:toggle_loop(T'Vehicle Sppofing', {}, T'Revert other players attempts at spoofing your personal vehicle', function()
-            local NetworkID = self:GetNetworkId(PlayerID)
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    if self:GetNetworkId(pid) == NetworkID then
-                        local Veh = self:GetVehicleFromNetId(PlayerID)
-                        if Veh ~= 0 then
-                            self.DecorSetInt(Veh, 'Player_Vehicle', self.local_hash)
-                            self.DecorSetInt(Veh, 'Previous_Owner', 0)
-                            util.yield(100)
-                            self:SetNetworkId(pid, -1)
-                        end
-                    end
-                end
-            end
-        end)
-    end
-
-    function CreatePlayerProtections()
-        self.anti_orbital = self.player_protections:toggle_loop(T'Anti Orbital Cannon', {}, T'Prevents you from being targeted by the orbital cannon, players can still manually target you but it will be very unlikely that they will find you and who the fuck even uses manual', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    S:SetPassiveMode(S:IsUsingOrbitalCannon(pid))
-                end
-            end
-        end,
-        function()
-            S:SetPassiveMode(false)
-        end)
-
-        self.ghost_godmode_trash = self.player_protections:toggle_loop(T'Ghost Godmode Trash', {}, T'Automatically ghost any godmode trash in your session', function()
-            for pid = 0, S.MAX_PLAYERS do
-                self.SetRemotePlayerAsGhost(pid, players.is_godmode(pid))
-            end
-        end)
-
-        self.anti_attacker = self.player_protections:toggle_loop(T'Anti-Attacker', {}, T'Prevent other players from sending mercenaries, muggers, strike squads etc after you', function()
-            util.spoof_script('am_gang_call', function()
-                local Sender = self.ScriptLocal('am_gang_call', 286)
-                local Target = self.ScriptLocal('am_gang_call', 287)
-                if Sender ~= 0 and Target ~= 0 then
-                    self.WriteByte(Sender, PlayerID)
-                    self.WriteByte(Target, -1)
-                end
-            end)
-        end)
-
-        self.anti_beast = self.player_protections:toggle_loop(T'Anti-Beast', {}, T'Prevents you from becoming the beast', function()
-            util.spoof_script('am_hunt_the_beast', self.TerminateThisThread)
-        end)
-
-        self.bounty = self.player_protections:toggle_loop(T'Bounty', {}, T'Automatically remove bounties from you', function()
-            if S:GetPlayerBounty(PlayerID) > 0 then
-                S:SetPlayerBounty(PlayerID, 0, false)
-                S:SetPlayerBountyReward(PlayerID, -1)
-            end
-        end)
-
-        self.modded_bounty = self.player_protections:toggle_loop(T'Modded Bounty', {}, T'Automatically remove modded bounties from you', function()
-            local Bounty = S:GetPlayerBounty(PlayerID)
-            if Bounty > 0 and S:IsModdedBounty(Bounty) then
-                S:SetPlayerBounty(PlayerID, 0, false)
-                S:SetPlayerBountyReward(PlayerID, -1)
-            end
-        end)
-
-        self.session_bounty = self.player_protections:toggle_loop(T'Bounty (Session-Wide)', {}, T'Automatically remove bounties from other players in the session', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    if S:GetPlayerBounty(pid) > 0 then
-                        S:SetPlayerBounty(pid, 0, false)
-                        S:SetPlayerBountyReward(pid, -1)
-                    end
-                end
-            end
-        end)
-
-        self.session_modded_bounty = self.player_protections:toggle_loop(T'Modded Bounty (Session-Wide)', {}, T'Automatically remove modded bounties from other players in the session', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    local Bounty = S:GetPlayerBounty(pid)
-                    if Bounty > 0 and S:IsModdedBounty(Bounty) then
-                        S:SetPlayerBounty(pid, 0, false)
-                        S:SetPlayerBountyReward(pid, -1)
-                    end
-                end
-            end
-        end)
-    end
-
-    function CreateNotifProtections()
-        self.notif_protections:toggle(T'Block Mugger Notification', {}, 'Block mugger notification spam', function(state)
-            local Block = self.ScriptGlobal(Globals.MuggerEventProtection)
-            self.WriteByte(Block, state ? 1 : 0)
-        end)
+    function CalculateEntropy(str)
+        local entropy = 0
+        local len = #str
+        local chars = {}
     
-        self.notif_protections:toggle(T'Block Stand Notification Spam', {}, 'Block stand notification spam', function(state)
-            local Block = self.ScriptGlobal(Globals.StandNotificationSpamProtection)
-            self.WriteByte(Block, state ? 1 : 0)
-            self.WriteByte(Block + 0x8, state ? 1 : 0)
-            self.WriteByte(Block + 0x10, state ? 1 : 0)
-        end)
+        for i = 1, len do
+            local char = str:sub(i, i)
+            if not chars[char] then
+                chars[char] = 1
+            else
+                chars[char] += 1
+            end
+        end
     
-        self.notif_protections:toggle(T'Block All Notifications', {}, 'Block all notifications', function(state)
-            local Block = self.ScriptGlobal(Globals.BlockAllNotifications)
-            self.WriteByte(Block, state ? 1 : 0)
-        end)
+        for _, count in pairs(chars) do
+            local p = count / len
+            entropy -= p * math.log(p, 2)
+        end
+    
+        return entropy
     end
-
-    function CreateDetections()
-        self.entropy_threshold = 2.2
-
-        self.detections:toggle_loop(T'Vehicle Spoofing', {}, T'Detects when a player is spoofing your personal vehicle', function()
-            local NetworkID = self:GetNetworkId(PlayerID)
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) and pid ~= PlayerID then
-                    if self:GetNetworkId(pid) == NetworkID then
-                        players.add_detection(pid, 'Vehicle Spoofing')
-                    end
-                end
-            end
-        end)
-
-        self.detections:toggle_loop(T'Position Spoofing', {}, T'Detects when a player is spoofing their position (DETECTION NOT 100% accurate)', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) and pid ~= PlayerID then
-                    local g = self.ScriptGlobal(2657704 + 1 + (pid * 463))
-                    local x = self.ReadFloat(g + 0x678)
-                    local y = self.ReadFloat(g + 0x680)
-                    local z = self.ReadFloat(g + 0x684)
-                    local pos = v3.new(x, y, z)
-                    local current_pos = players.get_position(pid)
-
-                    if pos:distance(current_pos) > 1000.0 then
-                        players.add_detection(pid, 'Position Spoofing')
-                    end
-                end
-            end
-
-            util.yield(2000)
-        end)
-
-        self.plate_detection = self.detections:list(T'Modded License Plate', {}, '')
-
-        self.plate_detection:toggle_loop(T'Modded License Plate', {}, T'Detects players that have modded license plates using multiple techniques', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    local Ped = self.GetPlayerPed(pid)
-                    local Veh = self.GetVehiclePedIsIn(Ped, false)
-                    local Plate = self.GetVehicleNumberPlateText(Veh)
-                    local Bitset = self.DecorGetInt(Veh, 'MPBitset')
-                    local Masks = {0x8, 0xC00, 0x2800, 0x2C00, 0x100000, 0x1000000}
-
-                    for Masks as Mask do
-                        if Bitset & Mask == Mask then
-                            return
-                        end
-                    end
-
-                    if Veh ~= 0 then
-                        if Plate ~= nil and not self.DecorGetBool(Veh, 'CreatedByPegasus') then
-                            local entropy = self:CalculateEntropy(Plate)
-                            if not self:IsValidPlate(Plate) then
-                                players.add_detection(pid, 'Modded License Plate')
-                                util.draw_debug_text(players.get_name(pid) .. ' has a modded license plate' .. ' (' .. Plate .. ', ' .. entropy .. ')')    
-                            else
-                                if self:IsModdedPlate(Plate) or entropy <= self.entropy_threshold then
-                                    players.add_detection(pid, 'Potentially Modded License Plate', TOAST_DEFAULT, 40)
-                                    util.draw_debug_text(players.get_name(pid) .. ' has a potentially modded license plate (' .. entropy .. ')')
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-
-        self.plate_detection:slider_float(T'Entropy Threshold', {T'rmodplateent'}, T'The entropy threshold for a license plate to be considered modded', 0.0, 1000, 220, 10, function(value)
-            self.entropy_threshold = value / 100
-        end)
-    end
-
-    function CreateEvents()
-        self.events:toggle(T'Block CEO/MC Invites', {}, T'Block CEO/MC invites from other players in the session', function(state)
-            local Block = self.ScriptGlobal(Globals.BlockCEOMCInviteProtection)
-            self.WriteByte(Block, state ? 1 : 0)
-        end)
-
-        self.events:toggle(T'Block Island Heist Invite', {}, T'Block island heist invites from other players in the session', function(state)
-            local Block = self.ScriptGlobal(Globals.BlockIslandHeistInviteProtection)
-            self.WriteByte(Block, state ? 1 : 0)
-        end)
-
-        self.events:toggle(T'Block Remove Wanted Level', {}, T'Block remove wanted level from other players in the session', function(state)
-            local Block = self.ScriptGlobal(Globals.BlockRemoveWantedLevelProtection)
-            self.WriteByte(Block, state ? 1 : 0)
-        end)
-
-        self.events:toggle(T'Block Property Invite', {}, T'Block property invites from other players in the session', function(state)
-            local Block = self.ScriptGlobal(Globals.BlockPropertyInviteProtection)
-            self.WriteByte(Block, state ? 1 : 0)
-        end)
-
-        self.ceo_kick_event = self.events:toggle(T'Block CEO/MC Kick', {}, T'Block CEO/MC kick event', function(state)
-            local CEOKick = self.ScriptGlobal(Globals.CeoKickProtection)
-            local CEOKick1 = self.ScriptGlobal(Globals.CeoKickProtection1)
-
-            self.WriteByte(CEOKick, state ? 1 : 0)
-            if state then
-                util.create_tick_handler(function()
-                    if self.ceo_kick_event.value == false then
-                        return false
-                    end
-
-                    self.WriteByte(CEOKick1, self.ReadByte(CEOKick1) & ~(1 << 5))
-                end)
-            end
-        end)
-
-        self.bounty_event = self.events:toggle(T'Block Bounty', {}, T'Block bounty event', function(state)
-            local Bounty = ScriptGlobal(Globals.Bounty)
-            self.WriteByte(Bounty, state ? 1 : 0)
-        end)
-
-        self.block_remote_otr = self.events:toggle(T'Block Remote Off The Radar', {}, T'Block remote off the radar event', function(state)
-            local RemoteOTR = self.ScriptGlobal(Globals.BlockRemoteOffTheRadarProtection)
-            self.WriteByte(RemoteOTR, state ? 1 : 0)
-        end)
-
-        self.block_ceo_money_loop = self.events:toggle(T'Block CEO Money Loop', {}, T'Block CEO money loop event', function(state)
-            local CEOMoneyLoop = self.ScriptGlobal(Globals.BlockCEOMoneyLoopProtection)
-            self.WriteByte(CEOMoneyLoop, state ? 1 : 0)
-        end)
-    end
-
-    --[[Hash (int)]] static function NetworkHashFromPlayerHandle(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0xBC1D768F2F5D6C05)return native_invoker.get_return_value_int()end
-    --[[Vector3 (vector3)]] static function GetOffsetFromEntityInWorldCoords(--[[Entity (int)]] entity,--[[float]] offsetX,--[[float]] offsetY,--[[float]] offsetZ)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_float(offsetX)native_invoker.push_arg_float(offsetY)native_invoker.push_arg_float(offsetZ)native_invoker.end_call_2(0x1899F328B0E12848)return native_invoker.get_return_value_vector3()end
-    --[[Vehicle (int)]] static function NetToVeh(--[[int]] netHandle)native_invoker.begin_call()native_invoker.push_arg_int(netHandle)native_invoker.end_call_2(0x367B936610BA360C)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function DecorSetInt(--[[Entity (int)]] entity,--[[string]] propertyName,--[[int]] value)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.push_arg_int(value)native_invoker.end_call_2(0x0CE3AA5E1CA19E10)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SetRemotePlayerAsGhost(--[[Player (int)]] player,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xA7C511FA1C5BDA38)end
-    --[[Ped (int)]] static function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x43A66C31C68491C0)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function GetEventData(--[[int]] eventGroup,--[[int]] eventIndex,--[[Any* (pointer)]] eventData,--[[int]] eventDataSize)native_invoker.begin_call()native_invoker.push_arg_int(eventGroup)native_invoker.push_arg_int(eventIndex)native_invoker.push_arg_pointer(eventData)native_invoker.push_arg_int(eventDataSize)native_invoker.end_call_2(0x2902843FCD2B2D79)return native_invoker.get_return_value_bool()end
-    --[[int]] static function GetNumberOfEvents(--[[int]] eventGroup)native_invoker.begin_call()native_invoker.push_arg_int(eventGroup)native_invoker.end_call_2(0x5F92A689A06620AA)return native_invoker.get_return_value_int()end
-    --[[int]] static function GetEventAtIndex(--[[int]] eventGroup,--[[int]] eventIndex)native_invoker.begin_call()native_invoker.push_arg_int(eventGroup)native_invoker.push_arg_int(eventIndex)native_invoker.end_call_2(0xD8F66A3A60C62153)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function DecorGetBool(--[[Entity (int)]] entity,--[[string]] propertyName)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.end_call_2(0xDACE671663F2F5DB)return native_invoker.get_return_value_bool()end
-    --[[string]] static function GetVehicleNumberPlateText(--[[Vehicle (int)]] vehicle)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.end_call_2(0x7CE1CCB9B293020E)return native_invoker.get_return_value_string()end
-    --[[Player (int)]] static function NetworkGetPlayerIndexFromPed(--[[Ped (int)]] ped)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.end_call_2(0x6C0E2E0125610278)return native_invoker.get_return_value_int()end
-    --[[Ped (int)]] static function GetPedInVehicleSeat(--[[Vehicle (int)]] vehicle,--[[int]] seatIndex,--[[BOOL (bool)]] p2)native_invoker.begin_call()native_invoker.push_arg_int(vehicle)native_invoker.push_arg_int(seatIndex)native_invoker.push_arg_bool(p2)native_invoker.end_call_2(0xBB40DD2270B65366)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function GetEntityCanBeDamaged(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0xD95CC5D2AB15A09F)return native_invoker.get_return_value_bool()end
-    --[[BOOL (bool)]] static function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
-    --[[Vehicle (int)]] static function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
-    --[[int]] static function DecorGetInt(--[[Entity (int)]] entity,--[[string]] propertyName)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.push_arg_string(propertyName)native_invoker.end_call_2(0xA06C969B02A97298)return native_invoker.get_return_value_int()end
-    --[[void]] static function TerminateThisThread()native_invoker.begin_call()native_invoker.end_call_2(0x1090044AD1DA76FA)end
 end
 
 return Protections

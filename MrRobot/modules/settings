@@ -4,35 +4,22 @@ local Globals = require('script_globals')
 local SettingsBits = S.SettingsBits
 
 pluto_class Settings
-    ScriptGlobal = S.ScriptGlobal
-    WriteByte = memory.write_byte
-
     function __construct(root, version)
-        self.root = root:list(T'Settings', {T'rsettings'}, T'Settings')
-        if not S.Settings:IsSet(SettingsBits.DevMode) then 
-            self.root:divider('v' .. version) 
-        else
-            self.root:divider('v' .. version .. '-dev')
-        end
-        
-        self.remove_transaction_error = self.root:toggle(T'Remove Transaction Errors', {}, T'Removes transaction error notifications so that they do not disturb your gameplay', function()
-            util.create_tick_handler(function()
-                if self.remove_transaction_error.value == false then
-                    return false
-                end
-                self.WriteByte(self.ScriptGlobal(Globals.TransactionErrorNotification), 0)
-            end)
-        end)
+        self.root = root:list(T'Settings', {T'rsettings'}, '')
+        self.root:divider($'v{version}')
 
-        self.show_alerts = self.root:toggle(T'Show Alerts', {}, T'Should alerts be shown', function(state)
-            if state then
-                S.Settings:Set(SettingsBits.ShowAlerts)
-            else
-                S.Settings:Clear(SettingsBits.ShowAlerts)
-            end
+        self.remove_transaction_errors = self.root:toggle_loop(T'Remove Transaction Errors', {}, T'Removes annoying transaction error notifications', || -> memory.write_byte(memory.script_global(Globals.TransactionErrorNotification), 0))
+
+        self.show_alerts = self.root:toggle(T'Show Alerts', {}, T'Should alerts be shown? (enabling this will force alerts to be sent to console instead of displaying)', function(state)
+            S.Settings:SetBool(SettingsBits.ShowAlerts, state)
         end, S.Settings:IsSet(SettingsBits.ShowAlerts))
 
-        self.remove_transaction_error.value = S.Settings:IsSet(SettingsBits.RemoveTransactionError)
+        self.root:toggle(T'Suppress Request Control Failures', {}, T'Should the failed to request control message be displayed?', function(state)
+            S.Settings:SetBool(SettingsBits.SuppressRequestControlFailures, state)
+        end, S.Settings:IsSet(SettingsBits.SuppressRequestControlFailures))
+
+        self.remove_transaction_errors.value = S.Settings:IsSet(SettingsBits.RemoveTransactionError)
+        root:divider('')
     end
 end
 

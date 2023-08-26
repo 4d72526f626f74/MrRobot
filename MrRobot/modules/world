@@ -2,154 +2,146 @@ local T, S = require('translations'), require('shared')
 
 pluto_class World
     function __construct(root)
-        self.root = root:list(T'World', {T'rworld'}, T'World')
+        self.root = root:list(T'World', {T'rworld'}, '')
         self.repopulate_timer = os.time() + 10
         self.stand_lock_time = menu.ref_by_path('World>Atmosphere>Clock>Lock Time')
         self.stand_time_midnight = menu.ref_by_path('World>Atmosphere>Clock>Midnight')
         self.stand_smooth_transition = menu.ref_by_path('World>Atmosphere>Clock>Smooth Transition')
+        self.blackout = self.root:list(T'Blackout', {T'rwblackout'}, 'Blackout options')
+        self.chams = self.root:list(T'Chams', {T'rwchams'}, 'Chams options')
 
-        self.root:toggle(T'Black Out', {T'blackout'}, T'Turn off all artifical lights', function(state)
-            self.SetArtificialLightsState(state)
-            self.SetArtificialVehicleLightsState(state)
-            self.stand_lock_time.value = state
-            self.stand_smooth_transition.value = not state
-        
-            local LightIntensity = self.GetLightOverrideMaxIntensityScale()
-            
+        self.blackout:toggle(T'Black Out', {}, 'Turn off all artificial lights', function(state)
+            graphics.set_artificial_lights_state(state)
+            graphics.set_artificial_vehicle_lights_state(state)
+            if self.stand_lock_time:isValid() and self.stand_smooth_transition:isValid() and self.stand_time_midnight:isValid() then
+                self.stand_lock_time.value = state
+                self.stand_smooth_transition.value = not state
+
+                local light_intensity = graphics.get_light_override_max_intensity_scale()
+                if state then
+                    self.stand_time_midnight:trigger()
+                    graphics.set_light_override_max_intensity_scale(0.0)
+                    graphics.set_timecycle_modifier_strength(1.2)
+                    graphics.set_timecycle_modifier('superDARK')
+                else
+                    graphics.set_light_override_max_intensity_scale(light_intensity)
+                    graphics.clear_timecycle_modifier()
+                end
+            end
+        end)
+
+        self.blackout_intensity = self.blackout:slider_float(T'Intensity', {T'rwblackintensity'}, 'Intensity of the blackout', 0.0 * 100, math.max_float, 1.2 * 100, 0.01 * 100, function(value)
+            graphics.set_timecycle_modifier_strength(value / 100)
+        end)
+
+        self.chams:toggle(T'Chams', {}, T'', function(state)
             if state then
+                graphics.set_timecycle_modifier('mp_lad_night')
+            else
+                graphics.clear_timecycle_modifier()
+            end
+        end)
+
+        self.chams_intensity = self.chams:slider_float(T'Intensity', {T'rwchamsintensity'}, 'Intensity of the chams', 0.0 * 100, math.max_float, 1.2 * 100, 0.01 * 100, function(value)
+            graphics.set_timecycle_modifier_strength(value / 100)
+        end)
+
+        self.root:divider('')
+        self.ghost_town = self.root:toggle(T'Ghost Town', {}, T'Los Santos becomes a ghost town (if players in your session are nearby this won\'t take effect)', function(state)
+            if self.stand_lock_time:isValid() and self.stand_smooth_transition:isValid() and self.stand_time_midnight:isValid() then
+                self.stand_lock_time.value = state
+                self.stand_smooth_transition.value = not state
                 self.stand_time_midnight:trigger()
-                self.SetLightOverrideMaxIntensityScale(0.0)
-                self.SetTimecycleModifierStrength(1.2)
-                self.SetTimecycleModifier('superDARK')
-            else
-                self.SetLightOverrideMaxIntensityScale(LightIntensity)
-                self.ClearTimecycleModifier()
+
+                if state then
+                    graphics.set_timecycle_modifier_strength(1)
+                    graphics.set_timecycle_modifier('superDARK')
+                    graphics.set_artificial_lights_state(true)
+                    graphics.set_artificial_vehicle_lights_state(true)
+                    util.create_tick_handler(function()
+                        if not self.ghost_town.value then
+                            return false
+                        end
+                        vehicle.set_ambient_vehicle_range_multiplier_this_frame(0.0)
+                        ped.set_ped_density_multiplier_this_frame(0.0)
+                        ped.set_scenario_ped_density_multiplier_this_frame(0.0, 0.0)
+                        vehicle.set_vehicle_density_multiplier_this_frame(0.0)
+                        vehicle.set_random_vehicle_density_multiplier_this_frame(0.0)
+                        vehicle.set_parked_vehicle_density_multiplier_this_frame(0.0)
+                    end)
+                else
+                    graphics.set_artificial_lights_state(false)
+                    graphics.set_artificial_vehicle_lights_state(false)
+                    graphics.clear_timecycle_modifier()
+                end
             end
         end)
 
-        self.root:toggle(T'Chams', {T'chamsall'}, T'Highlight everyone making them easier to see', function(state)
+        self.root:toggle(T'Eternal Darkness', {}, T'No more sunrises or sunsets, you will see nothing', function(state)
             if state then
-                self.SetTimecycleModifier('mp_lad_night')
+                graphics.set_timecycle_modifier_strength(math.max_float)
+                graphics.set_timecycle_modifier('glasses_black')
             else
-                self.ClearTimecycleModifier()
+                graphics.clear_timecycle_modifier()
             end
         end)
 
-        self.ghost_town = self.root:toggle(T'Ghost Town', {T'ghosttown'}, T'Los Santos\'s becomes a ghost town', function(state)
-            self.stand_lock_time.value = state
-            self.stand_smooth_transition.value = not state
-            self.stand_time_midnight:trigger()
-        
-            if state then
-                self.SetTimecycleModifierStrength(1)
-                self.SetTimecycleModifier('superDARK')
-                self.SetArtificialLightsState(true)
-                self.SetArtificialVehicleLightsState(true)
-                util.create_tick_handler(function()
-                    if not self.ghost_town.value then
-                        return false
+        self.root:toggle(T'Riot Mode', {}, T'Makes everyone riot', function(state)
+            misc.set_riot_mode_enabled(state)
+        end)
+
+        self.root:toggle_loop(T'The Purge', {}, T'Makes all peds hostile to each other', function()
+            if self.stand_lock_time:isValid() and self.stand_smooth_transition:isValid() and self.stand_time_midnight:isValid() then
+                self.stand_lock_time.value = true
+                self.stand_smooth_transition.value = false
+                self.stand_time_midnight:trigger()
+
+                misc.set_riot_mode_enabled(true)
+                graphics.set_timecycle_modifier_strength(1)
+                graphics.set_timecycle_modifier('superDARK')
+                graphics.set_artificial_lights_state(true)
+                graphics.set_artificial_vehicle_lights_state(true)
+
+                if os.time() > self.repopulate_timer then
+                    ped.instantly_fill_ped_population()
+                    self.repopulate_timer = os.time() + 10
+                end
+
+                for _, entity in pairs(entities.get_all_peds_as_handles()) do
+                    if entity == players.user_ped() then
+                        goto continue
                     end
-        
-                    self.SetAmbientVehicleRangeMultiplierThisFrame(0.0)
-                    self.SetPedDensityMultiplierThisFrame(0.0)
-                    self.SetScenarioPedDensityMultiplierThisFrame(0.0, 0.0)
-                    self.SetVehicleDensityMultiplierThisFrame(0.0)
-                    self.SetRandomVehicleDensityMultiplierThisFrame(0.0)
-                    self.SetParkedVehicleDensityMultiplierThisFrame(0.0)
-                end)
-            else
-                self.SetArtificialLightsState(false)
-                self.SetArtificialVehicleLightsState(false)
-                self.ClearTimecycleModifier()
-            end
-        end)
 
-        self.root:toggle(T'Eternal Darkness', {T'eternaldarkness'}, '', function(state)
-            if state then
-                self.SetTimecycleModifierStrength(S.MAX_FLOAT)
-                self.SetTimecycleModifier('glasses_black')
-            else
-                self.ClearTimecycleModifier()
-            end
-        end)
-        
-        self.root:toggle(T'Riot Mode', {T'riotmode'}, T'Turns on riot mode', function(state)
-            self.SetRiotModeEnabled(state)
-        end)
+                    ped.set_ped_combat_attributes(entity, 5, true)
+                    ped.set_ped_combat_attributes(entity, 46, true)
+                    ped.set_ped_combat_attributes(entity, 17, false)
+                    ped.set_ped_combat_attributes(entity, 13, true)
+                    ped.set_ped_combat_attributes(entity, 58, true)
+                    ped.set_ped_combat_range(entity, 2)
+                    ped.set_ped_combat_ability(entity, 2)
+                    ped.set_ped_combat_movement(entity, 2)
+                    if ped.is_ped_in_any_vehicle(entity, false) then
+                        task.task_leave_any_vehicle(entity, 0, 0)
+                        entities.delete_by_handle(ped.get_vehicle_ped_is_in(entity, false))
+                    end
 
-        self.root:toggle_loop(T'The Purge', {T'thepurge'}, T'Makes all peds hostile to each other', function()
-            self.stand_lock_time.value = true
-            self.stand_smooth_transition.value = false
-            self.stand_time_midnight:trigger()
-            
-            self.SetRiotModeEnabled(true)
-            self.SetTimecycleModifierStrength(1)
-            self.SetTimecycleModifier('superDARK')
-            self.SetArtificialLightsState(true)
-            self.SetArtificialVehicleLightsState(true)
-            
-            if os.time() > self.repopulate_timer then
-                self.InstantlyFillPedPopulation()
-                self.repopulate_timer = os.time() + 10
-            end
-        
-            for Index, Entity in pairs(entities.get_all_peds_as_handles()) do
-                if Entity == players.user_ped() then
-                    goto continue
+                    task.task_combat_ped(entity, players.user_ped(), 0, 16)
+
+                    ::continue::
                 end
-        
-                self.SetPedCombatAttributes(Entity, 5, true)
-                self.SetPedCombatAttributes(Entity, 46, true)
-                self.SetPedCombatAttributes(Entity, 17, false)
-                self.SetPedCombatAttributes(Entity, 13, true)
-                self.SetPedCombatAttributes(Entity, 58, true)
-                self.SetPedCombatRange(Entity, 2)
-                self.SetPedCombatAbility(Entity, 2)
-                self.SetPedCombatMovement(Entity, 2)
-                if self.IsPedInAnyVehicle(Entity, false) then
-                    self.TaskLeaveAnyVehicle(Entity, 0, 0)
-                    entities.delete_by_handle(self.GetVehiclePedIsIn(Entity, false))
-                end
-                if Index % 5 == 0 then
-                    self.TaskCombatPed(Entity, players.user_ped(), 0, 16)
-                end
-        
-                ::continue::
             end
         end,
         function()
-            self.SetRiotModeEnabled(false)
-            self.ClearTimecycleModifier()
-            self.SetArtificialLightsState(false)
-            self.SetArtificialVehicleLightsState(false)
-            self.stand_lock_time.value = false
-            self.stand_smooth_transition.value = true
+            if self.stand_lock_time:isValid() and self.stand_smooth_transition:isValid() then
+                misc.set_riot_mode_enabled(false)
+                graphics.clear_timecycle_modifier()
+                graphics.set_artificial_lights_state(false)
+                graphics.set_artificial_vehicle_lights_state(false)
+                self.stand_lock_time.value = false
+                self.stand_smooth_transition.value = true
+            end
         end)
     end
-
-    --[[void]] static function SetArtificialLightsState(--[[BOOL (bool)]] state)native_invoker.begin_call()native_invoker.push_arg_bool(state)native_invoker.end_call_2(0x1268615ACE24D504)end
-    --[[void]] static function SetArtificialVehicleLightsState(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0xE2B187C0939B3D32)end
-    --[[float]] static function GetLightOverrideMaxIntensityScale()native_invoker.begin_call()native_invoker.end_call_2(0x393BD2275CEB7793)return native_invoker.get_return_value_float()end
-    --[[void]] static function SetLightOverrideMaxIntensityScale(--[[Any (int)]] p0)native_invoker.begin_call()native_invoker.push_arg_int(p0)native_invoker.end_call_2(0x9641588DAB93B4B5)end
-    --[[void]] static function SetTimecycleModifierStrength(--[[float]] strength)native_invoker.begin_call()native_invoker.push_arg_float(strength)native_invoker.end_call_2(0x82E7FFCD5B2326B3)end
-    --[[void]] static function SetTimecycleModifier(--[[string]] modifierName)native_invoker.begin_call()native_invoker.push_arg_string(modifierName)native_invoker.end_call_2(0x2C933ABF17A1DF41)end
-    --[[void]] static function ClearTimecycleModifier()native_invoker.begin_call()native_invoker.end_call_2(0x0F07E7745A236711)end
-    --[[void]] static function SetAmbientVehicleRangeMultiplierThisFrame(--[[float]] value)native_invoker.begin_call()native_invoker.push_arg_float(value)native_invoker.end_call_2(0x90B6DA738A9A25DA)end
-    --[[void]] static function SetScenarioPedDensityMultiplierThisFrame(--[[float]] p0,--[[float]] p1)native_invoker.begin_call()native_invoker.push_arg_float(p0)native_invoker.push_arg_float(p1)native_invoker.end_call_2(0x7A556143A1C03898)end
-    --[[void]] static function SetVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0x245A6883D966D537)end
-    --[[void]] static function SetRandomVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xB3B3359379FE77D3)end
-    --[[void]] static function SetParkedVehicleDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0xEAE6DCC7EEE3DB1D)end
-    --[[void]] static function SetPedDensityMultiplierThisFrame(--[[float]] multiplier)native_invoker.begin_call()native_invoker.push_arg_float(multiplier)native_invoker.end_call_2(0x95E3D6257B166CF2)end
-    --[[void]] static function SetRiotModeEnabled(--[[BOOL (bool)]] toggle)native_invoker.begin_call()native_invoker.push_arg_bool(toggle)native_invoker.end_call_2(0x2587A48BC88DFADF)end
-    --[[void]] static function InstantlyFillPedPopulation()native_invoker.begin_call()native_invoker.end_call_2(0x4759CC730F947C81)end
-    --[[void]] static function SetPedCombatAttributes(--[[Ped (int)]] ped,--[[int]] attributeId,--[[BOOL (bool)]] enabled)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(attributeId)native_invoker.push_arg_bool(enabled)native_invoker.end_call_2(0x9F7794730795E019)end
-    --[[void]] static function SetPedCombatAbility(--[[Ped (int)]] ped,--[[int]] abilityLevel)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(abilityLevel)native_invoker.end_call_2(0xC7622C0D36B2FDA8)end
-    --[[void]] static function SetPedCombatRange(--[[Ped (int)]] ped,--[[int]] combatRange)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(combatRange)native_invoker.end_call_2(0x3C606747B23E497B)end
-    --[[void]] static function SetPedCombatMovement(--[[Ped (int)]] ped,--[[int]] combatMovement)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(combatMovement)native_invoker.end_call_2(0x4D9CA1009AFBD057)end
-    --[[void]] static function TaskLeaveAnyVehicle(--[[Ped (int)]] ped,--[[int]] delayTime,--[[int]] flags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(delayTime)native_invoker.push_arg_int(flags)native_invoker.end_call_2(0x504D54DF3F6F2247)end
-    --[[Vehicle (int)]] static function GetVehiclePedIsIn(--[[Ped (int)]] ped,--[[BOOL (bool)]] includeLastVehicle)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(includeLastVehicle)native_invoker.end_call_2(0x9A9112A0FE9A4713)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function IsPedInAnyVehicle(--[[Ped (int)]] ped,--[[BOOL (bool)]] atGetIn)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_bool(atGetIn)native_invoker.end_call_2(0x997ABD671D25CA0B)return native_invoker.get_return_value_bool()end
-    --[[void]] static function TaskCombatPed(--[[Ped (int)]] ped,--[[Ped (int)]] targetPed,--[[int]] combatFlags,--[[int]] threatResponseFlags)native_invoker.begin_call()native_invoker.push_arg_int(ped)native_invoker.push_arg_int(targetPed)native_invoker.push_arg_int(combatFlags)native_invoker.push_arg_int(threatResponseFlags)native_invoker.end_call_2(0xF166E48407BAC484)end
 end
 
 return World

@@ -37,7 +37,6 @@
 -- Global_2794162.f_443
 -- Global_2794162.f_444 timer for transaction error reappearing
 -- Global_2765084.f_613 (set bit 0)
--- Global_1853988[PLAYER::PLAYER_ID() /*867*/].f_267.f_293 not sure what this does but it's related to the mechanic
 
 -- Global_262145.f_7190 = mechanic fee
 -- Global_1310720 pay mechanic timer
@@ -74,8 +73,8 @@
 -- Global_2672524.f_58 = reveal all players timer
 -- 535367551 freemode.c = org colour slots, (colour, boss pid)
 -- Global_1895156[PLAYER::PLAYER_ID() /*609*/].f_534 kicking someone out of nightclub
-
-local PLAYER_ID = players.user() -- for some reason PLAYER_ID in shared doesn't work here
+-- Global_1976059[PLAYER::PLAYER_ID() /*68*/].f_18.f_7 = casino target
+-- Global_2657704[plParam0 /*463*/].f_321.f_10 = ?
 
 local Globals = {
     TransactionErrorBanner = 4536678, -- from UnknownCheats (updated by me)
@@ -98,7 +97,7 @@ local Globals = {
     AvengerRequestCooldown = 2684820 + 4319 + 242 + 1 + (49 * 2),
     TerrorbyteRequestCooldown = 2684820 + 4319 + 242 + 1 + (52 * 2),
     PersonalVehicleRequestCooldown = 2684820 + 4319 + 242 + 1 + (7 * 2),
-    CEOVehicleRequestCooldown = 1895156 + 1 + (PLAYER_ID * 609) + 10 + 63,
+    CEOVehicleRequestCooldown = 1895156 + 1 + (players.user() * 609) + 10 + 63,
     TerrorbyteDroneCooldown = 262145 + 24845, -- default 60000 (int)
     TerrorbyteDistance = 262145 + 24845, -- default 500 (float)
     TerrorbyteHeight = 262145 + 24671, -- default 200 (float)
@@ -127,10 +126,10 @@ local Globals = {
     BribeAuthorities = 2794162 + 4661, -- Global_2793046.f_4654
     AbilitiesBitfield = 2794162 + 4667, -- Global_2793046.f_4660
     OtrGhostTimer = 2672524 + 57, -- Global_2672505.f_57
-    LegitOffTheRadar = 2657704 + 1 + (PLAYER_ID * 463) + 210, -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_210
+    LegitOffTheRadar = 2657704 + 1 + (players.user() * 463) + 210, -- Global_2657589[PLAYER::PLAYER_ID() /*466*/].f_210
     BountyLocal = 2794162 + 1893 + 17, -- Global_2794162.f_1893.f_17
     BountyTimer = 2359296 + 1 + (0 * 5568) + 5150 + 13, -- Global_2359296[func_876() /*5568*/].f_5150.f_13
-    OrbitalCannon = 2657704 + 1 + (PLAYER_ID * 463) + 424, -- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_424
+    OrbitalCannon = 2657704 + 1 + (players.user() * 463) + 424, -- Global_2657704[PLAYER::PLAYER_ID() /*463*/].f_424
     RequestNanoDrone = 1963795,
     RequestBase = 2794162,
     AmPiMenuBase = 2766600,
@@ -142,14 +141,14 @@ local Globals = {
     ForceCameraForward = 1669211 + 2,
     BlockPassiveMode = 1669211 + 567,
     CeoKickProtection = 1669211 + 568,
-    CeoKickProtection2 = 2794162 + 5231 + 48,
+    CeoKickProtection1 = 2794162 + 5231 + 48,
     Bounty = 1669211 + 65,
     BlockAllNotifications = 1669211,
-    OrganisationBase = 1895156 + 1 + PLAYER_ID * 609,
+    OrganisationBase = 1895156 + 1 + players.user() * 609,
     OrganisationInvite = 1924276 + 9,
-    Interior = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 33,
-    SpoofSpecialPropertyOwner = 2657704 + 1 + (PLAYER_ID * 463) + 321 + 10,
-    StatSpoofing = 1853988 + 1 + (PLAYER_ID * 867) + 205,
+    Interior = 1853988 + 1 + (players.user() * 867) + 267 + 33,
+    SpoofSpecialPropertyOwner = 2657704 + 1 + (players.user() * 463) + 321 + 10,
+    StatSpoofing = 1853988 + 1 + (players.user() * 867) + 205,
     BlackjackDealerCards = 3789, -- blackjack.c
     BlackjackPlayerCards = 3790, -- blackjack.c
     BlackjackBetAmount = 2273, -- blackjack.c
@@ -157,27 +156,27 @@ local Globals = {
     ActivePVSlot = 2359296 + 1 + (0 * 5568) + 681 + 2, -- Global_2359296[func_876() /*5568*/].f_681.f_2
     VehicleKickProtection = 1669211 + 54,
     DisableBST = 2672524 + 3690,
-    StealthMode = 2657704 + 1 + (PLAYER_ID * 463) + 321,
-    Invisibility = 2657704 + 1 + (PLAYER_ID * 463) + 254,
-    SpoofInteriorState = 1853988 + 1 + (PLAYER_ID * 867) + 863,
-    MentalStateValue = 2657704 + 1 + (PLAYER_ID * 463) + 268,
-    BecomeInterior = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 31,
-    PauseMenuActive = 1853988 + 1 + (PLAYER_ID * 867) + 192,
+    StealthMode = 2657704 + 1 + (players.user() * 463) + 321,
+    Invisibility = 2657704 + 1 + (players.user() * 463) + 254,
+    SpoofInteriorState = 1853988 + 1 + (players.user() * 867) + 863,
+    MentalStateValue = 2657704 + 1 + (players.user() * 463) + 268,
+    BecomeInterior = 1853988 + 1 + (players.user() * 867) + 267 + 31,
+    PauseMenuActive = 1853988 + 1 + (players.user() * 867) + 192,
     BypassOnCall = 1057409, -- Global_1057409
-    OutOfSight = 2657704 + 1 + (PLAYER_ID * 463) + 456,
+    OutOfSight = 2657704 + 1 + (players.user() * 463) + 456,
     SnacksInstantRestoreStart = 113,
     SnacksInstantRestoreEnd = 119,
     PVOwnershipBypass = 78689,
-    MissionState = 1853988 + 1 + (PLAYER_ID * 867),
-    NightclubStatsBase = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 354,
+    MissionState = 1853988 + 1 + (players.user() * 867),
+    NightclubStatsBase = 1853988 + 1 + (players.user() * 867) + 267 + 354,
     RequestSupplies = 1950844 + 10,
     SourceMotorcycle = 1982265 + 1,
-    KosatkaStatsBase = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 479,
-    AvengerStatsBase = 2657704 + 1 + (PLAYER_ID * 463) + 321 + 6,
+    KosatkaStatsBase = 1853988 + 1 + (players.user() * 867) + 267 + 479,
+    AvengerStatsBase = 2657704 + 1 + (players.user() * 463) + 321 + 6,
     ReturnKosatka = 2672524 + 62 + 9,
     LesterLocate = 2672524 + 3787,
     PegasusRequest = 2672524 + 3787,
-    AcidLabName = 1914706 + 1 + (PLAYER_ID * 299) + 283, -- Global_1914706[plParam0 /*299*/].f_283
+    AcidLabName = 1914706 + 1 + (players.user() * 299) + 283, -- Global_1914706[plParam0 /*299*/].f_283
     ActivePVHandle = 2794162 + 299,
     MuggerEventProtection = 1670105 + 156,
     StandNotificationSpamProtection = 1670105 + 42,
@@ -192,22 +191,22 @@ local Globals = {
     BribeAuthoritiesTimer = 2794162 + 4664,
     BlockCEOMoneyLoopProtection = 1669211 + 560,
     CasinoChips = 1971266,
-    StrikeTeamCooldown2 = 1853988 + 1 + (PLAYER_ID * 867) + 180 + 1,
+    StrikeTeamCooldown2 = 1853988 + 1 + (players.user() * 867) + 180 + 1,
     QuickBail = 2657704 + 1 + (players.user() * 463),
     NCSafeCapacity = 262145 + 24227,
     NCSafeIncomeStart = 24204,
     NCSafeIncomeEnd = 24223,
     TriggerNCSafeCollection = 199 + 532 + 1, -- am_mp_nightclub.c
-    NightclubSafeValue = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 354 + 5, -- safe value
+    NightclubSafeValue = 1853988 + 1 + (players.user() * 867) + 267 + 354 + 5, -- safe value
     ArcadeSafeCapacity = 262145 + 29457,
     ArcadeSafeIncomeStart = 29458,
     ArcadeSafeIncomeEnd = 29465,
     TriggerArcadeSafeCollection = 3727 + 1, -- am_mp_arcade.c
     TriggerArcadeSafeCollection1 = 3727 + 69, -- am_mp_arcade.c
-    ArcadeSafeValue = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 429 + 5, -- safe value
+    ArcadeSafeValue = 1853988 + 1 + (players.user() * 867) + 267 + 429 + 5, -- safe value
     TriggerAgencySafeCollection = 526 + 469, -- am_mp_fixer_hq.c (bit 5)
     TriggerAgencySafeCollection1 = 526 + 469 + 94, -- am_mp_fixer_hq.c
-    AgencySafeValue = 1853988 + 1 + (PLAYER_ID * 867) + 267 + 502 + 2, -- safe value
+    AgencySafeValue = 1853988 + 1 + (players.user() * 867) + 267 + 502 + 2, -- safe value
     AgencySafeCapacity = 262145 + 29467,
     AgencySafeIncomeStart = 29058,
     AgencySafeIncomeEnd = 29061,
@@ -218,7 +217,7 @@ local Globals = {
     PersonalVehicleRequestRestrictions = 1950844 + 4794, -- return Global_1950844.f_4794 != -1; 18717 + 173
     HoldUpForceRobbery = 161 + 1 + (players.user() * 10), -- am_hold_up.c
     HoldUpRobberySceneId = 548, -- am_hold_up.c
-    TaxiServiceState = 115, -- 0 = customter not in taxi, 1 = within range of customer, 2 = customer heard horn
+    TaxiServiceState = 115, -- 0 = customer not in taxi, 1 = within range of customer, 2 = customer heard horn
     TaxiServiceInstantQuit = 115 + 1, -- 2 = instant quit
     TaxiServiceFare = 115 + 19,
     TaxiServiceTip = 115 + 21,
@@ -226,6 +225,18 @@ local Globals = {
     TaxiServiceSaltTimerActive = 115 + 26, -- set to 0 and timer resets
     TaxiServiceCustomerBlip = 115 + 16,
     TaxiServiceDestinationBlip = 115 + 17,
+    AcidLabStatsBase = 2657704 + 1 + (players.user() * 463) + 321 + 6,
+    TerrorbyteStatsBase = 2657704 + 1 + (players.user() * 463) + 321 + 3,
+    MOCStatsBase = 2657704 + 1 + (players.user() * 463) + 321,
+    AcidLabName = 1914706 + 1 + (players.user() * 299) + 283, -- Global_1914706[plParam0 /*299*/].f_283
+    PassiveMode = 1894573 + 1 + (players.user() * 609) + 8,
+    AttackerSender = 286,
+    AttackerTarget = 287,
+    ArcadeStatsBase = 1853988 + 1 + (players.user() * 867) + 267 + 429,
+    AgencyStatsBase = 1853988 + 1 + (players.user()) + 267 + 502,
+    GangCallAttacker = 1853988 + 1 + (players.user() * 867),
+    DualKeycardSystemTimer = 19123,
+    InstantSourceHangarCargo = 2657704 + 1 + (players.user() * 463) + 201
 }
 
 Globals.TaxiScript = 'fm_content_taxi_driver'
@@ -237,6 +248,8 @@ Globals.FMScript = 'freemode'
 Globals.BJScript = 'blackjack'
 Globals.FMMC20 = 'fm_mission_controller_2020'
 Globals.IHS = 'heist_island_planning'
+Globals.HuntTheBeast = 'am_hunt_the_beast'
+Globals.GangCall = 'am_gang_call'
 
 --[[
     fm_content_taxi_driver
@@ -263,5 +276,11 @@ function Globals:PlayerStealthMode(pid) return 2657704 + 1 + (pid * 463) + 321 e
 function Globals:PlayerMissionState(pid) return 1853988 + 1 + (pid * 867) end
 function Globals:PlayerCayoPrimaryTarget(pid) return 1980400 + 1 + (pid * 53) + 5 + 9 end
 function Globals:PlayerStatesBase(pid) return 2657704 + 1 + (pid * 463) end
+function Globals:PlayerBounty(pid) return 1835504 + 4 + 1 + (pid * 3) end
+function Globals:PlayerBountyReward(pid) return 1895156 + 1 + (pid * 609) + 600 end
+function Globals:PlayerBeast(pid) return 2657704 + 1 + (pid * 463) + 199 end
+function Globals:PlayerPassiveMode(pid) return 1894573 + 1 + (pid * 609) + 8 end
+function Globals:PlayerBase(pid) return 2657704 + 1 + (pid * 463) end
+function Globals:PlayerUsingDrone(pid) return 1853988 + 1 + (pid * 867) + 267 + 366 end
 
 return Globals

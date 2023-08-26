@@ -4,884 +4,687 @@ local VehModels = require('vehicle_models')
 local Globals = require('script_globals')
 local ScriptOffsets = require('offsets')
 local Masks = require('masks')
-local Bit, BitMask = S.Bit, S.BitMask
-
-local CharSlot, PlayerID = S.CHAR_SLOT, S.PLAYER_ID
-local Properties = {}
-for k, v in pairs(S.Data.PropertyIds) do table.insert(Properties, k) end
-Properties = S:SortTable(Properties, |a, b| -> a < b)
+local Network = require('network')
 
 local Bits = ScriptOffsets.Online.Bits
-local SpoofingOffsets = ScriptOffsets.Online.SpoofingOffsets
 local VehicleOffsets = ScriptOffsets.Vehicles.LSCustoms
 local Offsets = ScriptOffsets.Online.RequestOffsets
 local KosatkaStats = ScriptOffsets.Online.KosatkaStats
 local LesterLocate = ScriptOffsets.Online.LesterLocate
+local CEOVehicle = ScriptOffsets.Online.CEOVehicle
 
-local TuneRef = menu.ref_by_path('Vehicle>Los Santos Customs>Upgrade')
-local Settings = Bitfield.new(Bits.ExcludeSelf | Bits.ExcludeFriends)
+local Settings = pluto_new Bitfield(Bits.ExcludeSelf | Bits.ExcludeFriends)
 
 pluto_class Online
-    ScriptGlobal = S.ScriptGlobal
-    ScriptLocal = S.ScriptLocal
-    WriteByte = memory.write_byte
-    WriteShort = memory.write_short
-    WriteInt = memory.write_int
-    WriteFloat = memory.write_float
-    WriteString = memory.write_string
-    ReadByte = memory.read_byte
-    ReadShort = memory.read_short
-    ReadInt = memory.read_int
-    ReadFloat = memory.read_float
-    ReadString = memory.read_string
-
     function __construct(root)
-        self.root = root:list(T'Online', {T'ronline'}, T'Online')
-        self.fake_notifications = self.root:list(T'Fake Notifications', {T'rfakenotif'}, T'Fake Notifications')
-        self.services = self.root:list(T'Services', {T'rservices'}, T'Services')
-        self.trolling = self.root:list(T'Trolling', {T'rtrolling'}, T'Trolling')
-        self.spoofing = self.root:list(T'Spoofing', {T'rspoofing'}, T'Spoofing')
-        self.ghosting = self.root:list(T'Ghosting', {T'rghosting'}, T'Ghosting')
-        self.other = self.root:list(T'Other', {T'rother'}, T'Other')
-        self.toxic = self.root:list(T'Toxic', {T'rtoxic'}, T'Toxic')
-        self.casino = self.root:list(T'Casino', {T'rcasino'}, T'Casino')
+        self.root = root:list(T'Online', {T'ronline'}, '')
+        self.properties = {}
+        self.tune = menu.ref_by_path('Vehicle>Los Santos Customs>Upgrade')
 
-        self.beast_blip = nil
+        for k, v in pairs(S.PropertyIds) do table.insert(self.properties, k) end
+        self.properties = S:SortTable(self.properties, |a, b| -> a < b)
 
         self:CreateFakeNotifs()
         self:CreateServices()
-        self:CreateTrolling()
+        self:CreateOrganisation()
+        self:CreateBounty()
         self:CreateSpoofing()
         self:CreateGhosting()
         self:CreateOther()
-        self:CreateToxic()
         self:CreateCasino()
         self:CreateStoreHoldUps()
         self:CreateTaxiService()
+        self:CreateATM()
+        self:CreateCargo()
+
+        self.root:divider('')
+        self.root:toggle_loop(T'Anti-Ghosted', {}, T'Prevent other players from becoming ghosted to you', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    local entity = S.NewEntity(player.get_player_ped(pid))
+                    if entity:is_entity_a_ghost() then
+                        Network.SetBounty(pid, -1, true)
+                        util.yield_once()
+                        Network.SetBounty(pid, -1, false)
+                    end
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Block Passive Mode', {}, T'Prevent players from going passive', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    Network.SetBounty(pid, -1, true)
+                end
+            end
+        end, function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    Network.SetBounty(pid, -1, false)
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Display Players With BST', {}, T'Show all players that are using BST', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    local ped = player.get_player_ped(pid)
+                    local ptr = entities.handle_to_pointer(ped)
+                    if ptr ~= 0 then
+                        local player_info = entities.get_player_info(ptr)
+                        if player_info then
+                            local weapon_defense = memory.read_float(player_info + 0x0D60)
+                            if weapon_defense < 0.99 then
+                                util.draw_debug_text(players.get_name(pid) .. ' is using BST')
+                            end
+                        end
+                    end
+                end
+            end
+        end)
     end
 
     function CreateFakeNotifs()
+        self.fake_notifications = self.root:list(T'Fake Notifications', {T'rofakenotif'}, T'Fake Notifications')
         self.fake_notifications:divider(T'Settings')
-        self.fn_exclude_self = self.fake_notifications:toggle(T'Exclude Self', {T'notifsexcludeself'}, T'Exclude self from the fake notifications', function(state) 
-            if state then
-                Settings:Set(Bits.ExcludeSelf)
-            else
-                Settings:Clear(Bits.ExcludeSelf)
-            end
+        self.fn_exclude_me = self.fake_notifications:toggle(T'Exclude Self', {T'notifsexcludeself'}, T'Exclude self from the fake notifications', function(state) 
+            Settings:SetBool(Bits.ExcludeSelf, state)
         end, Settings:IsSet(Bits.ExcludeSelf))
 
         self.fn_exclude_friends = self.fake_notifications:toggle(T'Exclude Friends', {T'notifsexcludefriends'}, T'Exclude friends from the fake notifications', function(state) 
-            if state then
-                Settings:Set(Bits.ExcludeFriends)
-            else
-                Settings:Clear(Bits.ExcludeFriends)
-            end
+            Settings:SetBool(Bits.ExcludeFriends, state)
         end, Settings:IsSet(Bits.ExcludeFriends))
+        self.fake_notifications:divider('')
+
+        local mapping = {
+            { name = T'Register CEO', func = S.RegisterCEO, args = nil },
+            { name = T'Register MC', func = S.RegisterMC, args = nil },
+            { name = T'Register VIP', func = S.RegisterVIP, args = nil },
+            { name = T'Off Radar', func = S.OffRadar, args = nil },
+            { name = T'Ghost Organisation', func = S.GhostOrg, args = nil },
+            { name = T'Successfully Mugged', func = S.SuccessfullyMugged, args = { math.random(math.min_int, math.max_int) } },
+            { name = T'Mugger Killed', func = S.MuggerKilled, args = nil },
+            { name = T'Jammer Activated', func = S.JammerActivated, args = nil },
+            { name = T'Quit Org', func = S.QuitOrg, args = { players.user() } },
+            { name = T'Joined Org', func = S.JoinedOrg, args = { players.user() } },
+            { name = T'Marked For Death', func = S.MarkedForDeath, args = { players.user() } }
+        }
+
+        for mapping as data do
+            self.fake_notifications:toggle_loop(T(data.name), {}, '', function()
+                if data.args ~= nil then
+                    if data.name == T'Successfully Mugged' then data.args = { math.random(math.min_int, math.max_int) } end
+                    self:SendNotif(data.func, table.unpack(data.args))
+                else
+                    self:SendNotif(data.func)
+                end
+                util.yield(100)
+            end)
+        end
 
         self.fake_notifications:divider('')
 
-        self.fake_notifications:toggle_loop(T'Register CEO', {}, '', function()
-            self:SendNotification(S.RegisterCEO)
-            util.yield(100)
-        end)
+        for mapping as data do
+            self.fake_notifications:action(T(data.name), {}, '', function()
+                if data.args ~= nil then
+                    if data.name == T'Successfully Mugged' then data.args = { math.random(math.min_int, math.max_int) } end
+                    self:SendNotif(data.func, table.unpack(data.args))
+                else
+                    self:SendNotif(data.func)
+                end
+                util.yield(100)
+            end)
+        end
 
-        self.fake_notifications:toggle_loop(T'Register MC', {}, '', function()
-            self:SendNotification(S.RegisterMC)
-            util.yield(100)
-        end)
-
-        self.fake_notifications:toggle_loop(T'Register VIP', {}, '', function()
-            self:SendNotification(S.RegisterVIP)
-            util.yield(100)
-        end)
-
-        self.fake_notifications:toggle_loop(T'Off Radar', {}, '', function()
-            self:SendNotification(S.OffRadar)
-            util.yield(100)
-        end)
-
-        self.fake_notifications:toggle_loop(T'Ghost Organisation', {}, '', function()
-            self:SendNotification(S.GhostOrg)
-            util.yield(100)
-        end)
-
-        self.fake_notifications:toggle_loop(T'Fake Mugger', {}, '', function()
-            self:SendNotification(S.SuccessfullyMugged, math.random(S.MIN_INT, S.MAX_INT))
-            util.yield(100)
-        end)
-
-        self.fake_notifications:toggle_loop(T'Fake EWO', {}, '', function()
-            self:SendNotification(S.PlayerEwo)
-            util.yield(100)
-        end)
-
-        self.fake_notifications:toggle_loop(T'Fake Destroyed Vehicle Cargo', {}, '', function()
-            self:SendNotification(S.DestroyedVehicleCargo)
-            util.yield(100)
-        end)
-
-        self.fake_notifications:toggle_loop(T'Fake Ghosted', {}, '', function()
-            self:SendNotification(S.BecomeGhosted)
-            util.yield(100)
-        end)
+        mapped = nil
     end
 
     function CreateServices()
-        self.RequestBase = pluto_new S.SG(Globals.RequestBase)
-        self.AmPiMenuBase = pluto_new S.SG(Globals.AmPiMenuBase)
+        self.services = self.root:list(T'Services', {T'roservices'}, T'Services')
+        self.RequestBase = memory.script_global(Globals.RequestBase)
+        self.AmPiMenuBase = memory.script_global(Globals.AmPiMenuBase)
 
-        self.services:action(T'Request Nano Drone', {T'requestnanodrone'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('NanoDrone')
-        end)
-
-        self.services:action(T'Request RC Bandito', {T'requestbandito'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('RCBandito')
-        end)
-
-        self.services:action(T'Request RC Tank', {T'requesttank'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('RCTank')
-        end)
-
-        self.services:action(T'Request MOC', {T'requestmoc'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('MOC')
-        end)
-
-        self.services:action(T'Request Avenger', {T'requestavenger'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('Avenger')
-        end)
-
-        self.services:action(T'Request Acid Lab', {T'requestacidlab'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('AcidLab')
-        end)
-
-        self.services:action(T'Request Terrorbyte', {T'requestterrorbyte'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('Terrorbyte')
-        end)
-
-        self.services:action(T'Request Dinghy', {T'requestdinghy'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('Dinghy')
-        end)
-
-        self.services:action(T'Request Kosatka', {T'requestkosatka'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('Kosatka')
-        end)
-
-        self.services:action(T'Request Sparrow', {T'requestaprrow'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('Sparrow')
-        end)
-
-        self.services:action(T'Request Avisa', {T'requestavisa'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('Avisa')
-        end)
-
-        self.services:action(T'Request Ballistic Armor', {T'requestballisticarmor'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('BallisticArmor')
-        end)
-
-        self.services:action(T'Request Ammo Drop', {T'requestammodrop'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('AmmoDrop')
-        end)
-
-        self.services:action(T'Request Helicopter', {T'requestheli'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('Helicopter')
-        end)
-
-        self.services:action(T'Request Delivery Bike', {T'requestdeliverybike'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('DeliveryBike')
-        end)
-
-        self.services:action(T'Request Rat Bike', {T'requestratbike'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('RatBike')
-        end)
-
-        self.services:action(T'Request Avenger Thruster', {T'requestthruster'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('AvengerThruster')
-        end)
-
-        self.services:action(T'Request Airstrike', {T'requestairstrike'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('Airstrike')
-        end)
-
-        self.services:action(T'Request Backup Heli', {T'requestbackupheli'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('BackupHeli')
-        end)
-
-        self.services:action(T'Request Bullshark Testosterone', {T'requestbst'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('BST')
-        end)
-
-        self.services:action(T'Request Supplies', {T'requestsupplies'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('Supplies')
-        end)
-
-        self.services:action(T'Source Motorcycle', {T'sourcebike'}, 'It does something, the name probably tells you enough', function()
-            self:RequestService('SourceMotorcycle')
-        end)
+        for ({
+            { name = T'Request Nano Drone', func = self.RequestService, args = { self, T'NanoDrone' } },
+            { name = T'Request RC Bandito', func = self.RequestService, args = { self, T'RCBandito' } },
+            { name = T'Request RC Tank', func = self.RequestService, args = { self, T'RCTank' } },
+            { name = T'Request MOC', func = self.RequestService, args = { self, T'MOC' } },
+            { name = T'Request Avenger', func = self.RequestService, args = { self, T'Avenger' } },
+            { name = T'Request Acid Lab', func = self.RequestService, args = { self, T'AcidLab' } },
+            { name = T'Request Terrorbyte', func = self.RequestService, args = { self, T'Terrorbyte' } },
+            { name = T'Request Dinghy', func = self.RequestService, args = { self, T'Dinghy' } },
+            { name = T'Request Kosatka', func = self.RequestService, args = { self, T'Kosatka' } },
+            { name = T'Request Sparrow', func = self.RequestService, args = { self, T'Sparrow' } },
+            { name = T'Request Avisa', func = self.RequestService, args = { self, T'Avisa' } },
+            { name = T'Request Ballistic Armor', func = self.RequestService, args = { self, T'BallisticArmor' } },
+            { name = T'Request Ammo Drop', func = self.RequestService, args = { self, T'AmmoDrop' } },
+            { name = T'Request Helicopter', func = self.RequestService, args = { self, T'Helicopter' } },
+            { name = T'Request Delivery Bike', func = self.RequestService, args = { self, T'DeliveryBike' } },
+            { name = T'Request Rat Bike', func = self.RequestService, args = { self, T'RatBike' } },
+            { name = T'Request Avenger Thruster', func = self.RequestService, args = { self, T'AvengerThruster' } },
+            { name = T'Request Airstrike', func = self.RequestService, args = { self, T'Airstrike' } },
+            { name = T'Request Backup Heli', func = self.RequestService, args = { self, T'BackupHeli' } },
+            { name = T'Request Bullshark Testosterone', func = self.RequestService, args = { self, T'BST' } },
+            { name = T'Request Supplies', func = self.RequestService, args = { self, T'Supplies' } },
+            { name = T'Source Motorcycle', func = self.RequestService, args = { self, T'SourceMotorcycle' } }
+        }) as data do self.services:action(T(data.name), {T(data.name)}, '', function() data.func(table.unpack(data.args)) end) end
 
         self.services:divider('')
 
-        self.services:action(T'Return Sparrow', {T'returnsparrow'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnSparrow()
-        end)
-
-        self.services:action(T'Return Avisa', {T'returnavisa'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnAvisa()
-        end)
-
-        self.services:action(T'Return Avenger (Hangar)', {T'returnavengerhangar'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnAvenger('Hangar')
-        end)
-
-        self.services:action(T'Return Avenger (Facility)', {T'returnavengerfacility'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnAvenger('Facility')
-        end)
-
-        self.services:action(T'Return Avenger Thruster', {T'returnthruster'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnAvengerThruster()
-        end)
-
-        self.services:action(T'Return Delivery Bike', {T'returndeliverybike'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnDeliveryBike()
-        end)
-
-        self.services:action(T'Return Acid Lab', {T'returnacidlab'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnAcidLab()
-        end)
-
-        self.services:action(T'Return Kosatka', {T'returnkosatka'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnKosatka()
-        end)
-
-        self.services:action(T'Return Terrorbyte', {T'returnterrorbyte'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnTerrorbyte()
-        end)
-
-        self.services:action(T'Return MOC', {T'returnmoc'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnMOC()
-        end)
-
-        self.services:action(T'Return Rat Bike', {T'returnratbike'}, 'It does something, the name probably tells you enough', function()
-            self:ReturnRatBike()
-        end)
+        for ({
+            { name = T'Return Sparrow', func = S:Partial(self.ReturnSparrow, self) },
+            { name = T'Return Avisa', func = S:Partial(self.ReturnAvisa, self) },
+            { name = T'Return Avenger (Hangar)', func = S:Partial(self.ReturnAvenger, self, 'Hangar') },
+            { name = T'Return Avenger (Facility)', func = S:Partial(self.ReturnAvenger, self, 'Facility') },
+            { name = T'Return Avenger Thruster', func = S:Partial(self.ReturnAvengerThruster, self) },
+            { name = T'Return Delivery Bike', func = S:Partial(self.ReturnDeliveryBike, self) },
+            { name = T'Return Acid Lab', func = S:Partial(self.ReturnAcidLab, self) },
+            { name = T'Return Kosatka', func = S:Partial(self.ReturnKosatka, self) },
+            { name = T'Return Terrorbyte', func = S:Partial(self.ReturnTerrorbyte, self) },
+            { name = T'Return MOC', func = S:Partial(self.ReturnMOC, self) },
+            { name = T'Return Rat Bike', func = S:Partial(self.ReturnRatBike, self) }
+        }) as data do self.services:action(data.name, {data.name}, '', data.func) end
 
         self.services:divider('')
 
-        self.services:action(T'Locate Boat', {T'locateboat'}, 'It does something, the name probably tells you enough', function()
-            self:LesterLocate(LesterLocate.Boat)
-        end)
-
-        self.services:action(T'Locate Heli', {T'locateheli'}, 'It does something, the name probably tells you enough', function()
-            self:LesterLocate(LesterLocate.Heli)
-        end)
-
-        self.services:action(T'Locate Car', {T'locatecar'}, 'It does something, the name probably tells you enough', function()
-            self:LesterLocate(LesterLocate.Car)
-        end)
-
-        self.services:action(T'Locate Plane', {T'locateplane'}, 'It does something, the name probably tells you enough', function()
-            self:LesterLocate(LesterLocate.Plane)
-        end)
+        for ({
+            { name = T'Locate Boat', func = || -> self:LesterLocate(LesterLocate.Boat), desc = T'Get Lester to locate a boat' },
+            { name = T'Locate Heli', func = || -> self:LesterLocate(LesterLocate.Heli), desc = T'Get Lester to locate a helicopter' },
+            { name = T'Lester Car', func = || -> self:LesterLocate(LesterLocate.Car), desc = T'Get Lester to locate a car' },
+            { name = T'Locate Plane', func = || -> self:LesterLocate(LesterLocate.Plane), desc = T'Get Lester to locate a plane' }
+        }) as data do self.services:action(data.name, {data.name}, data.desc, data.func) end
 
         self.services:divider('')
 
-        self.services_pegasus = self.services:list(T'Pegasus Vehicles', {T'pegasusvehicles'}, 'It does something, the name probably tells you enough')
-        self.services_ceo_vehicles = self.services:list(T'CEO Vehicles', {T'ceovehicles'}, 'It does something, the name probably tells you enough')
+        self.pegasus = self.services:list(T'Pegasus', {T'ropegasus'}, T'Pegasus')
+        self.ceo = self.services:list(T'CEO', {T'roceo'}, T'CEO')
 
-        self.services_pegasus:text_input(T'Vehicle Model', {T'vehiclemodel'}, 'It does something, the name probably tells you enough', function(Model)
-            local Hash = util.joaat(Model)
-            self:RequestPegasusVehicle(Hash)
+        self.pegasus:text_input(T'Vehicle Model', {T'vehiclemodel'}, T'Enter the model name of the vehicle you want to request', function(model)
+            self:RequestPegasusVehicle(model:joaat())
         end, 'adder')
 
-        self.services_ceo_vehicles:text_input(T'Vehicle Model', {T'vehiclemodel'}, 'It does something, the name probably tells you enough', function(Model)
-            local Hash = util.joaat(Model)
-            self:RequestCEOVehicle(Hash)
+        self.ceo:text_input(T'Vehicle Model', {T'vehiclemodel'}, T'Enter the model name of the vehicle you want to request', function(model)
+            self:RequestCEOVehicle(model:joaat())
         end, 'adder')
 
-        self.pegasus_modellist = self.services_pegasus:list(T'Vehicle Model List', {T'vehiclemodellist'}, 'It does something, the name probably tells you enough')
-        self.ceo_modellist = self.services_ceo_vehicles:list(T'Vehicle Model List', {T'vehiclemodellist'}, 'It does something, the name probably tells you enough')
-        for VehModels as Model do
-            self.pegasus_modellist:action(Model, {}, Model, function()
-                local Hash = util.joaat(Model)
-                self:RequestPegasusVehicle(Hash)
+        self.pegasus_models = self.pegasus:list(T'Vehicle Models', {T'vehiclemodels'}, T'Vehicle Models')
+        self.ceo_models = self.ceo:list(T'Vehicle Models', {T'vehiclemodels'}, T'Vehicle Models')
+        for VehModels as model do
+            self.pegasus_models:action(model, {}, model, function()
+                self:RequestPegasusVehicle(model:joaat())
             end)
-
-            self.ceo_modellist:action(Model, {}, Model, function()
-                local Hash = util.joaat(Model)
-                self:RequestCEOVehicle(Hash)
+            self.ceo_models:action(model, {}, model, function()
+                self:RequestCEOVehicle(model:joaat())
             end)
         end
 
         self.services:divider('')
 
-        self.services:text_input(T'Rename Acid Lab', {T'renameacidlab'}, T'Rename your Acid Lab, what else?', function(Name)
-            self:RenameAcidLab(Name)
+        self.services:text_input(T'Rename Acid Lab', {T'rorenameacidlab'}, T'Rename your Acid Lab, what else?', function(name)
+            self:RenameAcidLab(name)
         end, self:GetAcidLabName())
 
-        self.money_remover = self.services:list(T'Money Remover', {T'moneyremover'}, T'Remove money')
-        self.money_remover_amount = self.money_remover:text_input(T'Amount', {T'moneyremoveramount'}, T'Amount to remove', function(amount)
-            
-        end, '1')
+        self.money_remover = self.services:list(T'Money Remover', {T'romoneyremover'}, T'Remove money')
+        self.money_remover_amount = self.money_remover:text_input(T'Amount', {T'moneyremoveramount'}, T'Amount to remove', function(amount) end, '1')
+    
+        self.money_remover:action(T'Remove', {T'roremovemoney'}, T'Remove money', function()
+            Network.RemoveMoney(tonumber(self.money_remover_amount.value))
+        end)
 
-        self.money_remover:action(T'Remove', {T'moneyremoverremove'}, T'Remove money', function()
-            local Amount = tonumber(self.money_remover_amount.value)
-            if Amount == nil then
-                Amount = 0
-            end
-            self.WriteInt(self.ScriptGlobal(Globals.SinRemoverTimer), 0)
-            self.WriteInt(self.ScriptGlobal(Globals.SinRemover), Amount)
+        self.money_remover:toggle_loop(T'Looped Remove', {T'roloopedremove'}, T'Looped money removal', function()
+            Network.RemoveMoney(tonumber(self.money_remover_amount.value))
         end)
     end
 
-    function CreateTrolling()
-        self.troll_bounty = self.trolling:list(T'Bounty', {T'rbounty'}, T'Anonymous undetectable unblockable bounties')
-        self.troll_organisation = self.trolling:list(T'Organisation', {T'rorganisation'}, T'Organisation options')
+    function CreateOrganisation()
+        self.organisation = self.root:list(T'Organisation', {T'roorganisation'}, T'Organisation')
+        self.organisation:toggle_loop(T'Random Name', {T'rorandomname'}, T'Randomise your organisation name', function()
+            Network.SetOrganisationName(S:RandomString(98))
+        end)
 
-        self.troll_bounty:divider('Settings')
-        self.bounty_amount = self.troll_bounty:text_input(T'Bounty', {T'rbountyamount'}, T'How much will someone get for killing the player?', function() end, '10000')
-        self.bounty_reward = self.troll_bounty:text_input(T'Reward', {T'rbountyreward'}, T'How much will the player get for killing someone? this will override the amount that the player will get (if you set a $1 bounty on someone and set the reward to $10000 they will get $10000 instead of $1)', function() end, '10000')
-        self.troll_bounty:divider('')
-        self.troll_bounty:action(T'Set Bounty', {}, T'Set a bounty on the entire session', function()
-            local Amount = tonumber(self.bounty_amount.value)
-            if Amount == nil then
-                Amount = 0
-            elseif Amount < 0 or Amount > 10000 then
-                Amount = 0
+        self.rename_org = self.organisation:text_input(T'Rename', {T'rorenameorg'}, T'', function(name)
+            Network.SetOrganisationName(name)
+        end, Network.GetOrganisationName())
+    end
+
+    function CreateBounty()
+        self.bounty = self.root:list(T'Bounty', {T'robounty'}, T'Bounty')
+        self.bounty:divider('Bounty Settings')
+        self.bounty_amount = self.bounty:text_input(T'Bounty', {T'robountyamount'}, T'How much will someone get for killing the player?', function() end, '10000')
+        self.bounty_reward = self.bounty:text_input(T'Reward', {T'robountyreward'}, T'How much will the player get for killing someone? this will override the amount that the player will get (if you set a $1 bounty on someone and set the reward to $10000 they will get $10000 instead of $1)', function() end, '10000')
+
+        self.bounty:divider('Trolling')
+        self.set_bounty = self.bounty:action(T'Set Bounty', {T'rosetbountyall'}, T'Set a bounty on the entire session', function()
+            local amount = tonumber(self.bounty_amount.value)
+            if amount < 0 or amount > 10000 or amount == nil then
+                amount = 0
             end
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    S:SetPlayerBounty(pid, 0, false)
-                    S:SetPlayerBounty(pid, Amount, true)
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    Network.SetBounty(pid, amount, true)
                 end
             end
         end)
 
-        self.troll_bounty:action(T'Remove Bounty', {}, T'Remove bounty from all players in the session', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    S:SetPlayerBounty(pid, 0, false)
+        self.bounty:toggle_loop(T'Loop Bounty', {}, T'Loop set bounties on the entire session', function()
+            self.set_bounty:trigger()
+        end)
+
+        self.bounty:toggle_loop(T'Set Bounty Reward', {T'rosetbountyall'}, T'Set the bounty reward for the entire session', function()
+            local amount = tonumber(self.bounty_amount.value)
+            if amount < 0 or amount > 10000 or amount == nil then
+                amount = 0
+            end
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    Network.SetBountyReward(pid, amount)
                 end
             end
         end)
 
-        self.troll_bounty:toggle_loop(T'Loop Bounty', {T'rbountyloop'}, T'Loop a bounty on the entire session', function()
-            local Amount = tonumber(self.bounty_amount.value)
-            if Amount == nil then
-                Amount = 0
-            elseif Amount < 0 or Amount > 10000 then
-                Amount = 0
+        self.bounty:toggle_loop(T'Max Bounty Reward', {T'romaxbountyreward'}, T'Set bounty reward to maximum for the entire session', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    Network.SetBountyReward(pid, 10000)
+                end
             end
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    S:SetPlayerBounty(pid, Amount, true)
-                    S:SetPlayerBountyReward(pid, Amount)
+        end)
+        
+        self.bounty:divider('Friendly')
+        self.bounty:action(T'Remove Bounty', {T'roremovebountyall'}, T'Remove bounty from entire session', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    Network.SetBounty(pid, 0, false)
                 end
             end
         end)
 
-        self.troll_bounty:divider('')
-        self.troll_bounty:toggle_loop(T'Set Bounty Reward', {T'rbountyrewardloop'}, T'Set a bounty reward on the entire session', function()
-            local Amount = tonumber(self.bounty_reward.value)
-            if Amount == nil then
-                Amount = 0
-            elseif Amount < 0 or Amount > 10000 then
-                Amount = 0
-            end
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    S:SetPlayerBountyReward(pid, Amount)
+        self.bounty:toggle_loop(T'Remove Bounty Reward', {T'roremovebountyrewardall'}, T'Remove bounty reward for the entire session', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    Network.SetBountyReward(pid, 0)
                 end
             end
         end)
 
-        self.troll_bounty:toggle_loop(T'Remove Bounty Reward', {T'rbountyrewardloop'}, T'Remove bounty reward from all players in the session', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    S:SetPlayerBountyReward(pid, 0)
-                end
-            end
-        end)
-
-        self.troll_bounty:toggle_loop(T'Max Bounty Reward', {T'rbountyrewardloop'}, T'Set a max bounty reward on the entire session', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    S:SetPlayerBountyReward(pid, 10000)
-                end
-            end
-        end)
-
-        self.troll_organisation:toggle_loop(T'Random Name', {}, T'Set your organisation name to something completely random', function()
-            local Name = self.ScriptGlobal(Globals.OrganisationBase)
-            self.WriteString(Name + 0x398, S:RandomOrgName(math.random(0, 98)))
-        end)
-
-        self.troll_organisation:toggle_loop(T'Random Player As Name', {}, T'Set your organisation name to a random player\'s name', function()
-            local Name = self.ScriptGlobal(Globals.OrganisationBase)
-            self.WriteString(Name + 0x398, players.get_name(S:GetRandomPlayer()))
-        end)
-
-        self.troll_organisation:text_input(T'Rename', {T'rrenameorg'}, T'', function(Name)
-            local OrgName = self.ScriptGlobal(Globals.OrganisationBase)
-            self.WriteString(OrgName + 0x398, Name)
-        end, self.ReadString(self.ScriptGlobal(Globals.OrganisationBase) + 0x398))
-
-        self.troll_organisation:action(T'Invite All', {}, T'Invite everyone to your organisation', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    local G = self.ScriptGlobal(Globals.OrganisationInvite)
-                    local EventArgs = {
-                        -245642440, PlayerID, 1975684956162, 10000, 5989921060705796097, 1, 0, 0, self.ReadInt(G), self.ReadInt(G + 0x8)
-                    }
-
-                    for pid = 0, S.MAX_PLAYERS do
-                        if pid ~= PlayerID then
-                            util.trigger_script_event(1 << pid, EventArgs)
-                        end
-                    end
-                end
-            end
-        end)
-
-        self.trolling:divider('')
-        self.trolling:toggle_loop(T'Anti-Ghosted', {}, T'Prevent anyone in the session from becoming ghosted to you (this will work on modders too)', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    if pid ~= PlayerID then
-                        local Ped = self.GetPlayerPed(pid)
-                        if self.IsEntityAGhost(Ped) then
-                            S:SetPlayerBounty(pid, -1, true)
-                            util.yield_once()
-                            S:SetPlayerBounty(pid, -1, false)
-                        end
-                    end
-                end
-            end
-        end)
-
-        self.trolling:toggle_loop(T'Block Passive Mode', {}, T'Prevent anyone in the session from going passive (this will work against modders too)', function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    if pid ~= PlayerID then
-                        if not S:PlayerHasBounty(pid) then
-                            S:SetPlayerBounty(pid, -1, true)
-                        end
-                    end
-                end
-            end
-        end,
-        function()
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    if pid ~= PlayerID then
-                        if S:PlayerHasBounty(pid) then
-                            S:SetPlayerBounty(pid, -1, false)
-                        end
-                    end
+        self.bounty:divider('Other')
+        self.bounty:toggle_loop(T'Display Bounties', {}, T'Display the bounties of the entire session', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    local bounty = Network.GetBounty(pid)
+                    util.draw_debug_text(players.get_name(pid) .. ': ' .. bounty.amount .. ' | ' .. ((Network.IsBountyModded(bounty.amount) and bounty.has_bounty) ? 'Modded' : 'Normal'))
                 end
             end
         end)
     end
 
     function CreateSpoofing()
-        self.interior_spoofing = self.spoofing:list(T'Interior Spoofing', {T'rinteriorspoofing'}, T'Interior Spoofing')
-        self.interior_choice = self.interior_spoofing:list_select(T'Interior', {T'interiorchoice'}, T'The interior to spoof to', Properties, 1, function(_) end)
-        self.interior_spoofing:action(T'Spoof Interior', {}, T'Spoof your current interior to something else', function()
-            local Interior = self.ScriptGlobal(Globals.Interior)
-            local Index = self.interior_choice.value
-            local InteriorID = S.Data.PropertyIds[Properties[Index]]
-            local CurrentInterior = self.ReadByte(Interior)
-            if CurrentInterior ~= -1 and CurrentInterior ~= InteriorID then
-                self.WriteByte(Interior, -1)
-                util.yield(1000)
-                self.WriteByte(Interior, InteriorID)
-            end 
-        end)
-
+        self.spoofing = self.root:list(T'Spoofing', {T'rospoofing'}, T'Spoofing')
         self.spoofing:action(T'Spoof Special Property Ownership', {}, T'Spoof ownership of special properties like Kosatka, Terrorbyte etc, this allows you to invite players to someone elses kosatka, terrorbyte', function()
-            self.WriteInt(self.ScriptGlobal(Globals.SpoofSpecialPropertyOwner), PlayerID)
+            Network.SpoofSpecialPropertyOwner(players.user())
         end)
 
-        self.hide_from_playerlist = self.spoofing:toggle(T'Hide From Player List', {}, T'Hide from the player list', function(state)
-            if state then
-                local G = self.ScriptGlobal(Globals.StatSpoofing)
-                util.create_tick_handler(function()
-                    if self.hide_from_playerlist.value == false then
-                        self.WriteByte(G + SpoofingOffsets.HideFromPlayerList, 9)
-                        return false
-                    end
-                    if self.ReadByte(G + SpoofingOffsets.HideFromPlayerList) ~= 8 then
-                        self.WriteByte(G + SpoofingOffsets.HideFromPlayerList, 8)
-                    end
-                end)
-            end
+        self.hide_from_player_list = self.spoofing:toggle_loop(T'Hide From Player List', {}, T'Hides you from the player list', function()
+            Network.HideFromPlayerList(true)
+        end, function()
+            Network.HideFromPlayerList(false)
         end)
 
-        self.stat_spoofing = self.spoofing:list(T'Stat Spoofing', {T'rstatspoofing'}, T'Stat Spoofing')
-        self.s_total_money = self.stat_spoofing:list(T'Total Money', {}, T'Spoof your total money')
-        self.s_total_wallet = self.stat_spoofing:list(T'Wallet Money', {}, T'Spoof your wallet money')
-        self.s_rp = self.stat_spoofing:list(T'RP', {}, T'Spoof your RP')
-        self.s_rank = self.stat_spoofing:list(T'Rank', {}, T'Spoof your rank')
-        self.s_playerkills = self.stat_spoofing:list(T'Player Kills', {}, T'Spoof your player kills')
-        self.s_playerdeaths = self.stat_spoofing:list(T'Player Deaths', {}, T'Spoof your player deaths')
-        self.s_kd = self.stat_spoofing:list(T'K/D', {}, T'Spoof your K/D')
-        self.s_is_badsport = self.stat_spoofing:list(T'Is Bad Sport', {}, T'Spoof your bad sport status')
-        self.s_is_cheater = self.stat_spoofing:list(T'Is Cheater', {}, T'Spoof your cheater status')
+        self.spoofing:divider('')
+        self.stats = self.spoofing:list(T'Stat Spoofing', {T'rostats'}, T'Stats')
+        self.stat_total_money = self.stats:list(T'Total Money', {}, T'Spoof your total money')
+        self.stat_total_wallet = self.stats:list(T'Wallet Money', {}, T'Spoof your wallet money')
+        self.stat_rp = self.stats:list(T'RP', {}, T'Spoof your RP')
+        self.stat_rank = self.stats:list(T'Rank', {}, T'Spoof your rank')
+        self.stat_playerkills = self.stats:list(T'Player Kills', {}, T'Spoof your player kills')
+        self.stat_playerdeaths = self.stats:list(T'Player Deaths', {}, T'Spoof your player deaths')
+        self.stat_kd = self.stats:list(T'K/D', {}, T'Spoof your K/D')
+        self.stat_is_badsport = self.stats:list(T'Is Bad Sport', {}, T'Spoof your bad sport status')
+        self.stat_is_cheater = self.stats:list(T'Is Cheater', {}, T'Spoof your cheater status')
 
-        local Amount = {
-            TotalMoney = 0,
-            WalletMoney = 0,
-            RP = 0,
-            Rank = 0,
-            PlayerKills = 0,
-            PlayerDeaths = 0,
-            KD = 0
-        }
-
-        self.s_total_money:toggle_loop(T'Enable', {}, T'Spoof your total money', function()
-            self.WriteInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.TotalMoney, Amount.TotalMoney)
+        self.stat_total_money:toggle_loop(T'Enable', {}, T'Enable total money spoofing', function()
+            Network.SpoofTotalMoney(tonumber(self.total_money.value))
         end)
 
-        self.s_total_money:text_input(T'Value', {T'rtotalmoneyval'}, '', function(Value)
-            Amount.TotalMoney = tonumber(Value)
-        end, self.ReadInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.TotalMoney))
+        self.total_money = self.stat_total_money:text_input(T'Total Money', {T'rosstotalmoney'}, T'Enter the total money you want to spoof', function() end, Network.StatsGetTotalMoney())
 
-        self.s_total_wallet:toggle_loop(T'Enable', {}, T'Spoof your wallet money', function()
-            self.WriteInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.Wallet, Amount.WalletMoney)
+        self.stat_total_wallet:toggle_loop(T'Enable', {}, T'Enable wallet money spoofing', function()
+            Network.SpoofWallet(tonumber(self.total_wallet.value))
         end)
 
-        self.s_total_wallet:text_input(T'Value', {T'rwalletmoneyval'}, '', function(Value)
-            Amount.WalletMoney = tonumber(Value)
-        end, self.ReadInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.Wallet))
+        self.total_wallet = self.stat_total_wallet:text_input(T'Wallet Money', {T'rosstotalwallet'}, T'Enter the wallet money you want to spoof', function() end, Network.StatsGetWallet())
 
-        self.s_rp:toggle_loop(T'Enable', {}, T'Spoof your RP', function()
-            self.WriteInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.RP, Amount.RP)
+        self.stat_rp:toggle_loop(T'Enable', {}, T'Enable RP spoofing', function()
+            Network.SpoofRP(tonumber(self.rp.value))
         end)
 
-        self.s_rp:text_input(T'Value', {T'rrpval'}, '', function(Value)
-            Amount.RP = tonumber(Value)
-        end, self.ReadInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.RP))
+        self.rp = self.stat_rp:text_input(T'RP', {T'rossrp'}, T'Enter the RP you want to spoof', function() end, Network.StatsGetRP())
 
-        self.s_rank:toggle_loop(T'Enable', {}, T'Spoof your rank', function()
-            self.WriteInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.RP, util.get_rp_required_for_rank(Amount.Rank))
-            self.WriteInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.Rank, Amount.Rank)
+        self.stat_rank:toggle_loop(T'Enable', {}, T'Enable rank spoofing', function()
+            Network.SpoofRank(tonumber(self.rank.value))
         end)
 
-        self.s_rank:text_input(T'Value', {T'rrankval'}, '', function(Value)
-            Amount.Rank = tonumber(Value)
-        end, self.ReadInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.Rank))
+        self.rank = self.stat_rank:text_input(T'Rank', {T'rossrank'}, T'Enter the rank you want to spoof', function() end, Network.StatsGetRank())
 
-        self.s_playerkills:toggle_loop(T'Enable', {}, T'Spoof your player kills', function()
-            self.WriteInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerKills, Amount.PlayerKills)
+        self.stat_playerkills:toggle_loop(T'Enable', {}, T'Enable player kills spoofing', function()
+            Network.SpoofKills(tonumber(self.playerkills.value))
         end)
 
-        self.s_playerkills:text_input(T'Value', {T'rplayerkillsval'}, '', function(Value)
-            Amount.PlayerKills = tonumber(Value)
-        end, self.ReadInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerKills))
+        self.playerkills = self.stat_playerkills:text_input(T'Player Kills', {T'rossplayerkills'}, T'Enter the player kills you want to spoof', function() end, Network.StatsGetKills())
 
-        self.s_playerdeaths:toggle_loop(T'Enable', {}, T'Spoof your player deaths', function()
-            self.WriteInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerDeaths, Amount.PlayerDeaths)
+        self.stat_playerdeaths:toggle_loop(T'Enable', {}, T'Enable player deaths spoofing', function()
+            Network.SpoofDeaths(tonumber(self.playerdeaths.value))
         end)
 
-        self.s_playerdeaths:text_input(T'Value', {T'rplayerdeathsval'}, '', function(Value)
-            Amount.PlayerDeaths = tonumber(Value)
-        end, self.ReadInt(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerDeaths))
+        self.playerdeaths = self.stat_playerdeaths:text_input(T'Player Deaths', {T'rossplayerdeaths'}, T'Enter the player deaths you want to spoof', function() end, Network.StatsGetDeaths())
 
-        self.s_kd:toggle_loop(T'Enable', {}, T'Spoof your K/D', function()
-            self.WriteFloat(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerKD, Amount.KD)
+        self.stat_kd:toggle_loop(T'Enable', {}, T'Enable K/D spoofing', function()
+            Network.SpoofKD(tonumber(self.kd.value))
         end)
 
-        self.s_kd:text_input(T'Value', {T'rkdval'}, '', function(Value)
-            Amount.KD = tonumber(Value)
-        end, self.ReadFloat(self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerKD))
+        self.kd = self.stat_kd:text_input(T'K/D', {T'rosskd'}, T'Enter the K/D you want to spoof', function() end, Network.StatsGetKD())
 
-        self.s_is_badsport:toggle_loop(T'Is Bad Sport', {}, T'Spoof your bad sport status (this does not fool GTAs network natives!)', function()
-            local g = self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
-            self.WriteByte(g, self.ReadByte(g) | Masks.IsBadSport)
+        self.stat_is_badsport:toggle_loop(T'Enable', {}, T'Enable bad sport spoofing', function()
+            Network.SpoofIsBadSport(true)
+        end, function()
+            Network.SpoofIsBadSport(false)
         end)
 
-        self.s_is_badsport:toggle_loop(T'Is Not Bad Sport', {}, T'Spoof your bad sport status (this does not fool GTAs network natives!)', function()
-            local g = self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
-            self.WriteByte(g, self.ReadByte(g) & ~Masks.IsBadSport)
+        self.stat_is_cheater:toggle_loop(T'Enable', {}, T'Enable cheater spoofing', function()
+            Network.SpoofIsCheater(true)
+        end, function()
+            Network.SpoofIsCheater(false)
         end)
 
-        self.s_is_cheater:toggle_loop(T'Is Cheater', {}, T'Spoof your cheater status (this does not fool GTAs network natives!)', function()
-            local g = self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
-            self.WriteByte(g, self.ReadByte(g) | Masks.IsCheater)
+        self:UpdateInteriorIndex()
+        self.interior_spoofing = self.spoofing:list(T'Interior Spoofing', {T'rointeriorspoofing'}, T'Interior Spoofing', function()
+            self:UpdateInteriorIndex()
+            self.interior_choice.value = self.interior_index
+        end)
+        self.interior_choice = self.interior_spoofing:list_select(T'Interior', {T'interiorchoice'}, T'The interior to spoof to', self.properties, self.interior_index, function(_) end)
+        self.interior_spoofing:divider('')
+        self.interior_spoofing:action(T'Spoof', {T'rospoofinterior'}, T'Spoof to the selected interior', function()
+            Network.SetInterior(S.PropertyIds[self.properties[self.interior_choice.value]])
         end)
 
-        self.s_is_cheater:toggle_loop(T'Is Not Cheater', {}, T'Spoof your cheater status (this does not fool GTAs network natives!)', function()
-            local g = self.ScriptGlobal(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
-            self.WriteByte(g, self.ReadByte(g) & ~Masks.IsCheater)
+        self.interior_spoofing:toggle_loop(T'Spoof', {T'roloopinteriorspoofing'}, T'Spoof to the selected interior (looped)', function()
+            Network.SetInterior(S.PropertyIds[self.properties[self.interior_choice.value]])
+        end)
+
+        self.interior_spoofing:toggle_loop(T'Random Spoof', {T'roloopinteriorspoofingrand'}, T'Spoof to random interiors constantly', function()
+            local rand = math.random(1, #self.properties)
+            Network.SetInterior(S.PropertyIds[self.properties[rand]])
+            util.yield(1000)
         end)
     end
 
     function CreateGhosting()
+        self.ghosting = self.root:list(T'Ghosting', {T'roghosting'}, T'Ghosting')
         self.ghosting:toggle(T'All Players', {}, T'Ghost all players in the session', function(state)
-            for pid = 0, S.MAX_PLAYERS do
-                if S:PlayerInList(pid) then
-                    self.SetRemotePlayerAsGhost(pid, state)
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    network.set_remote_player_as_ghost(pid, state)
                 end
             end
         end)
         self.ghosting:divider('')
 
         function H.GhostingLoop(pid, root)
-            local Name = players.get_name(pid)
-            if pid ~= PlayerID then
-                local Ref = menu.ref_by_rel_path(self.ghosting, Name)
-                if not Ref:isValid() then
-                    self.ghosting:toggle(Name, {}, T'Ghost this player', function(state)
-                        self.SetRemotePlayerAsGhost(pid, state)
+            local name = players.get_name(pid)
+            if pid ~= players.user() then
+                local ref = self.ghosting:refByRelPath(name)
+                if not ref:isValid() then
+                    self.ghosting:toggle(name, {T'roghost' .. name}, T'Ghost a player', function(state)
+                        network.set_remote_player_as_ghost(pid, state)
                     end)
                 end
             end
         end
 
         function H.GhostingRemovePlayer(pid, name)
-            if pid ~= PlayerID then
-                local Ref = menu.ref_by_rel_path(self.ghosting, name)
-                if Ref:isValid() then
-                    Ref:delete()
+            if pid ~= players.user() then
+                local ref = self.ghosting:refByRelPath(name)
+                if ref:isValid() then
+                    ref:delete()
                 end
             end
         end
     end
 
     function CreateOther()
-        self.other:action(T'Toast The Beast', {}, T'Toast the name of the player that is the beast in the event', function()
-            util.spoof_script('am_hunt_the_beast', function()
-                local Beast = self:FindTheBeast()
-                util.toast(players.get_name(Beast) .. ' is the beast')
+        self.other = self.root:list(T'Other', {T'roother'}, T'Other')
+        self.other:action(T'Toast The Beast', {}, T'Toast the player who is the beast within the hunt the beast event', function()
+            util.spoof_script(Globals.HuntTheBeast, function()
+                local beast = Network.GetTheBeast()
+                if beast ~= -1 then
+                    util.toast(players.get_name(beast) .. ' is the beast')
+                end
             end)
         end)
 
-        self.reveal_the_beast = self.other:toggle(T'Reveal The Beast', {}, T'Add a blip to the map for the player that is the beast', function(state)
-            if state then
-                util.create_tick_handler(function()
-                    if self.reveal_the_beast == false then
-                        util.remove_blip(self.beast_blip)
-                        return false
-                    end
-
-                    util.spoof_script('am_hunt_the_beast', function()
-                        local Beast = self:FindTheBeast()
-                        if self.beast_blip == nil then
-                            local Blip = self.AddBlipForEntity(self.GetPlayerPed(Beast))
-                            self.SetBlipSprite(Blip, 463)
-                            self.SetBlipColour(Blip, 7)
-                            self.SetBlipScale(Blip, 1.5)
-                            self.beast_blip = Blip
-                        end
-                    end)
-                end)
-            end
-        end)
-
-        self.quick_bail = self.other:action(T'Quick Bail', {}, T'Force yourself to bail from the session', function()
-            local g = self.ScriptGlobal(Globals.QuickBail)
-            self.WriteInt(g, 5)
-        end)
-    end
-
-    function CreateToxic()
-        self.toxic:action(T'Invite All (exclude friends)', {}, T'Send a corrupted invite to everyone in the session, anyone that accepts the invite will get a black screen', function()
-            self:SendInvite(true)
-        end)
-
-        self.toxic:action(T'Invite All (include friends)', {}, T'Send a corrupted invite to everyone in the session, anyone that accepts the invite will get a black screen', function()
-            self:SendInvite(false)
+        self.other:action(T'Quick Bail', {}, T'Force yourself to bail from the session', function()
+            memory.write_int(memory.script_global(Globals.QuickBail), 5)
         end)
     end
 
     function CreateCasino()
-        self.blackjack = self.casino:list(T'Blackjack', {}, '')
-        self.blackjack:toggle_loop(T'Show Dealer Cards', {}, T'Show the dealer cards', function(state)
-            util.spoof_script('blackjack', function()
-                local Dealer = self.ScriptLocal('blackjack', Globals.BlackjackDealerCards)
-                local Player = self.ScriptLocal('blackjack', Globals.BlackjackPlayerCards)
-                if Dealer ~= 0 and Player ~= 0 then
-                    local DealerCards = self.ReadInt(Dealer)
-                    local PlayerCards = self.ReadInt(Player)
-                    util.draw_debug_text('Dealer: ' .. DealerCards .. ' | Player: ' .. PlayerCards)
-                end
+        self.casino = self.root:list(T'Casino', {T'rocasino'}, T'Casino')
+        self.blackjack = self.casino:list(T'Blackjack', {T'rblackjack'}, T'Blackjack')
+        self.blackjack:toggle_loop(T'Show Dealer Cards', {}, T'Show the cards of the dealer (it also shows your cards)', function()
+            util.spoof_script(Globals.BJScript, function()
+                local dealer = memory.script_local(Globals.BJScript, Globals.BlackjackDealerCards)
+                local player = memory.script_local(Globals.BJScript, Globals.BlackjackPlayerCards)
+                local dealer_cards, player_cards = memory.read_byte(dealer), memory.read_byte(player)
+                util.draw_debug_text('Dealer: ' .. dealer_cards .. ' | Player: ' .. player_cards)
             end)
         end)
+
         self.blackjack:toggle_loop(T'Always Max Bet', {}, T'Always set your bet to max (bypasses limits on lower tables)', function()
-            util.spoof_script('blackjack', function()
-                local Bet = self.ScriptLocal('blackjack', Globals.BlackjackBetAmount)
-                if Bet ~= 0 then
-                    self.WriteInt(Bet, 55000)
-                end
-            end)
-        end)
-        self.inside_track = self.casino:list(T'Inside Track', {}, '')
-        self.inside_track:toggle_loop(T'Always Max Bet', {}, T'Always set your bet to max', function()
-            util.spoof_script('inside_track', function()
-                local Bet = self.ScriptLocal('inside_track', Globals.InsideTrackBetAmount)
-                if Bet ~= 0 then
-                    self.WriteInt(Bet, 55000)
-                end
+            util.spoof_script(Globals.BJScript, function()
+                local bet = memory.script_local(Globals.BJScript, Globals.BlackjackBetAmount)
+                memory.write_int(bet, 55000)
             end)
         end)
     end
 
+    function UpdateInteriorIndex()
+        local current_interior = Network.GetInterior()
+        self.interior_index = 1
+        for i = 1, #self.properties do
+            if S.PropertyIds[self.properties[i]] == current_interior then
+                self.interior_index = i
+                break
+            end
+        end
+    end
+
     function CreateStoreHoldUps()
-        self.store_holdups = self.root:list(T'Store Hold Ups', {}, '')
+        self.store_holdups = self.root:list(T'Store Holdups', {T'rostoreholdups'}, T'Store Holdups')
 
         self.force_robbery = self.store_holdups:action(T'Force Robbery', {}, T'Force a robbery when you are inside of a store', function()
-            local l = self.ScriptLocal('am_hold_up', Globals.HoldUpForceRobbery)
-            if l ~= 0 then
-                self.WriteInt(l, self.ReadInt(l) | Masks.HoldUpForceRobbery)
+            local store = memory.script_local(Globals.HoldUpScript, Globals.HoldUpForceRobbery)
+            if store ~= 0 then
+                memory.write_int(store, memory.bits:set(memory.read_int(store), Masks.HoldUpForceRobbery))
             end
         end)
 
         self.instant_finish_robbery = self.store_holdups:action(T'Instant Finish Robbery', {}, T'Instantly finish a robbery when you are inside of a store', function()
-            local l = self.ScriptLocal('am_hold_up', Globals.HoldUpForceRobbery)
-            local l1 = self.ScriptLocal('am_hold_up', Globals.HoldUpRobberySceneId)
-            if l ~= 0 and l1 ~= 0 then
-                self.WriteInt(l, self.ReadInt(l) | Masks.HoldUpForceRobbery)
-                local scene_id = self.ReadInt(l1)
+            local store = memory.script_local(Globals.HoldUpScript, Globals.HoldUpForceRobbery)
+            local scene = memory.script_local(Globals.HoldUpScript, Globals.HoldUpRobberySceneId)
+            if store ~= 0 and scene ~= 0 then
+                memory.write_int(store, memory.bits:set(memory.read_int(store), Masks.HoldUpForceRobbery))
+                local scene_id = memory.read_int(scene)
                 repeat
                     util.yield_once()
-                    scene_id = self.ReadInt(l1)
+                    scene_id = memory.read_int(scene)
                 until scene_id ~= -1
                 repeat
                     util.yield_once()
-                until self.IsSynchronizedSceneRunning(scene_id)
-                self.SetSynchronizedScenePhase(scene_id, 100.0)
+                until ped.is_synchronized_scene_running(scene_id)
+                ped.set_synchronized_scene_phase(scene_id, 100.0)
             end
         end)
     end
 
     function CreateTaxiService()
         local Script = Globals.TaxiScript
-        self.taxi = self.root:list(T'Taxi Service', {}, '')
+        self.taxi = self.root:list(T'Taxi Service', {T'rtaxi'}, T'Taxi Service')
 
         self.taxi:action(T'Instant Quit', {}, T'Instantly quit the taxi service', function()
-            if not SCRIPT_CAN_CONTINUE then return end
-            local l = self.ScriptLocal(Script, Globals.TaxiServiceInstantQuit)
-            if l ~= 0 then
-                self.WriteInt(l, 2)
+            local quit = memory.script_local(Script, Globals.TaxiServiceInstantQuit)
+            if quit ~= 0 then
+                memory.write_int(quit, 2)
             end
         end)
 
         self.taxi:text_input(T'Fare', {T'taxiservicefare'}, T'Set the fare for the taxi service', function(fare)
-            if not SCRIPT_CAN_CONTINUE then return end
-            local l = self.ScriptLocal(Script, Globals.TaxiServiceFare)
-            if l ~= 0 then
-                self.WriteInt(l, tonumber(fare))
+            local fare = memory.script_local(Script, Globals.TaxiServiceFare)
+            if fare ~= 0 then
+                memory.write_int(fare, tonumber(fare))
             end
         end)
 
         self.taxi:text_input(T'Tip', {T'taxiservicetip'}, T'Set the tip for the taxi service', function(tip)
-            if not SCRIPT_CAN_CONTINUE then return end
-            local l = self.ScriptLocal(Script, Globals.TaxiServiceTip)
-            if l ~= 0 then
-                self.WriteInt(l, tonumber(tip))
+            local tip = memory.script_local(Script, Globals.TaxiServiceTip)
+            if tip ~= 0 then
+                memory.write_int(tip, tonumber(tip))
             end
         end)
 
         self.taxi:toggle_loop(T'Disable Customer Salt', {}, T'Prevent the customer from getting mad at you and decreasing the tip, crashing will still cause the customer to get mad at you though!', function()
-            if not SCRIPT_CAN_CONTINUE then return end
-            local l = self.ScriptLocal(Script, Globals.TaxiServiceSaltTimerActive)
-            if l ~= 0 then
-                self.WriteInt(l, 0)
+            local salt = memory.script_local(Script, Globals.TaxiServiceSaltTimerActive)
+            if salt ~= 0 then
+                memory.write_int(salt, 0)
             end
         end)
 
         self.taxi:toggle_loop(T'Remove Fare', {}, T'Remove the fare', function()
-            if not SCRIPT_CAN_CONTINUE then return end
-            local l = self.ScriptLocal(Script, Globals.TaxiServiceFare)
-            if l ~= 0 then
-                self.WriteInt(l, 0)
+            local fare = memory.script_local(Script, Globals.TaxiServiceFare)
+            if fare ~= 0 then
+                memory.write_int(fare, 0)
             end
         end)
 
         self.taxi:toggle_loop(T'Remove Tip', {}, T'Remove the tip', function()
-            if not SCRIPT_CAN_CONTINUE then return end
-            local l = self.ScriptLocal(Script, Globals.TaxiServiceTip)
-            if l ~= 0 then
-                self.WriteInt(l, 0)
+            local tip = memory.script_local(Script, Globals.TaxiServiceTip)
+            if tip ~= 0 then
+                memory.write_int(tip, 0)
             end
         end)
 
         self.taxi:toggle_loop(T'Max Tip', {}, T'Set the tip to the maximum value', function()
-            if not SCRIPT_CAN_CONTINUE then return end
-            local l = self.ScriptLocal(Script, Globals.TaxiServiceFare)
-            local l1 = self.ScriptLocal(Script, Globals.TaxiServiceTip)
-            if l ~= 0 and l1 ~= 0 then
-                self.WriteInt(l, 0)
-                self.WriteInt(l1, 15000)
+            local fare = memory.script_local(Script, Globals.TaxiServiceFare)
+            local tip = memory.script_local(Script, Globals.TaxiServiceTip)
+            if fare ~= 0 and tip ~= 0 then
+                memory.write_int(fare, 0)
+                memory.write_int(tip, 15000)
             end
         end)
     end
 
-    function SendInvite(IncludeFriends)
-        for pid = 0, S.MAX_PLAYERS do
-            if S:PlayerInList(pid) then
-                if pid ~= PlayerID then
-                    if IncludeFriends then
-                        S:InteriorInvite(pid)
-                    else
-                        if not S:IsPlayerFriend(pid) then
-                            S:InteriorInvite(pid)
-                        end
-                    end
-                end
-            end
+    function CreateATM()
+        self.atm = self.root:list(T'ATM', {T'roatm'}, T'ATM')
+        self.atm:action(T'Deposit', {T'rtdepall'}, T'Deposits all money into your bank', || -> Network.TransferToBank())
+        self.atm:divider('')
+        self.atm:toggle_loop(T'Auto Deposit', {T'rtautodepall'}, T'Automatically deposit all money in your wallet to bank', || -> Network.TransferToBank())
+        self.atm:text_input(T'Deposit Amount', {T'rtdepamount'}, T'Amount of money to deposit into your bank from wallet', |amount| -> Network.TransferToBank(tonumber(amount)))
+    end
+
+    function CreateCargo()
+        self.cargo = self.root:list(T'Cargo', {T'rocargo'}, T'Cargo')
+        self.cargo:action(T'Instant Source Air Freight', {}, T'Instantly source cargo for air freight', function()
+            local source = memory.script_global(Globals.InstantSourceHangarCargo)
+            memory.write_int(source, memory.bits:toggle(memory.read_int(source), 1 << 9))
+            util.yield(800)
+            memory.write_int(source, memory.bits:toggle(memory.read_int(source), 1 << 9))
+        end)
+    end
+
+    function ReturnSparrow()
+        local stats = memory.script_global(Globals.KosatkaStatsBase)
+        local value = memory.read_byte(stats)
+        value = memory.bits:clear(value, KosatkaStats.ReturnSparrow)
+        memory.write_byte(stats, value)
+    end
+
+    function ReturnAvisa()
+        local stats = memory.script_global(Globals.KosatkaStatsBase)
+        local value = memory.read_byte(stats)
+        value = memory.bits:clear(value, KosatkaStats.ReturnAvisa)
+        memory.write_byte(stats, value) 
+    end
+
+    function ReturnAvenger(location)
+        local stats = memory.script_global(Globals.AvengerStatsBase)
+        local stats1 = stats - (4 << 3)
+        local value = memory.read_int(stats)
+        memory.write_int(stats, memory.bits:set(memory.read_int(stats), 1 << 20))
+        util.yield(10)
+        memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 20))
+        if location == 'Hangar' then
+            memory.write_int(stats1, memory.bits:clear(memory.read_int(stats1), 1 << 6))
+        elseif location == 'Facility' then
+            memory.write_int(stats1, memory.bits:set(memory.read_int(stats1), 1 << 6))
         end
+        memory.write_int(stats1, memory.bits:set(memory.read_int(stats), 1 << 3))
+        memory.write_int(stats, memory.bits:set(memory.read_int(stats), 1 << 16))
+        util.yield(10)
+        memory.write_int(stats1, memory.bits:clear(memory.read_int(stats), 1 << 3))
     end
 
-    function FindTheBeast()
-        for pid = 0, S.MAX_PLAYERS do
-            if S:PlayerInList(pid) then
-                if S:IsPlayerTheBeast(pid) then
-                    return pid
-                end
-            end
-        end
-
-        return nil
-    end
-
-    function RenameAcidLab(Name)
-        local Lab = self.ScriptGlobal(Globals.AcidLabName) 
-        self.WriteString(Lab, Name)
-    end
-    
-    function GetAcidLabName()
-        local Lab = self.ScriptGlobal(Globals.AcidLabName)
-        return self.ReadString(Lab)
-    end
-
-    function RequestCEOVehicle(VehicleHash)
-        local Request = self.ScriptGlobal(Globals.OrganisationBase + 10)
-        self.WriteInt(Request + 0x1F0, VehicleHash)
-        self.WriteByte(Request + 0x1E0, 1)
-    end
-
-    function RequestPegasusVehicle(VehicleHash)
-        -- credit to acjoker for finding the globals that made this possible
-        local Request = self.ScriptGlobal(Globals.PegasusRequest)
-        local Request1 = Request + 0x8
-    
-        self.WriteInt(Request1, VehicleHash)
-        self.WriteInt(Request, self.ReadInt(Request) ~ (1 << 7))
-        util.yield_once()
-        self.WriteInt(Request, self.ReadInt(Request) ~ (1 << 7))
-    end
-
-    function LesterLocate(bit)
-        local Lester = self.ScriptGlobal(Globals.LesterLocate)
-        self.WriteByte(Lester, self.ReadByte(Lester) ~ bit)
-        util.yield_once()
-        self.WriteByte(Lester, self.ReadByte(Lester) ~ bit)
-    end
-
-    function ReturnRatBike()
-        local blip = self.GetFirstBlipInfoId(348)
+    function ReturnAvengerThruster()
+        local blip = hud.get_first_blip_info_id(597)
         if blip ~= 0 then
-            local entity = self.GetBlipInfoIdEntityIndex(blip)
+            local entity = hud.get_blip_info_id_entity_index(blip)
             if entity ~= 0 then
+                entities.delete_by_handle(entity)
+            end
+        end
+    end
+
+    function ReturnDeliveryBike()
+        local blip = hud.get_first_blip_info_id(348)
+        if blip ~= 0 then
+            local entity = hud.get_blip_info_id_entity_index(blip)
+            if entity ~= 0 then
+                local stats = memory.script_global(Globals.AcidLabStatsBase)
+                memory.write_short(stats, memory.bits:clear(memory.read_short(stats), 1 << 6))
+                memory.write_short(stats, memory.bits:set(memory.read_short(stats), 0x300))
+                entities.delete_by_handle(entity)
+            end
+        end
+    end
+
+    function ReturnAcidLab()
+        local blip = hud.get_first_blip_info_id(840)
+        if blip ~= 0 then
+            local entity = hud.get_blip_info_id_entity_index(blip)
+            if entity ~= 0 then
+                local stats = memory.script_global(Globals.AcidLabStatsBase)
+                local stats1 = stats - 0x8
+                memory.write_int(stats1, memory.bits:set(memory.read_int(stats), 1 << 26))
+                memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 0))
+                memory.write_int(stats, memory.bits:set(memory.read_int(stats1), 0x100002))
+                entities.delete_by_handle(entity)
+            end
+        end
+    end
+
+    function ReturnKosatka()
+        local kosatka = memory.script_global(Globals.ReturnKosatka)
+        local kosatka1 = kosatka + 0x8
+        memory.write_byte(kosatka, 2)
+        memory.write_byte(kosatka1, 17)
+    end
+
+    function ReturnTerrorbyte()
+        local blip = hud.get_first_blip_info_id(632)
+        if blip ~= 0 then
+            local entity = hud.get_blip_info_id_entity_index(blip)
+            if entity ~= 0 then
+                local stats = memory.script_global(Globals.TerrorbyteStatsBase)
+                memory.write_int(stats, memory.bits:set(memory.read_int(stats), 0x18000090))
+                memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 11))
                 entities.delete_by_handle(entity)
             end
         end
@@ -889,191 +692,114 @@ pluto_class Online
 
     function ReturnMOC()
         -- credit to Acjoker for helping with figuring out how to return the MOC
-        local blip = self.GetFirstBlipInfoId(564)
+        local blip = hud.get_first_blip_info_id(564)
         if blip ~= 0 then
-            local entity = self.GetBlipInfoIdEntityIndex(blip)
-            if entity ~=- 0 then
-                local g = self.ScriptGlobal(2657704 + 1 + (PlayerID * 463) + 321)
-                self.WriteInt(g, self.ReadInt(g) | 0x100040)
-                self.WriteInt(g, self.ReadInt(g) & ~(1 << 5))
-                self.WriteInt(g + 0x8, self.ReadInt(g) & ~0x2100001)
-                self.WriteInt(g + 0x8, self.ReadInt(g) | (1 << 8))
-    
-                entities.delete_by_handle(entity)
-            end
-        end
-    end
-
-    function ReturnTerrorbyte()
-        local blip = self.GetFirstBlipInfoId(632)
-        if blip ~= 0 then
-            local entity = self.GetBlipInfoIdEntityIndex(blip)
+            local entity = hud.get_blip_info_id_entity_index(blip)
             if entity ~= 0 then
-                local g = self.ScriptGlobal(2657704 + 1 + (PlayerID * 463) + 321 + 3)
-                self.WriteInt(g, self.ReadInt(g) | 0x18000090)
-                self.WriteInt(g, self.ReadInt(g) & ~(1 << 11))
-    
-                entities.delete_by_handle(entity)
+                local stats = memory.script_global(Globals.MOCStatsBase)
+                local stats1 = stats + 0x8
+                memory.write_int(stats, memory.bits:set(memory.read_int(stats), 0x100040))
+                memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 5))
+                memory.write_int(stats1, memory.bits:clear(memory.read_int(stats), 0x2100001))
+                memory.write_int(stats1, memory.bits:clear(memory.read_int(stats), 1 << 8))
             end
         end
     end
 
-    function ReturnKosatka()
-        local ReturnKosatka = self.ScriptGlobal(Globals.ReturnKosatka)
-        self.WriteByte(ReturnKosatka, 2)
-        self.WriteByte(ReturnKosatka + 0x8, 17)
-    end
-
-    function ReturnAcidLab()
-        local blip = self.GetFirstBlipInfoId(840)
+    function ReturnRatBike()
+        local  blip = hud.get_first_blip_info_id(348)
         if blip ~= 0 then
-            local entity = self.GetBlipInfoIdEntityIndex(blip)
+            local entity = hud.get_blip_info_id_entity_index(blip)
             if entity ~= 0 then
-                local g = self.ScriptGlobal(2657704 + 1 + (PlayerID * 463) + 321 + 6)
-                local lab = self.ScriptGlobal(2657704 + 1 + (PlayerID * 463) + 321 + 5)
-                self.WriteInt(lab, self.ReadInt(lab) | (1 << 26))
-                self.WriteInt(g, self.ReadInt(g) & ~(1 << 0))
-                self.WriteInt(g, self.ReadInt(g) | 0x100002)
-    
                 entities.delete_by_handle(entity)
             end
         end
-    end
-
-    function ReturnDeliveryBike()
-        local blip = self.GetFirstBlipInfoId(348)
-        if blip ~= 0 then
-            local entity = self.GetBlipInfoIdEntityIndex(blip)
-            if entity ~= 0 then
-                local g = self.ScriptGlobal(2657704 + 1 + (PlayerID * 463) + 321 + 6)
-                self.WriteInt(g, self.ReadInt(g) & ~(1 << 6))
-                self.WriteInt(g, self.ReadInt(g) | 0x300)
-    
-                entities.delete_by_handle(entity)
-            end
-        end
-    end
-    
-
-    function ReturnAvengerThruster()
-        local blip = self.GetFirstBlipInfoId(597)
-        if blip ~= 0 then
-            local entity = self.GetBlipInfoIdEntityIndex(blip)
-            if entity ~=- 0 then
-                entities.delete_by_handle(entity)
-            end
-        end
-    end
-
-    function ReturnAvenger(ReturnLocation)
-        local g = self.ScriptGlobal(Globals.AvengerStatsBase)
-        self.WriteInt(g, self.ReadInt(g) | (1 << 20))
-        util.yield(10)
-        self.WriteInt(g, self.ReadInt(g) & ~(1 << 20))
-        self.WriteInt(g - (4 << 3), (ReturnLocation == 'Hangar') ? self.ReadInt(g - (4 << 3)) & ~(1 << 6) : self.ReadInt(g - (4 << 3)) | (1 << 6))
-        self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) | (1 << 3))
-        self.WriteInt(g, self.ReadInt(g) | (1 << 16))
-        util.yield(10)
-        self.WriteInt(g - (4 << 3), self.ReadInt(g - (4 << 3)) & ~(1 << 3))
-    end
-
-    function ReturnSparrow()
-        local Unlock = self.ScriptGlobal(Globals.KosatkaStatsBase)
-        local Stats = Bitfield.new(self.ReadByte(Unlock))
-        Stats:Clear(KosatkaStats.ReturnSparrow)
-        Stats(Unlock, 8)
-    end
-    
-    function ReturnAvisa()
-        local Unlock = self.ScriptGlobal(Globals.KosatkaStatsBase)
-        local Stats = Bitfield.new(self.ReadByte(Unlock))
-        Stats:Clear(KosatkaStats.ReturnAvisa)
-        Stats(Unlock, 8)
     end
 
     function RequestService(service)
         switch service do
             case 'NanoDrone':
-                local Drone = self.ScriptGlobal(Globals.RequestNanoDrone)
-                self.WriteInt(Drone, self.ReadInt(Drone) | Masks.RequestNanoDrone)
+                local drone = memory.script_global(Globals.RequestNanoDrone)
+                memory.write_int(drone, memory.read_int(drone) | Masks.RequestNanoDrone)
                 break
             case 'RCBandito':
-                self.RequestBase:Write(1, Offsets.Bandito)
+                memory.write_byte(self.RequestBase + Offsets.Bandito, 1)
                 break
             case 'RCTank':
-                self.RequestBase:Write(1, Offsets.Tank)
+                memory.write_byte(self.RequestBase + Offsets.Tank, 1)
                 util.yield(3500)
-                if TuneRef:isValid() then TuneRef:trigger() end
+                self.tune:trigger()
                 break
             case 'MOC':
-                self.RequestBase:Write(1, Offsets.MOC)
+                memory.write_byte(self.RequestBase + Offsets.MOC, 1)
                 break
             case 'Avenger':
-                self.RequestBase:Write(1, Offsets.Avenger)
+                memory.write_byte(self.RequestBase + Offsets.Avenger, 1)
                 break
             case 'AcidLab':
-                self.RequestBase:Write(1, Offsets.AcidLab)
+                memory.write_byte(self.RequestBase + Offsets.AcidLab, 1)
                 break
             case 'Terrorbyte':
-                self.RequestBase:Write(1, Offsets.Terrorbyte)
+                memory.write_byte(self.RequestBase + Offsets.Terrorbyte, 1)
                 break
             case 'Dinghy':
-                self.RequestBase:Write(1, Offsets.Dinghy)
+                memory.write_byte(self.RequestBase + Offsets.Dinghy, 1)
                 break
             case 'Kosatka':
-                self.RequestBase:Write(1, Offsets.Kosatka)
+                memory.write_byte(self.RequestBase + Offsets.Kosatka, 1)
                 break
             case 'Sparrow':
-                self.AmPiMenuBase:Write(1, Offsets.Sparrow)
+                memory.write_byte(self.AmPiMenuBase + Offsets.Sparrow, 1)
                 break
             case 'Avisa':
-                self.AmPiMenuBase:Write(1, Offsets.Avisa)
+                memory.write_byte(self.AmPiMenuBase + Offsets.Avisa, 1)
                 break
             case 'BallisticArmor':
-                self.RequestBase:Write(1, Offsets.BallisticArmor)
+                memory.write_byte(self.RequestBase + Offsets.BallisticArmor, 1)
                 break
             case 'AmmoDrop':
-                self.RequestBase:Write(1, Offsets.AmmoDrop)
+                memory.write_byte(self.RequestBase + Offsets.AmmoDrop, 1)
                 break
             case 'Helicopter':
-                self.RequestBase:Write(1, Offsets.Helicopter)
+                memory.write_byte(self.RequestBase + Offsets.Helicopter, 1)
                 break
             case 'DeliveryBike':
-                self.RequestBase:Write(1, Offsets.DeliveryBike)
+                memory.write_byte(self.RequestBase + Offsets.DeliveryBike, 1)
                 break
             case 'RatBike':
-                self.AmPiMenuBase:Write(1, Offsets.RatBike)
+                memory.write_byte(self.AmPiMenuBase + Offsets.RatBike, 1)
                 break
             case 'AvengerThruster':
-                self.AmPiMenuBase:Write(1, Offsets.AvengerThruster)
+                memory.write_byte(self.AmPiMenuBase + Offsets.AvengerThruster, 1)
                 break
             case 'Airstrike':
-                self.SetPackedStatBoolCode(8, true,CharSlot)
-                self.RequestBase:Write(1, Offsets.Airstrike)
+                stats.set_packed_stat_bool_code(8, true, util.get_char_slot())
+                memory.write_byte(self.RequestBase + Offsets.Airstrike, 1)
                 break
             case 'BackupHeli':
-                self.SetPackedStatBoolCode(11, true,CharSlot)
-                self.RequestBase:Write(1, Offsets.BackupHeli)
+                stats.set_packed_stat_bool_code(11, true, util.get_char_slot())
+                memory.write_byte(self.RequestBase + Offsets.BackupHeli, 1)
                 break
             case 'BST':
-                self.RequestBase:Write(1, Offsets.BST)
+                memory.write_byte(self.RequestBase + Offsets.BST, 1)
                 break
             case 'Supplies':
-                local Supplies = self.ScriptGlobal(Globals.RequestSupplies)
-                self.WriteShort(Supplies, self.ReadShort(Supplies) | Masks.RequestSupplies)
+                local supplies = memory.script_global(Globals.RequestSupplies)
+                memory.write_short(supplies, memory.read_short(supplies) | Masks.RequestSupplies)
                 break
             case 'SourceMotorcycle':
-                self.WriteByte(self.ScriptGlobal(Globals.SourceMotorcycle), 1)
+                memory.write_byte(memory.script_global(Globals.SourceMotorcycle), 1)
                 break
+
         end
     end
 
-    function SendNotification(func, ...)
-        for pid = 0, S.MAX_PLAYERS do
-            if S:PlayerInList(pid) then
-                if Settings:IsSet(Bits.ExcludeSelf) and pid == PlayerID then
+    function SendNotif(func, ...)
+        for pid = 0, players.max_players do
+            if S:PlayerExists(pid) then
+                if Settings:IsSet(Bits.ExcludeSelf) and pid == players.user() then
                     goto continue
-                elseif Settings:IsSet(Bits.ExcludeFriends) and S:IsPlayerFriend(pid) then
+                elseif Settings:IsSet(Bits.ExcludeFriends) and S:IsFriend(pid) then
                     goto continue
                 end
                 func(S, pid, ...)
@@ -1082,19 +808,38 @@ pluto_class Online
         end
     end
 
-    --[[void]] static function SetPackedStatBoolCode(--[[int]] index,--[[BOOL (bool)]] value,--[[int]] characterSlot)native_invoker.begin_call()native_invoker.push_arg_int(index)native_invoker.push_arg_bool(value)native_invoker.push_arg_int(characterSlot)native_invoker.end_call_2(0xDB8A58AEAA67CD07)end
-    --[[Blip (int)]] static function GetFirstBlipInfoId(--[[int]] blipSprite)native_invoker.begin_call()native_invoker.push_arg_int(blipSprite)native_invoker.end_call_2(0x1BEDE233E6CD2A1F)return native_invoker.get_return_value_int()end
-    --[[Entity (int)]] static function GetBlipInfoIdEntityIndex(--[[Blip (int)]] blip)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.end_call_2(0x4BA4E2553AFEDC2C)return native_invoker.get_return_value_int()end
-    --[[Ped (int)]] static function GetPlayerPed(--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.end_call_2(0x43A66C31C68491C0)return native_invoker.get_return_value_int()end
-    --[[BOOL (bool)]] static function IsEntityAGhost(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x21D04D7BC538C146)return native_invoker.get_return_value_bool()end
-    --[[Vehicle (int)]] static function NetToVeh(--[[int]] netHandle)native_invoker.begin_call()native_invoker.push_arg_int(netHandle)native_invoker.end_call_2(0x367B936610BA360C)return native_invoker.get_return_value_int()end
-    --[[void]] static function SetRemotePlayerAsGhost(--[[Player (int)]] player,--[[BOOL (bool)]] p1)native_invoker.begin_call()native_invoker.push_arg_int(player)native_invoker.push_arg_bool(p1)native_invoker.end_call_2(0xA7C511FA1C5BDA38)end
-    --[[Blip (int)]] static function AddBlipForEntity(--[[Entity (int)]] entity)native_invoker.begin_call()native_invoker.push_arg_int(entity)native_invoker.end_call_2(0x5CDE92C702A8FCE7)return native_invoker.get_return_value_int()end
-    --[[void]] static function SetBlipSprite(--[[Blip (int)]] blip,--[[int]] spriteId)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_int(spriteId)native_invoker.end_call_2(0xDF735600A4696DAF)end
-    --[[void]] static function SetBlipScale(--[[Blip (int)]] blip,--[[float]] scale)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_float(scale)native_invoker.end_call_2(0xD38744167B2FA257)end
-    --[[void]] static function SetBlipNameToPlayerName(--[[Blip (int)]] blip,--[[Player (int)]] player)native_invoker.begin_call()native_invoker.push_arg_int(blip)native_invoker.push_arg_int(player)native_invoker.end_call_2(0x127DE7B20C60A6A3)end
-    --[[BOOL (bool)]] static function IsSynchronizedSceneRunning(--[[int]] sceneId)native_invoker.begin_call()native_invoker.push_arg_int(sceneId)native_invoker.end_call_2(0x25D39B935A038A26)return native_invoker.get_return_value_bool()end
-    --[[void]] static function SetSynchronizedScenePhase(--[[int]] sceneID,--[[float]] phase)native_invoker.begin_call()native_invoker.push_arg_int(sceneID)native_invoker.push_arg_float(phase)native_invoker.end_call_2(0x734292F4F0ABF6D0)end
+    function LesterLocate(bit)
+        local lester = memory.script_global(Globals.LesterLocate)
+        memory.write_byte(lester, memory.bits:toggle(memory.read_byte(lester), bit))
+        util.yield_once()
+        memory.write_byte(lester, memory.bits:toggle(memory.read_byte(lester), bit))
+    end
+
+    function RequestPegasusVehicle(hash)
+        -- credit to acjoker for finding the globals that made this possible
+        if not streaming.is_model_valid(hash) then util.toast('Invalid model hash') return end
+        local request = memory.script_global(Globals.PegasusRequest)
+        local request1 = request + 0x8
+        memory.write_int(request1, hash)
+        memory.write_byte(request, memory.bits:toggle(memory.read_byte(request), 1 << 7))
+        util.yield_once()
+        memory.write_byte(request, memory.bits:toggle(memory.read_byte(request), 1 << 7))
+    end
+
+    function RequestCEOVehicle(hash)
+        if not streaming.is_model_valid(hash) then util.toast('Invalid model hash') return end
+        local request = memory.script_global(Globals.OrganisationBase + 10)
+        memory.write_int(request + CEOVehicle.VehicleHash, hash)
+        memory.write_byte(request + CEOVehicle.Request, 1)
+    end
+
+    function RenameAcidLab(name)
+        memory.write_string(memory.script_global(Globals.AcidLabName), name)
+    end
+    
+    function GetAcidLabName()
+        return memory.read_string(memory.script_global(Globals.AcidLabName))
+    end
 end
 
 return Online

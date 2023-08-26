@@ -23,5 +23,3 @@ When you run the script all the files that are needed will be downloaded for you
 ## Support
 
 Discord Server: [https://discord.gg/tqZj5B5tah](https://discord.gg/)
-
-## THIS SCRIPT IS NO LONGER BEING MAINTAINED

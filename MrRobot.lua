@@ -35,7 +35,7 @@ pluto_class MrRobot
         'translations', 'handler', 'entity', 'vehicle_handling', 'pedlist',
         'vehicle_models', 'cutscenes', 'weapons_list', 'offsets', 'masks',
         'script_globals', 'shared', 'network', 'vehicle', 'zone_info', 'notifications',
-        'gate_manager'
+        'door_manager'
     }
     libs = {
         'inspect', 'bitfield', 'bit', 'math'

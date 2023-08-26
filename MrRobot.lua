@@ -309,6 +309,13 @@ pluto_class MrRobot
         }) as key do
             _G[key:lower()] = setmetatable(_G[key], meta)
         end
+
+        -- patch for latest stand update
+        ENTITY.SET_ENTITY_HEALTH = (function(func)
+            return function(ent, health)
+                return func(ent, health, 0)
+            end
+        end)(ENTITY.SET_ENTITY_HEALTH)
     end
 
     function LoadModule(name)
@@ -348,7 +355,7 @@ pluto_class MrRobot
     end
 end
 
-local MrRobot = pluto_new MrRobot('2.0.0', '1.67')
+local MrRobot = pluto_new MrRobot('2.0.1', '1.67')
 MrRobot:FixMissingFiles()
 MrRobot:Requires()
 MrRobot:CheckForUpdates()

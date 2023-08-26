@@ -22,6 +22,7 @@ pluto_class Entity
                 end
             end
 
+            local mt = getmetatable(self)
             local f = ENTITY[key] or PED[key] or WEAPON[key] or FIRE[key] or TASK[key] or NETWORK[key] or nil
             local f_type = type(f)
 
@@ -43,7 +44,7 @@ pluto_class Entity
             else
                 local m = getmetatable(self)
                 for k, v in pairs(m) do
-                    if k:lower() == key:gsub('_', ''):lower() then
+                    if k:lower() == key:lower() then
                         return v
                     end
                 end
@@ -71,6 +72,10 @@ pluto_class Entity
 
     function IsPlayer()
         return self:IS_PED_A_PLAYER()
+    end
+
+    function set_entity_health(ent, health)
+        ENTITY.SET_ENTITY_HEALTH(ent, health, 0)
     end
 end
 

@@ -297,7 +297,7 @@ pluto_class SelfOptions
 
             if state then
                 util.create_tick_handler(function()
-                    if not self.beast_mode then
+                    if not self.beast_mode.value then
                         return false
                     end
                     localplayer:set_entity_health(math.max_int)

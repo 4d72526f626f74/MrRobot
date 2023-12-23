@@ -36,6 +36,11 @@ pluto_class Agency
                 util.yield_once()
             until memory.read_int(memory.script_global(Globals.AgencySafeValue)) == 0
         end)
+
+        self.display_money = self.safe:toggle_loop(T'Safe Value', {}, T'Shows how much money you have in your safe', function()
+            local money = memory.read_int(memory.script_global(Globals.AgencySafeValue))
+            util.draw_debug_text($'Agency Safe: ${money}')
+        end)
     end
 
 

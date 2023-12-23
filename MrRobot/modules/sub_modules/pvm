@@ -270,9 +270,10 @@ pluto_class PVM
             local mask = VehicleBitfield.Destroyed | VehicleBitfield.Impounded
             memory.write_short(self.pvslot, slot)
 
-            if bitfield & mask == VehicleBitfield.Destroyed or bitfield & mask == VehicleBitfield.Impounded then
+            if bitfield & mask ~= 0 then
                 memory.write_int(addr + Offsets.VehicleBitfield, memory.bits:clear(bitfield, mask))
-             end
+            end
+            util.yield(50)
             memory.write_int(addr + Offsets.VehicleBitfield, memory.bits:set(bitfield, VehicleBitfield.Request))
             util.yield(200)
 
@@ -308,6 +309,24 @@ pluto_class PVM
             if not SCRIPT_CAN_CONTINUE then return end
             memory.write_short(self.pvslot, slot)
             memory.write_int(addr + Offsets.VehicleBitfield, memory.bits:clear(bitfield, VehicleBitfield.Active))
+        end)
+
+        pv:action(T'Instant Deliver', {T'pvm' .. slot .. T'instdeliver'}, '', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_short(self.pvslot, slot)
+            memory.write_int(addr + Offsets.VehicleBitfield, memory.bits:set(bitfield, VehicleBitfield.Delivered))
+        end)
+
+        pv:action(T'Instant Claim', {T'pvm' .. slot .. T'claim'}, '', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_short(self.pvslot, slot)
+            memory.write_int(addr + Offsets.VehicleBitfield, memory.bits:clear(bitfield, VehicleBitfield.Destroyed | VehicleBitfield.Impounded))
+        end)
+
+        pv:action(T'Retrieve From Impound', {T'pvm' .. slot .. T'impound'}, '', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            memory.write_short(self.pvslot, slot)
+            memory.write_int(addr + Offsets.VehicleBitfield, memory.bits:clear(bitfield, VehicleBitfield.Impounded))
         end)
 
         pv:divider('')
@@ -348,7 +367,7 @@ pluto_class PVM
         end
 
         local lsc
-        lsc = pv:list(T'Los Santos Customs', {T'pvm' .. slot .. 'lsc'}, '', function()
+        lsc = pv:list(T'Los Santos Customs', {T'pvm' .. slot .. 'lsc'}, 'WARNING: Still needs updated', function()
             if lsc:isValid() then
                 for lsc:getChildren() as child do
                     if child:isValid() then

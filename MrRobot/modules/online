@@ -5,6 +5,7 @@ local Globals = require('script_globals')
 local ScriptOffsets = require('offsets')
 local Masks = require('masks')
 local Network = require('network')
+local Notifications = require('notifications')
 
 local Bits = ScriptOffsets.Online.Bits
 local VehicleOffsets = ScriptOffsets.Vehicles.LSCustoms
@@ -12,6 +13,7 @@ local Offsets = ScriptOffsets.Online.RequestOffsets
 local KosatkaStats = ScriptOffsets.Online.KosatkaStats
 local LesterLocate = ScriptOffsets.Online.LesterLocate
 local CEOVehicle = ScriptOffsets.Online.CEOVehicle
+local SettingsBits = S.SettingsBits
 
 local Settings = pluto_new Bitfield(Bits.ExcludeSelf | Bits.ExcludeFriends)
 
@@ -33,9 +35,10 @@ pluto_class Online
         self:CreateOther()
         self:CreateCasino()
         self:CreateStoreHoldUps()
-        self:CreateTaxiService()
+        --self:CreateTaxiService()
         self:CreateATM()
         self:CreateCargo()
+        self:CreateMoney()
 
         self.root:divider('')
         self.root:toggle_loop(T'Anti-Ghosted', {}, T'Prevent other players from becoming ghosted to you', function()
@@ -199,11 +202,11 @@ pluto_class Online
         self.pegasus = self.services:list(T'Pegasus', {T'ropegasus'}, T'Pegasus')
         self.ceo = self.services:list(T'CEO', {T'roceo'}, T'CEO')
 
-        self.pegasus:text_input(T'Vehicle Model', {T'vehiclemodel'}, T'Enter the model name of the vehicle you want to request', function(model)
+        self.pegasus:text_input(T'Vehicle Model', {T'pegasusvehiclemodel'}, T'Enter the model name of the vehicle you want to request', function(model)
             self:RequestPegasusVehicle(model:joaat())
         end, 'adder')
 
-        self.ceo:text_input(T'Vehicle Model', {T'vehiclemodel'}, T'Enter the model name of the vehicle you want to request', function(model)
+        self.ceo:text_input(T'Vehicle Model', {T'ceovehiclemodel'}, T'Enter the model name of the vehicle you want to request', function(model)
             self:RequestCEOVehicle(model:joaat())
         end, 'adder')
 
@@ -591,12 +594,117 @@ pluto_class Online
     end
 
     function CreateCargo()
+        self.crates_amount = nil
+        local cargo_amount = 50
+        local crate_type = 0
         self.cargo = self.root:list(T'Cargo', {T'rocargo'}, T'Cargo')
-        self.cargo:action(T'Instant Source Air Freight', {}, T'Instantly source cargo for air freight', function()
+
+        self.cargo:list_select(T'Crate Type', {T'rocargotype'}, T'The type of crate to source', {
+            'Animal Materials',
+            'Art & Antiques',
+            'Chemicals',
+            'Counterfeit Goods',
+            'Jewelry & Gemstones',
+            'Medical Supplies',
+            'Narcotics',
+            'Tobacco & Alcohol',
+            'Cargo'
+        }, 1, function(index)
+            crate_type = index - 1
+        end)
+
+        self.cargo:text_input(T'Crates', {T'rocargoamount'}, T'Amount of cargo to source', function(amount) 
+            cargo_amount = amount
+        end, '50')
+        self.cargo:toggle_loop(T'Display Crates', {T'rodisplaycrates'}, T'Display the amount of crates in your hangar', function()
+            local total_crates = memory.script_global(Globals.HangarTotalCargo)
+            util.draw_debug_text($'Crates: {memory.read_int(total_crates)}')
+        end)
+        self.cargo:divider('')
+
+        self.cargo:action(T'Instant Source', {}, T'Instantly source cargo for air freight', function()
             local source = memory.script_global(Globals.InstantSourceHangarCargo)
-            memory.write_int(source, memory.bits:toggle(memory.read_int(source), 1 << 9))
-            util.yield(800)
-            memory.write_int(source, memory.bits:toggle(memory.read_int(source), 1 << 9))
+            local total_crates = memory.script_global(Globals.HangarCratesToSource)
+            local cargo_type = memory.script_global(Globals.HangarCrateType)
+            local total_cargo = memory.script_global(Globals.HangarTotalCargo)
+
+            if (memory.read_int(total_cargo) < 50) then
+                memory.write_int(total_crates, cargo_amount)
+                memory.write_int(cargo_type, crate_type)
+                memory.write_int(source, memory.bits:toggle(memory.read_int(source), 1 << 9))
+                util.yield(800)
+                memory.write_int(source, memory.bits:toggle(memory.read_int(source), 1 << 9))
+            else
+                Notifications.Show('Your hangar is full, unable to source more cargo', 'Air Freight', '', Notifications.HUD_COLOUR_REDDARK)
+            end
+        end)
+
+        self.cargo:action(T'Launch App', {T'roappsmugler'}, T'Remotely open air freight internt application', function()
+            S:StartNewScript(Globals.AppSmuggler)
+        end)
+    end
+
+    function CreateMoney()
+        self.money = self.root:list(T'Money (RISKY)', {T'romoney'}, T'Money')
+        self.money.visible = false
+        table.insert(S.RiskyRefs, self.money)
+
+        local cayo = self.money:list(T'Cayo Perico', {}, T'Money from cayo perico heist')
+        local casino = self.money:list(T'Casino', {}, T'Money from casino heist')
+
+        cayo:action(T'Maximum (2.55M)', {}, T'Get the maximum amount of money that you can get from the heist', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_ISLAND_HEIST_FINALE'), 2550000)
+        end)
+
+        cayo:action(T'Legit (900K - 1.9M)', {}, T'Get a reasonable amount of money from the heist that seems more legit', function()
+            local choices = {900000, 1000000, 1100000, 1300000, 1900000}
+            local choice = choices[math.random(#choices)]
+            local amount = choice - (choice * 0.12000000000000001)
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_ISLAND_HEIST_FINALE'), amount)
+        end)
+
+        casino:action(T'Maximum (3.55M)', {}, T'Get the maximum amount of money that you can get from the heist', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_CASINO_HEIST_FINALE'), 3550000)
+        end)
+
+        casino:toggle_loop(T'Member Bonus Loop (5K Chips)', {}, '', function()
+            memory.write_byte(memory.script_global(Globals.CasinoChips), 1)
+            util.yield_once()    
+        end)
+
+        self.money:divider('')
+        self.money:action(T'Criminal Mastermind (15M)', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_JOB_BONUS_CRIMINAL_MASTERMIND'), 15000000)
+        end)
+
+        self.money:action(T'180K', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_JOBS'), 180000)
+        end)
+
+        self.money:action(T'200K', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_COLLECTABLE_COMPLETED_COLLECTION'), 200000)
+        end)
+
+        self.money:action(T'680K', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_BETTING'), 680000)
+        end)
+
+        self.money:action(T'25K', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_AMBIENT_JOB_SMUGGLER_PLANE'), 25000)
+        end)
+
+        self.money:divider('')
+
+        self.money:toggle_loop(T'180K Loop', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_JOBS'), 180000)
+        end)
+
+        self.money:toggle_loop(T'200K Loop', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_COLLECTABLE_COMPLETED_COLLECTION'), 200000)
+        end)
+
+        self.money:toggle_loop(T'680K Loop', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_BETTING'), 680000)
         end)
     end
 

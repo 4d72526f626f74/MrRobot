@@ -36,18 +36,18 @@ pluto_class Contacts
         self.root:divider('')
 
         self.root:action(T'Fix Phone', {}, T'Fixes your phone if calling someone doesn\'t work (usually results in phone and interaction menu being un-usable)', function()
-            memory.write_int(memory.script_global(20500 + 1), 0)
-            memory.write_int(memory.script_global(20500 + 2), 0)
+            memory.write_int(memory.script_global(20813 + 1), 0) -- Global_20813.f_1
+            memory.write_int(memory.script_global(20813 + 2), 0)
         end)
     end
 
     function Call(contact)
-        memory.write_int(memory.script_global(22868), 0)
-        memory.write_int(memory.script_global(22866), 0)
+        memory.write_int(memory.script_global(23189), 0)
+        memory.write_int(memory.script_global(23189), 0)
         util.yield_once()
-        memory.write_int(memory.script_global(7685), contact)
-        memory.write_int(memory.script_global(20500 + 1), 10)
-        memory.write_int(memory.script_global(20500 + 2), 6)
+        memory.write_int(memory.script_global(7998), contact)
+        memory.write_int(memory.script_global(20813 + 1), 10)
+        memory.write_int(memory.script_global(20813 + 2), 6)
     end
 end
 

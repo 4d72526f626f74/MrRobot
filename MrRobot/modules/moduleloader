@@ -144,7 +144,7 @@ pluto_class ModuleLoader
                     local author = m.author
 
                     self.module_repo:action(tostring(name), {}, 'Author: ' .. author .. '\nVersion: ' .. version, function()
-                        async_http.init('sodamnez.xyz', '/Stand/MrRobot/ModulesRepository/' .. name, function(body, headers, status_code)
+                        async_http.init('stnad.sodamnez.xyz', '/MrRobot/ModulesRepository/' .. name, function(body, headers, status_code)
                             if status_code == 200 then
                                 local fp <close> = assert(io.open(script_custom .. '/' .. name, 'wb'))
                                 fp:write(body)

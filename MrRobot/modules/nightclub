@@ -51,6 +51,11 @@ pluto_class Nightclub
                 util.yield(1000)
             end
         end)
+
+        self.display_money = self.nightclub:toggle_loop(T'Safe Value', {}, T'Shows how much money you have in your safe', function()
+            local money = memory.read_int(memory.script_global(Globals.NightclubSafeValue))
+            util.draw_debug_text($'Nightclub Safe: ${money}')
+        end)
     end
 
     function CreateNC()
@@ -80,7 +85,10 @@ pluto_class Nightclub
 
         self.root:action(T'Bypass Setup', {}, 'Bypass setup missions in your nightclub', function()
             if SCRIPT_CAN_CONTINUE then
-                self:BypassNightclubSetup()
+                --self:BypassNightclubSetup() seems to be a weird bug where the function is nil but defined
+                local char_slot = util.get_char_slot()
+                for self.nightclub_setups as setup do stats.set_packed_stat_bool_code(setup, true, char_slot) end
+                S:NewSessionMsg()
             end
         end)
 

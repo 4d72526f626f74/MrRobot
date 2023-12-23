@@ -1,5 +1,8 @@
 local T, S = require('translations'), require('shared')
 local WeaponsList = require('weapons_list')
+local ScriptOffsets = require('offsets')
+
+local SpecialAmmoType = ScriptOffsets.Weapons.SpecialAmmoType
 
 local sns_ammo_types = {'Default Clip', 'Extended Clip', 'Tracer', 'Incendiary', 'Hollow Point', 'FMJ'}
 local heavy_revolver_types = {'Default Clip', 'Tracer', 'Incendiary', 'Hollow Point', 'FMJ'}

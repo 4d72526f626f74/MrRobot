@@ -12,6 +12,7 @@ local Bits = ScriptOffsets.Self.Bits
 local Settings = pluto_new Bitfield(100)
 local VehicleBitfield = ScriptOffsets.Vehicles.VehicleBitfield
 local VehicleData = ScriptOffsets.Vehicles.LSCustoms
+local SpecialAmmoType = ScriptOffsets.Weapons.SpecialAmmoType
 
 local suicide_ref = menu.ref_by_path('Self>Suicide')
 
@@ -401,24 +402,25 @@ pluto_class SelfOptions
             Network.ToggleOutOfSight(false)
         end)
 
-        self.base = memory.scan('')
-        self.cops_ignore_crimes = self.root:toggle(T'Cops Ignore Crimes', {}, T'Crimes do not increase your wanted level, instead they make it disappear if you have one', function(state)
-            if not SCRIPT_CAN_CONTINUE then return end
-            local mapped = {
-                { offset =  0x660143, modded = 0xB883C7, original = 0x1000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000001
-                { offset =  0x660117, modded = 0xB883C7, original = 0x2000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000002
-                { offset =  0x6600DD, modded = 0xB883C7, original = 0x3000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000003
-                { offset =  0x6600B1, modded = 0xB883C7, original = 0x4000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000004
-                { offset =  0x660081, modded = 0xB883C7, original = 0x5000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000005
-                { offset =  0x660143 - 0x2, modded = 0x1A75, original = 0x1A7C }, -- jne GTA5.exe+66012D, jl GTA5.exe+66012D
-                { offset =  0x660117 - 0x2, modded = 0x1A75, original = 0x1A7C }, -- jne GTA5.exe+660131, jl GTA5.exe+660131
-                { offset =  0x6600DD - 0x2, modded = 0x2675, original = 0x267C }, -- jne GTA5.exe+660103, jl GTA5.exe+660103
-                { offset =  0x6600B1 - 0x2, modded = 0x1875, original = 0x187C }, -- jne GTA5.exe+6600C9, jl GTA5.exe+6600C9
-                { offset =  0x660081 - 0x2, modded = 0x1C75, original = 0x1C7C }, -- jne GTA5.exe+66009D, jl GTA5.exe+66009D
-            }
+        -- TODO: Update the offsets and asm instructions to make this work again
+        -- self.base = memory.scan('')
+        -- self.cops_ignore_crimes = self.root:toggle(T'Cops Ignore Crimes', {}, T'Crimes do not increase your wanted level, instead they make it disappear if you have one', function(state)
+        --     if not SCRIPT_CAN_CONTINUE then return end
+        --     local mapped = {
+        --         { offset =  0x660143, modded = 0xB883C7, original = 0x1000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000001
+        --         { offset =  0x660117, modded = 0xB883C7, original = 0x2000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000002
+        --         { offset =  0x6600DD, modded = 0xB883C7, original = 0x3000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000003
+        --         { offset =  0x6600B1, modded = 0xB883C7, original = 0x4000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000004
+        --         { offset =  0x660081, modded = 0xB883C7, original = 0x5000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000005
+        --         { offset =  0x660143 - 0x2, modded = 0x1A75, original = 0x1A7C }, -- jne GTA5.exe+66012D, jl GTA5.exe+66012D
+        --         { offset =  0x660117 - 0x2, modded = 0x1A75, original = 0x1A7C }, -- jne GTA5.exe+660131, jl GTA5.exe+660131
+        --         { offset =  0x6600DD - 0x2, modded = 0x2675, original = 0x267C }, -- jne GTA5.exe+660103, jl GTA5.exe+660103
+        --         { offset =  0x6600B1 - 0x2, modded = 0x1875, original = 0x187C }, -- jne GTA5.exe+6600C9, jl GTA5.exe+6600C9
+        --         { offset =  0x660081 - 0x2, modded = 0x1C75, original = 0x1C7C }, -- jne GTA5.exe+66009D, jl GTA5.exe+66009D
+        --     }
             
-            for mapped as data do memory.write(self.base + data.offset, state ? data.modded : data.original) end
-        end)
+        --     for mapped as data do memory.write(self.base + data.offset, state ? data.modded : data.original) end
+        -- end)
 
         self.force_script_host = self.root:toggle_loop(T'Force Script Host', {}, T'Force you to become script host', function()
             Network.BecomeScriptHost()
@@ -555,9 +557,9 @@ pluto_class SelfOptions
                                 local ptr = entities.handle_to_pointer(ent)
                                 local armor = memory.read_float(ptr + 0x150C)
                                 if armor > 0 then
-                                    memory.write_int(ammo_info + 0x003C, 1)
+                                    memory.write_int(ammo_info + 0x003C, SpecialAmmoType.ArmorPiercing)
                                 else
-                                    memory.write_int(ammo_info + 0x003C, 4)
+                                    memory.write_int(ammo_info + 0x003C, SpecialAmmoType.HollowPoint)
                                 end
                             end
                         end
@@ -565,7 +567,7 @@ pluto_class SelfOptions
                 end
             end
         end)
-        self.auto_swap_ammo.value = true
+        --self.auto_swap_ammo.value = true
 
         self.hide_m1 = self.hiding:toggle(T'Hide Method 1', {T'rsdisappear'}, T'Just a shortcut for enabling stealth mode and invisibility', function(state)
             self.stealth_mode.value = state

@@ -384,7 +384,7 @@ pluto_class Network
         local player_info = entities.get_player_info(ptr)
         if player_info ~= 0 then
             local weapon_defense = memory.read_float(player_info + 0x0D60)
-            if weapon_defense < 0.99 then
+            if weapon_defense < 1.00 then
                 return true
             else
                 return false

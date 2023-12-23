@@ -4,7 +4,7 @@ local ZoneInfo = require('zone_info')
 pluto_class PedManager
     function __construct(root)
         self.root = root:list(T'Entities', {T'rpedmanager'}, '')
-        self.peds = self.root:list(T'Peds', {T'repeds'}, '', || -> self:OnClick())
+        self.peds = self.root:list(T'Peds', {T'repeds'}, '', || -> self:PedOnClick())
         self.ar_beacons = {}
         self.blips = setmetatable({}, {
             __gc = function(self)
@@ -38,7 +38,7 @@ pluto_class PedManager
         return peds
     end
 
-    function OnClick()
+    function PedOnClick()
         if self.peds:isValid() then
             for self.peds:getChildren() as child do
                 if child:isValid() then

@@ -19,6 +19,29 @@ pluto_class Settings
         end, S.Settings:IsSet(SettingsBits.SuppressRequestControlFailures))
 
         self.remove_transaction_errors.value = S.Settings:IsSet(SettingsBits.RemoveTransactionError)
+        self.root:toggle(T'Show Risky Options', {}, T'Will risky options be visible or not?', function(state)
+            S.Settings:SetBool(SettingsBits.ShowRiskyOptions, state)
+        end, S.Settings:IsSet(SettingsBits.ShowRiskyOptions))
+
+        self.root:divider('')
+        self.cache = self.root:list(T'Globals Cache', {T'settings'}, '')
+        self.globals_cache = self.cache:toggle(T'Cache Globals', {}, T'Should script globals be cached or not?', function(state)
+            S.Settings:SetBool(SettingsBits.CacheGlobals, state)
+        end, S.Settings:IsSet(SettingsBits.CacheGlobals))
+
+        self.cache:toggle_loop(T'Show Timer', {}, '', function()
+            local time_left = (S.ClearCache.LastClear - os.time())
+            util.draw_debug_text($'Time Remaining: {time_left} seconds')
+        end)
+
+        self.cache:slider(T'Cache Timer', {T'scachetimer'}, T'How long should globals be cached for? (in seconds)', 1, 3600, 600, 1, function(value)
+            S.ClearCache.ClearTime = value
+        end)
+
+        self.cache:divider('')
+        self.cache:action(T'Clear Globals Cache', {T'sclrgcache'}, T'Clears the cache for globals, use this if a feature is not working such as invisibility in self', function()
+            S.ClearCache.ShouldClear = true
+        end)
         root:divider('')
     end
 end

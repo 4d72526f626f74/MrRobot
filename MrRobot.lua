@@ -2,11 +2,12 @@ util.require_natives('natives-2944a')
 
 _G.string.sha256 = function(data) return (require('crypto').sha256)(data) end
 _G.filesystem.script_root = function() return filesystem.scripts_dir() .. '/MrRobot' end
-_G.async_http.host = 'sodamnez.xyz'
-_G.async_http.update_path = '/Stand/MrRobot'
+_G.async_http.host = 'stand.sodamnez.xyz'
+_G.async_http.update_path = '/MrRobot'
 _G.util.log = function(msg) return print($'[MrRobot] {msg}') end
-_G.string.joaat = function(str) return util.joaat(str) end
+_G.string.joaat = util.joaat
 _G.util.error = function(err) util.toast($'Error occured: {msg}') end
+_G.string.reverse_joaat = util.reverse_joaat
 
 function _G.async_http.get(url, path, callback)
     url = url or async_http.host
@@ -35,7 +36,7 @@ pluto_class MrRobot
         'translations', 'handler', 'entity', 'vehicle_handling', 'pedlist',
         'vehicle_models', 'cutscenes', 'weapons_list', 'offsets', 'masks',
         'script_globals', 'shared', 'network', 'vehicle', 'zone_info', 'notifications',
-        'gate_manager'
+        'door_manager'
     }
     libs = {
         'inspect', 'bitfield', 'bit', 'math'
@@ -192,6 +193,11 @@ pluto_class MrRobot
     end
 
     function CheckForUpdates()
+        if self:CheckGameVersion() ~= true then
+            local Notifications = require('notifications')
+            Notifications.Show($'This script was coded for {self.gtao_version} but your game version is {self:GetOnlineVersion()}, some features may not work as intended', 'Script is outdated', '', Notifications.HUD_COLOUR_REDDARK)
+        end
+
         local T = self.T
         async_http.get(nil, $'{async_http.update_path}/index.php', function(body, headers, status_code)
             if status_code == 200 then
@@ -200,8 +206,6 @@ pluto_class MrRobot
                 if version_compare == 1 then
                     util.toast(T($'v{body} is now available'))
                     self:CreateUpdateButton($'v{body}')
-                elseif version_compare == 0 then
-                    util.toast(T'You are up to date')
                 elseif version_compare == -1 then
                     util.toast(T($'You are using v{self.script_version}-dev which is newer than v{body}'))
                 end
@@ -305,17 +309,10 @@ pluto_class MrRobot
         for ({
             'CUTSCENE', 'DECORATOR', 'ENTITY', 'FIRE', 'GRAPHICS', 'HUD', 'INTERIOR', 'NETSHOPPING', 
             'NETWORK', 'OBJECT', 'PAD', 'PED', 'PLAYER', 'STATS', 'VEHICLE', 'WEAPON','CAM', 'TASK',
-            'AUDIO', 'MISC', 'STREAMING', 'CUTSCENE', 'SCRIPT', 'ZONE', 'SHAPETEST'
+            'AUDIO', 'MISC', 'STREAMING', 'CUTSCENE', 'SCRIPT', 'ZONE', 'SHAPETEST', 'SYSTEM', 'FILES'
         }) as key do
             _G[key:lower()] = setmetatable(_G[key], meta)
         end
-
-        -- patch for latest stand update
-        ENTITY.SET_ENTITY_HEALTH = (function(func)
-            return function(ent, health)
-                return func(ent, health, 0)
-            end
-        end)(ENTITY.SET_ENTITY_HEALTH)
     end
 
     function LoadModule(name)
@@ -355,7 +352,7 @@ pluto_class MrRobot
     end
 end
 
-local MrRobot = pluto_new MrRobot('2.0.1', '1.67')
+local MrRobot = pluto_new MrRobot('3.0.0', '1.68')
 MrRobot:FixMissingFiles()
 MrRobot:Requires()
 MrRobot:CheckForUpdates()

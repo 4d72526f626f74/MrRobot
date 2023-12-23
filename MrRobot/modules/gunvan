@@ -1,9 +1,44 @@
 local T, S = require('translations'), require('shared')
 local Globals = require('script_globals')
 local Weapons = require('weapons_list')
+local ZoneInfo = require('zone_info')
+
+local GunVanCoordinates = {
+    v3(-29.532, 6435.136, 31.162),
+    v3(1705.214, 4819.167, 41.75),
+    v3(1795.522, 3899.753, 33.869),
+    v3(1335.536, 2758.746, 51.099),
+    v3(795.583, 1210.78, 338.962),
+    v3(-3192.67, 1077.205, 20.594),
+    v3(-789.719, 5400.921, 33.915),
+    v3(-24.384, 3048.167, 40.703),
+    v3(2666.786, 1469.324, 24.237),
+    v3(-1454.966, 2667.503, 3.2),
+    v3(2340.418, 3054.188, 47.888),
+    v3(1509.183, -2146.795, 76.853),
+    v3(1137.404, -1358.654, 34.322),
+    v3(-57.208, -2658.793, 5.737),
+    v3(1905.017, 565.222, 175.558),
+    v3(974.484, -1718.798, 30.296),
+    v3(779.077, -3266.297, 5.719),
+    v3(-587.728, -1637.208, 19.611),
+    v3(733.99, -736.803, 26.165),
+    v3(-1694.632, -454.082, 40.712),
+    v3(-1330.726, -1163.948, 4.313),
+    v3(-496.618, 40.231, 52.316),
+    v3(275.527, 66.509, 94.108),
+    v3(260.928, -763.35, 30.559),
+    v3(-478.025, -741.45, 30.299),
+    v3(894.94, 3603.911, 32.56),
+    v3(-2166.511, 4289.503, 48.733),
+    v3(1465.633, 6553.67, 13.771),
+    v3(1101.032, -335.172, 66.944),
+    v3(149.683, -1655.674, 29.028)
+}
 
 pluto_class GunVan
     function __construct(root)
+        self.updating = { position = false }
         self.gunvan_root = root:list(T'Gun Van', {T'rgunvan'}, '')
         local weapons_tbl = S:SortTable(Weapons:AsTable(), |a, b| -> a < b)
 
@@ -12,13 +47,21 @@ pluto_class GunVan
             if #self.gunvan_weapons:getChildren() == 0 then
                 for index = start, finish do
                     local weapon_index = memory.script_global(262145 + index)
-                    local name = util.reverse_joaat(memory.read_int(weapon_index))
+                    local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                    if name == '' then
+                        local htoname = Weapons:HashToName(memory.read_int(weapon_index))
+                        if htoname ~= nil then
+                            name = htoname
+                        else 
+                            name = string.format('0x%X', tostring(memory.read_int(weapon_index))) .. ' - Invalid'
+                        end
+                    end
                     local slot = self.gunvan_weapons:list(name, {}, '')
 
                     slot:list_action(T'Weapon', {}, T'Weapon to change to', weapons_tbl, function(index)
                         local weapon = weapons_tbl[index]
                         local hash = Weapons:FindHash(weapon)
-                        local name = util.reverse_joaat(hash)
+                        local name = util.reverse_joaat(hash):upper()
                         memory.write_int(weapon_index, hash)
                         slot.menu_name = name
                     end)
@@ -27,7 +70,15 @@ pluto_class GunVan
                 for index, child in pairs(self.gunvan_weapons:getChildren()) do
                     if child:isValid() then
                         local weapon_index = memory.script_global((262145 + (start + index)) - 1)
-                        local name = util.reverse_joaat(memory.read_int(weapon_index))
+                        local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                        if name == '' then
+                            local htoname = Weapons:HashToName(memory.read_int(weapon_index))
+                            if htoname ~= nil then
+                                name = htoname
+                            else 
+                                name = string.format('0x%X', tostring(memory.read_int(weapon_index))) .. ' - Invalid'
+                            end
+                        end
                         child.menu_name = name
                     end
                 end
@@ -39,13 +90,21 @@ pluto_class GunVan
             if #self.gunvan_throwables:getChildren() == 0 then
                 for index = start, finish do
                     local weapon_index = memory.script_global(262145 + index)
-                    local name = util.reverse_joaat(memory.read_int(weapon_index))
+                    local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                    if name == '' then
+                        local htoname = Weapons:HashToName(memory.read_int(weapon_index))
+                        if htoname ~= nil then
+                            name = htoname
+                        else 
+                            name = string.format('0x%X', tostring(memory.read_int(weapon_index))) .. ' - Invalid'
+                        end
+                    end
                     local slot = self.gunvan_throwables:list(name, {}, '')
 
                     slot:list_action(T'Weapon', {}, T'Weapon to change to', weapons_tbl, function(index)
                         local weapon = weapons_tbl[index]
                         local hash = Weapons:FindHash(weapon)
-                        local name = util.reverse_joaat(hash)
+                        local name = util.reverse_joaat(hash):upper()
                         memory.write_int(weapon_index, hash)
                         slot.menu_name = name
                     end)
@@ -54,7 +113,15 @@ pluto_class GunVan
                 for index, child in pairs(self.gunvan_throwables:getChildren()) do
                     if child:isValid() then
                         local weapon_index = memory.script_global((262145 + (start + index)) - 1)
-                        local name = util.reverse_joaat(memory.read_int(weapon_index))
+                        local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                        if name == '' then
+                            local htoname = Weapons:HashToName(memory.read_int(weapon_index))
+                            if htoname ~= nil then
+                                name = htoname
+                            else 
+                                name = string.format('0x%X', tostring(memory.read_int(weapon_index))) .. ' - Invalid'
+                            end
+                        end
                         child.menu_name = name
                     end
                 end
@@ -62,7 +129,7 @@ pluto_class GunVan
         end)
 
         self.gunvan_root:divider('')
-        self.gunvan_pos = self.gunvan_root:list(T'Position', {}, T'Gun Van position')
+        self.gunvan_pos = self.gunvan_root:list(T'Position', {}, T'Gun Van position', nil, nil, || -> self:UpdatePositionInfo())
         self.gunvan_root:toggle(T'Remove Proximity', {}, T'Remove proximity radius so the gun van will appear on your map regardless of where you are', function(state)
             local proximity = memory.script_global(Globals.GunVanProximity)
             memory.write_float(proximity, state ? math.max_float : 500.0)
@@ -88,6 +155,38 @@ pluto_class GunVan
                     break
             end
         end)
+
+        self.gunvan_pos:action(T'Teleport', {T'gunvanteleport'}, T'Teleport to gun van', function()
+            local index = memory.read_int(memory.script_global(Globals.GunVanPositionIndex))
+            local coords = GunVanCoordinates[index + 1]
+
+            if coords ~= nil then
+                local pos = players.localplayer():get_offset_from_entity_in_world_coords(0.0, 8.0, 0.0)
+                players.localplayer():set_entity_coords_no_offset(coords.x, coords.y, coords.z, false, false, false)
+            end
+        end)
+        self.gunvan_current_pos = self.gunvan_pos:readonly('')
+    end
+
+    function UpdatePositionInfo()
+        if not self.updating.position then
+            self.updating.position = true
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= T'Position' then
+                    self.updating.position = false
+                    return false
+                end
+                local current_index = memory.script_global(Globals.GunVanPositionIndex)
+                local index = memory.read_int(current_index)
+                local coords = GunVanCoordinates[index + 1]
+
+                if coords ~= nil then
+                    local name = ZoneInfo[zone.get_name_of_zone(coords.x, coords.y, coords.z)]
+                    self.gunvan_current_pos.menu_name = 'Position: ' .. name
+                end
+            end)
+        end
     end
 end
 

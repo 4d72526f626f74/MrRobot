@@ -426,11 +426,10 @@ pluto_class Vehicles
 
         self.tunables:toggle(T'Remove Sell Limitations', {}, T'Remove sell limitations so that you can sell any vehicle regardles of the value', function()
             memory.write_int(base + 0x578, state ? math.max_int : 50000)
-            memory.write_int(base + 0x9530, state ? math.max_int : 1000000)
-            memory.write_int(base + 0xDD28, state ? math.max_int : 1000000)
-            memory.write_int(base + 0xDD20, state ? math.max_int : 1000000)
-            memory.write_int(base + 0x27648, state ? 1 : 0)
-            memory.write_int(base + 0xDCE8, state ? math.max_int : 1)
+            memory.write_int(base + 0xDFB8, state ? math.max_int : 1000000)
+            memory.write_int(base + 0xDFC0, state ? math.max_int : 1000000)
+            memory.write_int(base + 0xDFC8, state ? math.max_int : 1000000)
+            memory.write_int(base + 0x110D8, state ? 1 : 0)
         end)
     end
 

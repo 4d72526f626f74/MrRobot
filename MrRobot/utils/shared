@@ -17,6 +17,27 @@ end
 
 Shared.Memory = {}
 Shared.PlayerList = 0
+Shared.RiskyRefs = {}
+
+Shared.ClearCache = {
+    ShouldClear = false,
+    ClearTime = 600,
+    LastClear = os.time() + 600
+}
+util.create_tick_handler(function()
+    if Shared.ClearCache.LastClear - os.time() <= 0 then
+        Shared.ClearCache.ShouldClear = true
+        Shared.ClearCache.LastClear = os.time() + Shared.ClearCache.ClearTime
+    end
+
+    for Shared.RiskyRefs as ref do
+        if ref:isValid() then
+            ref.visible = Shared.Settings:IsSet(Shared.SettingsBits.ShowRiskyOptions)
+        end
+    end
+
+    SCRIPT_CAN_CONTINUE = util.can_continue()
+end)
 
 Shared.Models = {
     BST = 'prop_drug_package_02', -- Bull Shark Testosterone
@@ -162,17 +183,20 @@ Shared.SettingsBits = {
     RemoveTransactionError = 1 << 1,
     MemoryHook = 1 << 2,
     Debug = 1 << 3,
-    SuppressRequestControlFailures = 1 << 4
+    SuppressRequestControlFailures = 1 << 4,
+    ShowRiskyOptions = 1 << 5,
+    CacheGlobals = 1 << 6
 }
 
 Shared.Settings = pluto_new Bitfield(
     Shared.SettingsBits.ShowAlerts 
     | Shared.SettingsBits.RemoveTransactionError
+    | Shared.SettingsBits.CacheGlobals
 )
 
 if Shared.Settings:IsSet(Shared.SettingsBits.Debug) then
     util.create_tick_handler(function()
-        directx.draw_text(0.01, 0.01, $'v{SCRIPT_VERSION}-dbg', ALIGN_TOP_LEFT, 0.8, {r=1, g=0, b=0, a=1})
+        directx.draw_text(0.01, 0.01, $'v{SCRIPT_VERSION}-dbg', ALIGN_TOP_LEFT, 1, {r=1, g=0, b=0, a=1})
     end)
 end
 
@@ -366,6 +390,14 @@ end)(_G.util.toast)
 _G.memory.script_global = (function(func)
     local cache = {}
     return function(sg)
+        if not Shared.Settings:IsSet(Shared.SettingsBits.CacheGlobals) then
+            return func(sg)
+        end
+        if Shared.ClearCache.ShouldClear then
+            cache = {}
+            Shared.ClearCache.ShouldClear = false
+            Shared.ClearCache.LastClear = os.time() + Shared.ClearCache.ClearTime
+        end
         if not cache[sg] then
             local result = func(sg)
             cache[sg] = result
@@ -443,6 +475,19 @@ function Shared:SortTable(t, sortFunction)
         table.insert(sortedTable, v)
     end
     table.sort(sortedTable, sortFunction)
+    return sortedTable
+end
+
+function Shared:SortTableIndexed(t, sortFunction)
+    local tempSortTable = {}
+    local sortedTable = {}
+    for k, v in pairs(t) do
+        table.insert(tempSortTable, v)
+    end
+    table.sort(tempSortTable, sortFunction)
+    for i, k in pairs(tempSortTable) do
+        table.insert(sortedTable, { i, k })
+    end
     return sortedTable
 end
 
@@ -549,6 +594,30 @@ function Shared:RequestNamedPtfxAsset(asset)
         end
     until streaming.has_named_ptfx_asset_loaded(asset)
     graphics.use_particle_fx_asset(asset)
+end
+
+function Shared:TriggerTransaction(hash, amount, category)
+    local base = memory.script_global(4537212)
+    category = category or util.joaat('CATEGORY_SERVICE_WITH_THRESHOLD')
+    memory.write_int(base + 0x8, math.max_int - 1)
+    memory.write_int(base + 0x38, math.max_int)
+    memory.write_int(base + 0x30, 0)
+    memory.write_int(base + 0x28, category)
+    memory.write_int(base + 0x18, hash)
+    memory.write_int(base + 0x10, amount)
+    memory.write_byte(base, 1)
+    util.yield_once()
+    memory.write_byte(base, 0)
+end
+
+function Shared:StartNewScript(script_name, stack_size)
+    script.request_script(script_name)
+    repeat
+        script.request_script(script_name)
+        util.yield_once()
+    until script.has_script_loaded(script_name)
+    system.start_new_script(script_name, stack_size or 5000)
+    script.set_script_as_no_longer_needed(script_name)
 end
 
 return Shared

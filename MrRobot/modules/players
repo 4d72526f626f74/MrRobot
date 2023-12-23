@@ -739,7 +739,7 @@ pluto_class Players
                 if veh ~= 0 then
                     local ptr = entities.handle_to_pointer(veh)
                     if ptr ~= 0 then
-                        local state = memory.read_short(ptr + 0xA48)
+                        local state = memory.read_short(ptr + 0xA98)
                         local children = item:getChildren()
                         local index1, index2, index3, index4, index5, index6, index7, index8 = children[2], children[3], children[4], children[5], children[6], children[7], children[8], children[9]
                         if index1:isValid() then

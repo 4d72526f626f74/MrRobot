@@ -1,5 +1,6 @@
 local T, S = require('translations'), require('shared')
 local Notifications = require('notifications')
+local Globals = require('script_globals')
 local char_slot = util.get_char_slot()
 
 local Achievements = {
@@ -83,77 +84,75 @@ local Achievements = {
 }
 
 local BunkerResearch = {
-    ["APC Sam Battery"] = 21806 + 129,
-    ["Ballistic Equipment"] = 21807 + 129,
-    ["Half Track 20MM Quad Cannons"] = 21808 + 129,
-    ["Weaponized Tampa Dual Remote Minigun"] = 21809 + 129,        
-    ["Weaponized Tampa Rear Firing Mortar"] = 21810 + 129,
-    ["Weaponized Tampa Front Missile Launchers"] = 21811 + 129,    
-    ["Weaponized Tampa Heavy Chassis Armor"] = 21812 + 129,        
-    ["Dune Fav 40MM Grenade Launcher"] = 21813 + 129,
-    ["Dune Fav 762MM Minigun"] = 21814 + 129,
-    ["Insurgent Pick Up Custom 50 Cal Minigun"] = 21815 + 129,     
-    ["Insurgent Pick Up Custom Heavy Armor Plating"] = 21816 + 129,
-    ["Technical Custom 762MM Minigun"] = 21817 + 129,
-    ["Technical Custom Ram Bar"] = 21818 + 129,
-    ["Technical Custom Brute Bar"] = 21819 + 129,
-    ["Technical Custom Heavy Chassis Armor"] = 21820 + 129,
-    ["Oppressor Rockets"] = 21821 + 129,
-    ["Fractal Livery Set"] = 21822 + 129,
-    ["Digital Livery Set"] = 21823 + 129,
-    ["Geometric Livery Set"] = 21824 + 129,
-    ["Nature Reserve Livery"] = 21825 + 129,
-    ["Naval Battle Livery"] = 21826 + 129,
-    ["Anti Aircraft Trailer Dual 20MM Flak Cannon"] = 21827 + 129,
-    ["Anti Aircraft Trailer Homing Missile Battery"] = 21828 + 129,
-    ["Mobile Operations Center Rear Turrets"] = 21829 + 129,
-    ["Incendiary Rounds"] = 21830 + 129,
-    ["Hollow Point Rounds"] = 21831 + 129,
-    ["Armor Piercing Rounds"] = 21832 + 129,
-    ["Full Metal Jacket Rounds"] = 21833 + 129,
-    ["Explosive Rounds"] = 21834 + 129,
-    ["Pistol MK II Rail Mount"] = 21835 + 129,
-    ["Pistol MK II Compensator"] = 21836 + 129,
-    ["Smg MK II Holographic Sight"] = 21837 + 129,
-    ["Smg MK II Heavy Barrel"] = 21838 + 129,
-    ["Heavy Sniper MK II Night Vision Scope"] = 21839 + 129,
-    ["Heavy Sniper MK II Thermal Scope"] = 21840 + 129,
-    ["Heavy Sniper MK II Heavy Barrel"] = 21841 + 129,
-    ["Combat Mg MK II Holographic Sight"] = 21842 + 129,
-    ["Combat Mg MK II Heavy Barrel"] = 21843 + 129,
-    ["Assault Rifle MK II Holographic Sight"] = 21844 + 129,
-    ["Assault Rifle MK II Heavy Barrel"] = 21845 + 129,
-    ["Carbine Rifle MK II Holographic Sight"] = 21846 + 129,
-    ["Carbine Rifle MK II Heavy Barrel"] = 21847 + 129,
-    ["Proximity Mines"] = 21848 + 129,
-    ["Tiger Stripe"] = 21849 + 129,
-    ["Skull"] = 21850 + 129,
-    ["Sessanta Nove"] = 21851 + 129,
-    ["Perseus"] = 21852 + 129,
-    ["Leopard Print"] = 21853 + 129,
-    ["Zebra Stripe"] = 21854 + 129,
-    ["Geometry"] = 21855 + 129,
-    ["Book"] = 21856 + 129
+    ["APC Sam Battery"] = 22016,
+    ["Ballistic Equipment"] = 22017,
+    ["Half Track 20MM Quad Cannons"] = 22018,
+    ["Weaponized Tampa Dual Remote Minigun"] = 22019,        
+    ["Weaponized Tampa Rear Firing Mortar"] = 22020,
+    ["Weaponized Tampa Front Missile Launchers"] = 22021,    
+    ["Weaponized Tampa Heavy Chassis Armor"] = 22022,        
+    ["Dune Fav 40MM Grenade Launcher"] = 22023,
+    ["Dune Fav 762MM Minigun"] = 22024,
+    ["Insurgent Pick Up Custom 50 Cal Minigun"] = 22025,     
+    ["Insurgent Pick Up Custom Heavy Armor Plating"] = 22026,
+    ["Technical Custom 762MM Minigun"] = 22027,
+    ["Technical Custom Ram Bar"] = 22028,
+    ["Technical Custom Brute Bar"] = 22029,
+    ["Technical Custom Heavy Chassis Armor"] = 22030,
+    ["Oppressor Rockets"] = 22031,
+    ["Fractal Livery Set"] = 22032,
+    ["Digital Livery Set"] = 22033,
+    ["Geometric Livery Set"] = 22034,
+    ["Nature Reserve Livery"] = 22035,
+    ["Naval Battle Livery"] = 22036,
+    ["Anti Aircraft Trailer Dual 20MM Flak Cannon"] = 22037,
+    ["Anti Aircraft Trailer Homing Missile Battery"] = 22038,
+    ["Mobile Operations Center Rear Turrets"] = 22039,
+    ["Incendiary Rounds"] = 22040,
+    ["Hollow Point Rounds"] = 22041,
+    ["Armor Piercing Rounds"] = 22042,
+    ["Full Metal Jacket Rounds"] = 22043,
+    ["Explosive Rounds"] = 22044,
+    ["Pistol MK II Rail Mount"] = 22045,
+    ["Pistol MK II Compensator"] = 22046,
+    ["Smg MK II Holographic Sight"] = 22047,
+    ["Smg MK II Heavy Barrel"] = 22048,
+    ["Heavy Sniper MK II Night Vision Scope"] = 22049,
+    ["Heavy Sniper MK II Thermal Scope"] = 22050,
+    ["Heavy Sniper MK II Heavy Barrel"] = 22051,
+    ["Combat Mg MK II Holographic Sight"] = 22052,
+    ["Combat Mg MK II Heavy Barrel"] = 22053,
+    ["Assault Rifle MK II Holographic Sight"] = 22054,
+    ["Assault Rifle MK II Heavy Barrel"] = 22055,
+    ["Carbine Rifle MK II Holographic Sight"] = 22056,
+    ["Carbine Rifle MK II Heavy Barrel"] = 22057,
+    ["Proximity Mines"] = 22058,
+    ["Tiger Stripe"] = 22059,
+    ["Skull"] = 22060,
+    ["Sessanta Nove"] = 22061,
+    ["Perseus"] = 22062,
+    ["Leopard Print"] = 22063,
+    ["Zebra Stripe"] = 22064,
+    ["Geometry"] = 22065,
+    ["Book"] = 22066
 }
 
 local AircraftTradeIn = {
-    ["Ultralight"] = 22712 + 180,
-    ["Rogue"] = 22713 + 180,
-    ["Alpha-Z1"] = 22714 + 180,
-    ["Havok"] = 22715 + 180,
-    ["LF-22 Starling"] = 22716 + 180,
-    ["V-65 Molotok"] = 22717 + 180,
-    ["Tula"] = 22718 + 180,
-    ["RM-10 Bombushka"] = 22719 + 180,
-    ["Howard NX-25"] = 22720 + 180,
-    ["Mogul"] = 22721 + 180,
-    ["Pyro"] = 22722 + 180,
-    ["Seabreeze"] = 22723 + 180,
-    ["P-45 Nakota"] = 22724 + 180,
-    ["FH-1 Hunter"] = 22725 + 180
+    ["Ultralight"] = 22922,
+    ["Rogue"] = 22923,
+    ["Alpha-Z1"] = 22924,
+    ["Havok"] = 22925,
+    ["LF-22 Starling"] = 22926,
+    ["V-65 Molotok"] = 22927,
+    ["Tula"] = 22928,
+    ["RM-10 Bombushka"] = 22929,
+    ["Howard NX-25"] = 22930,
+    ["Mogul"] = 22931,
+    ["Pyro"] = 22932,
+    ["Seabreeze"] = 22933,
+    ["P-45 Nakota"] = 22934,
+    ["FH-1 Hunter"] = 22935
 }
-
--- this module was not rewriteen
 
 pluto_class Unlocks
     function __construct(root)
@@ -509,105 +508,105 @@ pluto_class Unlocks
 
     function UnlockKosatka(state)
         stats.set_packed_stat_bool_code(30309, true, char_slot)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), 1 << 0, state))
     end
 
     function IsKosatkaUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         return memory.bits:check(memory.read_int(unlock), 1 << 0)
     end
 
     function UnlockSonar(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), 1 << 1, state))
     end
     
     function UnlockGuidedMissiles(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), 1 << 2, state))
     end
     
     function UnlockWeaponWorkshop(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), 1 << 3, state))
     end
     
     function UnlockSparrow(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), 1 << 4, state))
     end
     
     function UnlockAvisa(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), 1 << 5, state))
     end
     
     function UnlockAcidLab(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), 1 << 14, state))
     end
     
     function IsSonarUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         return memory.bits:check(memory.read_int(unlock), 1 << 1)
     end
     
     function IsGuidedMissilesUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         return memory.bits:check(memory.read_int(unlock), 1 << 2)
     end
     
     function IsWeaponWorkshopUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         return memory.bits:check(memory.read_int(unlock), 1 << 3)
     end
     
     function IsSparrowUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         return memory.bits:check(memory.read_int(unlock), 1 << 4)
     end
     
     function IsAvisaUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         return memory.bits:check(memory.read_int(unlock), 1 << 5)
     end
     
     function IsSparrowBeingUsed()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         return memory.bits:check(memory.read_int(unlock), 1 << 6)
     end
     
     function IsAvisaBeingUsed()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         return memory.bits:check(memory.read_int(unlock), 1 << 7)
     end
     
     function IsAcidLabUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 479)
+        local unlock = memory.script_global(Globals.Unlocks.Kosatka)
         return memory.bits:check(memory.read_int(unlock), 1 << 14)
     end
 
     function UnlockBallisticEquipment(state)
         stats.set_packed_stat_bool_code(9461, state, char_slot)
         stats.set_packed_stat_bool_code(25, state, char_slot)
-        memory.write_byte(memory.script_global(262145 + 21807), state ? 1 : 0)
+        memory.write_byte(memory.script_global(Globals.Unlocks.BallisticEquipment), state ? 1 : 0)
     end
     
     function IsBallisticEquipmentUnlocked()
-        return stats.get_packed_stat_bool_code(9461, char_slot) or stats.get_packed_stat_bool_code(25, char_slot)
+        return stats.get_packed_stat_bool_code(9461, char_slot) and stats.get_packed_stat_bool_code(25, char_slot)
     end
     
     function UnlockNanoDrone(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 429)
-        local unlock1 = memory.script_global(1963795)
+        local unlock = memory.script_global(Globals.Unlocks.NanoDrone)
+        local unlock1 = memory.script_global(Globals.RequestNanoDrone)
     
         memory.write_int(unlock, state ? (memory.bits:set(memory.read_int(unlock), 1 << 27)) : (memory.bits:clear(memory.read_int(unlock), 1 << 27)))
         memory.write_int(unlock1, state ? (memory.bits:set(memory.read_int(unlock1), 1 << 25)) : (memory.bits:clear(memory.read_int(unlock1), 1 << 25)))
     end
     
     function IsNanoDroneUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 429)
+        local unlock = memory.script_global(Globals.Unlocks.NanoDrone)
         return memory.bits:check(memory.read_int(unlock), 1 << 27)
     end
     
@@ -640,92 +639,92 @@ pluto_class Unlocks
     end
 
     function UnlockPenthouse(state)
-        local penthouse = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405)
+        local penthouse = memory.script_global(Globals.Unlocks.CasinoPenthouse)
         memory.write_byte(penthouse, state ? 1 : 0)
     end
     
     function IsPenthouseUnlocked()
-        local penthouse = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405)
+        local penthouse = memory.script_global(Globals.Unlocks.CasinoPenthouse)
         return memory.read_byte(penthouse) == 1
     end
     
     function UnlockPenthouseLounge(state)
-        local lounge = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local lounge = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         memory.write_int(lounge, state ? (memory.bits:set(memory.read_int(lounge), 1 << 0)) : (memory.bits:clear(memory.read_int(lounge), 1 << 0)))
     end
     
     function IsPenthouseLoungeUnlocked()
-        local lounge = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local lounge = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         return memory.bits:check(memory.read_int(lounge), 1 << 0)
     end
     
     function UnlockPenthouseBar(state)
-        local bar = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local bar = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         memory.write_int(bar, state ? (memory.bits:set(memory.read_int(bar), 1 << 1)) : (memory.bits:clear(memory.read_int(bar), 1 << 1)))
     end
     
     function IsPenthouseBarUnlocked()
-        local bar = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local bar = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         return memory.bits:check(memory.read_int(bar), 1 << 1)
     end
     
     function UnlockPenthouseDealerRoom(state)
-        local dealer = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local dealer = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         memory.write_int(dealer, state ? (memory.bits:set(memory.read_int(dealer), 1 << 2)) : (memory.bits:clear(memory.read_int(dealer), 1 << 2)))
     end
     
     function IsPenthouseDealerRoomUnlocked()
-        local dealer = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local dealer = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         return memory.bits:check(memory.read_int(dealer), 1 << 2)
     end
     
     function UnlockPenthouseSpareBedroom(state)
-        local spare = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local spare = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         memory.write_int(spare, state ? (memory.bits:set(memory.read_int(spare), 1 << 3)) : (memory.bits:clear(memory.read_int(spare), 1 << 3)))
     end
     
     function IsPenthouseSpareBedroomUnlocked()
-        local spare = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local spare = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         return memory.bits:check(memory.read_int(spare), 1 << 3)
     end
     
     function UnlockPenthouseMediaRoom(state)
-        local media = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local media = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         memory.write_int(media, state ? (memory.bits:set(memory.read_int(media), 1 << 4)) : (memory.bits:clear(memory.read_int(media), 1 << 4)))
     end
     
     function IsPenthouseMediaRoomUnlocked()
-        local media = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local media = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         return memory.bits:check(memory.read_int(media), 1 << 4)
     end
     
     function UnlockPenthouseSpa(state)
-        local spa = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local spa = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         memory.write_int(spa, state ? (memory.bits:set(memory.read_int(spa), 1 << 5)) : (memory.bits:clear(memory.read_int(spa), 1 << 5)))
     end
     
     function IsPenthouseSpaUnlocked()
-        local spa = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local spa = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         return memory.bits:check(memory.read_int(spa), 1 << 5)
     end
     
     function UnlockPenthouseOffice(state)
-        local office = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local office = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         memory.write_int(office, state ? (memory.bits:set(memory.read_int(office), 1 << 6)) : (memory.bits:clear(memory.read_int(office), 1 << 6)))
     end
     
     function IsPenthouseOfficeUnlocked()
-        local office = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local office = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         return memory.bits:check(memory.read_int(office), 1 << 6)
     end
     
     function UnlockPenthouseGarage(state)
-        local garage = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local garage = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         memory.write_int(garage, state ? (memory.bits:set(memory.read_int(garage), 1 << 7)) : (memory.bits:clear(memory.read_int(garage), 1 << 7)))
     end
     
     function IsPenthouseGarageUnlocked()
-        local garage = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 2)
+        local garage = memory.script_global(Globals.Unlocks.CasinoPenthouse + 2)
         return memory.bits:check(memory.read_int(garage), 1 << 7)
     end
 
@@ -733,53 +732,53 @@ pluto_class Unlocks
         -- 0 = la mesa
         -- 1 = strawberry
         -- 2 = rancho
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 862) + 267 + 486)
+        local unlock = memory.script_global(Globals.Unlocks.Autoshop)
         memory.write_int(unlock, memory.bits:clear(memory.read_int(unlock), 0x7))
         memory.write_int(unlock, state ? (memory.bits:set(memory.read_int(unlock), 1 << index)) : (memory.bits:clear(memory.read_int(unlock), 1 << index)))
     end
     
     function IsLaMesaAutoShopUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 862) + 267 + 486)
+        local unlock = memory.script_global(Globals.Unlocks.Autoshop)
         return memory.bits:check(memory.read_int(unlock), 1 << 1)
     end
     
     function IsStrawberryAutoShopUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 862) + 267 + 486)
+        local unlock = memory.script_global(Globals.Unlocks.Autoshop)
         return memory.bits:check(memory.read_int(unlock), 1 << 2)
     end
     
     function IsRanchoAutoShopUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 862) + 267 + 486)
+        local unlock = memory.script_global(Globals.Unlocks.Autoshop)
         return memory.bits:check(memory.read_int(unlock), 1 << 3)
     end
     
     function UnlockArenaWorkshop(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 373)
+        local unlock = memory.script_global(Globals.Unlocks.ArenaWorkshop)
         memory.write_int(unlock, 1)
     end
     
     function IsArenaWorkshopUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 373)
+        local unlock = memory.script_global(Globals.Unlocks.ArenaWorkshop)
         return memory.read_int(unlock) == 1
     end
     
     function UnlockAWBennyMechanic(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 373 + 2)
+        local unlock = memory.script_global(Globals.Unlocks.ArenaWorkshop + 2)
         memory.write_int(unlock, state ? (memory.bits:set(memory.read_int(unlock), 1 << 12)) : (memory.bits:clear(memory.read_int(unlock), 1 << 12)))
     end
     
     function IsAWBennyMechanicUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 373 + 2)
+        local unlock = memory.script_global(Globals.Unlocks.ArenaWorkshop + 2)
         return memory.bits:check(memory.read_int(unlock), 1 << 12)
     end
     
     function UnlockAWWeaponWorkshop(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 373 + 2)
+        local unlock = memory.script_global(Globals.Unlocks.ArenaWorkshop + 2)
         memory.write_int(unlock, state ? (memory.bits:set(memory.read_int(unlock), 1 << 13)) : (memory.bits:clear(memory.read_int(unlock), 1 << 13)))
     end
     
     function IsAWWeaponWorkshopUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 373 + 2)
+        local unlock = memory.script_global(Globals.Unlocks.ArenaWorkshop + 2)
         return memory.bits:check(memory.read_int(unlock), 1 << 13)
     end
     
@@ -799,12 +798,12 @@ pluto_class Unlocks
     -- bit 14 = supremacy (style)
     
     function UnlockFacility(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300)
+        local unlock = memory.script_global(Globals.Unlocks.Facility)
         memory.write_byte(unlock, state ? 1 : 0)
     end
     
     function IsFacilityUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300)
+        local unlock = memory.script_global(Globals.Unlocks.Facility)
         return memory.read_byte(unlock) == 1
     end
     
@@ -812,43 +811,43 @@ pluto_class Unlocks
         -- 0 = utility
         -- 1 = prestige
         -- 2 = premier
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.Facility + 1)
         memory.write_byte(unlock, memory.bits:clear(memory.read_byte(unlock), 0x7))
         memory.write_byte(unlock, state ? (memory.bits:set(memory.read_byte(unlock), 1 << index)) : (memory.bits:clear(memory.read_byte(unlock), 1 << index)))
     end
     
     function IsFacilitySleepingQuartersUtilityUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.Facility + 1)
         return memory.bits:check(memory.read_byte(unlock), 1 << 0)
     end
     
     function IsFacilitySleepingQuartersPrestigeUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.Facility + 1)
         return memory.bits:check(memory.read_byte(unlock), 1 << 1)
     end
     
     function IsFacilitySleepingQuartersPremierUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.Facility + 1)
         return memory.bits:check(memory.read_byte(unlock), 1 << 2)
     end
     
     function UnlockFacilitySecurityRoom(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.Facility + 1)
         memory.write_byte(unlock, state ? (memory.bits:set(memory.read_byte(unlock), 1 << 3)) : (memory.bits:clear(memory.read_byte(unlock), 1 << 3)))
     end
     
     function IsFacilitySecurityRoomUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.Facility + 1)
         return memory.bits:check(memory.read_byte(unlock), 1 << 3)
     end
     
     function UnlockFacilityOrbitalCannon(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.Facility + 1)
         memory.write_byte(unlock, state ? (memory.bits:set(memory.read_byte(unlock), 1 << 5)) : (memory.bits:clear(memory.read_byte(unlock), 1 << 5)))
     end
     
     function IsFacilityOrbitalCannonUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 300 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.Facility + 1)
         return memory.bits:check(memory.read_byte(unlock), 1 << 5)
     end
 
@@ -865,22 +864,22 @@ pluto_class Unlocks
     end
 
     function UnlockHangar()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 293)
+        local unlock = memory.script_global(Globals.Unlocks.Hangar)
         memory.write_byte(unlock, 1)
     end
 
     function IsHangarUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 293)
+        local unlock = memory.script_global(Globals.Unlocks.Hangar)
         return memory.read_byte(unlock) == 1
     end
 
     function UnlockCasinoMembership(state)
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.CasinoPenthouse + 1)
         memory.write_int(unlock, state ? (memory.bits:set(memory.read_int(unlock), 1 << 18)) : (memory.bits:clear(memory.read_int(unlock), 1 << 18)))
     end
 
     function IsCasinoMembershipUnlocked()
-        local unlock = memory.script_global(1853988 + 1 + (players.user() * 867) + 267 + 405 + 1)
+        local unlock = memory.script_global(Globals.Unlocks.CasinoPenthouse + 1)
         return memory.bits:check(memory.read_int(unlock), 1 << 18)
     end
 end

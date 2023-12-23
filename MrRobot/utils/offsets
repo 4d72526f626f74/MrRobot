@@ -3,10 +3,11 @@ Offsets.Online = {}
 Offsets.Self = {}
 Offsets.Vehicles = {}
 Offsets.Players = {}
+Offsets.Weapons = {}
 
 Offsets.Online.RequestOffsets = {
-    Bandito = 0xD6F8,
-    Tank = 0xD700,
+    Bandito = 0xD830,
+    Tank = 0xD838,
     MOC = 0x1D10,
     Avenger = 0x1D50,
     AcidLab = 0x1D80,
@@ -165,11 +166,21 @@ Offsets.VehStateBitfield = {
 }
 
 Offsets.Other = {
-	Wallet = 0x1D59BC0, 
-	Bank = 0x1D59BC8,
+	Wallet = 0x1D701A0, 
+	Bank = 0x1D701A8,
 	RequestState = 0x958,
 	RequestSlot = 0x1EC8,
 	RequestTrigger = 0x1D00
+}
+
+Offsets.Weapons.SpecialAmmoType = {
+	None = 0,
+	ArmorPiercing = 1,
+	Explosive = 2,
+	FMJ = 3,
+	HollowPoint = 4,
+	Incendiary = 5,
+	Tracer = 6
 }
 
 return Offsets

@@ -50,6 +50,11 @@ pluto_class Arcade
             until memory.read_int(memory.script_global(Globals.ArcadeSafeValue)) == 0
         end)
 
+        self.display_money = self.arcade:toggle_loop(T'Safe Value', {}, T'Shows how much money you have in your safe', function()
+            local money = memory.read_int(memory.script_global(Globals.ArcadeSafeValue))
+            util.draw_debug_text($'Arcade Safe: ${money}')
+        end)
+
         self.root:divider('')
     end
 
@@ -79,33 +84,18 @@ pluto_class Arcade
 
         self.root:toggle(T'Garage', {}, T'Unlock garage without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                if not self:IsArcadeSetup() then
-                    unlock_arcadegarage.value = false
-                    return util.toast('You must complete the arcade setup missions first')
-                end
-
                 self:UnlockArcadeGarage(state)
             end
         end, self:IsArcadeGarageUnlocked())
 
         self.root:toggle(T'Master Control Terminal', {}, T'Unlock master control terminal without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                if not self:IsArcadeSetup() then
-                    unlock_arcademct.value = false
-                    return util.toast('You must complete the arcade setup missions first')
-                end
-                
                 self:UnlockArcadeMasterControlTerminal(state)
             end
         end, self:IsArcadeMasterControlTerminalUnlocked())
 
         self.root:toggle(T'Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
             if SCRIPT_CAN_CONTINUE then
-                if not self:IsArcadeSetup() then
-                    unlock_arcade_weaponworkshop.value = false
-                    return util.toast('You must complete the arcade setup missions first')
-                end
-                
                 self:UnlockArcadeWeaponWorkshop(state)
             end
         end, self:IsArcadeWeaponWorkshopUnlocked())

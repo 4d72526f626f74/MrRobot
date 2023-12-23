@@ -1,5 +1,24 @@
 local T, S = require('translations'), require('shared')
 
+enum DispatchServices begin
+    DT_Invalid,
+    DT_PoliceAutomobile,
+    DT_PoliceHelicopter,
+    DT_FireDepartment,
+    DT_SwatAutomobile,
+    DT_AmbulanceDepartment,
+    DT_PoliceRiders,
+    DT_PoliceVehicleRequest,
+    DT_PoliceRoadBlock,
+    DT_PoliceAutomobileWaitPulledOver,
+    DT_PoliceAutomobileWaitCruising,
+    DT_Gangs,
+    DT_SwatHelicopter,
+    DT_PoliceBoat,
+    DT_ArmyVehicle,
+    DT_BikerBackup
+end
+
 pluto_class World
     function __construct(root)
         self.root = root:list(T'World', {T'rworld'}, '')
@@ -9,6 +28,7 @@ pluto_class World
         self.stand_smooth_transition = menu.ref_by_path('World>Atmosphere>Clock>Smooth Transition')
         self.blackout = self.root:list(T'Blackout', {T'rwblackout'}, 'Blackout options')
         self.chams = self.root:list(T'Chams', {T'rwchams'}, 'Chams options')
+        self.dispatch_service = self.root:list(T'Dispatch Services', {T'rwdispatch'}, 'Enable/disable certain dispatch services (police, fire dept etc)')
 
         self.blackout:toggle(T'Black Out', {}, 'Turn off all artificial lights', function(state)
             graphics.set_artificial_lights_state(state)
@@ -41,6 +61,141 @@ pluto_class World
                 graphics.clear_timecycle_modifier()
             end
         end)
+
+        do
+            self.police_automobile = self.dispatch_service:list(T'Police Automobile', {}, '')
+            self.police_automobile:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceAutomobile, true)
+            end)
+            self.police_automobile:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceAutomobile, false)
+            end)
+
+            self.police_helicopter = self.dispatch_service:list(T'Police Helicopter', {}, '')
+            self.police_helicopter:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceHelicopter, true)
+            end)
+            self.police_helicopter:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceHelicopter, false)
+            end)
+
+            self.fire_department = self.dispatch_service:list(T'Fire Department', {}, '')
+            self.fire_department:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_FireDepartment, true)
+            end)
+            self.fire_department:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_FireDepartment, false)
+            end)
+
+            self.swat_automobile = self.dispatch_service:list(T'SWAT Automobile', {}, '')
+            self.swat_automobile:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_SwatAutomobile, true)
+            end)
+            self.swat_automobile:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_SwatAutomobile, false)
+            end)
+
+            self.ambulance_department = self.dispatch_service:list(T'Ambulance Department', {}, '')
+            self.ambulance_department:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_AmbulanceDepartment, true)
+            end)
+            self.ambulance_department:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_AmbulanceDepartment, false)
+            end)
+
+            self.police_riders = self.dispatch_service:list(T'Police Riders', {}, '')
+            self.police_riders:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceRiders, true)
+            end)
+            self.police_riders:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceRiders, false)
+            end)
+
+            self.police_vehicle_request = self.dispatch_service:list(T'Police Vehicle Request', {}, '')
+            self.police_vehicle_request:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceVehicleRequest, true)
+            end)
+            self.police_vehicle_request:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceVehicleRequest, false)
+            end)
+
+            self.police_road_block = self.dispatch_service:list(T'Police Road Block', {}, '')
+            self.police_road_block:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceRoadBlock, true)
+            end)
+            self.police_road_block:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceRoadBlock, false)
+            end)
+
+            self.police_automobile_wait_pulled_over = self.dispatch_service:list(T'Police Automobile Wait Pulled Over', {}, '')
+            self.police_automobile_wait_pulled_over:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceAutomobileWaitPulledOver, true)
+            end)
+            self.police_automobile_wait_pulled_over:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceAutomobileWaitPulledOver, false)
+            end)
+
+            self.police_automobile_wait_cruising = self.dispatch_service:list(T'Police Automobile Wait Cruising', {}, '')
+            self.police_automobile_wait_cruising:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceAutomobileWaitCruising, true)
+            end)
+            self.police_automobile_wait_cruising:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceAutomobileWaitCruising, false)
+            end)
+
+            self.gangs = self.dispatch_service:list(T'Gangs', {}, '')
+            self.gangs:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_Gangs, true)
+            end)
+            self.gangs:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_Gangs, false)
+            end)
+
+            self.swat_helicopter = self.dispatch_service:list(T'SWAT Helicopter', {}, '')
+            self.swat_helicopter:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_SwatHelicopter, true)
+            end)
+            self.swat_helicopter:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_SwatHelicopter, false)
+            end)
+
+            self.police_boat = self.dispatch_service:list(T'Police Boat', {}, '')
+            self.police_boat:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceBoat, true)
+            end)
+            self.police_boat:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_PoliceBoat, false)
+            end)
+
+            self.army_vehicle = self.dispatch_service:list(T'Army Vehicle', {}, '')
+            self.army_vehicle:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_ArmyVehicle, true)
+            end)
+            self.army_vehicle:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_ArmyVehicle, false)
+            end)
+
+            self.biker_backup = self.dispatch_service:list(T'Biker Backup', {}, '')
+            self.biker_backup:action(T'Enable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_BikerBackup, true)
+            end)
+            self.biker_backup:action(T'Disable', {}, '', function()
+                misc.enable_dispatch_service(DispatchServices.DT_BikerBackup, false)
+            end)
+
+            self.dispatch_service:divider('')
+            self.dispatch_service:action(T'Enable All', {}, '', function()
+                for i = 1, 16 do
+                    misc.enable_dispatch_service(i, true)
+                end
+            end)
+
+            self.dispatch_service:action(T'Disable All', {}, '', function()
+                for i = 1, 16 do
+                    misc.enable_dispatch_service(i, false)
+                end
+            end)
+        end
 
         self.chams_intensity = self.chams:slider_float(T'Intensity', {T'rwchamsintensity'}, 'Intensity of the chams', 0.0 * 100, math.max_float, 1.2 * 100, 0.01 * 100, function(value)
             graphics.set_timecycle_modifier_strength(value / 100)

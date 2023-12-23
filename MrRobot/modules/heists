@@ -6,13 +6,13 @@ local Notifications = require('notifications')
 
 pluto_class Heists
     targets = {
-        'Tequila',
-        'Madrazo Files',
-        'Pink Diamond',
-        'Bearer Bonds',
-        'Ruby Necklace',
-        'Sapphire Panther',
-        'Invalid'
+        {1, 'Tequila'},
+        {2, 'Madrazo Files'},
+        {3, 'Pink Diamond'},
+        {4, 'Bearer Bonds'},
+        {5, 'Ruby Necklace'},
+        {6, 'Sapphire Panther'},
+        {7, 'Invalid'}
     }
 
     function __construct(root)
@@ -195,7 +195,7 @@ pluto_class Heists
             end
         end)
 
-        self.cayo:toggle_loop(T'Auto Collect Missing Pickups', {}, T'Auto collect mission pickups such as keycards, gate key and safe cash (if this is not enabled before you spawn you will have to manually collect ths safe cash)', function()
+        self.cayo:toggle_loop(T'Auto Collect Mission Pickups', {}, T'Auto collect mission pickups such as keycards, gate key and safe cash (if this is not enabled before you spawn you will have to manually collect ths safe cash)', function()
             local ents = self:FindEntitiesByModels(entities.get_all_pickups_as_pointers, self.mission_pickups)
             for ents as ent do
                 local ent = entities.pointer_to_handle(ent)
@@ -301,7 +301,7 @@ pluto_class Heists
         end)
 
         self.primary_target = self.cayo:list(T'Primary Target', {T'rhprimary'}, '')
-        self.target_choice = self.primary_target:list_select(T'Target', {}, T'Target that ill be set for everyone in the heist', self.targets, 1, function(index) end)
+        self.target_choice = self.primary_target:list_select(T'Target', {}, T'Target that will be set for everyone in the heist', self.targets, 1, function(index) end)
         self.primary_target:toggle_loop(T'Set Target', {}, T'Set the target for all players in the heist (changing the target mid-heist will change the take)', function()
             for pid = 0, players.max_players do
                 local target = memory.script_global(Globals:PlayerCayoPrimaryTarget(pid))

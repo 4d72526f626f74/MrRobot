@@ -620,4 +620,8 @@ function Shared:StartNewScript(script_name, stack_size)
     script.set_script_as_no_longer_needed(script_name)
 end
 
+function Shared:IsScriptRunning(script_name)
+    return script.get_number_of_threads_running_the_script_with_this_hash(script_name:joaat()) > 0
+end
+
 return Shared

@@ -157,7 +157,8 @@ pluto_class PedManager
                     armor = nil,
                     godmode = nil,
                     frozen = nil,
-                    invisible = nil
+                    invisible = nil,
+                    network_id = nil
                 }
 
                 ped_menu = ref:list(tostring(dist) .. 'm', {}, tostring(ent), function()
@@ -221,7 +222,7 @@ pluto_class PedManager
                 info.godmode = ped_menu:readonly(T'Godmode' .. $': {(self:IsEntityGodmode(ptr))}')
                 info.frozen = ped_menu:readonly(T'Frozen' .. $': {self:IsEntityFrozen(ent)}')
                 info.invisible = ped_menu:readonly(T'Invisible' .. $': {self:IsEntityInvisible(ent)}')
-
+                
                 ped_menu:onTickInViewport(function()
                     local localplayer = players.localplayer()
                     local player_pos = localplayer:get_offset_from_entity_in_world_coords(0.0, 0.0, 0.0)

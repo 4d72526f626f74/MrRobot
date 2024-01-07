@@ -92,6 +92,7 @@ pluto_class Players
         self.pv:readonly('', '') -- frozen
         self.pv:readonly('', '') -- invisible
         self.pv:readonly('', '') -- can migrate
+        self.pv:readonly('', '') -- network id
 
         self.pv:divider('')
         self.pv:toggle(T'Force Script Host', {}, T'Forces you to become script host (helps with trolling features)', function(state)
@@ -135,7 +136,7 @@ pluto_class Players
             local veh = Network.GetPVFromNetworkID(pid)
             if veh ~= 0 then
                 if entities.get_can_migrate(veh) then
-                    entities.set_can_migrate(veh, false)
+                    entities.set_can_migrate(veh, false) -- set/clear bit 48 of net_obj + 0x48
                 end
             else
                 deny_requests.value = false
@@ -278,7 +279,7 @@ pluto_class Players
         end)
         self.pv:divider('')
         self.veh_kicks = self.pv:list(T'Kicks', {}, T'Vehicle kicks')
-        self.veh_kicks:action(T'Takeover Kick', {}, T'Takeover kick (a discrete vehicle kick)', function()
+        self.veh_kicks:action(T'Takeover Kick', {}, T'Takeover kick', function()
             if Settings:IsSet(Bits.ForceScriptHost) then Network.BecomeScriptHost() end
             self:TakeoverKick(pid)
         end)
@@ -448,16 +449,38 @@ pluto_class Players
         end)
 
         self.veh_trolling = self.trolling:list(T'Vehicle', {}, T'Vehicle')
+        if S.Settings:IsSet(S.SettingsBits.Debug) then 
+            self.debug = self.veh_trolling:list(T'Debug', {}, T'Debug')
+            self.debug:action(T'Copy Address', {}, T'Copy the address of the vehicle', function()
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    util.copy_to_clipboard(string.format('%X', veh.ptr))
+                end
+            end)
+            
+            self.debug:action(T'Copy Model', {}, T'Copy model hash', function()
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    util.copy_to_clipboard(string.format('%X', entity.get_entity_model(veh.entity)))
+                end
+            end)
+        end
         self.wheels = self.veh_trolling:list(T'Wheels', {}, T'Wheels', nil, nil, || -> self:UpdateWheelsInfo(pid))
         self.wheels:divider(T'Wheels')
-        self.wheels:readonly(T'Wheel 1: ?', '') -- index 1
-        self.wheels:readonly(T'Wheel 2: ?', '') -- index 2
-        self.wheels:readonly(T'Wheel 3: ?', '') -- index 3
-        self.wheels:readonly(T'Wheel 4: ?', '') -- index 4
-        self.wheels:readonly(T'Wheel 5: ?', '') -- index 5
-        self.wheels:readonly(T'Wheel 6: ?', '') -- index 6
-        self.wheels:readonly(T'Wheel 7: ?', '') -- index 7
-        self.wheels:readonly(T'Wheel 8: ?', '') -- index 8
+
+        self.wheel_labels = {}
+        if not self.wheel_labels[pid] then
+            self.wheel_labels[pid] = {}
+        end
+
+        self.wheel_labels[pid][1] = self.wheels:readonly(T'Wheel 1: ?', '') -- index 1
+        self.wheel_labels[pid][2] = self.wheels:readonly(T'Wheel 2: ?', '') -- index 2
+        self.wheel_labels[pid][3] = self.wheels:readonly(T'Wheel 3: ?', '') -- index 3
+        self.wheel_labels[pid][4] = self.wheels:readonly(T'Wheel 4: ?', '') -- index 4
+        self.wheel_labels[pid][5] = self.wheels:readonly(T'Wheel 5: ?', '') -- index 5
+        self.wheel_labels[pid][6] = self.wheels:readonly(T'Wheel 6: ?', '') -- index 6
+        self.wheel_labels[pid][7] = self.wheels:readonly(T'Wheel 7: ?', '') -- index 7
+        self.wheel_labels[pid][8] = self.wheels:readonly(T'Wheel 8: ?', '') -- index 8
         self.wheels:divider('')
 
         self.individual_wheels = self.wheels:list(T'Individual Wheels', {}, T'Individual Wheels')
@@ -640,7 +663,7 @@ pluto_class Players
                 end
                 local veh = Network.GetPVFromNetworkID(pid)
                 local children = item:getChildren()
-                local model, health, godmode, frozen, invisible, can_migrate = children[2], children[3], children[4], children[5], children[6], children[7]
+                local model, health, godmode, frozen, invisible, can_migrate, network_id = children[2], children[3], children[4], children[5], children[6], children[7], children[8]
 
                 if model:isValid() then
                     if veh ~= 0 then
@@ -689,6 +712,14 @@ pluto_class Players
                         can_migrate.menu_name = T'Can Migrate: None'
                     end
                 end
+
+                if network_id:isValid() then
+                    if veh ~= 0 then
+                        network_id.menu_name = T'Network ID: ' .. Network.GetPVNetworkID(pid)
+                    else
+                        network_id.menu_name = T'Network ID: None'
+                    end
+                end
             end)
         end
     end
@@ -735,75 +766,21 @@ pluto_class Players
                     return false
                 end
                 local player_ped = player.get_player_ped(pid)
-                local veh = ped.get_vehicle_ped_is_in(player_ped, false)
+                local veh = ped.get_vehicle_ped_is_using(player_ped)
                 if veh ~= 0 then
                     local ptr = entities.handle_to_pointer(veh)
                     if ptr ~= 0 then
                         local state = memory.read_short(ptr + 0xA98)
-                        local children = item:getChildren()
-                        local index1, index2, index3, index4, index5, index6, index7, index8 = children[2], children[3], children[4], children[5], children[6], children[7], children[8], children[9]
-                        if index1:isValid() then
-                            index1.menu_name = T'Wheel 1: ' .. ((state & (1 << 0) ~= (1 << 0)) ? T'Attached' : T'Detached')
-                        end
+                        local wheel_count = memory.read_byte(ptr + 0xDA0)
 
-                        if index2:isValid() then
-                            index2.menu_name = T'Wheel 2: ' .. ((state & (1 << 1) ~= (1 << 1)) ? T'Attached' : T'Detached')
-                        end
-
-                        if index3:isValid() then
-                            index3.menu_name = T'Wheel 3: ' .. ((state & (1 << 2) ~= (1 << 2)) ? T'Attached' : T'Detached')
-                        end
-
-                        if index4:isValid() then
-                            index4.menu_name = T'Wheel 4: ' .. ((state & (1 << 3) ~= (1 << 3)) ? T'Attached' : T'Detached')
-                        end
-
-                        if index5:isValid() then
-                            index5.menu_name = T'Wheel 5: ' .. ((state & (1 << 4) ~= (1 << 4)) ? T'Attached' : T'Detached')
-                        end
-
-                        if index6:isValid() then
-                            index6.menu_name = T'Wheel 6: ' .. ((state & (1 << 5) ~= (1 << 5)) ? T'Attached' : T'Detached')
-                        end
-
-                        if index7:isValid() then
-                            index7.menu_name = T'Wheel 7: ' .. ((state & (1 << 6) ~= (1 << 6)) ? T'Attached' : T'Detached')
-                        end
-
-                        if index8:isValid() then
-                            index8.menu_name = T'Wheel 8: ' .. ((state & (1 << 7) ~= (1 << 7)) ? T'Attached' : T'Detached')
-                        end
-                    else
-                        if index1:isValid() then
-                            index1.menu_name = T'Wheel 1: ?'
-                        end
-
-                        if index2:isValid() then
-                            index2.menu_name = T'Wheel 2: ?'
-                        end
-
-                        if index3:isValid() then
-                            index3.menu_name = T'Wheel 3: ?'
-                        end
-
-                        if index4:isValid() then
-                            index4.menu_name = T'Wheel 4: ?'
-                        end
-
-                        if index5:isValid() then
-                            index5.menu_name = T'Wheel 5: ?'
-                        end
-
-                        if index6:isValid() then
-                            index6.menu_name = T'Wheel 6: ?'
-                        end
-
-                        if index7:isValid() then
-                            index7.menu_name = T'Wheel 7: ?'
-                        end
-
-                        if index8:isValid() then
-                            index8.menu_name = T'Wheel 8: ?'
+                        local player_labels = self.wheel_labels[pid]
+                        if type(player_labels) == 'table' then
+                            for i = 1, 8 do
+                                if player_labels[i]:isValid() then
+                                    player_labels[i].visible = i <= wheel_count
+                                    player_labels[i].menu_name = T'Wheel ' .. i .. ': ' .. ((memory.bits:check(state, i)) ? T'Detached' : T'Attached')
+                                end
+                            end
                         end
                     end
                 end

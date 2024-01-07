@@ -62,6 +62,14 @@ pluto_class Cooldowns
             self:RemoveCEOVehicleRequestCooldown()
         end)
 
+        self.root:toggle_loop(T'Remove Ballistic Armor Cooldown', {}, T'Remove ballistic armor request cooldown', function(state)
+            memory.write_int(memory.script_global(Globals.BallisticArmorCooldown), 0)
+        end)
+
+        self.root:toggle_loop(T'Remove All Cooldowns', {}, T'Remove cooldowns for loads of things within the interaction menu', function(state)
+            Globals:DisableAllCooldowns()
+        end)
+
         self.root:toggle_loop(T'Remove Personal Vehicle Request Delay', {}, T'Personal vehicles will be delivered to you instantly', function()
             self:RemovePersonalVehicleRequestDelay()
         end)

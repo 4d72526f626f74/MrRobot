@@ -486,6 +486,24 @@ pluto_class Unlocks
                 self:UnlockNavyRevolver()
             end
         end)
+
+        self.other:action(T'Unlock Gooch Outfit', {}, T'Unlock Gooch Outfit', function()
+            if SCRIPT_CAN_CONTINUE then
+                self:UnlockGoochOutfit()
+            end
+        end)
+
+        self.other:action(T'Unlock Yeti Outfit', {}, T'Unlock Yeti Outfit', function()
+            if SCRIPT_CAN_CONTINUE then
+                self:UnlockYetiOutfit()
+            end
+        end)
+
+        self.other:action(T'Unlock Snowman Outfit', {}, T'Unlock Snowman Outfit', function()
+            if SCRIPT_CAN_CONTINUE then
+                self:UnlockSnowmanOutfit()
+            end
+        end)
     end
 
     function UnlockAchievement(name)
@@ -881,6 +899,19 @@ pluto_class Unlocks
     function IsCasinoMembershipUnlocked()
         local unlock = memory.script_global(Globals.Unlocks.CasinoPenthouse + 1)
         return memory.bits:check(memory.read_int(unlock), 1 << 18)
+    end
+
+    function UnlockGoochOutfit()
+        stats.set_packed_stat_bool_code(36775, true, char_slot)
+        stats.set_packed_stat_bool_code(34761, true, char_slot)
+    end
+
+    function UnlockYetiOutfit()
+        stats.set_packed_stat_bool_code(42119, true, char_slot)
+    end
+
+    function UnlockSnowmanOutfit()
+        stats.set_packed_stat_bool_code(36776, true, char_slot)
     end
 end
 

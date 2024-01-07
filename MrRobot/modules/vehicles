@@ -9,7 +9,127 @@ local PVM = require('pvm')
 local Offsets = ScriptOffsets.Vehicles.LSCustoms
 local VehicleBitfield = ScriptOffsets.Vehicles.VehicleBitfield
 
+enum eDecorType begin
+    Float = 1,
+    Bool = 2,
+    Int = 3,
+    Unk = 4,
+    Time = 5,
+end
+
+local decorNames = {
+    PlayerVehicle = { name = 'Player_Vehicle', type = eDecorType.Int },
+    PVSlot = { name = 'PV_Slot', type = eDecorType.Int },
+    PreviousOwner = { name = 'Previous_Owner', type = eDecorType.Int },
+    SprayedVehicleDecorator = { name = 'Sprayed_Vehicle_Decorator', type = eDecorType.Bool },
+    VehicleReward = { name = 'Vehicle_Reward', type = eDecorType.Int },
+    VehicleRewardTeams = { name = 'Vehicle_Reward_Teams', type = eDecorType.Int },
+    SkillBlocker = { name = 'Skill_Blocker', type = eDecorType.Bool },
+    TargetPlayerForTeam = { name = 'TargetPlayerForTeam', type = eDecorType.Int },
+    XPBlocker = { name = 'XP_Blocker', type = eDecorType.Bool },
+    CrowdControlSetUp = { name = 'CrowdControlSetUp', type = eDecorType.Int },
+    BoughtDrugs = { name = 'Bought_Drugs', type = eDecorType.Bool },
+    HeroinInPossession = { name = 'HeroinInPossession', type = eDecorType.Float },
+    CokeInPossession = { name = 'CokeInPossession', type = eDecorType.Float },
+    WeedInPossession = { name = 'WeedInPossession', type = eDecorType.Float },
+    MethInPossession = { name = 'MethInPossession', type = eDecorType.Float },
+    bombdec = { name = 'bombdec', type = eDecorType.Int },
+    bombdec1 = { name = 'bombdec1', type = eDecorType.Int },
+    bombowner = { name = 'bombowner', type = eDecorType.Int },
+    noPlateScan = { name = 'noPlateScan', type = eDecorType.Bool },
+    prisonBreakBoss = { name = 'prisonBreakBoss', type = eDecorType.Bool },
+    cashondeadbody = { name = 'cashondeadbody', type = eDecorType.Int },
+    MissionType = { name = 'MissionType', type = eDecorType.Int },
+    MatchId = { name = 'MatchId', type = eDecorType.Int },
+    TeamId = { name = 'TeamId', type = eDecorType.Int },
+    NotAllowAsSavedVeh = { name = 'Not_Allow_As_Saved_Veh', type = eDecorType.Int },
+    VehModdedByPlayer = { name = 'Veh_Modded_By_Player', type = eDecorType.Int },
+    MPBitset = { name = 'MPBitset', type = eDecorType.Int },
+    MC_EntityID = { name = 'MC_EntityID', type = eDecorType.Int },
+    MC_ChasePedID = { name = 'MC_ChasePedID', type = eDecorType.Int },
+    MC_TrainID = { name = 'MC_TrainID', type = eDecorType.Int },
+    MC_Team0_VehDeliveredRules = { name = 'MC_Team0_VehDeliveredRules', type = eDecorType.Int },
+    MC_Team1_VehDeliveredRules = { name = 'MC_Team1_VehDeliveredRules', type = eDecorType.Int },
+    MC_Team2_VehDeliveredRules = { name = 'MC_Team2_VehDeliveredRules', type = eDecorType.Int },
+    MC_Team3_VehDeliveredRules = { name = 'MC_Team3_VehDeliveredRules', type = eDecorType.Int },
+    FMMC_ClonedPedPart = { name = 'FMMC_ClonedPedPart', type = eDecorType.Int },
+    AttributeDamage = { name = 'AttributeDamage', type = eDecorType.Int },
+    GangBackup = { name = 'GangBackup', type = eDecorType.Int },
+    CreatedByPegasus = { name = 'CreatedByPegasus', type = eDecorType.Bool },
+    BeforeCorona = { name = 'BeforeCorona', type = eDecorType.Int },
+    Heist_Veh_ID = { name = 'Heist_Veh_ID', type = eDecorType.Int },
+    CC_iState = { name = 'CC_iState', type = eDecorType.Int },
+    CC_iStatePrev = { name = 'CC_iStatePrev', type = eDecorType.Int },
+    CC_iBitSet = { name = 'CC_iBitSet', type = eDecorType.Int },
+    CC_fInfluenceDirectThreat = { name = 'CC_fInfluenceDirectThreat', type = eDecorType.Float },
+    CC_fInfluenceShouting = { name = 'CC_fInfluenceShouting', type = eDecorType.Float },
+    CC_iBeatdownHitsRemaining = { name = 'CC_iBeatdownHitsRemaining', type = eDecorType.Int },
+    CC_iBeatdownRounds = { name = 'CC_iBeatdownRounds', type = eDecorType.Int },
+    LUXE_MINIGAME_ACT_PROPS = { name = 'LUXE_MINIGAME_ACT_PROPS', type = eDecorType.Int },
+    LUXE_VEH_INSTANCE_ID = { name = 'LUXE_VEH_INSTANCE_ID', type = eDecorType.Int },
+    UsingForTimeTrial = { name = 'UsingForTimeTrial', type = eDecorType.Bool },
+    EnableVehLuxeActs = { name = 'EnableVehLuxeActs', type = eDecorType.Int },
+    Player_Goon = { name = 'Player_Goon', type = eDecorType.Int },
+    Player_Boss = { name = 'Player_Boss', type = eDecorType.Int },
+    Previous_Boss = { name = 'Previous_Boss', type = eDecorType.Int },
+    PYV_Owner = { name = 'PYV_Owner', type = eDecorType.Int },
+    PYV_Vehicle = { name = 'PYV_Vehicle', type = eDecorType.Int },
+    PYV_Yacht = { name = 'PYV_Yacht', type = eDecorType.Int },
+    PYV_WarpFrom = { name = 'PYV_WarpFrom', type = eDecorType.Int },
+    ContrabandOwner = { name = 'ContrabandOwner', type = eDecorType.Int },
+    HeliTaxi = { name = 'HeliTaxi', type = eDecorType.Bool },
+    ContrabandDeliveryType = { name = 'ContrabandDeliveryType', type = eDecorType.Int },
+    RandomID = { name = 'RandomID', type = eDecorType.Int },
+    ExportVehicle = { name = 'ExportVehicle', type = eDecorType.Int },
+    RespawnVeh = { name = 'RespawnVeh', type = eDecorType.Int },
+    Player_Truck = { name = 'Player_Truck', type = eDecorType.Int },
+    Creator_Trailer = { name = 'Creator_Trailer', type = eDecorType.Int },
+    FMDeliverableID = { name = 'FMDeliverableID', type = eDecorType.Int },
+    Player_Avenger = { name = 'Player_Avenger', type = eDecorType.Int },
+    Player_Acid_Lab = { name = 'Player_Acid_Lab', type = eDecorType.Int },
+    Player_Support_Bike_Vehicle = { name = 'Player_Support_Bike_Vehicle', type = eDecorType.Int },
+    Player_Hacker_Truck = { name = 'Player_Hacker_Truck', type = eDecorType.Int },
+    BBCarrier = { name = 'BBCarrier', type = eDecorType.Bool },
+    GBMissionFire = { name = 'GBMissionFire', type = eDecorType.Int },
+    GBCVehicle = { name = 'GBCVehicle', type = eDecorType.Bool },
+    CSHVehicle = { name = 'CSHVehicle', type = eDecorType.Bool },
+    AllowModSprayRepair = { name = 'AllowModSprayRepair', type = eDecorType.Bool },
+    FMCVehicle = { name = 'FMCVehicle', type = eDecorType.Bool },
+    Player_Submarine = { name = 'Player_Submarine', type = eDecorType.Int },
+    Player_Submarine_Dinghy = { name = 'Player_Submarine_Dinghy', type = eDecorType.Int },
+    Player_Moon_Pool = { name = 'Player_Moon_Pool', type = eDecorType.Int },
+    VehicleList = { name = 'VehicleList', type = eDecorType.Bool },
+    Company_SUV = { name = 'Company_SUV', type = eDecorType.Int },
+    TestDrive = { name = 'TestDrive', type = eDecorType.Bool },
+    Player_Thruster = { name = 'Player_Thruster', type = eDecorType.Int },
+    Player_Owned_Veh = { name = 'Player_Owned_Veh', type = eDecorType.Int },
+    PHOTO_TAKEN = { name = 'PHOTO_TAKEN', type = eDecorType.Bool },
+    doe_elk = { name = 'doe_elk', type = eDecorType.Bool },
+    hunt_score = { name = 'hunt_score', type = eDecorType.Int },
+    hunt_weapon = { name = 'hunt_weapon', type = eDecorType.Int },
+    hunt_undetected = { name = 'hunt_undetected', type = eDecorType.Bool },
+    hunt_nocall = { name = 'hunt_nocall', type = eDecorType.Bool },
+    hunt_chal_weapon = { name = 'hunt_chal_weapon', type = eDecorType.Int },
+    hunt_kill_time = { name = 'hunt_kill_time', type = eDecorType.Int },
+    DismissedBy = { name = 'DismissedBy', type = eDecorType.Int },
+    Darts_name = { name = 'Darts_name', type = eDecorType.Int },
+    Getaway_Winched = { name = 'Getaway_Winched', type = eDecorType.Bool },
+    MapGauntlet = { name = 'MapGauntlet', type = eDecorType.Int },
+    IgnoredByQuickSave = { name = 'IgnoredByQuickSave', type = eDecorType.Bool },
+    GetawayVehicleValid = { name = 'GetawayVehicleValid', type = eDecorType.Bool },
+    RampageCarExploded = { name = 'RampageCarExploded', type = eDecorType.Bool },
+    Carwash_Vehicle_Decorator = { name = 'Carwash_Vehicle_Decorator', type = eDecorType.Bool },
+    Casino_Game_Info_Decorator = { name = 'Casino_Game_Info_Decorator', type = eDecorType.Int },
+}
+
 pluto_class Vehicles
+    AIHandlingIndexed = {
+        {1, 'AVERAGE'},
+        {2, 'TRUCK'},
+        {3, 'CRAP'},
+        {4, 'SPORTS_CAR'}
+    }
+
     AIHandling = {
         'AVERAGE',
         'TRUCK',
@@ -32,6 +152,169 @@ pluto_class Vehicles
 
         self.horn_boost = self.root:list(T'Horn Boost', {T'rhornboost'}, T'Horn Boost')
         self.torque = self.root:list(T'Torque', {T'rvtorque'}, T'Torque')
+        self.decor = self.root:list(T'Decors', {T'rvdecor'}, T'Decor', nil, nil, || -> self:UpdateDecorInfo())
+        self.decor_editor = self.decor:list(T'Decor Editor', {T'rvdecoreditor'}, T'Decor Editor')
+        self.network_id = self.root:list(T'Network ID', {T'rvnetworkid'}, T'Network ID')
+
+        self.network_id:text_input(T'Network ID', {T'rvnetworkidinput'}, T'Change your personal vehicles network id', function(value)
+            local net_id = tonumber(value)
+            if network.network_does_network_id_exist(net_id) then
+                Network.SetPVNetworkID(players.user(), net_id)
+            end
+        end, Network.GetPVNetworkID(players.user()))
+
+        self.network_id:action(T'Assign Random Vehicle Network ID', {T'rvnetworkidrandom'}, T'Assign a random vehicles network id to your personal vehicle', function()
+            local veh_ptr = entities.get_all_vehicles_as_pointers()[1]
+            local veh = entities.pointer_to_handle(veh_ptr)
+
+            if veh ~= 0 then
+                local net_id = network.network_get_network_id_from_entity(veh)
+                local veh_model = util.get_label_text(util.reverse_joaat(entity.get_entity_model(veh)))
+                
+                if network.network_does_network_id_exist(net_id) then
+                    Network.SetPVNetworkID(players.user(), net_id)
+                else
+                    entity.set_entity_as_mission_entity(veh, true, true)
+                    Network.SetPVNetworkID(players.user(), net_id)
+                end
+
+                util.toast($'Spoofing as {veh_model} with network id {net_id}')
+            end
+        end)
+
+        decorNames = S:SortTable(decorNames, |a, b| -> a.name < b.name)
+        local localplayer = players.localplayer()
+        local veh = players.localplayer_vehicle()
+        for decorNames as data do
+            local decor_menu = self.decor_editor:list(tostring(data.name), {T'rvdecor' .. tostring(data.name)}, T'Decor')
+            if data.type == eDecorType.Bool then
+                decor_menu:toggle(T'Value', {}, 'Boolean', function(state)
+                    veh = players.localplayer_vehicle()
+                    if localplayer:is_ped_in_any_vehicle() then
+                        decorator.decor_set_bool(veh.entity, data.name, state)
+                    end
+                end, decorator.decor_get_bool(veh.entity, data.name))
+            elseif data.type == eDecorType.Int then
+                decor_menu:slider(T'Value', {T'rvdecoredit' .. tostring(data.name)}, 'Integer', 0, math.max_int, 0, 1, function(value)
+                    veh = players.localplayer_vehicle()
+                    if localplayer:is_ped_in_any_vehicle() then
+                        decorator.decor_set_int(veh.entity, data.name, value)
+                    end
+                end, decorator.decor_get_int(veh.entity, data.name))
+            elseif data.type == eDecorType.Float then
+                decor_menu:slider_float(T'Value', {T'rvdecoredit' .. tostring(data.name)}, 'Float', 0.0, math.max_float, 0.0, 1.0, function(value)
+                    veh = players.localplayer_vehicle()
+                    if localplayer:is_ped_in_any_vehicle() then
+                        decorator.decor_set_float(veh.entity, data.name, value)
+                    end
+                end, decorator.decor_get_float(veh.entity, data.name))
+            end
+        end
+
+        self.decor:divider('')
+
+        self.decor_player_vehicle = self.decor:readonly(T'Player Vehicle: ', '')
+        self.decor_pv_slot = self.decor:readonly(T'PV Slot: ', '')
+        self.decor_previous_owner = self.decor:readonly(T'Previous Owner: ', '')
+        self.decor_sprayed_vehicle = self.decor:readonly(T'Sprayed Vehicle: ', '')
+        self.decor_vehicle_reward = self.decor:readonly(T'Vehicle Reward: ', '')
+        self.decor_vehicle_reward_teams = self.decor:readonly(T'Vehicle Reward Teams: ', '')
+        self.decor_skill_blocker = self.decor:readonly(T'Skill Blocker: ', '')
+        self.decor_target_player_for_team = self.decor:readonly(T'Target Player For Team: ', '')
+        self.decor_xp_blocker = self.decor:readonly(T'XP Blocker: ', '')
+        self.decor_crowd_control_setup = self.decor:readonly(T'Crowd Control Setup: ', '')
+        self.decor_bought_drugs = self.decor:readonly(T'Bought Drugs: ', '')
+        self.decor_heroin_in_possession = self.decor:readonly(T'Heroin In Possession: ', '')
+        self.decor_coke_in_possession = self.decor:readonly(T'Coke In Possession: ', '')
+        self.decor_weed_in_possession = self.decor:readonly(T'Weed In Possession: ', '')
+        self.decor_meth_in_possession = self.decor:readonly(T'Meth In Possession: ', '')
+        self.decor_bombdec = self.decor:readonly(T'Bombdec: ', '')
+        self.decor_bombdec1 = self.decor:readonly(T'Bombdec1: ', '')
+        self.decor_bombowner = self.decor:readonly(T'Bombowner: ', '')
+        self.decor_no_plate_scan = self.decor:readonly(T'No Plate Scan: ', '')
+        self.decor_prison_break_boss = self.decor:readonly(T'Prison Break Boss: ', '')
+        self.decor_cashondeadbody = self.decor:readonly(T'Cashondeadbody: ', '')
+        self.decor_mission_type = self.decor:readonly(T'Mission Type: ', '')
+        self.decor_match_id = self.decor:readonly(T'Match Id: ', '')
+        self.decor_team_id = self.decor:readonly(T'Team Id: ', '')
+        self.decor_not_allow_as_saved_veh = self.decor:readonly(T'Not Allow As Saved Veh: ', '')
+        self.decor_veh_modded_by_player = self.decor:readonly(T'Veh Modded By Player: ', '')
+        self.decor_mp_bitset = self.decor:readonly(T'MP Bitset: ', '')
+        self.decor_mc_entity_id = self.decor:readonly(T'MC Entity ID: ', '')
+        self.decor_mc_chase_ped_id = self.decor:readonly(T'MC Chase Ped ID: ', '')
+        self.decor_mc_train_id = self.decor:readonly(T'MC Train ID: ', '')
+        self.decor_mc_team0_veh_delivered_rules = self.decor:readonly(T'MC Team0 Veh Delivered Rules: ', '')
+        self.decor_mc_team1_veh_delivered_rules = self.decor:readonly(T'MC Team1 Veh Delivered Rules: ', '')
+        self.decor_mc_team2_veh_delivered_rules = self.decor:readonly(T'MC Team2 Veh Delivered Rules: ', '')
+        self.decor_mc_team3_veh_delivered_rules = self.decor:readonly(T'MC Team3 Veh Delivered Rules: ', '')
+        self.decor_fm_cloned_ped_part = self.decor:readonly(T'FM Cloned Ped Part: ', '')
+        self.decor_attribute_damage = self.decor:readonly(T'Attribute Damage: ', '')
+        self.decor_gang_backup = self.decor:readonly(T'Gang Backup: ', '')
+        self.decor_created_by_pegasus = self.decor:readonly(T'Created By Pegasus: ', '')
+        self.decor_before_corona = self.decor:readonly(T'Before Corona: ', '')
+        self.decor_heist_veh_id = self.decor:readonly(T'Heist Veh ID: ', '')
+        self.decor_cc_istate = self.decor:readonly(T'CC IState: ', '')
+        self.decor_cc_istate_prev = self.decor:readonly(T'CC IState Prev: ', '')
+        self.decor_cc_ibitset = self.decor:readonly(T'CC IBitSet: ', '')
+        self.decor_cc_finfluence_direct_threat = self.decor:readonly(T'CC FInfluence Direct Threat: ', '')
+        self.decor_cc_finfluence_shouting = self.decor:readonly(T'CC FInfluence Shouting: ', '')
+        self.decor_cc_ibeatdown_hits_remaining = self.decor:readonly(T'CC IBeatdown Hits Remaining: ', '')
+        self.decor_cc_ibeatdown_rounds = self.decor:readonly(T'CC IBeatdown Rounds: ', '')
+        self.decor_luxe_minigame_act_props = self.decor:readonly(T'Luxe Minigame Act Props: ', '')
+        self.decor_luxe_veh_instance_id = self.decor:readonly(T'Luxe Veh Instance ID: ', '')
+        self.decor_using_for_time_trial = self.decor:readonly(T'Using For Time Trial: ', '')
+        self.decor_enable_veh_luxe_acts = self.decor:readonly(T'Enable Veh Luxe Acts: ', '')
+        self.decor_player_goon = self.decor:readonly(T'Player Goon: ', '')
+        self.decor_player_boss = self.decor:readonly(T'Player Boss: ', '')
+        self.decor_previous_boss = self.decor:readonly(T'Previous Boss: ', '')
+        self.decor_pyv_owner = self.decor:readonly(T'PYV Owner: ', '')
+        self.decor_pyv_vehicle = self.decor:readonly(T'PYV Vehicle: ', '')
+        self.decor_pyv_yacht = self.decor:readonly(T'PYV Yacht: ', '')
+        self.decor_pyv_warp_from = self.decor:readonly(T'PYV Warp From: ', '')
+        self.decor_contraband_owner = self.decor:readonly(T'Contraband Owner: ', '')
+        self.decor_heli_taxi = self.decor:readonly(T'Heli Taxi: ', '')
+        self.decor_contraband_delivery_type = self.decor:readonly(T'Contraband Delivery Type: ', '')
+        self.decor_random_id = self.decor:readonly(T'Random ID: ', '')
+        self.decor_export_vehicle = self.decor:readonly(T'Export Vehicle: ', '')
+        self.decor_respawn_veh = self.decor:readonly(T'Respawn Veh: ', '')
+        self.decor_player_truck = self.decor:readonly(T'Player Truck: ', '')
+        self.decor_creator_trailer = self.decor:readonly(T'Creator Trailer: ', '')
+        self.decor_fmdeliverable_id = self.decor:readonly(T'FMDeliverable ID: ', '')
+        self.decor_player_avenger = self.decor:readonly(T'Player Avenger: ', '')
+        self.decor_player_acid_lab = self.decor:readonly(T'Player Acid Lab: ', '')
+        self.decor_player_support_bike_vehicle = self.decor:readonly(T'Player Support Bike Vehicle: ', '')
+        self.decor_player_hacker_truck = self.decor:readonly(T'Player Hacker Truck: ', '')
+        self.decor_bb_carrier = self.decor:readonly(T'BB Carrier: ', '')
+        self.decor_gb_mission_fire = self.decor:readonly(T'GB Mission Fire: ', '')
+        self.decor_gbc_vehicle = self.decor:readonly(T'GBC Vehicle: ', '')
+        self.decor_csh_vehicle = self.decor:readonly(T'CSH Vehicle: ', '')
+        self.decor_allow_mod_spray_repair = self.decor:readonly(T'Allow Mod Spray Repair: ', '')
+        self.decor_fmc_vehicle = self.decor:readonly(T'FMC Vehicle: ', '')
+        self.decor_player_submarine = self.decor:readonly(T'Player Submarine: ', '')
+        self.decor_player_submarine_dinghy = self.decor:readonly(T'Player Submarine Dinghy: ', '')
+        self.decor_player_moon_pool = self.decor:readonly(T'Player Moon Pool: ', '')
+        self.decor_vehicle_list = self.decor:readonly(T'Vehicle List: ', '')
+        self.decor_company_suv = self.decor:readonly(T'Company SUV: ', '')
+        self.decor_test_drive = self.decor:readonly(T'Test Drive: ', '')
+        self.decor_player_thruster = self.decor:readonly(T'Player Thruster: ', '')
+        self.decor_player_owned_veh = self.decor:readonly(T'Player Owned Veh: ', '')
+        self.decor_photo_taken = self.decor:readonly(T'Photo Taken: ', '')
+        self.decor_doe_elk = self.decor:readonly(T'Doe Elk: ', '')
+        self.decor_hunt_score = self.decor:readonly(T'Hunt Score: ', '')
+        self.decor_hunt_weapon = self.decor:readonly(T'Hunt Weapon: ', '')
+        self.decor_hunt_undetected = self.decor:readonly(T'Hunt Undetected: ', '')
+        self.decor_hunt_nocall = self.decor:readonly(T'Hunt Nocall: ', '')
+        self.decor_hunt_chal_weapon = self.decor:readonly(T'Hunt Chal Weapon: ', '')
+        self.decor_hunt_kill_time = self.decor:readonly(T'Hunt Kill Time: ', '')
+        self.decor_dismissed_by = self.decor:readonly(T'Dismissed By: ', '')
+        self.decor_darts_name = self.decor:readonly(T'Darts Name: ', '')
+        self.decor_getaway_winched = self.decor:readonly(T'Getaway Winched: ', '')
+        self.decor_map_gauntlet = self.decor:readonly(T'Map Gauntlet: ', '')
+        self.decor_ignored_by_quick_save = self.decor:readonly(T'Ignored By Quick Save: ', '')
+        self.decor_getaway_vehicle_valid = self.decor:readonly(T'Getaway Vehicle Valid: ', '')
+        self.decor_rampage_car_exploded = self.decor:readonly(T'Rampage Car Exploded: ', '')
+        self.decor_carwash_vehicle_decorator = self.decor:readonly(T'Carwash Vehicle Decorator: ', '')
+        self.decor_casino_game_info_decorator = self.decor:readonly(T'Casino Game Info Decorator: ', '')
 
         self.root:divider('')
         self.improved_wheelie = self.root:toggle(T'Improved Wheelie', {T'rvimprovedwheelie'}, T'Improves the wheelie handling of bikes, allowing you to wheelie at high speeds and lean back pretty far', function(state)
@@ -146,10 +429,12 @@ pluto_class Vehicles
                 veh:set_vehicle_strong(true)
                 veh:set_vehicle_has_strong_axles(true)
                 veh:set_vehicle_explodes_on_high_explosion_damage(false)
-                memory.write_float(veh.ptr + 0x0284, math.max_int) -- max health
-                memory.write_float(veh.ptr + 0x280, math.max_int) -- health
-                memory.write_float(veh.ptr + 0x08E8, math.max_int) -- engine health
-                memory.write_float(veh.ptr + 0x0824, math.max_int) -- petrol tank health
+                pcall(function()
+                    memory.write_float(veh.ptr + 0x0284, math.max_int) -- max health
+                    memory.write_float(veh.ptr + 0x280, math.max_int) -- health
+                    memory.write_float(veh.ptr + 0x08E8, math.max_int) -- engine health
+                    memory.write_float(veh.ptr + 0x0824, math.max_int) -- petrol tank health
+                end)
             end
         end)
 
@@ -181,7 +466,7 @@ pluto_class Vehicles
             end
         end, '12ABC345')
 
-        self.root:list_select(T'AIHandling', {}, T'Change the handling meta for your vehicle', self.AIHandling, 1, function(index)
+        self.root:list_select(T'AIHandling', {}, T'Change the handling meta for your vehicle', self.AIHandlingIndexed, 1, function(index)
             local value = self.AIHandling[index]
             local veh = players.localplayer_vehicle()
             if veh.entity ~= 0 then
@@ -614,6 +899,121 @@ pluto_class Vehicles
                 memory.write_byte(addr, memory.bits:set(value, mask))
             end
         end
+    end
+
+    function UpdateDecorInfo()
+        util.create_tick_handler(function()
+            local item = menu.get_current_menu_list()
+            if item.menu_name ~= T'Decors' then
+                return false
+            end
+
+            local veh = players.localplayer_vehicle()
+            if veh.entity ~= 0 then
+                self.decor_player_vehicle.value = decorator.decor_get_int(veh.entity, 'Player_Vehicle')
+                self.decor_pv_slot.value = decorator.decor_get_int(veh.entity, 'PV_Slot')
+                self.decor_previous_owner.value = decorator.decor_get_int(veh.entity, 'Previous_Owner')
+                self.decor_sprayed_vehicle.value = decorator.decor_get_bool(veh.entity, 'Sprayed_Vehicle_Decorator')
+                self.decor_vehicle_reward.value = decorator.decor_get_int(veh.entity, 'Vehicle_Reward')
+                self.decor_vehicle_reward_teams.value = decorator.decor_get_int(veh.entity, 'Vehicle_Reward_Teams')
+                self.decor_skill_blocker.value = decorator.decor_get_bool(veh.entity, 'Skill_Blocker')
+                self.decor_target_player_for_team.value = decorator.decor_get_int(veh.entity, 'TargetPlayerForTeam')
+                self.decor_xp_blocker.value = decorator.decor_get_bool(veh.entity, 'XP_Blocker')
+                self.decor_crowd_control_setup.value = decorator.decor_get_int(veh.entity, 'CrowdControlSetUp')
+                self.decor_bought_drugs.value = decorator.decor_get_bool(veh.entity, 'Bought_Drugs')
+                self.decor_heroin_in_possession.value = decorator.decor_get_bool(veh.entity, 'HeroinInPossession')
+                self.decor_coke_in_possession.value = decorator.decor_get_bool(veh.entity, 'CokeInPossession')
+                self.decor_weed_in_possession.value = decorator.decor_get_bool(veh.entity, 'WeedInPossession')
+                self.decor_meth_in_possession.value = decorator.decor_get_bool(veh.entity, 'MethInPossession')
+                self.decor_bombdec.value = decorator.decor_get_int(veh.entity, 'bombdec')
+                self.decor_bombdec1.value = decorator.decor_get_int(veh.entity, 'bombdec1')
+                self.decor_bombowner.value = decorator.decor_get_int(veh.entity, 'bombowner')
+                self.decor_no_plate_scan.value = decorator.decor_get_bool(veh.entity, 'noPlateScan')
+                self.decor_prison_break_boss.value = decorator.decor_get_bool(veh.entity, 'prisonBreakBoss')
+                self.decor_cashondeadbody.value = decorator.decor_get_int(veh.entity, 'cashondeadbody')
+                self.decor_mission_type.value = decorator.decor_get_int(veh.entity, 'MissionType')
+                self.decor_match_id.value = decorator.decor_get_int(veh.entity, 'MatchId')
+                self.decor_team_id.value = decorator.decor_get_int(veh.entity, 'TeamId')
+                self.decor_not_allow_as_saved_veh.value = decorator.decor_get_int(veh.entity, 'Not_Allow_As_Saved_Veh')
+                self.decor_veh_modded_by_player.value = decorator.decor_get_int(veh.entity, 'Veh_Modded_By_Player')
+                self.decor_mp_bitset.value = decorator.decor_get_int(veh.entity, 'MPBitset')
+                self.decor_mc_entity_id.value = decorator.decor_get_int(veh.entity, 'MC_EntityID')
+                self.decor_mc_chase_ped_id.value = decorator.decor_get_int(veh.entity, 'MC_ChasePedID')
+                self.decor_mc_train_id.value = decorator.decor_get_int(veh.entity, 'MC_TrainID')
+                self.decor_mc_team0_veh_delivered_rules.value = decorator.decor_get_int(veh.entity, 'MC_Team0_VehDeliveredRules')
+                self.decor_mc_team1_veh_delivered_rules.value = decorator.decor_get_int(veh.entity, 'MC_Team1_VehDeliveredRules')
+                self.decor_mc_team2_veh_delivered_rules.value = decorator.decor_get_int(veh.entity, 'MC_Team2_VehDeliveredRules')
+                self.decor_mc_team3_veh_delivered_rules.value = decorator.decor_get_int(veh.entity, 'MC_Team3_VehDeliveredRules')
+                self.decor_fm_cloned_ped_part.value = decorator.decor_get_int(veh.entity, 'FMMC_ClonedPedPart')
+                self.decor_attribute_damage.value = decorator.decor_get_int(veh.entity, 'AttributeDamage')
+                self.decor_gang_backup.value = decorator.decor_get_int(veh.entity, 'GangBackup')
+                self.decor_created_by_pegasus.value = decorator.decor_get_bool(veh.entity, 'CreatedByPegasus')
+                self.decor_before_corona.value = decorator.decor_get_int(veh.entity, 'BeforeCorona')
+                self.decor_heist_veh_id.value = decorator.decor_get_int(veh.entity, 'Heist_Veh_ID')
+                self.decor_cc_istate.value = decorator.decor_get_int(veh.entity, 'CC_iState')
+                self.decor_cc_istate_prev.value = decorator.decor_get_int(veh.entity, 'CC_iStatePrev')
+                self.decor_cc_ibitset.value = decorator.decor_get_int(veh.entity, 'CC_iBitSet')
+                self.decor_cc_finfluence_direct_threat.value = decorator.decor_get_float(veh.entity, 'CC_fInfluenceDirectThreat')
+                self.decor_cc_finfluence_shouting.value = decorator.decor_get_float(veh.entity, 'CC_fInfluenceShouting')
+                self.decor_cc_ibeatdown_hits_remaining.value = decorator.decor_get_int(veh.entity, 'CC_iBeatdownHitsRemaining')
+                self.decor_cc_ibeatdown_rounds.value = decorator.decor_get_int(veh.entity, 'CC_iBeatdownRounds')
+                self.decor_luxe_minigame_act_props.value = decorator.decor_get_int(veh.entity, 'LUXE_MINIGAME_ACT_PROPS')
+                self.decor_luxe_veh_instance_id.value = decorator.decor_get_int(veh.entity, 'LUXE_VEH_INSTANCE_ID')
+                self.decor_using_for_time_trial.value = decorator.decor_get_bool(veh.entity, 'UsingForTimeTrial')
+                self.decor_enable_veh_luxe_acts.value = decorator.decor_get_int(veh.entity, 'EnableVehLuxeActs')
+                self.decor_player_goon.value = decorator.decor_get_int(veh.entity, 'Player_Goon')
+                self.decor_player_boss.value = decorator.decor_get_int(veh.entity, 'Player_Boss')
+                self.decor_previous_boss.value = decorator.decor_get_int(veh.entity, 'Previous_Boss')
+                self.decor_pyv_owner.value = decorator.decor_get_int(veh.entity, 'PYV_Owner')
+                self.decor_pyv_vehicle.value = decorator.decor_get_int(veh.entity, 'PYV_Vehicle')
+                self.decor_pyv_yacht.value = decorator.decor_get_int(veh.entity, 'PYV_Yacht')
+                self.decor_pyv_warp_from.value = decorator.decor_get_int(veh.entity, 'PYV_WarpFrom')
+                self.decor_contraband_owner.value = decorator.decor_get_int(veh.entity, 'ContrabandOwner')
+                self.decor_heli_taxi.value = decorator.decor_get_bool(veh.entity, 'HeliTaxi')
+                self.decor_contraband_delivery_type.value = decorator.decor_get_int(veh.entity, 'ContrabandDeliveryType')
+                self.decor_random_id.value = decorator.decor_get_int(veh.entity, 'RandomID')
+                self.decor_export_vehicle.value = decorator.decor_get_int(veh.entity, 'ExportVehicle')
+                self.decor_respawn_veh.value = decorator.decor_get_int(veh.entity, 'RespawnVeh')
+                self.decor_player_truck.value = decorator.decor_get_int(veh.entity, 'Player_Truck')
+                self.decor_creator_trailer.value = decorator.decor_get_int(veh.entity, 'Creator_Trailer')
+                self.decor_fmdeliverable_id.value = decorator.decor_get_int(veh.entity, 'FMDeliverableID')
+                self.decor_player_avenger.value = decorator.decor_get_int(veh.entity, 'Player_Avenger')
+                self.decor_player_acid_lab.value = decorator.decor_get_int(veh.entity, 'Player_Acid_Lab')
+                self.decor_player_support_bike_vehicle.value = decorator.decor_get_int(veh.entity, 'Player_Support_Bike_Vehicle')
+                self.decor_player_hacker_truck.value = decorator.decor_get_int(veh.entity, 'Player_Hacker_Truck')
+                self.decor_bb_carrier.value = decorator.decor_get_bool(veh.entity, 'BBCarrier')
+                self.decor_gb_mission_fire.value = decorator.decor_get_int(veh.entity, 'GBMissionFire')
+                self.decor_gbc_vehicle.value = decorator.decor_get_bool(veh.entity, 'GBCVehicle')
+                self.decor_csh_vehicle.value = decorator.decor_get_bool(veh.entity, 'CSHVehicle')
+                self.decor_allow_mod_spray_repair.value = decorator.decor_get_bool(veh.entity, 'AllowModSprayRepair')
+                self.decor_fmc_vehicle.value = decorator.decor_get_bool(veh.entity, 'FMCVehicle')
+                self.decor_player_submarine.value = decorator.decor_get_int(veh.entity, 'Player_Submarine')
+                self.decor_player_submarine_dinghy.value = decorator.decor_get_int(veh.entity, 'Player_Submarine_Dinghy')
+                self.decor_player_moon_pool.value = decorator.decor_get_int(veh.entity, 'Player_Moon_Pool')
+                self.decor_vehicle_list.value = decorator.decor_get_bool(veh.entity, 'VehicleList')
+                self.decor_company_suv.value = decorator.decor_get_int(veh.entity, 'Company_SUV')
+                self.decor_test_drive.value = decorator.decor_get_bool(veh.entity, 'TestDrive')
+                self.decor_player_thruster.value = decorator.decor_get_int(veh.entity, 'Player_Thruster')
+                self.decor_player_owned_veh.value = decorator.decor_get_int(veh.entity, 'Player_Owned_Veh')
+                self.decor_photo_taken.value = decorator.decor_get_bool(veh.entity, 'PHOTO_TAKEN')
+                self.decor_doe_elk.value = decorator.decor_get_bool(veh.entity, 'doe_elk')
+                self.decor_hunt_score.value = decorator.decor_get_int(veh.entity, 'hunt_score')
+                self.decor_hunt_weapon.value = decorator.decor_get_int(veh.entity, 'hunt_weapon')
+                self.decor_hunt_undetected.value = decorator.decor_get_bool(veh.entity, 'hunt_undetected')
+                self.decor_hunt_nocall.value = decorator.decor_get_bool(veh.entity, 'hunt_nocall')
+                self.decor_hunt_chal_weapon.value = decorator.decor_get_int(veh.entity, 'hunt_chal_weapon')
+                self.decor_hunt_kill_time.value = decorator.decor_get_int(veh.entity, 'hunt_kill_time')
+                self.decor_dismissed_by.value = decorator.decor_get_int(veh.entity, 'DismissedBy')
+                self.decor_darts_name.value = decorator.decor_get_int(veh.entity, 'Darts_name')
+                self.decor_getaway_winched.value = decorator.decor_get_bool(veh.entity, 'Getaway_Winched')
+                self.decor_map_gauntlet.value = decorator.decor_get_int(veh.entity, 'MapGauntlet')
+                self.decor_ignored_by_quick_save.value = decorator.decor_get_bool(veh.entity, 'IgnoredByQuickSave')
+                self.decor_getaway_vehicle_valid.value = decorator.decor_get_bool(veh.entity, 'GetawayVehicleValid')
+                self.decor_rampage_car_exploded.value = decorator.decor_get_bool(veh.entity, 'RampageCarExploded')
+                self.decor_carwash_vehicle_decorator.value = decorator.decor_get_bool(veh.entity, 'Carwash_Vehicle_Decorator')
+                self.decor_casino_game_info_decorator.value = decorator.decor_get_int(veh.entity, 'Casino_Game_Info_Decorator')
+            end
+        end)
     end
 end
 

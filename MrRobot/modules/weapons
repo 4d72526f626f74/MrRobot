@@ -49,19 +49,19 @@ local weapons_hashmap = {
 }
 
 local weapons_names = {
-    'None',
-    'SNS Pistol',
-    'Heavy Revolver',
-    'Special Carbine',
-    'Bullpup Rifle',
-    'Pump Shotgun',
-    'Marksman Rifle',
-    'Pistol',
-    'SMG',
-    'Assault Rifle',
-    'Carbine Rifle',
-    'Combat MG',
-    'Heavy Sniper'
+    {1, 'None'},
+    {2, 'SNS Pistol'},
+    {3, 'Heavy Revolver'},
+    {4, 'Special Carbine'},
+    {5, 'Bullpup Rifle'},
+    {6, 'Pump Shotgun'},
+    {7, 'Marksman Rifle'},
+    {8, 'Pistol'},
+    {9, 'SMG'},
+    {10, 'Assault Rifle'},
+    {11, 'Carbine Rifle'},
+    {12, 'Combat MG'},
+    {13, 'Heavy Sniper'}
 }
 
 local damage_types = {
@@ -97,7 +97,7 @@ pluto_class Weapons
         self.mk2 = self.root:list(T'MK2', {T'rweaponsmk2'}, T'MK2 weapons')
         self.thermal = self.root:list(T'Thermal', {T'rthermal'}, T'Thermal')
         self.aimbot = self.root:list(T'Aimbot', {T'raimbot'}, T'Aimbot')
-        self.mods = self.root:list(T'Mods', {T'rmods'}, T'Mods')
+        self.mods = self.root:list(T'Mods', {T'rmods'}, T'Mods', nil, nil, || -> self:UpdateWeaponInfo())
 
         self:CreateMk2Weapons()
         self:CreateThermal()
@@ -118,9 +118,10 @@ pluto_class Weapons
                 end
             end
 
-            local weapon = weapons_names[index]
+            local weapon = weapons_names[index][2]
+            if weapon == 'None' then return end
             local weapon_hash = weapons_hashmap[weapon]
-            local ammo_types = all_types[weapon]
+            local ammo_types = S:SortTableIndexed(all_types[weapon])
 
             if index ~= 1 then
                 if weapon ~= 'Heavy Sniper' then
@@ -177,68 +178,154 @@ pluto_class Weapons
     end
 
     function CreateMods()
+        self.mods:divider(T'Weapon Info')
+        self.m_weapon_hash = self.mods:readonly(T'Weapon Hash: ')
+        self.m_weapon_name = self.mods:readonly(T'Weapon Name: ')
+        self.m_bullets_mult = self.mods:readonly('Bullet Multiplier: ')
+        self.m_damage = self.mods:readonly(T'Damage:')
+        self.m_penetration = self.mods:readonly(T'Penetration: ')
+        self.m_range = self.mods:readonly(T'Range: ')
+        self.m_spread = self.mods:readonly(T'Spread: ')
+        self.m_reload_speed = self.mods:readonly(T'Reload Speed: ')
+        self.m_vehicle_damage_mod = self.mods:readonly(T'Vehicle Damage Modifier: ')
+        self.m_damage_type = self.mods:readonly(T'Damage Type: ')
+        self.m_special_ammo = self.mods:readonly(T'Special Ammo: ')
+    
+        self.mods:divider('')
+
+        self.double_tap = {}
         self.mods:toggle_loop(T'Double Tap', {}, T'Shoot 2 bullets instead of 1', function()
             if not SCRIPT_CAN_CONTINUE then return end
+            if not self.double_tap[self:GetCurrentWeapon()] then
+                self.double_tap[self:GetCurrentWeapon()] = { 
+                    data = memory.read_int(self:GetCurrentWeapon() + 0x120), 
+                    addr = self:GetCurrentWeapon() + 0x120 
+                }
+            end
             memory.write_int(self:GetCurrentWeapon() + 0x0120, 2)
         end, function()
             if not SCRIPT_CAN_CONTINUE then return end
-            memory.write_int(self:GetCurrentWeapon() + 0x0120, 1)
+            for k, v in pairs(self.double_tap) do
+                memory.write_int(v.addr, v.data)
+            end
         end)
 
+        self.fast_reload = {}
         self.mods:toggle_loop(T'Fast Reload', {}, T'Reload super fast', function()
             if not SCRIPT_CAN_CONTINUE then return end
+            if not self.fast_reload[self:GetCurrentWeapon()] then
+                self.fast_reload[self:GetCurrentWeapon()] = { 
+                    data = memory.read_int(self:GetCurrentWeapon() + 0x0134), 
+                    addr = self:GetCurrentWeapon() + 0x0134 
+                }
+            end
             memory.write_float(self:GetCurrentWeapon() + 0x0134, 2.0)
         end, function()
             if not SCRIPT_CAN_CONTINUE then return end
-            memory.write_float(self:GetCurrentWeapon() + 0x0134, 1.5)
+            for k, v in pairs(self.fast_reload) do
+                memory.write_int(v.addr, v.data)
+            end
         end)
 
-        -- self.mods:toggle_loop(T'Infinite Range', {}, T'Be able to shoot very long distances regardless of the weapon you have', function()
-        --     if not SCRIPT_CAN_CONTINUE then return end
-        --     memory.write_float(self:GetCurrentWeapon() + 0x028C, math.max_int / 2)
-        -- end, function()
-        --     if not SCRIPT_CAN_CONTINUE then return end
-        --     memory.write_float(self:GetCurrentWeapon() + 0x028C, 1500.0)
-        -- end)
+        self.weapon_range = {}
+        self.mods:toggle_loop(T'Infinite Range', {}, T'Be able to shoot very long distances regardless of the weapon you have', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            if not self.weapon_range[self:GetCurrentWeapon()] then
+                self.weapon_range[self:GetCurrentWeapon()] = { 
+                    data = memory.read_float(self:GetCurrentWeapon() + 0x028C), 
+                    addr = self:GetCurrentWeapon() + 0x028C 
+                }
+            end
+            memory.write_float(self:GetCurrentWeapon() + 0x028C, math.max_int / 2)
+        end, function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            for k, v in pairs(self.weapon_range) do
+                memory.write_float(v.addr, v.data)
+            end
+        end)
 
+        self.weapon_spread = {}
         self.mods:toggle_loop(T'No Spread', {}, T'No spread', function()
             if not SCRIPT_CAN_CONTINUE then return end
+            if not self.weapon_spread[self:GetCurrentWeapon()] then
+                self.weapon_spread[self:GetCurrentWeapon()] = { 
+                    data = memory.read_float(self:GetCurrentWeapon() + 0x0074), 
+                    addr = self:GetCurrentWeapon() + 0x0074
+                }
+            end
             memory.write_float(self:GetCurrentWeapon() + 0x0074, 0.0)
         end, function()
             if not SCRIPT_CAN_CONTINUE then return end
-            memory.write_float(self:GetCurrentWeapon() + 0x00D0, 3.0)
+            for k, v in pairs(self.weapon_spread) do
+                memory.write_float(v.addr, v.data)
+            end
         end)
 
+        self.weapon_penetration = {}
         self.mods:toggle_loop(T'Max Penetration', {}, T'', function()
             if not SCRIPT_CAN_CONTINUE then return end
+            if not self.weapon_penetration[self:GetCurrentWeapon()] then
+                self.weapon_penetration[self:GetCurrentWeapon()] = { 
+                    data = memory.read_float(self:GetCurrentWeapon() + 0x0110), 
+                    addr = self:GetCurrentWeapon() + 0x0110
+                }
+            end
             memory.write_float(self:GetCurrentWeapon() + 0x0110, 100.0)
         end, function()
             if not SCRIPT_CAN_CONTINUE then return end
-            memory.write_float(self:GetCurrentWeapon() + 0x0110, 1.0)
+            for k, v in pairs(self.weapon_penetration) do
+                memory.write_float(v.addr, v.data)
+            end
+        end)
+
+        self.weapon_damages = {}
+        self.mods:toggle_loop(T'Insta Kill', {}, T'Kill anything with 1 shot', function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            if not self.weapon_damages[self:GetWeaponHash()] then
+                self.weapon_damages[self:GetWeaponHash()] = { 
+                    data = memory.read_float(self:GetCurrentWeapon() + 0xB0), 
+                    addr = self:GetCurrentWeapon() + 0xB0 
+                }
+            end
+            memory.write_float(self:GetCurrentWeapon() + 0xB0, 230.0)
+        end, function()
+            if not SCRIPT_CAN_CONTINUE then return end
+            for k, v in pairs(self.weapon_damages) do
+                memory.write_float(v.addr, v.data)
+            end
         end)
 
         self.mods:divider('')
 
         self.mods:slider(T'Bullets Multiplier', {}, T'How many bullets to shoot per shot', 1, 1000, 1, 1, function(value)
             if not SCRIPT_CAN_CONTINUE then return end
-            memory.write_int(self:GetCurrentWeapon() + 0x0120, value)
+            pcall(function()
+                memory.write_int(self:GetCurrentWeapon() + 0x0120, value)
+            end)
         end)
 
         self.mods:slider_float(T'Vehicle Damage Modifier', {T'rwvehdamagemod'}, T'How much damage to do to vehicles', 0.0, 100000.0 * 100, 1.0 * 100, 1.0 * 10, function(value)
             if not SCRIPT_CAN_CONTINUE then return end
-            memory.write_float(self:GetCurrentWeapon() + 0x00D4, value / 100)
+            pcall(function()
+                memory.write_float(self:GetCurrentWeapon() + 0x00D4, value / 100)
+            end)
         end)
 
         self.damage_type = self.mods:list(T'Damage Type', {}, T'What type of damage to do (not all of these work on players)')
         self.damage_type:list_select(T'Type', {}, T'Type of damage your weapon deals', damage_types, 1, function(index)
             if not SCRIPT_CAN_CONTINUE then return end
-            memory.write_int(self:GetCurrentWeapon() + 0x0020, index + 1)
+
+            pcall(function()
+                memory.write_int(self:GetCurrentWeapon() + 0x0020, index + 1)
+            end)
         end)
 
         self.special_ammo = self.mods:list(T'Special Ammo', {}, T'Equip special ammo on any gun (explosive will trigger explosive hits detection)')
         self.special_ammo:list_select(T'Type', {}, T'Type of special ammo to equip', special_ammo, 1, function(index)
             if not SCRIPT_CAN_CONTINUE then return end
-            memory.write_int(self:GetCurrentWeaponAmmoInfo() + 0x003C, index - 1)
+            pcall(function()
+                memory.write_int(self:GetCurrentWeaponAmmoInfo() + 0x003C, index - 1)
+            end)
         end)
     end
 
@@ -293,6 +380,35 @@ pluto_class Weapons
 
     function GetCurrentWeaponAmmoInfo()
         return memory.read_long(self:GetCurrentWeapon() + 0x0060)
+    end
+
+    function GetWeaponHash()
+        local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
+        return memory.read_int(weapon_manager + 0x18)
+    end
+
+    function UpdateWeaponInfo()
+        util.create_tick_handler(function()
+            local item = menu.get_current_menu_list()
+            if item.menu_name ~= T'Mods' then
+                return false
+            end
+
+            pcall(function()
+                local hash = self:GetWeaponHash()
+                self.m_weapon_hash.value = string.format('0x%08X', hash)
+                self.m_weapon_name.value = util.reverse_joaat(hash)
+                self.m_bullets_mult.value = memory.read_int(self:GetCurrentWeapon() + 0x0120)
+                self.m_damage.value = memory.read_float(self:GetCurrentWeapon() + 0x00B0)
+                self.m_penetration.value = memory.read_float(self:GetCurrentWeapon() + 0x0110)
+                self.m_range.value = memory.read_float(self:GetCurrentWeapon() + 0x028C)
+                self.m_spread.value = memory.read_float(self:GetCurrentWeapon() + 0x0074)
+                self.m_reload_speed.value = memory.read_float(self:GetCurrentWeapon() + 0x0134)
+                self.m_vehicle_damage_mod.value = memory.read_float(self:GetCurrentWeapon() + 0x00D4)
+                self.m_damage_type.value = damage_types[memory.read_int(self:GetCurrentWeapon() + 0x0020) - 1]
+                self.m_special_ammo.value = special_ammo[memory.read_int(self:GetCurrentWeaponAmmoInfo() + 0x003C) + 1]
+            end)
+        end)
     end
 end
 

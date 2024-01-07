@@ -115,10 +115,16 @@ pluto_class Nightclub
     end
 
     function CollectSafeMoney()
-        local trigger = memory.script_local(Globals.NCScript, Globals.TriggerNCSafeCollection)
+        if not S:IsScriptRunning('am_mp_nightclub') then
+            util.toast('You need to be in your nightclub to collect money from the safe')
+        else
+            local trigger = memory.script_local(Globals.NCScript, Globals.TriggerNCSafeCollection)
         
-        if trigger ~= 0 then
-            memory.write_byte(trigger, 1)
+            if trigger ~= 0 then
+                memory.write_byte(trigger, 1)
+                util.yield(500)
+                memory.write_byte(trigger, 0)
+            end
         end
     end
 

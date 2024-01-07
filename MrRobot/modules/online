@@ -24,7 +24,8 @@ pluto_class Online
         self.tune = menu.ref_by_path('Vehicle>Los Santos Customs>Upgrade')
 
         for k, v in pairs(S.PropertyIds) do table.insert(self.properties, k) end
-        self.properties = S:SortTable(self.properties, |a, b| -> a < b)
+        self.properties_data = S:SortTable(self.properties, |a, b| -> a < b)
+        self.properties = S:SortTableIndexed(self.properties, |a, b| -> a < b)
 
         self:CreateFakeNotifs()
         self:CreateServices()
@@ -35,10 +36,11 @@ pluto_class Online
         self:CreateOther()
         self:CreateCasino()
         self:CreateStoreHoldUps()
-        --self:CreateTaxiService()
+        self:CreateTaxiService()
         self:CreateATM()
         self:CreateCargo()
         self:CreateMoney()
+        self:CreateYeti()
 
         self.root:divider('')
         self.root:toggle_loop(T'Anti-Ghosted', {}, T'Prevent other players from becoming ghosted to you', function()
@@ -407,16 +409,16 @@ pluto_class Online
         self.interior_choice = self.interior_spoofing:list_select(T'Interior', {T'interiorchoice'}, T'The interior to spoof to', self.properties, self.interior_index, function(_) end)
         self.interior_spoofing:divider('')
         self.interior_spoofing:action(T'Spoof', {T'rospoofinterior'}, T'Spoof to the selected interior', function()
-            Network.SetInterior(S.PropertyIds[self.properties[self.interior_choice.value]])
+            Network.SetInterior(S.PropertyIds[self.properties_data[self.interior_choice.value]])
         end)
 
         self.interior_spoofing:toggle_loop(T'Spoof', {T'roloopinteriorspoofing'}, T'Spoof to the selected interior (looped)', function()
-            Network.SetInterior(S.PropertyIds[self.properties[self.interior_choice.value]])
+            Network.SetInterior(S.PropertyIds[self.properties_data[self.interior_choice.value]])
         end)
 
         self.interior_spoofing:toggle_loop(T'Random Spoof', {T'roloopinteriorspoofingrand'}, T'Spoof to random interiors constantly', function()
-            local rand = math.random(1, #self.properties)
-            Network.SetInterior(S.PropertyIds[self.properties[rand]])
+            local rand = math.random(1, #self.properties_data)
+            Network.SetInterior(S.PropertyIds[self.properties_data[rand]])
             util.yield(1000)
         end)
     end
@@ -600,15 +602,15 @@ pluto_class Online
         self.cargo = self.root:list(T'Cargo', {T'rocargo'}, T'Cargo')
 
         self.cargo:list_select(T'Crate Type', {T'rocargotype'}, T'The type of crate to source', {
-            'Animal Materials',
-            'Art & Antiques',
-            'Chemicals',
-            'Counterfeit Goods',
-            'Jewelry & Gemstones',
-            'Medical Supplies',
-            'Narcotics',
-            'Tobacco & Alcohol',
-            'Cargo'
+            {1, 'Animal Materials'},
+            {2, 'Art & Antiques'},
+            {3, 'Chemicals'},
+            {4, 'Counterfeit Goods'},
+            {5, 'Jewelry & Gemstones'},
+            {6, 'Medical Supplies'},
+            {7, 'Narcotics'},
+            {8, 'Tobacco & Alcohol'},
+            {9, 'Cargo'}
         }, 1, function(index)
             crate_type = index - 1
         end)
@@ -668,13 +670,13 @@ pluto_class Online
         end)
 
         casino:toggle_loop(T'Member Bonus Loop (5K Chips)', {}, '', function()
-            memory.write_byte(memory.script_global(Globals.CasinoChips), 1)
+            memory.write_byte(memory.script_global(Globals.CasinoChipsMemBonus), 1)
             util.yield_once()    
         end)
 
         self.money:divider('')
-        self.money:action(T'Criminal Mastermind (15M)', {}, T'', function()
-            S:TriggerTransaction(util.joaat('SERVICE_EARN_JOB_BONUS_CRIMINAL_MASTERMIND'), 15000000)
+        self.money:action(T'Criminal Mastermind (10M)', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_JOB_BONUS_CRIMINAL_MASTERMIND'), 10000000)
         end)
 
         self.money:action(T'180K', {}, T'', function()
@@ -692,6 +694,10 @@ pluto_class Online
         self.money:action(T'25K', {}, T'', function()
             S:TriggerTransaction(util.joaat('SERVICE_EARN_AMBIENT_JOB_SMUGGLER_PLANE'), 25000)
         end)
+        
+        self.money:action(T'Salvage Yard (1.5M)', {}, T'', function()
+            S:TriggerTransaction(util.joaat('SERVICE_EARN_SALVAGE_YARD_SELL_VEH'), 1500000)
+        end)
 
         self.money:divider('')
 
@@ -705,6 +711,72 @@ pluto_class Online
 
         self.money:toggle_loop(T'680K Loop', {}, T'', function()
             S:TriggerTransaction(util.joaat('SERVICE_EARN_BETTING'), 680000)
+        end)
+    end
+
+    function CreateYeti()
+        self.yeti = self.root:list(T'Yeti', {T'royeti'}, T'Yeti')
+        self.yeti:toggle(T'Event State', {}, T'Enable/disable yeti event', function(state)
+            memory.write_int(memory.script_global(Globals.YetiEventEnable), state and 1 or 0)
+        end, memory.read_int(memory.script_global(Globals.YetiEventEnable)) == 1)
+
+        self.yeti:toggle(T'Big RP', {}, T'Increase RP so you get a total of 450,000 from investigate all clues button below', function(state)
+            memory.write_float(memory.script_global(262145 + 1), state and 90 or 1)
+        end)
+
+        self.yeti:toggle(T'Disable RP', {}, T'Disable RP so you don\'t get any from investigating all clues', function(state)
+            memory.write_float(memory.script_global(262145 + 1), state and 0 or 1)
+        end)
+
+        self.yeti:action(T'Investigate All Clues', {}, T'Investigate all the clues instantly', function()
+            local addr = memory.script_local(Globals.FMScript, Globals.YetiCluesBitfield)
+            local bitfield = pluto_new Bitfield(memory.read_int(addr), addr)
+            memory.write_int(memory.script_global(Globals.YetiEventEnable), 1)
+            memory.write_int(memory.script_global(Globals.YetiClueReward), 0)
+
+            bitfield:Set(0x203)
+            local timeout = os.time() + 2
+            util.create_tick_handler(function()
+                memory.write_int(memory.script_local(Globals.FMScript, Globals.YetiCluesCollected), 5)
+                if os.time() > timeout then
+                    return false
+                end
+            end)
+
+            for i = 0, 5 do
+                bitfield:Set(1 << 2)
+                util.yield(50)
+                bitfield:Clear(1 << 2)
+                util.yield(200)
+            end
+
+            memory.write_int(memory.script_global(Globals.YetiClueReward), 10000)
+        end)
+        self.yeti:divider('')
+
+        self.yeti:action(T'Teleport To Bloodied Tent', {}, '', function()
+            local localplayer = players.localplayer()
+            localplayer:set_entity_coords_no_offset(-1562.69, 4699.04, 50.426, false, false, false)
+        end)
+
+        self.yeti:action(T'Teleport To Torn Shirt', {}, '', function()
+            local localplayer = players.localplayer()
+            localplayer:set_entity_coords_no_offset(-1359.869, 4733.429, 46.919, false, false, false)
+        end)
+
+        self.yeti:action(T'Teleport To Deer', {}, '', function()
+            local localplayer = players.localplayer()
+            localplayer:set_entity_coords_no_offset(-1715.398, 4501.203, 0.096, false, false, false)
+        end)
+
+        self.yeti:action(T'Teleport To Body Parts', {}, '', function()
+            local localplayer = players.localplayer()
+            localplayer:set_entity_coords_no_offset(-1567.8599, 4478.6294, 20.928696, false, false, false)
+        end)
+
+        self.yeti:action(T'Teleport To Chiliad Wilderness', {}, '', function()
+            local localplayer = players.localplayer()
+            localplayer:set_entity_coords_no_offset(-1345.828, 4838.062, 137.522, false, false, false)
         end)
     end
 
@@ -893,7 +965,10 @@ pluto_class Online
                 break
             case 'Supplies':
                 local supplies = memory.script_global(Globals.RequestSupplies)
+                local timer = memory.script_global(Globals.RequestSuppliesTimer)
                 memory.write_short(supplies, memory.read_short(supplies) | Masks.RequestSupplies)
+                util.yield(500)
+                memory.write_int(timer, 0)
                 break
             case 'SourceMotorcycle':
                 memory.write_byte(memory.script_global(Globals.SourceMotorcycle), 1)

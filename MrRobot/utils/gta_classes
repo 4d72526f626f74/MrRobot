@@ -1,0 +1,36 @@
+pluto_class GTAClasses
+    function __construct()
+        self._cweaponinfo = {
+            { 'm_bullets_in_batch', 0x120, memory.write_int },
+            { 'm_anim_reload_speed', 0x134, memory.write_float },
+            { 'm_weapon_range', 0x28C, memory.write_float },
+            { 'm_accuracy_spread', 0x74, memory.write_float },
+            { 'm_penetration', 0x110, memory.write_float },
+            { 'm_damage', 0xB0, memory.write_float },
+            { 'm_force', 0xD8, memory.write_float },
+            { 'm_force_on_ped', 0xDC, memory.write_float },
+            { 'm_force_on_vehicle', 0xE0, memory.write_float },
+            { 'm_force_on_heli', 0xE4, memory.write_float },
+            { 'm_vehicle_damage_modifier', memory.write_float }
+        }
+    end
+
+    static function GetCurrentWeapon()
+        local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
+        local current_weapon = memory.read_long(weapon_manager + 0x0020)
+        return current_weapon
+    end
+
+    static function SetCWeaponInfo(prop, value)
+        pcall(function()
+            local cweaponinfo = GTAClasses.GetCurrentWeapon()
+            for GTAClasses._cweaponinfo as info do
+                if info[1] == prop then
+                    info[3](cweaponinfo + info[2], value)
+                end
+            end
+        end)
+    end
+end
+
+return GTAClasses

@@ -541,7 +541,7 @@ pluto_class SelfOptions
             end
         end)
 
-        self.auto_swap_ammo = self.pvp_helper:toggle_loop(T'Auto Swap Special Ammo', {}, T'Automatically swaps between AP, HP and FMJ rounds depending on whether the target is a vehicle or has armour', function()
+        self.auto_swap_ammo = self.pvp_helper:toggle_loop(T'Auto Swap Special Ammo', {}, T'Automatically swaps between AP and HP rounds depending on whether the target has armour or not', function()
             local localplayer = players.localplayer()
             if localplayer.ptr == 0 then return end
             local weapon_manager = entities.get_weapon_manager(localplayer.ptr)
@@ -567,7 +567,6 @@ pluto_class SelfOptions
                 end
             end
         end)
-        --self.auto_swap_ammo.value = true
 
         self.hide_m1 = self.hiding:toggle(T'Hide Method 1', {T'rsdisappear'}, T'Just a shortcut for enabling stealth mode and invisibility', function(state)
             self.stealth_mode.value = state

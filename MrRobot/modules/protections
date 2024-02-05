@@ -216,15 +216,16 @@ pluto_class Protections
             for pid = 0, players.max_players do
                 if S:PlayerExists(pid) and pid ~= player_id then
                     local base = memory.script_global(Globals:PlayerBase(pid))
-                    local pos = v3()
-                    local i = 0
+                    local pos = v3(memory.read_float(base + 0x678), memory.read_float(base + 0x680), memory.read_float(base + 0x684))
+                    local current_pos = players.get_position(pid)
 
-                    for ({'x', 'y', 'z'}) as k do
-                        pos[k] = memory.read_float(base + (i << 3))
-                        i = i + 1
+                    if pos:distance(current_pos) > 1000.0 then
+                        players.add_detection(pid, T'Position Spoofing')
                     end
                 end
             end
+
+            util.yield(2000)
         end)
 
         self.plate_detection = self.detections:list(T'Modded License Plate', {}, '')

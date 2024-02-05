@@ -8,6 +8,7 @@ _G.util.log = function(msg) return print($'[MrRobot] {msg}') end
 _G.string.joaat = util.joaat
 _G.util.error = function(err) util.toast($'Error occured: {msg}') end
 _G.string.reverse_joaat = util.reverse_joaat
+_G.util.copy_addr = function(addr) return util.copy_to_clipboard(string.format('%X', addr)) end
 
 function _G.async_http.get(url, path, callback)
     url = url or async_http.host
@@ -36,7 +37,7 @@ pluto_class MrRobot
         'translations', 'handler', 'entity', 'vehicle_handling', 'pedlist',
         'vehicle_models', 'cutscenes', 'weapons_list', 'offsets', 'masks',
         'script_globals', 'shared', 'network', 'vehicle', 'zone_info', 'notifications',
-        'door_manager'
+        'door_manager', 'gta_classes', 'labels'
     }
     libs = {
         'inspect', 'bitfield', 'bit', 'math'
@@ -198,19 +199,23 @@ pluto_class MrRobot
             Notifications.Show($'This script was coded for {self.gtao_version} but your game version is {self:GetOnlineVersion()}, some features may not work as intended', 'Script is outdated', '', Notifications.HUD_COLOUR_REDDARK)
         end
 
-        local T = self.T
-        async_http.get(nil, $'{async_http.update_path}/index.php', function(body, headers, status_code)
-            if status_code == 200 then
-                self.discord_invite = headers['X-Robot-Discord']
-                local version_compare = soup.version_compare(body, self.script_version)
-                if version_compare == 1 then
-                    util.toast(T($'v{body} is now available'))
-                    self:CreateUpdateButton($'v{body}')
-                elseif version_compare == -1 then
-                    util.toast(T($'You are using v{self.script_version}-dev which is newer than v{body}'))
+        if async_http.have_access() then
+            local T = self.T
+            async_http.get(nil, $'{async_http.update_path}/index.php', function(body, headers, status_code)
+                if status_code == 200 then
+                    self.discord_invite = headers['X-Robot-Discord']
+                    local version_compare = soup.version_compare(body, self.script_version)
+                    if version_compare == 1 then
+                        util.toast(T($'v{body} is now available'))
+                        self:CreateUpdateButton($'v{body}')
+                    elseif version_compare == -1 then
+                        util.toast(T($'You are using v{self.script_version}-dev which is newer than v{body}'))
+                    end
                 end
-            end
-        end)
+            end)
+        else
+            util.toast($'Goto Stand > Lua Scripts > MrRobot > Disable Internet Access and uncheck it to check for updates')
+        end
     end
 
     function CreateUpdateButton(text)
@@ -259,7 +264,7 @@ pluto_class MrRobot
         self.T = require('translations')
         self.S = require('shared')
         self.H = require('handler')
-
+        
         _G.table.inspect = require('inspect')
         require('cutscenes')
         require('entity')
@@ -275,6 +280,7 @@ pluto_class MrRobot
         require('network')
         require('notifications')
         require('door_manager')
+        require('labels')
     end
 
     function PlayStartupAnimation(play)
@@ -352,7 +358,7 @@ pluto_class MrRobot
     end
 end
 
-local MrRobot = pluto_new MrRobot('3.0.0', '1.68')
+local MrRobot = pluto_new MrRobot('3.2.2', '1.68')
 MrRobot:FixMissingFiles()
 MrRobot:Requires()
 MrRobot:CheckForUpdates()

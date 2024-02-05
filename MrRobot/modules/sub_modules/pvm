@@ -87,6 +87,15 @@ pluto_class PVM
         self.active_plate = memory.read_string(memory.script_global(Globals:PersonalVehicleData(self.active_slot)) + Offsets.LicensePlate)
         self.active_display = self.root:readonly(self.active_model .. ' - ' .. self.active_plate .. ' (Slot ' .. self.active_slot .. ')', '')
         self.root:divider('')
+        self.root:action('Active Vehicle Shortcut', {}, T'Shortcut for instantly accessing your currently active personal vehicle', function() 
+            local slot = memory.read_short(self.pvslot)
+            local command = menu.ref_by_command_name('pvm' .. slot)
+            if command:isValid() then
+                command:trigger()
+            else
+                util.toast('Make sure you have an active personal vehicle first, then try again.')
+            end
+        end)
         self.veh_access = self.root:list(T'Vehicle Access', {T'pvaccess'}, T'Vehicle Access')
 
         local commands = {}
@@ -199,7 +208,7 @@ pluto_class PVM
             delivered = nil,
             mors_spawn = nil,
             bitfield = nil,
-            radio = nil,
+            radio = nil
         }
 
         local pv = root:list(model, {T($'pvm{slot}')}, T($'Slot {slot}'), function()
@@ -232,7 +241,7 @@ pluto_class PVM
         info.delivered = pv:readonly(T'Delivered' .. ': ' .. (bitfield & VehicleBitfield.Delivered == VehicleBitfield.Delivered and 'Yes' or 'No'), '')
         info.mors_spawn = pv:readonly(T'Mors Spawn' .. ': ' .. (bitfield & VehicleBitfield.SpawnMorsMutual == VehicleBitfield.SpawnMorsMutual and 'Yes' or 'No'), '')
         info.bitfield = pv:readonly(T'Bitfield' .. ': ' .. string.format('0x%X', bitfield), '')
-        info.radio = pv:readonly(T'Radio' .. ': ' .. memory.read_string(addr + Offsets.VehicleRadio), '')
+        info.radio = pv:readonly(T'Radio' .. ': ' .. memory.read_string(addr + Offsets.VehicleRadio) or 'None', '')
 
         pv:divider('')
 
@@ -367,7 +376,7 @@ pluto_class PVM
         end
 
         local lsc
-        lsc = pv:list(T'Los Santos Customs', {T'pvm' .. slot .. 'lsc'}, 'WARNING: Still needs updated', function()
+        lsc = pv:list(T'Los Santos Customs', {T'pvm' .. slot .. 'lsc'}, '', function()
             if lsc:isValid() then
                 for lsc:getChildren() as child do
                     if child:isValid() then
@@ -533,14 +542,11 @@ pluto_class PVM
             local primary_colour = respray:list(T'Primary Colour', {}, '')
             local secondary_colour = respray:list(T'Secondary Colour', {}, '')
 
-            local default_colour = {
-                r = memory.read_byte(addr + Offsets.VehiclePrimaryColourRed) / 255,
-                g = memory.read_byte(addr + Offsets.VehiclePrimaryColourGreen) / 255,
-                b = memory.read_byte(addr + Offsets.VehiclePrimaryColourBlue) / 255,
-                a = 1
-            }
-
-            primary_colour:colour(T'Custom Primary Colour', {T'pvm' .. slot .. T'custompc'}, '', default_colour, false, function(colour)
+            primary_colour:colour(T'Custom Primary Colour', {T'pvm' .. slot .. T'custompc'}, '', 
+            memory.read_int(addr + Offsets.VehiclePrimaryColourRed) / 255, 
+            memory.read_int(addr + Offsets.VehiclePrimaryColourGreen) / 255, 
+            memory.read_int(addr + Offsets.VehiclePrimaryColourBlue) / 255, 
+            1.0, false, function(colour)
                 if not SCRIPT_CAN_CONTINUE then return end
                 memory.write_int(addr + Offsets.VehicleNeonLayout, memory.bits:set(bitfield, 1 << 13))
                 memory.write_byte(addr + Offsets.VehiclePrimaryColourRed, math.floor(colour.r * 255))
@@ -626,20 +632,16 @@ pluto_class PVM
 
             tires:toggle(T'Bulletproof Tires', {}, '', function(state)
                 if not SCRIPT_CAN_CONTINUE then return end
-                local bitfield = memory.read_int(addr + Offsets.VehicleNeonLayout)
-                local bt_bitfield = memory.bits:new(bitfield)
-                bt_bitfield:set(0xA00, state)
+                local bitfield = pluto_new Bitfield(memory.read_int(addr + Offsets.VehicleNeonLayout), addr + Offsets.VehicleNeonLayout)
+                bitfield:Set(0xA00, state)
                 memory.write_int(addr + Offsets.VehicleBulletProofTiresToggle, state ? 1 : 0)
             end, memory.read_int(addr + Offsets.VehicleBulletProofTiresToggle) ~= 0)
 
-            local colour = {
-                r = memory.read_byte(addr + Offsets.VehicleTiresSmokeColourRed) / 255,
-                g = memory.read_byte(addr + Offsets.VehicleTiresSmokeColourGreen) / 255,
-                b = memory.read_byte(addr + Offsets.VehicleTiresSmokeColourBlue) / 255,
-                a = 1
-            }
-
-            tires:colour(T'Smoke Colour', {}, '', colour, false, function(colour)
+            tires:colour(T'Smoke Colour', {}, '', 
+            memory.read_int(addr + Offsets.VehicleTiresSmokeColourRed) / 255, 
+            memory.read_int(addr + Offsets.VehicleTiresSmokeColourGreen) / 255, 
+            memory.read_int(addr + Offsets.VehicleTiresSmokeColourBlue) / 255, 
+            1.0, false, function(colour)
                 if not SCRIPT_CAN_CONTINUE then return end
                 memory.write_byte(addr + Offsets.VehicleTiresSmokeColourRed, math.floor(colour.r * 255))
                 memory.write_byte(addr + Offsets.VehicleTiresSmokeColourGreen, math.floor(colour.g * 255))
@@ -650,6 +652,11 @@ pluto_class PVM
                 if not SCRIPT_CAN_CONTINUE then return end
                 memory.write_int(addr + Offsets.VehicleWindows, value)
             end)
+        end, function()
+            local force_cloud = menu.ref_by_command_name('forcecloudsave')
+            if force_cloud:isValid() then
+                force_cloud:trigger()
+            end
         end)
     end
 

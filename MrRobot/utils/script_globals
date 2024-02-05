@@ -1,3 +1,5 @@
+-- { 288412940, players.user(), 0, 178, 148, players.user(), 0 } Michael ERROR! invite SE
+
 local Globals = {
     TransactionErrorBanner = 4537357, -- from UnknownCheats (updated by me)
     TransactionErrorNotification = 4537356,
@@ -13,13 +15,14 @@ local Globals = {
     DisableHeistAntiCheat = 262145 + 10775, -- Global_262145.f_10775
     KosatkaMissileCooldown = 262145 + 30464, -- default 60000 (int)
     KosatkaMissileDistance = 262145 + 30465, -- default 4000 (float)
-    KosatkaRequestCooldown = 2685249 + 4328 + 242 + 1 + (65 * 2), -- not updated yet Global_2685249.f_4328.f_242
-    KosatkaDinghyCooldown = 2685249 + 4328 + 242 + 1 + (66 * 2), -- not updated yet
-    MOCRequestCooldown = 2685249 + 4328 + 242 + 1 + (46 * 2), -- not updated yet
-    AvengerRequestCooldown = 2685249 + 4328 + 242 + 1 + (49 * 2), -- not updated yet
-    TerrorbyteRequestCooldown = 2685249 + 4328 + 242 + 1 + (52 * 2), -- not updated yet
-    PersonalVehicleRequestCooldown = 2685249 + 4328 + 242 + 1 + (7 * 2), -- not updated yet
+    KosatkaRequestCooldown = 2685249 + 4328 + 242 + 1 + (65 * 2), -- Global_2685249.f_4328.f_242.f_1[65 /*2*/]
+    KosatkaDinghyCooldown = 2685249 + 4328 + 242 + 1 + (66 * 2),
+    MOCRequestCooldown = 2685249 + 4328 + 242 + 1 + (46 * 2),
+    AvengerRequestCooldown = 2685249 + 4328 + 242 + 1 + (49 * 2),
+    TerrorbyteRequestCooldown = 2685249 + 4328 + 242 + 1 + (52 * 2),
+    PersonalVehicleRequestCooldown = 2685249 + 4328 + 242 + 1 + (7 * 2),
     CEOVehicleRequestCooldown = 1886967 + 1 + (players.user() * 609) + 10 + 63,
+    BallisticArmorCooldown = 2685249 + 4328 + 242 + 1 + (47 * 2),
     TerrorbyteDroneCooldown = 262145 + 24875, -- default 60000 (int)
     TerrorbyteDistance = 262145 + 24884, -- default 500 (float)
     TerrorbyteHeight = 262145 + 24883, -- default 200 (float)
@@ -91,6 +94,7 @@ local Globals = {
     MissionState = 1845263 + 1 + (players.user() * 877), -- Global_1845263[PLAYER::PLAYER_ID() /*877*/]
     NightclubStatsBase = 1845263 + 1 + (players.user() * 877) + 267 + 356, -- Global_1845263[PLAYER::PLAYER_ID() /*877*/].f_267.f_356
     RequestSupplies = 1942781 + 10, -- Global_1942781.f_10
+    RequestSuppliesTimer = 1974549, -- Global_1974549 freemode.c
     SourceMotorcycle = 1974588 + 1, -- Global_1974588.f_1
     KosatkaStatsBase = 1845263 + 1 + (players.user() * 877) + 267 + 481, -- Global_1845263[PLAYER::PLAYER_ID() /*877*/].f_267.f_481
     AvengerStatsBase = 2657921 + 1 + (players.user() * 463) + 321 + 6, -- Global_2657921[PLAYER::PLAYER_ID() /*463*/].f_321.f_6
@@ -134,19 +138,19 @@ local Globals = {
     AgencySafeIncomeEnd = 29131,
     NCTroubleMakerScenario = 1974536, -- Global_1974536 (Global_1982213)
     NCTriggerTrobleMaker = 1800 + 5, -- am_mp_nightclub.c
-    NCTriggerYeetTroubleMaker = 1800 + 3031, -- am_mp_nightclub.c
+    NCTriggerYeetTroubleMaker = 1253 + 3020, -- am_mp_nightclub.c (Local_1253.f_3020)
     PersonalVehicleRequestDelay = 18955 + 176, -- freemode.c
     PersonalVehicleRequestRestrictions = 1942781 + 4900, -- return Global_1950844.f_4794 != -1; 18717 + 173 Global_1942781.f_4900
     HoldUpForceRobbery = 163 + 1 + (players.user() * 10), -- am_hold_up.c Local_163[NETWORK::PARTICIPANT_ID_TO_INT() /*10*/]
     HoldUpRobberySceneId = 550, -- am_hold_up.c
-    TaxiServiceState = 115, -- 0 = customer not in taxi, 1 = within range of customer, 2 = customer heard horn
-    TaxiServiceInstantQuit = 115 + 1, -- 2 = instant quit
-    TaxiServiceFare = 115 + 19,
-    TaxiServiceTip = 115 + 21,
-    TaxiServiceSaltTimer = 115 + 25,
-    TaxiServiceSaltTimerActive = 115 + 26, -- set to 0 and timer resets
-    TaxiServiceCustomerBlip = 115 + 16,
-    TaxiServiceDestinationBlip = 115 + 17,
+    TaxiServiceState = 117, -- 0 = customer not in taxi, 1 = within range of customer, 2 = customer heard horn
+    TaxiServiceInstantQuit = 117 + 1, -- 2 = instant quit
+    TaxiServiceFare = 117 + 19,
+    TaxiServiceTip = 117 + 21,
+    TaxiServiceSaltTimer = 117 + 25,
+    TaxiServiceSaltTimerActive = 117 + 26, -- set to 0 and timer resets
+    TaxiServiceCustomerBlip = 117 + 16,
+    TaxiServiceDestinationBlip = 117 + 17,
     AcidLabStatsBase = 2657921 + 1 + (players.user() * 463) + 321 + 6, -- Global_2657921[PLAYER::PLAYER_ID() /*463*/].f_321.f_6
     TerrorbyteStatsBase = 2657921 + 1 + (players.user() * 463) + 321 + 3, -- Global_2657921[PLAYER::PLAYER_ID() /*463*/].f_321.f_3
     MOCStatsBase = 2657921 + 1 + (players.user() * 463) + 321, -- Global_2657921[PLAYER::PLAYER_ID() /*463*/].f_321
@@ -162,7 +166,11 @@ local Globals = {
     HangarCratesToSource = 1882413 + 6, -- Global_1882413.f_6
     HangarCrateType = 1882413 + 7, -- Global_1882413.f_7
     HangarTotalCargo = 1845263 + 1 + (players.user() * 877) + 267 + 295 + 3, -- Global_1845263[PLAYER::PLAYER_ID() /*877*/].f_267.f_295.f_3
-    GunVanPositionIndex = 2652572 + 2650, -- Global_2652572.f_2650
+    GunVanPositionIndex = 2652572 + 2650, -- Global_2652572.f_2650,
+    YetiEventEnable = 262145 + 36054, -- Global_262145.f_36054
+    YetiCluesBitfield = 18179,
+    YetiClueReward = 262145 + 36185, -- Global_262145.f_36185
+    YetiCluesCollected = 18179 + 40, -- iParam0->f_40
 }
 
 Globals.TaxiScript = 'fm_content_taxi_driver'
@@ -220,5 +228,6 @@ function Globals:PlayerBeast(pid) return 2657921 + 1 + (pid * 463) + 199 end -- 
 function Globals:PlayerPassiveMode(pid) return 1894573 + 1 + (pid * 609) + 8 end -- Global_1894573[PLAYER::PLAYER_ID() /*609*/].f_8
 function Globals:PlayerBase(pid) return 2657921 + 1 + (pid * 463) end -- Global_2657921[PLAYER::PLAYER_ID() /*463*/]
 function Globals:PlayerUsingDrone(pid) return 1845263 + 1 + (pid * 877) + 267 + 368 end -- Global_1845263[PLAYER::PLAYER_ID() /*877*/].f_267.f_368
+function Globals:DisableAllCooldowns() for i = 0, 79 do memory.write_int(memory.script_global(2685249 + 4328 + 242 + 1 + (i * 2)), 0) end end
 
 return Globals

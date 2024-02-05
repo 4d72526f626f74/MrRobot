@@ -5,6 +5,10 @@ pluto_class PedManager
     function __construct(root)
         self.root = root:list(T'Entities', {T'rpedmanager'}, '')
         self.peds = self.root:list(T'Peds', {T'repeds'}, '', || -> self:PedOnClick())
+        self.vehicles = self.root:list(T'Vehicles', {T'revehicles'}, '', || -> self:VehicleOnClick())
+
+        self.vehicles.visible = false -- TODO: Implement vehicles
+
         self.ar_beacons = {}
         self.blips = setmetatable({}, {
             __gc = function(self)
@@ -157,7 +161,8 @@ pluto_class PedManager
                     armor = nil,
                     godmode = nil,
                     frozen = nil,
-                    invisible = nil
+                    invisible = nil,
+                    network_id = nil
                 }
 
                 ped_menu = ref:list(tostring(dist) .. 'm', {}, tostring(ent), function()
@@ -221,7 +226,7 @@ pluto_class PedManager
                 info.godmode = ped_menu:readonly(T'Godmode' .. $': {(self:IsEntityGodmode(ptr))}')
                 info.frozen = ped_menu:readonly(T'Frozen' .. $': {self:IsEntityFrozen(ent)}')
                 info.invisible = ped_menu:readonly(T'Invisible' .. $': {self:IsEntityInvisible(ent)}')
-
+                
                 ped_menu:onTickInViewport(function()
                     local localplayer = players.localplayer()
                     local player_pos = localplayer:get_offset_from_entity_in_world_coords(0.0, 0.0, 0.0)
@@ -253,7 +258,7 @@ pluto_class PedManager
                             hud.set_blip_colour(blip, (state) ? 27 : 1)
                         end
                     end
-                end)
+                end, self:IsEntityGodmode(ptr))
 
                 ped_menu:toggle(T'Dies In Water', {}, T'Set whether the ped dies in water or not', function(state)
                     ped.set_ped_dies_in_water(ent, state)
@@ -261,7 +266,7 @@ pluto_class PedManager
 
                 ped_menu:toggle(T'Freeze', {}, T'Freeze the ped', function(state)
                     entity.freeze_entity_position(ent, state)
-                end)
+                end, self:IsEntityFrozen(ent))
 
                 ped_menu:toggle(T'Invisible', {}, T'Makes the ped invisible', function(state)
                     entity.set_entity_visible(ent, not state, false)
@@ -376,6 +381,10 @@ pluto_class PedManager
                 end)
             end
         end
+    end
+
+    function VehicleOnClick()
+
     end
 
     function IsEntityGodmode(ptr)

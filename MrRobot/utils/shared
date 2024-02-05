@@ -181,7 +181,7 @@ Shared.AimbotBones = {
 Shared.SettingsBits = {
     ShowAlerts = 1 << 0,
     RemoveTransactionError = 1 << 1,
-    MemoryHook = 1 << 2,
+    UNKOWN = 1 << 2,
     Debug = 1 << 3,
     SuppressRequestControlFailures = 1 << 4,
     ShowRiskyOptions = 1 << 5,
@@ -446,22 +446,6 @@ _G.players.add_detection = (function(func)
     end
 end)(players.add_detection)
 
-local function MemoryWriteHook(func)
-    return function(addr, value)
-        local bits = math.floor(math.log(addr, 2)) + 1
-        if bits < 38 then
-            return func(memory.script_global(addr), value)
-        end
-        return func(addr, value)
-    end
-end
-
-if Shared.Settings:IsSet(Shared.SettingsBits.MemoryHook) then
-    for ({'write_byte', 'write_short', 'write_int', 'write_long', 'write_string', 'write_float'}) as name do
-        _G.memory[name] = MemoryWriteHook(_G.memory[name])
-    end
-end
-
 function Shared:Partial(func, ...)
     local args = {...}
     return function(...)
@@ -494,7 +478,18 @@ end
 function Shared:PlayAnimation(logo_path, threshold=1.7, scale=0.04)
     local logo = directx.create_texture(logo_path)
     local alpha, reverse = 0.0, false
+    local timeout = os.time() + 5
+
+    repeat
+        util.yield_once()
+        if os.time() > timeout then
+            error(T'Failed to load logo')
+            return false
+        end
+    until directx.has_texture_loaded(logo)
+
     util.create_tick_handler(function()
+        if alpha > 1.0 then alpha = 1.0;reverse = true end
         directx.draw_texture(logo, scale, scale, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
         if alpha < threshold and not reverse then alpha += 0.007 else alpha -= 0.007; reverse = true end
         if alpha <= 0 then return false end
@@ -618,6 +613,43 @@ function Shared:StartNewScript(script_name, stack_size)
     until script.has_script_loaded(script_name)
     system.start_new_script(script_name, stack_size or 5000)
     script.set_script_as_no_longer_needed(script_name)
+end
+
+function Shared:IsScriptRunning(script_name)
+    return script.get_number_of_threads_running_the_script_with_this_hash(script_name:joaat()) > 0
+end
+
+function Shared:GetEntityAimingAt(distance)
+    local trace_flag = (1 << 32) - 1
+    local cam_data = {
+        pos = cam.get_final_rendered_cam_coord(),
+        rot = cam.get_final_rendered_cam_rot(2),
+    }
+
+    local direction = cam_data.rot:toDir()
+    local cam_offset = v3.new(cam_data.pos)
+    direction:mul(distance)
+    cam_offset:add(direction)
+
+    local hit = memory.alloc(1)
+    local end_coords = v3.new()
+    local surface_normal = v3.new()
+    local hit_entity = memory.alloc(4)
+
+    local handle = shapetest.start_expensive_synchronous_shape_test_los_probe(
+        cam_data.pos.x, cam_data.pos.y, cam_data.pos.z,
+        cam_offset.x, cam_offset.y, cam_offset.z,
+        trace_flag,
+        players.user_ped(), 7
+    )
+
+    shapetest.get_shape_test_result(handle, hit, end_coords, surface_normal, hit_entity)
+
+    if memory.read_byte(hit) ~= 0 then
+        return memory.read_int(hit_entity)
+    else
+        return 0
+    end
 end
 
 return Shared

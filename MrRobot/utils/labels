@@ -1,0 +1,11 @@
+local Labels = {}
+
+function Labels:Set(label, text)
+    self[label] = text
+end
+
+function Labels:Get(label)
+    return self[label] or label
+end
+
+return Labels

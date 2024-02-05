@@ -1,4 +1,4 @@
-local T, S = require('translations'), require('shared')
+local T, S, L = require('translations'), require('shared'), require('labels')
 local Globals = require('script_globals')
 local Weapons = require('weapons_list')
 local ZoneInfo = require('zone_info')
@@ -41,6 +41,13 @@ pluto_class GunVan
         self.updating = { position = false }
         self.gunvan_root = root:list(T'Gun Van', {T'rgunvan'}, '')
         local weapons_tbl = S:SortTable(Weapons:AsTable(), |a, b| -> a < b)
+   
+        for index, weapon in pairs(weapons_tbl) do
+            local name = L:Get(weapon)
+            if name ~= '' then
+                weapons_tbl[index] = name
+            end
+        end
 
         self.gunvan_weapons = self.gunvan_root:list(T'Weapons', {T'gunvanweapons'}, T'Gun Van Weapons', nil, nil, function()
             local start, finish = Globals.GunVanWeaponsStart, Globals.GunVanWeaponsEnd
@@ -56,12 +63,12 @@ pluto_class GunVan
                             name = string.format('0x%X', tostring(memory.read_int(weapon_index))) .. ' - Invalid'
                         end
                     end
-                    local slot = self.gunvan_weapons:list(name, {}, '')
+                    local slot = self.gunvan_weapons:list(L:Get(name), {}, '')
 
                     slot:list_action(T'Weapon', {}, T'Weapon to change to', weapons_tbl, function(index)
                         local weapon = weapons_tbl[index]
                         local hash = Weapons:FindHash(weapon)
-                        local name = util.reverse_joaat(hash):upper()
+                        local name = L:Get(util.reverse_joaat(hash):upper())
                         memory.write_int(weapon_index, hash)
                         slot.menu_name = name
                     end)
@@ -70,7 +77,7 @@ pluto_class GunVan
                 for index, child in pairs(self.gunvan_weapons:getChildren()) do
                     if child:isValid() then
                         local weapon_index = memory.script_global((262145 + (start + index)) - 1)
-                        local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                        local name = L:Get(util.reverse_joaat(memory.read_int(weapon_index)):upper())
                         if name == '' then
                             local htoname = Weapons:HashToName(memory.read_int(weapon_index))
                             if htoname ~= nil then
@@ -90,7 +97,7 @@ pluto_class GunVan
             if #self.gunvan_throwables:getChildren() == 0 then
                 for index = start, finish do
                     local weapon_index = memory.script_global(262145 + index)
-                    local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                    local name = L:Get(util.reverse_joaat(memory.read_int(weapon_index)):upper())
                     if name == '' then
                         local htoname = Weapons:HashToName(memory.read_int(weapon_index))
                         if htoname ~= nil then
@@ -104,7 +111,7 @@ pluto_class GunVan
                     slot:list_action(T'Weapon', {}, T'Weapon to change to', weapons_tbl, function(index)
                         local weapon = weapons_tbl[index]
                         local hash = Weapons:FindHash(weapon)
-                        local name = util.reverse_joaat(hash):upper()
+                        local name = L:Get(util.reverse_joaat(hash):upper())
                         memory.write_int(weapon_index, hash)
                         slot.menu_name = name
                     end)
@@ -113,7 +120,7 @@ pluto_class GunVan
                 for index, child in pairs(self.gunvan_throwables:getChildren()) do
                     if child:isValid() then
                         local weapon_index = memory.script_global((262145 + (start + index)) - 1)
-                        local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                        local name = L:Get(util.reverse_joaat(memory.read_int(weapon_index)):upper())
                         if name == '' then
                             local htoname = Weapons:HashToName(memory.read_int(weapon_index))
                             if htoname ~= nil then

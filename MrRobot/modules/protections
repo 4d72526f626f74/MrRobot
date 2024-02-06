@@ -179,6 +179,39 @@ pluto_class Protections
                 end
             end
         end)
+
+        self.anti_guided_missile = self.player:toggle_loop(T'Anti Guided-Missile', {}, T'Auto ghost bots trying to kill you with guided missiles', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    local ped = player.get_player_ped(pid)
+                    local int = interior.get_interior_from_entity(ped)
+                    if int == 281345 then
+                        local ptr = entities.handle_to_pointer(ped)
+                        if ptr ~= 0 then
+                            local damage_bits = memory.read_int(ptr + 0x188)
+                            if memory.bits:check(damage_bits, 1 << 22) == false then
+                                network.set_remote_player_as_ghost(pid, true)
+                            else
+                                network.set_remote_player_as_ghost(pid, false)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.anti_rc = self.player:toggle_loop(T'Anti RC', {}, T'Auto ghost bots when they\'re in an RC vehicle trying to kill you', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    local p = player.get_player_ped(pid)
+                    local veh = ped.get_vehicle_ped_is_using(p, false)
+                    if veh ~= 0 then
+                        local model = util.reverse_joaat(entity.get_entity_model(veh))
+                        network.set_remote_player_as_ghost(pid, model == 'rcbandito' or model == 'minitank')
+                    end
+                end
+            end
+        end)
     end
 
     function CreateNotifProtections()
@@ -226,6 +259,30 @@ pluto_class Protections
             end
 
             util.yield(2000)
+        end)
+
+        self.bst_detection = self.detections:toggle(T'BST', {}, T'Detect players using BST', function(state)
+            local size = 5
+            local event_data = memory.alloc(size * 8)
+
+            util.create_tick_handler(function()
+                if not self.bst_detection.value then
+                    return false
+                end
+
+                for i = 0, script.get_number_of_events(1) do
+                    local event = script.get_event_at_index(1, i)
+                    if event == 174 and script.get_event_data(1, i, event_data, size) then
+                        local event_hash = memory.read_int(event_data)
+                        local pid = memory.read_int(event_data + (1 * 8))
+                        util.log(event_hash)
+            
+                        if event_hash == 1489206770 then
+                            util.toast($'{players.get_name(pid)} has collected BST')
+                        end
+                    end
+                end
+            end)
         end)
 
         self.plate_detection = self.detections:list(T'Modded License Plate', {}, '')
@@ -341,7 +398,7 @@ pluto_class Protections
             return true
         elseif not HasConsecutive(plate) and HasDuplicates(plate) then
             local counts = CountDuplicates(plate)
-            if #counts > 1 then
+            if #counts > 2 then
                 return true
             else
                 return false

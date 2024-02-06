@@ -296,6 +296,15 @@ pluto_class World
                 self.stand_smooth_transition.value = true
             end
         end)
+
+        self.root:toggle_loop(T'Peds Turn Blindeye', {}, T'Peds don\'t give a fuck what you do', function()
+            for entities.get_all_peds_as_handles() as p do
+                if not ped.is_ped_a_player(p) and not ped.get_ped_config_flag(p, 17, true) then
+                    ped.set_blocking_of_non_temporary_events(p, true)
+                    task.task_set_blocking_of_non_temporary_events(p, true)
+                end
+            end
+        end)
     end
 end
 

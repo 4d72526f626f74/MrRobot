@@ -68,8 +68,11 @@ pluto_class Players
         }
         self.wheel_labels = {}
 
-        local partial = S:Partial(self.PlayerLoop, self)
-        H.PlayerLoop = partial
+        H.PlayerLoop =  S:Partial(self.PlayerLoop, self)
+        H.PlayerRemove = S:Partial(self.PlayerRemove, self)
+
+        self.proot = root:list(T'Players', {T'rplayers'}, '')
+        self.proot.visible = false
     end
 
     function PlayerLoop(pid, root)
@@ -78,6 +81,8 @@ pluto_class Players
         if network.network_is_friend(self.gamer_handle) and pid ~= players.user() then S:AddFriend(pid) end
 
         local name = players.get_name(pid)
+        local script_root = self.proot:list(name, {}, name)
+
         root:divider('Mr.Robot')
         self.root = root:list('Mr.Robot', {}, 'Mr.Robot')
 
@@ -639,6 +644,12 @@ pluto_class Players
             local target = memory.script_global(Globals:PlayerCayoPrimaryTarget(pid))
             memory.write_int(target, self.target_choice.value - 1)
         end)
+    end
+
+    function PlayerRemove(pid, name)
+        if self.proot:isValid() then
+            self.proot:delete()
+        end
     end
 
     function UpdatePlayerInfo(pid)

@@ -1,0 +1,24 @@
+{
+    "loading_order": 1,
+    "modules": {
+        "cellphone": true,
+        "collectables": true,
+        "tunables": true,
+        "heists": true,
+        "online": true,
+        "arcade": true,
+        "unlocks": true,
+        "gunvan": true,
+        "nightclub": true,
+        "entities": true,
+        "moduleloader": true,
+        "cooldowns": true,
+        "agency": true,
+        "self": true,
+        "players": true,
+        "protections": true,
+        "weapons": true,
+        "world": true,
+        "vehicles": true
+    }
+}

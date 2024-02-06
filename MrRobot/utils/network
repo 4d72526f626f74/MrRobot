@@ -69,6 +69,11 @@ pluto_class Network
         memory.write_short(interior_state, value)
     end
 
+    static function SpoofInteriorState1(state)
+        local interior_state = memory.script_global(Globals.SpoofInteriorState1)
+        memory.write_byte(interior_state, state ? 1 : -1)
+    end
+
     static function SetOTRGhostOrgTimer(time=nil)
         time = time or network.get_network_time()
         local timer = memory.script_global(Globals.OtrGhostTimer)
@@ -210,6 +215,11 @@ pluto_class Network
         memory.write_byte(stats, memory.bits:setbool(memory.read_byte(stats), Masks.IsCheater, state))
     end
 
+    static function SpoofJobPoints(amount)
+        local jp = memory.script_global(Globals.JobPoints)
+        memory.write_int(jp, amount)
+    end
+
     static function StatsGetTotalMoney()
         local stats = memory.script_global(Globals.StatSpoofing)
         return memory.read_int(stats + SpoofingOffsets.TotalMoney)
@@ -263,6 +273,11 @@ pluto_class Network
     static function StatsPlayerIsCheater(pid)
         local stats = memory.script_global(Globals:PlayerStatSpoofing(pid)) + SpoofingOffsets.PlayerReports
         return memory.bits:check(memory.read_byte(stats), Masks.IsCheater)
+    end
+
+    static function StatsGetJobPoints()
+        local jp = memory.script_global(Globals.JobPoints)
+        return memory.read_int(jp)
     end
 
     static function GetInterior()
@@ -391,6 +406,25 @@ pluto_class Network
             end
         end
         return false
+    end
+
+    static function SpoofBlipCoords(x, y, z)
+        local bx = memory.script_global(Globals.InteriorBlipX)
+        local by = memory.script_global(Globals.InteriorBlipY)
+        local bz = memory.script_global(Globals.InteriorBlipZ)
+        memory.write_float(bx, x)
+        memory.write_float(by, y)
+        memory.write_float(bz, z)
+    end
+
+    static function ToggleBallisticArmorBlip(state)
+        local blip = memory.script_global(Globals.BallisticArmorBlip)
+        memory.write_int(blip, state ? (('WEAPON_MINIGUN'):joaat()) : 0)
+    end
+
+    static function ToggleTrollMode(state)
+        local troll = memory.script_global(Globals.TrollMode)
+        memory.write_byte(troll, state ? -1 : 4)
     end
 end
 

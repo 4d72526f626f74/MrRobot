@@ -584,6 +584,10 @@ pluto_class SelfOptions
             memory.write_int(addr, memory.bits:setbool(memory.read_int(addr), 1 << 10, state))
         end)
 
+        self.troll_mode = self.root:toggle(T'Troll Mode', {}, T'Enable troll mode, this will prevent you from appearing in the player list, killing a player won\'t show that you did it and you don\'t show on the minimap)', function(state)
+            Network.ToggleTrollMode(state)
+        end)
+
         self.root:divider('')
         self.press_me = self.root:action(T'Press Me', {}, T'By pressing this button you have agreed to pay the price for your wrong doings within the world of GTA Online, this will rid you of your mk2 and money as retribution for the sins of owning an oppressor mk2 and from here on out you declare that you will never again buy another mk2, have a nice day!', function()
             local ops = {}

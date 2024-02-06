@@ -16,6 +16,7 @@ pluto_class PlayerAimbot
         self.ignore_vehicles = true
         self.target_friends = false
         self.show_target = true
+        self.toast_target = true
         self.damage_override = false
         self.chance_based = false
         self.spectate = true
@@ -55,6 +56,10 @@ pluto_class PlayerAimbot
         self.root:toggle(T'Show Target', {}, T'Will the aimbot show the target?', function(state)
             self.show_target = state
         end, self.show_target)
+
+        self.root:toggle(T'Toast Target', {}, T'Will the aimbot toast the target?', function(state)
+            self.toast_target = state
+        end, self.toast_target)
 
         self.root:toggle(T'Damage Override', {}, T'Will the aimbot override the damage?', function(state)
             self.damage_override = state
@@ -113,7 +118,9 @@ pluto_class PlayerAimbot
             local ref = self.target_list:refByRelPath(name)
             if S:PlayerExists(pid) and pid ~= players.user() then
                 if not ref:isValid() then
-                    self.targets:Set(1 << pid)
+                    if not S:IsFriend(pid) then
+                        self.targets:Set(1 << pid)
+                    end
                     self.target_list:toggle(name, {}, T'Should this player be targetted by the aimbot?', function(state)
                         self.targets:SetBool(1 << pid, state)
                     end, self.targets:IsSet(1 << pid))
@@ -165,6 +172,7 @@ pluto_class PlayerAimbot
     function UnfairAimbot()
         if not util.is_session_started() then return end
         local target = self:GetClosestPlayer()
+        if target ~= nil and self.toast_target then util.toast(players.get_name(target)) end
         if target == nil then return end
         if not self.targets:IsSet(1 << target) then return end
 
@@ -316,7 +324,7 @@ pluto_class PlayerAimbot
         local dist = 20000000.0
         
         for pid = 0, players.max_players do
-            if S:PlayerExists(pid) and pid ~= players.user() then
+            if S:PlayerExists(pid) and pid ~= players.user() and self.targets:IsSet(1 << pid) then
                 local tpos = players.get_position(pid)
                 local kpos = players.get_position(players.user())
                 local pped = player.get_player_ped(pid)

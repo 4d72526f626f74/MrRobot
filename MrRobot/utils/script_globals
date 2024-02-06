@@ -171,6 +171,13 @@ local Globals = {
     YetiCluesBitfield = 18179,
     YetiClueReward = 262145 + 36185, -- Global_262145.f_36185
     YetiCluesCollected = 18179 + 40, -- iParam0->f_40
+    SpoofInteriorState1 = 2657921 + 1 + (463 * players.user()) + 73 + 6, -- Global_2657921[bParam0 /*463*/].f_73.f_6 
+    InteriorBlipX = 2657921 + 1 + (463 * players.user()) + 73 + 7, -- Global_2657921[bParam0 /*463*/].f_73.f_7
+    InteriorBlipY = 2657921 + 1 + (463 * players.user()) + 73 + 8, -- Global_2657921[bParam0 /*463*/].f_73.f_8
+    InteriorBlipZ = 2657921 + 1 + (463 * players.user()) + 73 + 9, -- Global_2657921[bParam0 /*463*/].f_73.f_9
+    BallisticArmorBlip = 1886967 + 1 + (609 * players.user()) + 586, -- Global_1886967[iParam0 /*609*/].f_586
+    TrollMode = 2657921 + 1 + (players.user() * 207),
+    JobPoints = 1845263 + 1 + (players.user() * 877) + 9 -- 1845263 + 1 + (players.user() * 877) + 9
 }
 
 Globals.TaxiScript = 'fm_content_taxi_driver'

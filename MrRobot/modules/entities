@@ -109,7 +109,6 @@ pluto_class PedManager
                     ::continue::
                 end
                 self:Populate()
-                util.toast(T'Peds refreshed')
             end
         end)
         self.peds:divider('')
@@ -384,7 +383,7 @@ pluto_class PedManager
     end
 
     function VehicleOnClick()
-
+        
     end
 
     function IsEntityGodmode(ptr)

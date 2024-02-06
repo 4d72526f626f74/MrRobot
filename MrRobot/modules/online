@@ -346,6 +346,7 @@ pluto_class Online
         self.stat_kd = self.stats:list(T'K/D', {}, T'Spoof your K/D')
         self.stat_is_badsport = self.stats:list(T'Is Bad Sport', {}, T'Spoof your bad sport status')
         self.stat_is_cheater = self.stats:list(T'Is Cheater', {}, T'Spoof your cheater status')
+        self.stat_spoof_job_points = self.stats:list(T'Job Points', {}, T'Spoof your job points')
 
         self.stat_total_money:toggle_loop(T'Enable', {}, T'Enable total money spoofing', function()
             Network.SpoofTotalMoney(tonumber(self.total_money.value))
@@ -401,6 +402,10 @@ pluto_class Online
             Network.SpoofIsCheater(false)
         end)
 
+        self.stat_spoof_job_points:text_input(T'Job Points', {T'rossjobpoints'}, T'Enter the job points you want to spoof', function(value) 
+            Network.SpoofJobPoints(tonumber(value))
+        end, Network.StatsGetJobPoints())
+
         self:UpdateInteriorIndex()
         self.interior_spoofing = self.spoofing:list(T'Interior Spoofing', {T'rointeriorspoofing'}, T'Interior Spoofing', function()
             self:UpdateInteriorIndex()
@@ -420,6 +425,33 @@ pluto_class Online
             local rand = math.random(1, #self.properties_data)
             Network.SetInterior(S.PropertyIds[self.properties_data[rand]])
             util.yield(1000)
+        end)
+
+        self.blip_spoofing = self.spoofing:list(T'Blip Spoofing', {T'roblipspoofing'}, T'Blip Spoofing')
+        self.blip_x = self.blip_spoofing:text_input(T'X', {T'roblipx'}, T'X coordinate of the blip', function() end, '0')
+        self.blip_y = self.blip_spoofing:text_input(T'Y', {T'roblipy'}, T'Y coordinate of the blip', function() end, '0')
+        self.blip_z = self.blip_spoofing:text_input(T'Z', {T'roblipz'}, T'Z coordinate of the blip', function() end, '0')
+        self.blip_spoofing:divider('')
+
+        self.blip_spoofing:toggle(T'Ballistic Armor Blip', {T'rospoofarmorblip'}, T'Spoof your blip as ballistic armor', function(state)
+            Network.ToggleBallisticArmorBlip(state)
+        end)
+
+        self.blip_spoofing:toggle_loop(T'Bounty Blip', {T'rospoofbountyblip'}, T'Spoof your blip as a bounty', function()
+            Network.SetBounty(players.user(), -1, true)
+        end, function()
+            Network.SetBounty(players.user(), 0, false)
+        end)
+
+        self.blip_spoofing:toggle_loop(T'Spoof', {T'rospoofblip'}, T'Spoof the blip to the selected coordinates', function()
+            local x, y, z = tonumber(self.blip_x.value), tonumber(self.blip_y.value), tonumber(self.blip_z.value)
+            if x == nil or y == nil or z == nil then
+                x, y, z = 0, 0, 0
+            end
+            Network.SpoofInteriorState1(true)
+        end, function()
+            Network.SpoofInteriorState1(false)
+            Network.SpoofBlipCoords(0, 0, 0)
         end)
     end
 
@@ -542,17 +574,17 @@ pluto_class Online
             end
         end)
 
-        self.taxi:text_input(T'Fare', {T'taxiservicefare'}, T'Set the fare for the taxi service', function(fare)
+        self.taxi:text_input(T'Fare', {T'taxiservicefare'}, T'Set the fare for the taxi service', function(amount)
             local fare = memory.script_local(Script, Globals.TaxiServiceFare)
             if fare ~= 0 then
-                memory.write_int(fare, tonumber(fare))
+                memory.write_int(fare, tonumber(amount))
             end
         end)
 
-        self.taxi:text_input(T'Tip', {T'taxiservicetip'}, T'Set the tip for the taxi service', function(tip)
+        self.taxi:text_input(T'Tip', {T'taxiservicetip'}, T'Set the tip for the taxi service', function(amount)
             local tip = memory.script_local(Script, Globals.TaxiServiceTip)
             if tip ~= 0 then
-                memory.write_int(tip, tonumber(tip))
+                memory.write_int(tip, tonumber(amount))
             end
         end)
 

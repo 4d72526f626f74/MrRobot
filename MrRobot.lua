@@ -59,12 +59,25 @@ pluto_class MrRobot
         self.slibs = self.sroot .. '/libs'
         self.ssubmodules = self.smodules .. '/sub_modules'
         self.spvcustom = self.sroot .. '/personal_vehicles'
+        self.sconfigs = self.sroot .. '/config'
         self.module_instances = {}
+        self.settings = {
+            modules = {},
+            loading_order = 1,
+        }
+
+        for self.modules as m do
+            if m == 'settings' or m == 'credits' then
+                continue
+            end
+
+            self.settings.modules[m] = true
+        end
 
         self.dirs = {
             self.sroot, self.simages, self.sutils,
             self.smodules, self.scustom, self.slibs,
-            self.ssubmodules, self.spvcustom
+            self.ssubmodules, self.spvcustom, self.sconfigs
         }
 
         for self.dirs as dir do
@@ -73,6 +86,16 @@ pluto_class MrRobot
                     util.log($'Failed to create directory {dir}')
                 end
             end
+        end
+
+        if not filesystem.exists(self.sconfigs .. '/settings.json') then
+            local file <close> = assert(io.open(self.sconfigs .. '/settings.json', 'w'))
+            file:write(soup.json.encode(self.settings, true))
+            file:close()
+        else
+            local file <close> = assert(io.open(self.sconfigs .. '/settings.json', 'r'))
+            self.settings = soup.json.decode(file:read('*a'))
+            file:close()
         end
     end
 
@@ -322,6 +345,7 @@ pluto_class MrRobot
     end
 
     function LoadModule(name)
+        if self.settings[name] == false then return end
         local state, err = pcall(require, name)
         if not state then
             local line = err:match(':(%d+):')
@@ -330,7 +354,7 @@ pluto_class MrRobot
         else
             local err_type = type(err)
             if err_type == 'table' then
-                table.insert(self.module_instances, pluto_new err(self.root, self.script_version))
+                table.insert(self.module_instances, pluto_new err(self.root, self.script_version, self.settings))
             elseif err_type == 'function' then
                 err()
             end
@@ -338,7 +362,26 @@ pluto_class MrRobot
     end
 
     function ModuleLoader()
-        for self.modules as name do self:LoadModule(name) end
+        self:LoadModule('credits')
+        self:LoadModule('settings')
+
+        if self.settings.loading_order == 1 then
+            -- Default so do nothing
+        elseif self.settings.loading_order == 2 then
+            table.sort(self.modules, function(a, b) return a < b end)
+        elseif self.settings.loading_order == 3 then
+            table.sort(self.modules, function(a, b) return a > b end)
+        elseif self.settings.loading_order == 4 then
+            table.sort(self.modules, function(a, b) return #a < #b end)
+        elseif self.settings.loading_order == 5 then
+            table.sort(self.modules, function(a, b) return #a > #b end)
+        end
+
+        for self.modules as name do
+            if name ~= 'credits' and name ~= 'settings' then
+                self:LoadModule(name)
+            end
+        end
 
         players.add_command_hook(function(pid, root)
             if type(self.H.PlayerLoop) then self.H.PlayerLoop(pid, root) end
@@ -358,7 +401,7 @@ pluto_class MrRobot
     end
 end
 
-local MrRobot = pluto_new MrRobot('3.2.2', '1.68')
+local MrRobot = pluto_new MrRobot('3.3.2', '1.68')
 MrRobot:FixMissingFiles()
 MrRobot:Requires()
 MrRobot:CheckForUpdates()

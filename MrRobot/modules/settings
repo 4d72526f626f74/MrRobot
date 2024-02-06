@@ -4,9 +4,10 @@ local Globals = require('script_globals')
 local SettingsBits = S.SettingsBits
 
 pluto_class Settings
-    function __construct(root, version)
+    function __construct(root, version, settings)
         self.root = root:list(T'Settings', {T'rsettings'}, '')
         self.root:divider($'v{version}')
+        root:divider('')
 
         self.remove_transaction_errors = self.root:toggle_loop(T'Remove Transaction Errors', {}, T'Removes annoying transaction error notifications', || -> memory.write_byte(memory.script_global(Globals.TransactionErrorNotification), 0))
 
@@ -42,7 +43,33 @@ pluto_class Settings
         self.cache:action(T'Clear Globals Cache', {T'sclrgcache'}, T'Clears the cache for globals, use this if a feature is not working such as invisibility in self', function()
             S.ClearCache.ShouldClear = true
         end)
-        root:divider('')
+
+        self.modules = self.root:list(T'Modules', {T'rsmodules'}, T'Enable/disable loading of certain modules, this takes effect after restarting the script', nil, || -> self:SaveSettings(settings))
+        self.loading_order = self.modules:list_select(T'Loading Order', {}, T'Order the modules are loaded in (credits and settings are unaffected by these changes)', {
+            {1, 'Default'},
+            {2, 'Ascending'},
+            {3, 'Descending'},
+            {4, 'Length (Shortest First)'},
+            {5, 'Length (Longest First)'}
+        }, 1, function(value)
+            settings.loading_order = value
+        end)
+        self.loading_order.value = settings.loading_order
+        self.modules:divider('')
+        
+        for k, v in pairs(settings.modules) do
+            self.modules:toggle(k:gsub('^%l', string.upper), {}, '', function(state)
+                settings.modules[k] = state
+            end, v)
+        end
+    end
+
+    function SaveSettings(settings)
+        if filesystem.exists(filesystem.script_root() .. '/config/settings.json') then
+            local file <close> = assert(io.open(filesystem.script_root() .. '/config/settings.json', 'w'))
+            file:write(soup.json.encode(settings, true))
+            file:close()
+        end
     end
 end
 

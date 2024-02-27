@@ -1,15 +1,22 @@
 local T, S = require('translations'), require('shared')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 
 local SettingsBits = S.SettingsBits
 
 pluto_class Settings
     function __construct(root, version, settings)
         self.root = root:list(T'Settings', {T'rsettings'}, '')
-        self.root:divider($'v{version}')
+        self.dll_path = ''
+
+        if not S.Settings:IsSet(SettingsBits.Developer) then
+            self.root:divider($'v{version}')
+        else
+            self.root:divider($'v{version}-dev')
+        end
         root:divider('')
 
-        self.remove_transaction_errors = self.root:toggle_loop(T'Remove Transaction Errors', {}, T'Removes annoying transaction error notifications', || -> memory.write_byte(memory.script_global(Globals.TransactionErrorNotification), 0))
+        self.remove_transaction_errors = self.root:toggle_loop(T'Remove Transaction Errors', {}, T'Removes annoying transaction error notifications', || -> memory.write_byte(Globals.TransactionErrorNotification:g(), 0))
 
         self.show_alerts = self.root:toggle(T'Show Alerts', {}, T'Should alerts be shown? (enabling this will force alerts to be sent to console instead of displaying)', function(state)
             S.Settings:SetBool(SettingsBits.ShowAlerts, state)
@@ -23,6 +30,14 @@ pluto_class Settings
         self.root:toggle(T'Show Risky Options', {}, T'Will risky options be visible or not?', function(state)
             S.Settings:SetBool(SettingsBits.ShowRiskyOptions, state)
         end, S.Settings:IsSet(SettingsBits.ShowRiskyOptions))
+
+        if S.Settings:IsSet(SettingsBits.Developer) then
+            self.player_overlay = self.root:toggle(T'Enable Player Overlay', {}, T'Enables the player overlay', function(state)
+                S.Settings:SetBool(SettingsBits.EnablePlayerOverlay, state)
+            end, S.Settings:IsSet(SettingsBits.EnablePlayerOverlay))
+        else
+            S.Settings:SetBool(SettingsBits.EnablePlayerOverlay, false)
+        end
 
         self.root:divider('')
         self.cache = self.root:list(T'Globals Cache', {T'settings'}, '')
@@ -62,6 +77,41 @@ pluto_class Settings
                 settings.modules[k] = state
             end, v)
         end
+
+        self.experimental = self.root:list(T'Experimental', {T'rexperimental'}, T'Experimental features that may have unintended behaviour')
+        self.experimental:text_input(T'DLL Path', {T'rdllpath'}, T'Path to the DLL to load', function(value)
+           self.dll_path = value
+        end, self.dll_path)
+
+        self.experimental:action(T'Load DLL', {T'rloaddll'}, T'Loads the DLL from the path specified', function()
+            if self.dll_path ~= '' then
+                if filesystem.exists(self.dll_path) then
+                    local LoadLibraryA = S:GetProcAddressEx('LoadLibraryA')
+                    if LoadLibraryA ~= 0 then
+                        local name = self.dll_path:match('%w+.dll$')
+                        local status, result = pcall(function()
+                            local base = memory.scan(name)
+
+                            if not base then
+                                util.call_foreign_function(LoadLibraryA, self.dll_path)
+                                base = memory.scan(name, '')
+                                util.toast($'Loaded {name} at {string.format("0x%X", base)}')
+                            else
+                                util.toast($'{name} is already loaded at {string.format("0x%X", base)}')
+                            end
+                        end)
+
+                        if not status then
+                            util.toast($'Failed to load DLL: {result}')
+                        end
+                    end
+                else
+                    util.toast('DLL path does not exist')
+                end
+            else
+                util.toast('No DLL path specified')
+            end
+        end)
     end
 
     function SaveSettings(settings)

@@ -1,9 +1,9 @@
 local T, S = require('translations'), require('shared')
 local VehModels = require('vehicle_models')
 local VehicleHandling = require('vehicle_handling')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local ScriptOffsets = require('offsets')
-local Masks = require('masks')
 local PVM = require('pvm')
 
 local Offsets = ScriptOffsets.Vehicles.LSCustoms
@@ -429,12 +429,16 @@ pluto_class Vehicles
                 veh:set_vehicle_strong(true)
                 veh:set_vehicle_has_strong_axles(true)
                 veh:set_vehicle_explodes_on_high_explosion_damage(false)
-                pcall(function()
-                    memory.write_float(veh.ptr + 0x0284, math.max_int) -- max health
-                    memory.write_float(veh.ptr + 0x280, math.max_int) -- health
-                    memory.write_float(veh.ptr + 0x08E8, math.max_int) -- engine health
-                    memory.write_float(veh.ptr + 0x0824, math.max_int) -- petrol tank health
+                local status, result = pcall(function()
+                    memory.write_float(veh.ptr + 0x0284, math.max_int/2) -- max health
+                    memory.write_float(veh.ptr + 0x280, math.max_int/2) -- health
+                    memory.write_float(veh.ptr + 0x08E8, math.max_int/2) -- engine health
+                    memory.write_float(veh.ptr + 0x0824, math.max_int/2) -- petrol tank health
                 end)
+
+                if not status then
+                    util.toast('Failed')
+                end
             end
         end)
 
@@ -447,6 +451,7 @@ pluto_class Vehicles
             end
             util.yield(120)
         end)
+
         self.torque_multiplier = self.torque:slider_float(T'Torque Multiplier', {T'rtorquemultiplier'}, T'Set the torque multiplier of the vehicle', 0.0, math.max_float, 1.0 * 100, 1.0 * 100, function(value) end)
 
         self.root:divider('')
@@ -459,8 +464,8 @@ pluto_class Vehicles
                 veh = S.NewVehicle(veh)
                 veh:set_vehicle_number_plate_text(text)
             else
-                local slot = memory.read_short(memory.script_global(Globals.ActivePVSlot))
-                local data = memory.script_global(Globals:PersonalVehicleData(slot))
+                local slot = memory.read_short(Globals.ActivePVSlot:g())
+                local data = Globals:PersonalVehicleData(slot)
                 local addr = data + Offsets.LicensePlate
                 memory.write_string(addr, text)
             end
@@ -551,6 +556,12 @@ pluto_class Vehicles
                 veh:set_entity_max_speed(value / 100)
             end
         end)
+
+        if S:IsDev(players.user()) then
+            self.root:action(T'Copy Address', {}, '', function()
+                util.copy_addr(players.localplayer_vehicle().ptr)
+            end)
+        end
     end
 
     function CreateGiftingOptions()
@@ -564,7 +575,7 @@ pluto_class Vehicles
             local start = os.time() + 30
             local net_hash = network.network_hash_from_player_handle(players.user())
 
-            veh:decor_set_int('MPBitset', veh:decor_get_int('MPBitset') | Masks.VehicleGifting)
+            veh:decor_set_int('MPBitset', veh:decor_get_int('MPBitset') | memory.bits.memory.bits.masks.VehicleGifting)
             self:ToggleOwnerCheck(false)
             for { 'Player_Vehicle', 'Veh_Modded_By_Player' } as decor do veh:decor_set_int(decor, net_hash) end
             for { 'Previous_Owner', 'PV_Slot' } as decor do veh:decor_set_int(decor, 0) end
@@ -623,7 +634,7 @@ pluto_class Vehicles
         end)
 
         self.mors_claim_current = self.mors:action(T'Claim Current', {}, T'Reclaim your current personal vehicle from mors mutual', function()
-            local slot = memory.read_short(memory.script_global(Globals.ActivePVSlot))
+            local slot = memory.read_short(Globals.ActivePVSlot:g())
             self:ClaimVehicle(slot, self.mors_respawn.value)
         end)
 
@@ -659,7 +670,7 @@ pluto_class Vehicles
                 self.flares_cm_offsets.y = 4
                 self.flares_cm_offsets.z = 0.2
             end
-
+            
             local spawn_pos = object.get_offset_from_coord_and_heading_in_world_coords(coords.x, coords.y, coords.z, heading, -self.flares_cm_offsets.x, self.flares_cm_offsets.y, self.flares_cm_offsets.z)
             misc.shoot_single_bullet_between_coords_ignore_entity_new(spawn_pos.x, spawn_pos.y, spawn_pos.z, coords.x, coords.y, coords.z, 0, true, ('WEAPON_FLAREGUN'):joaat(), players.user(), true, false, -1, 0, false, true, 0, true, 1, 0, 0)
             spawn_pos = object.get_offset_from_coord_and_heading_in_world_coords(coords.x, coords.y, coords.z, heading, self.flares_cm_offsets.x, self.flares_cm_offsets.y, self.flares_cm_offsets.z)
@@ -849,7 +860,7 @@ pluto_class Vehicles
         self.last_veh_coords = v3.new()
 
         self.proxy:toggle_loop(T'Proximity Concealment', {}, T'Proximity based denetworking of your personal vehicle, this will prevent the vehicle being synced with other players when you are outside of a certain proximity to your vehicle', function()
-            local veh = S.NewVehicle(memory.read_int(memory.script_global(Globals.ActivePVHandle)))
+            local veh = S.NewVehicle(memory.read_int(Globals.ActivePVHandle:g()))
             local proximity = self.proximity.value / 100
 
             if veh ~= -1 then
@@ -880,11 +891,11 @@ pluto_class Vehicles
     end
 
     function ToggleOwnerCheck(state)
-        memory.write_byte(memory.script_global(Globals.PVOwnershipBypass), state ? 1 : 0)
+        memory.write_byte(Globals.PVOwnershipBypass:g(), state ? 1 : 0)
     end
 
     function ClaimVehicle(slot, respawn=false)
-        local data = memory.script_global(Globals:PersonalVehicleData(slot))
+        local data = Globals.PersonalVehicleData:g(slot)
         local addr = data + Offsets.VehicleBitfield
         local value = memory.read_byte(addr)
         if memory.bits:check(value, VehicleBitfield.Destroyed) or memory.bits:check(value, VehicleBitfield.Impounded) then

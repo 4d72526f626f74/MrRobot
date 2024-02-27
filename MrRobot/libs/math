@@ -17,3 +17,43 @@ _G.math.factorial = function(n)
     end
     return n * math.factorial(n - 1)
 end
+
+_G.math.max_int = (1 << 31) - 1
+_G.math.min_int = -(1 << 31)
+_G.math.max_float = ((1 << 31) - 1) + 0.0
+_G.math.min_float = -((1 << 31) - 1) + 0.0
+
+_G.math.sum = function(...)
+    local args = {...}
+    local v = args[1]
+    table.remove(args, 1)
+    for args as arg do
+        while arg ~= 0 do
+            local carry = v & arg
+            v = v ~ arg
+            arg = carry << 1
+        end
+    end
+    return v
+end
+
+_G.math._ = function(a, b)
+    while b ~= 0 do
+        local carry = a & b
+        a = a ~ b
+        b = carry << 1
+    end
+    return a
+end
+
+_G.math.product = function(a, b)
+    local result = 0
+    while b ~= 0 do
+        if b & 1 ~= 0 then
+            result = result + a
+        end
+        a = a << 1
+        b = b >> 1
+    end
+    return result
+end

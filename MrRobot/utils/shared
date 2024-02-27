@@ -3,653 +3,890 @@ local Bitfield = require('bitfield')
 local Bit = require('bit')
 local Vehicle = require('vehicle')
 local T = require('translations')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local ScriptOffsets = require('offsets')
+local GTAClasses = require('gta_classes')
+
+if package.loaded['math'] == nil then require('math') end
 
 local VehicleOffsets = ScriptOffsets.Vehicles.LSCustoms
 local VehicleBitfield = ScriptOffsets.Vehicles.VehicleBitfield
 
-local Shared = {}
+pluto_class Shared
+    Memory = {}
+    PlayerList = pluto_new Bitfield(0)
+    RiskyRefs = {}
 
-if package.loaded['math'] == nil then
-    require('math')
-end
-
-Shared.Memory = {}
-Shared.PlayerList = 0
-Shared.RiskyRefs = {}
-
-Shared.ClearCache = {
-    ShouldClear = false,
-    ClearTime = 600,
-    LastClear = os.time() + 600
-}
-util.create_tick_handler(function()
-    if Shared.ClearCache.LastClear - os.time() <= 0 then
-        Shared.ClearCache.ShouldClear = true
-        Shared.ClearCache.LastClear = os.time() + Shared.ClearCache.ClearTime
-    end
-
-    for Shared.RiskyRefs as ref do
-        if ref:isValid() then
-            ref.visible = Shared.Settings:IsSet(Shared.SettingsBits.ShowRiskyOptions)
-        end
-    end
-
-    SCRIPT_CAN_CONTINUE = util.can_continue()
-end)
-
-Shared.Models = {
-    BST = 'prop_drug_package_02', -- Bull Shark Testosterone
-    PRBUBBLE_FIGURE = 'vm_prop_vm_colle_prbubble', -- PR Bubble Figure (casino)
-}
-
-Shared.PropertyIds = {
-    ["Invalid"] = 0,
-    ["Eclipse Towers 31"] = 1,
-    ["Eclipse Towers 9"] = 2,
-    ["Eclipse Towers 40"] = 3,
-    ["Eclipse Towers 5"] = 4,
-    ["3 Alta St, Apt 10"] = 5,
-    ["3 Alta St, Apt 57"] = 6,
-    ["Del Perro Heights, Apt 20"] = 7,
-    ["Power St, Apt 3"] = 8,
-    ["Spanish Ave, Apt 1"] = 9,
-    ["Las Lagunas Blv, 4"] = 10,
-    ["Milton Rd, Apt 13"] = 11,
-    ["The Royale, Apt 19"] = 12,
-    ["S Mo Milton Drive"] = 13,
-    ["Bay City Ave, Apt 45"] = 14,
-    ["0325 S Rockford Dr"] = 15,
-    ["Dream Tower, Apt 15"] = 16,
-    ["Las Lagunas Blv, 9"] = 17,
-    ["San Vitas St, Apt 2"] = 18,
-    ["0112 S Rockford Dr, 13"] = 19,
-    ["Vespucci Blvd, Apt 1"] = 20,
-    ["Cougar Ave, Apt 19"] = 21,
-    ["Prosperity St, 21"] = 22,
-    ["Blvd Del Perro, 18"] = 23,
-    ["Murrieta Heights"] = 24,
-    ["Unit 14 Popular St"] = 25,
-    ["Unit 2 Popular St"] = 26,
-    ["331 Supply St"] = 27,
-    ["Unit 1 Olympic Fwy"] = 28,
-    ["Roy Lowenstein Blvd"] = 29,
-    ["Little Bighorn Ave"] = 30,
-    ["Unit 124 Popular St"] = 31,
-    ["Roy Lowenstein Blvd"] = 32,
-    ["0432 Davis Ave"] = 33,
-    ["Del Perro Heights, 7"] = 34,
-    ["Weazel Plaza, 101"] = 35,
-    ["Weazel Plaza, 70"] = 36,
-    ["Weazel Plaza, 26"] = 37,
-    ["Integrity Way, 30"] = 38,
-    ["Integrity Way, 35"] = 39,
-    ["Richards Majestic, 4"] = 40,
-    ["Richards Majestic, 51"] = 41,
-    ["Tinsel Towers, Apt 45"] = 42,
-    ["Tinsel Towers, Apt 29"] = 43,
-    ["Paleto Blvd"] = 44,
-    ["Strawberry Ave"] = 45,
-    ["Grapeseed Ave"] = 46,
-    ["Senora Way"] = 47,
-    ["Great Ocean Highway"] = 48,
-    ["197 Route 68"] = 49,
-    ["870 Route 68"] = 50,
-    ["1200 Route 68"] = 51,
-    ["8754 Route 68"] = 52,
-    ["1905 Davis Ave"] = 53,
-    ["South Shambles St"] = 54,
-    ["4531 Dry Dock St"] = 55,
-    ["Exceptionalists Way"] = 56,
-    ["Greenwich Parkway"] = 57,
-    ["Innocence Blvd"] = 58,
-    ["Blvd Del Perro"] = 59,
-    ["Mirror Park Blvd"] = 60,
-    ["Eclipse Towers 3"] = 61,
-    ["Del Perro Heights 4"] = 62,
-    ["Richards Majestics, 2"] = 63,
-    ["Tinsel Towers, Apt 42"] = 64,
-    ["Integrity Way, 28"] = 65,
-    ["4 Hangman Ave"] = 66,
-    ["12 Sustancia Rd"] = 67,
-    ["4584 Procopio Dr"] = 68,
-    ["4401 Procopio Dr"] = 69,
-    ["0232 Paleto Blvd"] = 70,
-    ["140 Zancudo Ave"] = 71,
-    ["1893 Grapeseed Ave"] = 72,
-    ["3655 Wild Oats Dr"] = 73,
-    ["2044 North Conker Ave"] = 74,
-    ["2868 Hillcrest Ave"] = 75,
-    ["2862 Hillcrest Ave"] = 76,
-    ["3677 Whispymound Dr"] = 77,
-    ["2117 Milton Rd"] = 78,
-    ["2866 Hillcrest Ave"] = 79,
-    ["2874 Hillcrest Ave"] = 80,
-    ["2113 Mad Wayne T Dr"] = 81,
-    ["2045 North Conker Ave"] = 82,
-    ["Eclipse Penthouse, Suite 1"] = 83,
-    ["Eclipse Penthouse, Suite 2"] = 84,
-    ["Eclipse Penthouse, Suite 3"] = 85,
-    ["Invalid (1)"] = 86,
-    ["Lombank West"] = 87,
-    ["Maze Bank West"] = 88,
-    ["Arcadius"] = 89,
-    ["Maze Bank Tower"] = 90,
-    ["Rancho Clubhouse"] = 91,
-    ["Del Perro Beach Clubhouse"] = 92,
-    ["Philbox Hill Clubhouse"] = 93,
-    ["Great Chaparral Clubhouse"] = 94,
-    ["Paleto Bay Clubhouse"] = 95,
-    ["Sandy Shores Clubhouse"] = 96,
-    ["La Mesa Clubhouse"] = 97,
-    ["Vinewood Clubhouse"] = 98,
-    ["Hawick Clubhouse"] = 99,
-    ["Grapeseed Clubhouse"] = 100,
-    ["Paleto Bay Clubhouse (0)"] = 101,
-    ["Vespucci Beach Clubhouse"] = 102,
-    ["Office Garage 1 (Lombank)"] = 103,
-    ["Office Garage 2 (Lombank)"] = 104,
-    ["Office Garage 3 (Lombank)"] = 105,
-    ["Office Garage 1 (Maze Bank West)"] = 106,
-    ["Office Garage 2 (Maze Bank West)"] = 107,
-    ["Office Garage 3 (Maze Bank West)"] = 108,
-    ["Office Garage 1 (Arcadius)"] = 109,
-    ["Office Garage 2 (Arcadius)"] = 110,
-    ["Office Garage 3 (Arcadius)"] = 111,
-    ["Office Garage 1 (Maze Bank Tower)"] = 112,
-    ["Office Garage 2 (Maze Bank Tower)"] = 113,
-    ["Office Garage 3 (Maze Bank Tower)"] = 114,
-    ["Vehicle Warehouse"] = 115,
-    ["Definitely Invalid"] = (1 << 31) - 1
-}
-
-Shared.AimbotBones = {
-    31086, -- head (SKEL_Head)
-    39317, -- neck (SKEL_Neck_1)
-    24816, -- spine (SKEL_Spine_Root)
-    14201, -- left foot (SKEL_L_Foot)
-    51826, -- right leg (SKEL_R_Calf)
-    60309, -- left hand (SKEL_L_Hand)
-    57005, -- right hand (SKEL_R_Hand)
-    11816, -- pelvis (SKEL_Pelvis)
-    58271, -- left leg (SKEL_L_Calf)
-    63931, -- left knee (SKEL_L_Thigh)
-    61163, -- left arm (SKEL_L_UpperArm)
-}
-
-Shared.SettingsBits = {
-    ShowAlerts = 1 << 0,
-    RemoveTransactionError = 1 << 1,
-    UNKOWN = 1 << 2,
-    Debug = 1 << 3,
-    SuppressRequestControlFailures = 1 << 4,
-    ShowRiskyOptions = 1 << 5,
-    CacheGlobals = 1 << 6
-}
-
-Shared.Settings = pluto_new Bitfield(
-    Shared.SettingsBits.ShowAlerts 
-    | Shared.SettingsBits.RemoveTransactionError
-    | Shared.SettingsBits.CacheGlobals
-)
-
-if Shared.Settings:IsSet(Shared.SettingsBits.Debug) then
-    util.create_tick_handler(function()
-        directx.draw_text(0.01, 0.01, $'v{SCRIPT_VERSION}-dbg', ALIGN_TOP_LEFT, 1, {r=1, g=0, b=0, a=1})
-    end)
-end
-
-function Shared:AddPlayer(pid)
-    self.PlayerList = self.PlayerList | (1 << pid)
-end
-
-function Shared:RemovePlayer(pid)
-    self.PlayerList = self.PlayerList & ~(1 << pid)
-end
-
-function Shared:PlayerExists(pid)
-    return self.PlayerList & (1 << pid) == (1 << pid)
-end
-
-function Shared:AddFriend(pid)
-    pid = pid + 0x20
-    self.PlayerList = self.PlayerList | (1 << pid)
-end
-
-function Shared:RemoveFriend(pid)
-    pid = pid + 0x20
-    self.PlayerList = self.PlayerList & ~(1 << pid)
-end
-
-function Shared:IsFriend(pid)
-    pid = pid + 0x20
-    return self.PlayerList & (1 << pid) == (1 << pid)
-end
-
-_G.memory.write = function(addr, value)
-    local value_type = type(value)
-
-    if value_type == 'number' then
-        local bits = math.floor(math.log(value, 2)) + 1
-        if bits <= 8 then
-            memory.write_byte(addr, value)
-        elseif bits <= 16 then
-            memory.write_short(addr, value)
-        elseif bits <= 32 then
-            memory.write_int(addr, value)
-        elseif bits <= 64 then
-            memory.write_long(addr, value)
-        end
-    elseif value_type == 'string' then
-        memory.write_string(addr, value)
-    end
-end
-
-_G.memory.alloc = (function(func)
-    return function(size)
-        size = size or 24
-        if not Shared.Memory[size] then Shared.Memory[size] = {} end
-        if size <= 8 then
-            if #Shared.Memory[size] <= 10 then
-                local addr = func(size)
-                table.insert(Shared.Memory[size], addr)
-                return addr
-            else
-                local rand = math.random(1, #Shared.Memory[size])
-                return Shared.Memory[size][rand]
-            end
-        else
-            if #Shared.Memory[size] <= 0 then
-                local addr = func(size)
-                table.insert(Shared.Memory[size], addr)
-                return addr
-            else
-                return Shared.Memory[size][1]
-            end
-        end
-    end
-end)(memory.alloc)
-
-_G.entities.entity = Entity
-
-_G.players.localplayer = (function(func)
-    local cached = nil
-    return function()
-        if cached ~= nil then
-            cached.entity = players.user_ped()
-            cached.ptr = entities.handle_to_pointer(cached.entity)
-            return cached
-        else
-            cached = func()
-            if cached.entity ~= players.user_ped() then
-                cached.entity = players.user_ped()
-                cached.ptr = entities.handle_to_pointer(cached.entity)
-            end
-            return cached
-        end
-    end
-end)(function()
-    return pluto_new Entity(players.user_ped())
-end)
-
-_G.players.localplayer_vehicle = (function(func)
-    local cached = nil
-    return function()
-        local vehicle = ped.get_vehicle_ped_is_in(players.user_ped())
-        if cached ~= nil then
-            cached.entity = vehicle
-            cached.ptr = entities.handle_to_pointer(cached.entity)
-            return cached
-        else
-            cached = func(vehicle)
-            if cached.entity ~= vehicle then
-                cached.entity = vehicle
-                cached.ptr = entities.handle_to_pointer(cached.entity)
-            end
-            return cached
-        end
-    end
-end)(function(entity)
-    return pluto_new Vehicle(entity)
-end)
-
-Shared.NewVehicle = (function(func)
-    local vehs = { pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0) }
-    return function(entity)
-        if #vehs < 4 then
-            local veh = func(entity)
-            table.insert(vehs, veh)
-            return veh
-        else
-            local choice = nil
-            for vehs as veh do
-                if veh.entity == entity then
-                    choice = veh
-                end
-            end
-            if choice ~= nil then
-                return choice
-            else
-                local rand = math.random(1, #vehs)
-                local veh = vehs[rand]
-                veh.entity = entity
-                veh.ptr = entities.handle_to_pointer(veh.entity)
-                return veh
-            end
-        end
-    end
-end)(function(entity)
-    return pluto_new Vehicle(entity)
-end)
-
-Shared.NewEntity = (function(func)
-    local ents = { pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0) }
-    return function(entity)
-        if #ents < 4 then
-            local ent = func(entity)
-            table.insert(ents, ent)
-            return ent
-        else
-            local choice = nil
-            for ents as ent do
-                if ent.entity == entity then
-                    choice = ent
-                end
-            end
-            if choice ~= nil then
-                return choice
-            else
-                local rand = math.random(1, #ents)
-                local ent = ents[rand]
-                ent.entity = entity
-                ent.ptr = entities.handle_to_pointer(ent.entity)
-                return ent
-            end
-            return ent
-        end
-    end
-end)(function(entity)
-    return pluto_new Entity(entity)
-end)
-
-_G.math.max_int = (1 << 31) - 1
-_G.math.min_int = -(1 << 31)
-_G.math.max_float = ((1 << 31) - 1) + 0.0
-_G.math.min_float = -((1 << 31) - 1) + 0.0
-_G.memory.bits = Bit.BitMask
-_G.players.max_players = 31
-
-_G.util.toast = (function(func)
-    return function(...)
-        if not Shared.Settings:IsSet(Shared.SettingsBits.ShowAlerts) then return util.log(...) end
-        return func(...)
-    end
-end)(_G.util.toast)
-
-_G.memory.script_global = (function(func)
-    local cache = {}
-    return function(sg)
-        if not Shared.Settings:IsSet(Shared.SettingsBits.CacheGlobals) then
-            return func(sg)
-        end
-        if Shared.ClearCache.ShouldClear then
-            cache = {}
-            Shared.ClearCache.ShouldClear = false
-            Shared.ClearCache.LastClear = os.time() + Shared.ClearCache.ClearTime
-        end
-        if not cache[sg] then
-            local result = func(sg)
-            cache[sg] = result
-            return result
-        end
-        return cache[sg]
-    end
-end)(_G.memory.script_global)
-
-_G.directx.create_texture = (function(func)
-    local cache = {}
-    return function(path)
-        if not cache[path] then
-            local result = func(path)
-            cache[path] = result
-            return result
-        end
-        return cache[path]
-    end
-end)(_G.directx.create_texture)
-
-_G.util.joaat = (function(func)
-    local cache = {}
-    return function(str)
-        if not cache[str] then
-            local result = func(str)
-            cache[str] = result
-            return result
-        end
-        return cache[str]
-    end
-end)(_G.util.joaat)
-
-_G.players.add_detection = (function(func)
-    return function(pid, detection, toast_flags, severity)
-        toast_flags = toast_flags or TOAST_DEFAULT
-        severity = severity or 100
-
-        if Shared:PlayerExists(pid) then
-            for menu.player_root(pid):getChildren() as child do
-                if child:getType() == COMMAND_LIST_CUSTOM_SPECIAL_MEANING and not child:refByRelPath(detection):isValid() then
-                    func(pid, detection, toast_flags, severity)
-                end
-            end
-        end
-    end
-end)(players.add_detection)
-
-function Shared:Partial(func, ...)
-    local args = {...}
-    return function(...)
-        return func(table.unpack(args), table.unpack{...})
-    end
-end
-
-function Shared:SortTable(t, sortFunction)
-    local sortedTable = {}
-    for k, v in pairs(t) do
-        table.insert(sortedTable, v)
-    end
-    table.sort(sortedTable, sortFunction)
-    return sortedTable
-end
-
-function Shared:SortTableIndexed(t, sortFunction)
-    local tempSortTable = {}
-    local sortedTable = {}
-    for k, v in pairs(t) do
-        table.insert(tempSortTable, v)
-    end
-    table.sort(tempSortTable, sortFunction)
-    for i, k in pairs(tempSortTable) do
-        table.insert(sortedTable, { i, k })
-    end
-    return sortedTable
-end
-
-function Shared:PlayAnimation(logo_path, threshold=1.7, scale=0.04)
-    local logo = directx.create_texture(logo_path)
-    local alpha, reverse = 0.0, false
-    local timeout = os.time() + 5
-
-    repeat
-        util.yield_once()
-        if os.time() > timeout then
-            error(T'Failed to load logo')
-            return false
-        end
-    until directx.has_texture_loaded(logo)
-
-    util.create_tick_handler(function()
-        if alpha > 1.0 then alpha = 1.0;reverse = true end
-        directx.draw_texture(logo, scale, scale, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
-        if alpha < threshold and not reverse then alpha += 0.007 else alpha -= 0.007; reverse = true end
-        if alpha <= 0 then return false end
-    end)
-end
-
-function Shared:RegisterCEO(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:RegisterVIP(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:RegisterMC(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:OffRadar(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 1, -1496350145, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:GhostOrg(pid) util.trigger_script_event(1 << pid, {-642704387, 1, 688031806, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0}) end
-function Shared:SuccessfullyMugged(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -1079941038, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
-function Shared:MuggerKilled(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -578453253, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
-function Shared:AttackedArmouredTruck(pid, attacker) util.trigger_script_event(1 << pid, {-642704387, 0, 1964206081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:EmptyNotification(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashBanked(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, 94410750, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashStolen(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -295926414, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashRemoved(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -242911964, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:JammerActivated(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1957780196, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CollectPinkSlip(pid, collector) util.trigger_script_event(1 << pid, {-642704387, 0, 1919354072, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0}) end
-function Shared:PlayerEwo(pid, ewo) util.trigger_script_event(1 << pid, {-642704387, 0, 1269083963, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0}) end
-function Shared:DestroyedVehicleCargo(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1537935777, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:DeliveredMotorcycle(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1532850163, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:JoinedOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1601625667, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:QuitOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1995714668, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:MarkedForDeath(pid, marked_by) util.trigger_script_event(1 << pid, {-642704387, 0, 110435988, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
-function Shared:BecomeGhosted(pid, ghosted_to) util.trigger_script_event(1 << pid, {-642704387, 0, -1233120647, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
-function Shared:InteriorInvite(pid) util.trigger_script_event(1 << pid, {996099702, 0, 0}) end
-
-function Shared:RandomString(length=16)
-    local str = ''
-    for i = 1, length do
-        str = str .. string.char((i % math.random(1, length / 2) == 0) ? math.random(97, 122) : math.random(97, 122) ~ 0x20)
-    end
-    return str
-end
-
-function Shared:RequestNamedPtfxAsset(asset)
-    local timeout = os.time() + 3
-    streaming.request_named_ptfx_asset(asset)
-    repeat
-        util.yield_once()
-        if os.time() > timeout then
-            error(T'Failed to load PTFX asset')
-            return false
-        end
-    until streaming.has_named_ptfx_asset_loaded(asset)
-    graphics.use_particle_fx_asset(asset)
-    return true
-end
-
-function Shared:GetRandomPlayer()
-    local p = players.list(false)
-    if #p > 1 then
-        return p[math.random(1, #p)]
-    else
-        return -1
-    end
-    return -1
-end
-
-function Shared:NewSessionMsg()
-    util.toast(T'Join a session to apply the changes!')
-end
-
-function Shared:ReturnPVInSlot(slot)
-    local data = memory.script_global(Globals:PersonalVehicleData(slot))
-    local addr = data + VehicleOffsets.VehicleBitfield
-    local bitfield = memory.read_int(addr)
-    memory.write_short(memory.script_global(Globals.ActivePVSlot), slot)
-    memory.write_int(addr, memory.bits:clear(bitfield, VehicleBitfield.Active))
-end
-
-function Shared:RequestPVInSlot(slot)
-    local data = memory.script_global(Globals:PersonalVehicleData(slot))
-    local addr = data + VehicleOffsets.VehicleBitfield
-    local bitfield = memory.read_int(addr)
-    memory.write_short(memory.script_global(Globals.ActivePVSlot), slot)
-    memory.write_int(addr, memory.bits:set(bitfield, VehicleBitfield.Request))
-end
-
-function Shared:ReturnActivePV()
-    local slot = memory.read_short(memory.script_global(Globals.ActivePVSlot))
-    if slot ~= -1 then
-        self:ReturnPVInSlot(slot)
-    end
-end
-
-function Shared:RequestNamedPtfxAsset(asset)
-    local timeout = os.time() + 3
-    streaming.request_named_ptfx_asset(asset)
-    repeat
-        util.yield_once()
-        if os.time() > timeout then
-            error(T'Failed to load PTFX asset')
-            return false
-        end
-    until streaming.has_named_ptfx_asset_loaded(asset)
-    graphics.use_particle_fx_asset(asset)
-end
-
-function Shared:TriggerTransaction(hash, amount, category)
-    local base = memory.script_global(4537212)
-    category = category or util.joaat('CATEGORY_SERVICE_WITH_THRESHOLD')
-    memory.write_int(base + 0x8, math.max_int - 1)
-    memory.write_int(base + 0x38, math.max_int)
-    memory.write_int(base + 0x30, 0)
-    memory.write_int(base + 0x28, category)
-    memory.write_int(base + 0x18, hash)
-    memory.write_int(base + 0x10, amount)
-    memory.write_byte(base, 1)
-    util.yield_once()
-    memory.write_byte(base, 0)
-end
-
-function Shared:StartNewScript(script_name, stack_size)
-    script.request_script(script_name)
-    repeat
-        script.request_script(script_name)
-        util.yield_once()
-    until script.has_script_loaded(script_name)
-    system.start_new_script(script_name, stack_size or 5000)
-    script.set_script_as_no_longer_needed(script_name)
-end
-
-function Shared:IsScriptRunning(script_name)
-    return script.get_number_of_threads_running_the_script_with_this_hash(script_name:joaat()) > 0
-end
-
-function Shared:GetEntityAimingAt(distance)
-    local trace_flag = (1 << 32) - 1
-    local cam_data = {
-        pos = cam.get_final_rendered_cam_coord(),
-        rot = cam.get_final_rendered_cam_rot(2),
+    RIDhashes = {
+        0x521C2F20728C2AD3,
+        0xD41C1E4078BC2A71
     }
 
-    local direction = cam_data.rot:toDir()
-    local cam_offset = v3.new(cam_data.pos)
-    direction:mul(distance)
-    cam_offset:add(direction)
+    ClearCache = {
+        ShouldClear = false,
+        ClearTime = 600,
+        LastClear = os.time() + 600
+    }
 
-    local hit = memory.alloc(1)
-    local end_coords = v3.new()
-    local surface_normal = v3.new()
-    local hit_entity = memory.alloc(4)
+    Models = {
+        BST = 'prop_drug_package_02', -- Bull Shark Testosterone
+        PRBUBBLE_FIGURE = 'vm_prop_vm_colle_prbubble', -- PR Bubble Figure (casino)
+    }
 
-    local handle = shapetest.start_expensive_synchronous_shape_test_los_probe(
-        cam_data.pos.x, cam_data.pos.y, cam_data.pos.z,
-        cam_offset.x, cam_offset.y, cam_offset.z,
-        trace_flag,
-        players.user_ped(), 7
-    )
+    Incidents = setmetatable({}, {
+        __gc = function(self)
+            for self as incident do
+                if misc.is_incident_valid(incident.id) then
+                    misc.delete_incident(incident.id)
+                end
+            end
+        end
+    })
 
-    shapetest.get_shape_test_result(handle, hit, end_coords, surface_normal, hit_entity)
+    PropertyIds = {
+        ["Invalid"] = 0,
+        ["Eclipse Towers 31"] = 1,
+        ["Eclipse Towers 9"] = 2,
+        ["Eclipse Towers 40"] = 3,
+        ["Eclipse Towers 5"] = 4,
+        ["3 Alta St, Apt 10"] = 5,
+        ["3 Alta St, Apt 57"] = 6,
+        ["Del Perro Heights, Apt 20"] = 7,
+        ["Power St, Apt 3"] = 8,
+        ["Spanish Ave, Apt 1"] = 9,
+        ["Las Lagunas Blv, 4"] = 10,
+        ["Milton Rd, Apt 13"] = 11,
+        ["The Royale, Apt 19"] = 12,
+        ["S Mo Milton Drive"] = 13,
+        ["Bay City Ave, Apt 45"] = 14,
+        ["0325 S Rockford Dr"] = 15,
+        ["Dream Tower, Apt 15"] = 16,
+        ["Las Lagunas Blv, 9"] = 17,
+        ["San Vitas St, Apt 2"] = 18,
+        ["0112 S Rockford Dr, 13"] = 19,
+        ["Vespucci Blvd, Apt 1"] = 20,
+        ["Cougar Ave, Apt 19"] = 21,
+        ["Prosperity St, 21"] = 22,
+        ["Blvd Del Perro, 18"] = 23,
+        ["Murrieta Heights"] = 24,
+        ["Unit 14 Popular St"] = 25,
+        ["Unit 2 Popular St"] = 26,
+        ["331 Supply St"] = 27,
+        ["Unit 1 Olympic Fwy"] = 28,
+        ["Roy Lowenstein Blvd"] = 29,
+        ["Little Bighorn Ave"] = 30,
+        ["Unit 124 Popular St"] = 31,
+        ["Roy Lowenstein Blvd"] = 32,
+        ["0432 Davis Ave"] = 33,
+        ["Del Perro Heights, 7"] = 34,
+        ["Weazel Plaza, 101"] = 35,
+        ["Weazel Plaza, 70"] = 36,
+        ["Weazel Plaza, 26"] = 37,
+        ["Integrity Way, 30"] = 38,
+        ["Integrity Way, 35"] = 39,
+        ["Richards Majestic, 4"] = 40,
+        ["Richards Majestic, 51"] = 41,
+        ["Tinsel Towers, Apt 45"] = 42,
+        ["Tinsel Towers, Apt 29"] = 43,
+        ["Paleto Blvd"] = 44,
+        ["Strawberry Ave"] = 45,
+        ["Grapeseed Ave"] = 46,
+        ["Senora Way"] = 47,
+        ["Great Ocean Highway"] = 48,
+        ["197 Route 68"] = 49,
+        ["870 Route 68"] = 50,
+        ["1200 Route 68"] = 51,
+        ["8754 Route 68"] = 52,
+        ["1905 Davis Ave"] = 53,
+        ["South Shambles St"] = 54,
+        ["4531 Dry Dock St"] = 55,
+        ["Exceptionalists Way"] = 56,
+        ["Greenwich Parkway"] = 57,
+        ["Innocence Blvd"] = 58,
+        ["Blvd Del Perro"] = 59,
+        ["Mirror Park Blvd"] = 60,
+        ["Eclipse Towers 3"] = 61,
+        ["Del Perro Heights 4"] = 62,
+        ["Richards Majestics, 2"] = 63,
+        ["Tinsel Towers, Apt 42"] = 64,
+        ["Integrity Way, 28"] = 65,
+        ["4 Hangman Ave"] = 66,
+        ["12 Sustancia Rd"] = 67,
+        ["4584 Procopio Dr"] = 68,
+        ["4401 Procopio Dr"] = 69,
+        ["0232 Paleto Blvd"] = 70,
+        ["140 Zancudo Ave"] = 71,
+        ["1893 Grapeseed Ave"] = 72,
+        ["3655 Wild Oats Dr"] = 73,
+        ["2044 North Conker Ave"] = 74,
+        ["2868 Hillcrest Ave"] = 75,
+        ["2862 Hillcrest Ave"] = 76,
+        ["3677 Whispymound Dr"] = 77,
+        ["2117 Milton Rd"] = 78,
+        ["2866 Hillcrest Ave"] = 79,
+        ["2874 Hillcrest Ave"] = 80,
+        ["2113 Mad Wayne T Dr"] = 81,
+        ["2045 North Conker Ave"] = 82,
+        ["Eclipse Penthouse, Suite 1"] = 83,
+        ["Eclipse Penthouse, Suite 2"] = 84,
+        ["Eclipse Penthouse, Suite 3"] = 85,
+        ["Invalid (1)"] = 86,
+        ["Lombank West"] = 87,
+        ["Maze Bank West"] = 88,
+        ["Arcadius"] = 89,
+        ["Maze Bank Tower"] = 90,
+        ["Rancho Clubhouse"] = 91,
+        ["Del Perro Beach Clubhouse"] = 92,
+        ["Philbox Hill Clubhouse"] = 93,
+        ["Great Chaparral Clubhouse"] = 94,
+        ["Paleto Bay Clubhouse"] = 95,
+        ["Sandy Shores Clubhouse"] = 96,
+        ["La Mesa Clubhouse"] = 97,
+        ["Vinewood Clubhouse"] = 98,
+        ["Hawick Clubhouse"] = 99,
+        ["Grapeseed Clubhouse"] = 100,
+        ["Paleto Bay Clubhouse (0)"] = 101,
+        ["Vespucci Beach Clubhouse"] = 102,
+        ["Office Garage 1 (Lombank)"] = 103,
+        ["Office Garage 2 (Lombank)"] = 104,
+        ["Office Garage 3 (Lombank)"] = 105,
+        ["Office Garage 1 (Maze Bank West)"] = 106,
+        ["Office Garage 2 (Maze Bank West)"] = 107,
+        ["Office Garage 3 (Maze Bank West)"] = 108,
+        ["Office Garage 1 (Arcadius)"] = 109,
+        ["Office Garage 2 (Arcadius)"] = 110,
+        ["Office Garage 3 (Arcadius)"] = 111,
+        ["Office Garage 1 (Maze Bank Tower)"] = 112,
+        ["Office Garage 2 (Maze Bank Tower)"] = 113,
+        ["Office Garage 3 (Maze Bank Tower)"] = 114,
+        ["Vehicle Warehouse"] = 115,
+        ["Definitely Invalid"] = (1 << 31) - 1
+    }
 
-    if memory.read_byte(hit) ~= 0 then
-        return memory.read_int(hit_entity)
-    else
-        return 0
+    AimbotBones = {
+        31086, -- head (SKEL_Head)
+        39317, -- neck (SKEL_Neck_1)
+        24816, -- spine (SKEL_Spine_Root)
+        14201, -- left foot (SKEL_L_Foot)
+        51826, -- right leg (SKEL_R_Calf)
+        60309, -- left hand (SKEL_L_Hand)
+        57005, -- right hand (SKEL_R_Hand)
+        11816, -- pelvis (SKEL_Pelvis)
+        58271, -- left leg (SKEL_L_Calf)
+        63931, -- left knee (SKEL_L_Thigh)
+        61163, -- left arm (SKEL_L_UpperArm)
+    }
+
+    SettingsBits = {
+        ShowAlerts = 1 << 0,
+        RemoveTransactionError = 1 << 1,
+        EnablePlayerOverlay = 1 << 2,
+        Debug = 1 << 3,
+        SuppressRequestControlFailures = 1 << 4,
+        ShowRiskyOptions = 1 << 5,
+        CacheGlobals = 1 << 6,
+        Developer = 1 << 7,
+    }
+
+    function __construct()
+        self.Settings = pluto_new Bitfield(
+            self.SettingsBits.ShowAlerts 
+            | self.SettingsBits.RemoveTransactionError
+            | self.SettingsBits.CacheGlobals
+        )
+
+        self:InitHooks()
+
+        util.create_tick_handler(function()
+            if self.ClearCache.LastClear - os.time() <= 0 then
+                self.ClearCache.ShouldClear = true
+                self.ClearCache.LastClear = os.time() + self.ClearCache.ClearTime
+            end
+        
+            for self.RiskyRefs as ref do
+                if ref:isValid() then
+                    ref.visible = self.Settings:IsSet(self.SettingsBits.ShowRiskyOptions)
+                end
+            end
+        
+            SCRIPT_CAN_CONTINUE = util.can_continue()
+        end)
+
+        for _, hash in pairs(self.RIDhashes) do
+            if tostring(players.get_rockstar_id(players.user())):hash() == hash then
+                self.Settings:SetBool(self.SettingsBits.Developer, true)
+                self.Settings:SetBool(self.SettingsBits.ShowRiskyOptions, true)
+                break
+            end
+        end
+    end
+
+    function InitHooks()
+        _G.util.log = function(msg) return print($'[MrRobot] {msg}') end
+        _G.string.joaat = util.joaat
+        _G.util.error = function(err) util.toast($'Error occured: {msg}') end
+        _G.string.reverse_joaat = util.reverse_joaat
+        _G.util.copy_addr = function(addr) return util.copy_to_clipboard(string.format('%X', addr)) end
+
+        _G.string.g = function(raw, index=nil)
+            if index == nil then index = players.user() end
+            if not raw:find('Global') then return end
+            if not raw:find('%[.*%]') and not raw:find('/%*%d+%*/') then
+                local base = raw:match('%d+')
+                for offset in raw:gmatch('%.f_%d+') do base = base + tonumber(offset:sub(4)) end
+                return memory.script_global(base)
+            elseif raw:find('%[.*%]') and raw:find('/%*%d+%*/') and not raw:find('func_%d+') then
+                local base = raw:match('%d+')
+                local size = raw:match('/%*(%d+)%*/')
+                for offset in raw:gmatch('%.f_%d+') do base = base + tonumber(offset:sub(4)) end
+                local id = raw:match('%[(%d+)')
+                return memory.script_global(base + (id == nil ? (index * size) + 1 : id * size))
+            elseif raw:find('func_%d+') and raw:find('/*%d+*/') then
+                local base = raw:match('%d+')
+                local size = raw:match('/%*(%d+)%*/')
+                for offset in raw:gmatch('%.f_%d+') do base = base + tonumber(offset:sub(4)) end
+                return memory.script_global(base + 1 + (index * size))
+            else
+                local base = raw:match('%d+')
+                local id = raw:match('%[(%d+)%]')
+                for offset in raw:gmatch('%.f_%d+') do base = base + tonumber(offset:sub(4)) end
+                return memory.script_global(base + tonumber(id) + 1)
+            end
+        end
+
+        _G.string.hex = function(data, include_id=true) return string.format(include_id ? '0x%X' : '%X', data) end
+
+        function _G.string.hash(data)
+            local final = 0
+            for i = 1, #data do
+                local char = data:byte(i)
+                final = final ~ ((final >> 13) | (final << (32 - 13))) + char
+            end
+            return final
+        end
+
+        _G.memory.write = function(addr, value)
+            local value_type = type(value)
+        
+            if value_type == 'number' then
+                local bits = math.floor(math.log(value, 2)) + 1
+                if bits <= 8 then
+                    memory.write_byte(addr, value)
+                elseif bits <= 16 then
+                    memory.write_short(addr, value)
+                elseif bits <= 32 then
+                    memory.write_int(addr, value)
+                elseif bits <= 64 then
+                    memory.write_long(addr, value)
+                end
+            elseif value_type == 'string' then
+                memory.write_string(addr, value)
+            end
+        end
+        
+        _G.memory.alloc = (function(func)
+            return function(size)
+                size = size or 24
+                if not self.Memory[size] then self.Memory[size] = {} end
+                if size <= 8 then
+                    if #self.Memory[size] <= 10 then
+                        local addr = func(size)
+                        table.insert(self.Memory[size], addr)
+                        return addr
+                    else
+                        local rand = math.random(1, #self.Memory[size])
+                        return self.Memory[size][rand]
+                    end
+                else
+                    if #self.Memory[size] <= 0 then
+                        local addr = func(size)
+                        table.insert(self.Memory[size], addr)
+                        return addr
+                    else
+                        return self.Memory[size][1]
+                    end
+                end
+            end
+        end)(memory.alloc)
+
+        _G.entities.entity = Entity
+        _G.entities.set_owner = function(ptr, pid)
+            if ptr ~= 0 then
+                local net_obj = memory.read_long(ptr + 0xD0)
+                if net_obj ~= 0 and players.exists(pid) then
+                    memory.write_byte(net_obj + 0x49, pid)
+                end
+            end
+        end
+
+        _G.players.get_pid_from_name = function(name)
+            for players.list() as pid do
+                if players.get_name(pid) == name then
+                    return pid
+                end
+            end
+        end
+
+        _G.players.localplayer = (function(func)
+            local cached = nil
+            return function()
+                if cached ~= nil then
+                    cached.entity = players.user_ped()
+                    cached.ptr = entities.handle_to_pointer(cached.entity)
+                    return cached
+                else
+                    cached = func()
+                    if cached.entity ~= players.user_ped() then
+                        cached.entity = players.user_ped()
+                        cached.ptr = entities.handle_to_pointer(cached.entity)
+                    end
+                    return cached
+                end
+            end
+        end)(function()
+            return pluto_new Entity(players.user_ped())
+        end)
+
+        _G.players.localplayer_vehicle = (function(func)
+            local cached = nil
+            return function()
+                local vehicle = ped.get_vehicle_ped_is_in(players.user_ped())
+                if cached ~= nil then
+                    cached.entity = vehicle
+                    cached.ptr = entities.handle_to_pointer(cached.entity)
+                    return cached
+                else
+                    cached = func(vehicle)
+                    if cached.entity ~= vehicle then
+                        cached.entity = vehicle
+                        cached.ptr = entities.handle_to_pointer(cached.entity)
+                    end
+                    return cached
+                end
+            end
+        end)(function(entity)
+            return pluto_new Vehicle(entity)
+        end)
+
+        self.NewVehicle = (function(func)
+            local vehs = { pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0) }
+            return function(entity)
+                if #vehs < 4 then
+                    local veh = func(entity)
+                    table.insert(vehs, veh)
+                    return veh
+                else
+                    local choice = nil
+                    for vehs as veh do
+                        if veh.entity == entity then
+                            choice = veh
+                        end
+                    end
+                    if choice ~= nil then
+                        return choice
+                    else
+                        local rand = math.random(1, #vehs)
+                        local veh = vehs[rand]
+                        veh.entity = entity
+                        veh.ptr = entities.handle_to_pointer(veh.entity)
+                        return veh
+                    end
+                end
+            end
+        end)(function(entity)
+            return pluto_new Vehicle(entity)
+        end)
+
+        self.NewEntity = (function(func)
+            local ents = { pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0) }
+            return function(entity)
+                if #ents < 4 then
+                    local ent = func(entity)
+                    table.insert(ents, ent)
+                    return ent
+                else
+                    local choice = nil
+                    for ents as ent do
+                        if ent.entity == entity then
+                            choice = ent
+                        end
+                    end
+                    if choice ~= nil then
+                        return choice
+                    else
+                        local rand = math.random(1, #ents)
+                        local ent = ents[rand]
+                        ent.entity = entity
+                        ent.ptr = entities.handle_to_pointer(ent.entity)
+                        return ent
+                    end
+                    return ent
+                end
+            end
+        end)(function(entity)
+            return pluto_new Entity(entity)
+        end)
+
+        _G.memory.bits = Bit.BitMask
+        _G.players.max_players = 31
+
+        function _G.v3.length(self) return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z) end
+
+        _G.util.toast = (function(func)
+            return function(...)
+                if not self.Settings:IsSet(self.SettingsBits.ShowAlerts) then return util.log(...) end
+                return func(...)
+            end
+        end)(_G.util.toast)
+
+        _G.memory.script_global = (function(func)
+            local cache = {}
+            return function(sg)
+                if type(sg) == 'function' then
+                    util.toast('function has been passed to memory.script_global')
+                    return
+                end
+                if not self.Settings:IsSet(self.SettingsBits.CacheGlobals) then
+                    return func(sg)
+                end
+                if self.ClearCache.ShouldClear then
+                    cache = {}
+                    self.ClearCache.ShouldClear = false
+                    self.ClearCache.LastClear = os.time() + self.ClearCache.ClearTime
+                end
+                if not cache[sg] then
+                    local result = func(sg)
+                    cache[sg] = result
+                    return result
+                end
+                return cache[sg]
+            end
+        end)(_G.memory.script_global)
+
+        _G.memory.script_local = (function(func)
+            return function(...)
+                local args = {...}
+                if #args == 2 then
+                    local script_name = args[1]
+                    local script_local = args[2]
+
+                    if type(script_name) == 'string' and type(script_local) == 'number' then
+                        return func(script_name, script_local)
+                    end
+
+                    if type(script_name) == 'number' and type(script_local) == 'string' then
+                        return func(script_local, script_name)
+                    end
+                end
+            end
+        end)(_G.memory.script_local)
+
+        _G.directx.create_texture = (function(func)
+            local cache = {}
+            return function(path)
+                if not cache[path] then
+                    local result = func(path)
+                    cache[path] = result
+                    return result
+                end
+                return cache[path]
+            end
+        end)(_G.directx.create_texture)
+
+        _G.util.joaat = (function(func)
+            local cache = {}
+            return function(str)
+                if not cache[str] then
+                    local result = func(str)
+                    cache[str] = result
+                    return result
+                end
+                return cache[str]
+            end
+        end)(_G.util.joaat)
+
+        _G.players.add_detection = (function(func)
+            return function(pid, detection, toast_flags, severity)
+                toast_flags = toast_flags or TOAST_DEFAULT
+                severity = severity or 100
+
+                if self:PlayerExists(pid) then
+                    local player_root = menu.player_root(pid)
+                    if player_root:isValid() then
+                        for menu.player_root(pid):getChildren() as child do
+                            if child:getType() == COMMAND_LIST_CUSTOM_SPECIAL_MEANING and not child:refByRelPath(detection):isValid() then
+                                func(pid, detection, toast_flags, severity)
+                            end
+                        end
+                    end
+                end
+            end
+        end)(players.add_detection)
+
+        _G.util.reverse_joaat = (function(func)
+            return function(hash)
+                local str = func(hash)
+                if str == '' then
+                    if hash == ('GROUP_SNIPER'):joaat() then
+                        return 'GROUP_SNIPER'
+                    elseif hash == ('GROUP_RIFLE'):joaat() then
+                        return 'GROUP_RIFLE'
+                    elseif hash == ('GROUP_MG'):joaat() then
+                        return 'GROUP_MG'
+                    elseif hash == ('GROUP_SHOTGUN'):joaat() then
+                        return 'GROUP_SHOTGUN'
+                    elseif hash == ('GROUP_HEAVY'):joaat() then
+                        return 'GROUP_HEAVY'
+                    elseif hash == ('GROUP_RUBBERGUN'):joaat() then
+                        return 'GROUP_RUBBERGUN'
+                    else 
+                        return ''
+                    end
+                else
+                    return str
+                end
+            end
+        end)(_G.util.reverse_joaat)
+
+        function _G.memory.rva(sg_offset)
+            return sg_offset << 3
+        end
+
+        function _G.memory.sg_offset(rva)
+            return rva >> 3
+        end
+
+        _G.players.cped = function() return GTAClasses.CPed:new(entities.handle_to_pointer(players.user_ped())) end
+    end
+
+    function IsDev(pid)
+        local rid = tostring(players.get_rockstar_id(pid)):hash()
+        for self.RIDhashes as hash do
+            if rid == hash then
+                return true
+            end
+        end
+    end
+
+    function RegisterCEO(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function RegisterVIP(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function RegisterMC(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function OffRadar(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 1, -1496350145, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function GhostOrg(pid) util.trigger_script_event(1 << pid, {-642704387, 1, 688031806, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0}) end
+    function SuccessfullyMugged(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -1079941038, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+    function MuggerKilled(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -578453253, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+    function AttackedArmouredTruck(pid, attacker) util.trigger_script_event(1 << pid, {-642704387, 0, 1964206081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function EmptyNotification(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function CashBanked(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, 94410750, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function CashStolen(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -295926414, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function CashRemoved(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -242911964, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function JammerActivated(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1957780196, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function CollectPinkSlip(pid, collector) util.trigger_script_event(1 << pid, {-642704387, 0, 1919354072, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0}) end
+    function PlayerEwo(pid, ewo) util.trigger_script_event(1 << pid, {-642704387, 0, 1269083963, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0}) end
+    function DestroyedVehicleCargo(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1537935777, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+    function DeliveredMotorcycle(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1532850163, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+    function JoinedOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1601625667, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+    function QuitOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1995714668, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+    function MarkedForDeath(pid, marked_by) util.trigger_script_event(1 << pid, {-642704387, 0, 110435988, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
+    function BecomeGhosted(pid, ghosted_to) util.trigger_script_event(1 << pid, {-642704387, 0, -1233120647, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
+    function InteriorInvite(pid) util.trigger_script_event(1 << pid, {996099702, 0, 0}) end
+
+    function AddPlayer(pid)
+        self.PlayerList:Set(1 << pid)
+    end
+
+    function RemovePlayer(pid)
+        self.PlayerList:Clear(1 << pid)
+    end
+
+    function PlayerExists(pid)
+        return self.PlayerList:IsSet(1 << pid)
+    end
+
+    function AddFriend(pid)
+        pid = pid + 0x20
+        self.PlayerList:Set(1 << pid)
+    end
+
+    function RemoveFriend(pid)
+        pid = pid + 0x20
+        self.PlayerList:Clear(1 << pid)
+    end
+
+    function IsFriend(pid)
+        pid = pid + 0x20
+        return self.PlayerList:IsSet(1 << pid)
+    end
+
+    function Partial(func, ...)
+        local args = {...}
+        return function(...)
+            return func(table.unpack(args), table.unpack{...})
+        end
+    end
+
+    function SortTable(t, sortFunction)
+        local sortedTable = {}
+        for k, v in pairs(t) do
+            table.insert(sortedTable, v)
+        end
+        table.sort(sortedTable, sortFunction)
+        return sortedTable
+    end
+    
+    function SortTableIndexed(t, sortFunction)
+        local tempSortTable = {}
+        local sortedTable = {}
+        for k, v in pairs(t) do
+            table.insert(tempSortTable, v)
+        end
+        table.sort(tempSortTable, sortFunction)
+        for i, k in pairs(tempSortTable) do
+            table.insert(sortedTable, { i, k })
+        end
+        return sortedTable
+    end
+    
+    function PlayAnimation(logo_path, threshold=1.7, scale=0.04)
+        local logo = directx.create_texture(logo_path)
+        local alpha, reverse = 0.0, false
+        local timeout = os.time() + 5
+    
+        repeat
+            util.yield_once()
+            if os.time() > timeout then
+                error(T'Failed to load logo')
+                return false
+            end
+        until directx.has_texture_loaded(logo)
+    
+        util.create_tick_handler(function()
+            if alpha > 1.0 then alpha = 1.0;reverse = true end
+            directx.draw_texture(logo, scale, scale, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
+            if alpha < threshold and not reverse then alpha += 0.007 else alpha -= 0.007; reverse = true end
+            if alpha <= 0 then return false end
+        end)
+    end
+    
+    function RandomString(length=16)
+        local str = ''
+        for i = 1, length do
+            str = str .. string.char((i % math.random(1, length / 2) == 0) ? math.random(97, 122) : math.random(97, 122) ~ 0x20)
+        end
+        return str
+    end
+    
+    function RequestNamedPtfxAsset(asset)
+        local timeout = os.time() + 3
+        streaming.request_named_ptfx_asset(asset)
+        repeat
+            util.yield_once()
+            if os.time() > timeout then
+                error(T'Failed to load PTFX asset')
+                return false
+            end
+        until streaming.has_named_ptfx_asset_loaded(asset)
+        graphics.use_particle_fx_asset(asset)
+        return true
+    end
+    
+    function GetRandomPlayer()
+        local p = players.list(false)
+        if #p > 1 then
+            return p[math.random(1, #p)]
+        else
+            return -1
+        end
+        return -1
+    end
+    
+    function NewSessionMsg()
+        util.toast(T'Join a session to apply the changes!')
+    end
+    
+    function ReturnPVInSlot(slot)
+        local data = Globals.PersonalVehicleData:g(slot)
+        local addr = data + VehicleOffsets.VehicleBitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_short(Globals.ActivePVSlot:g(), slot)
+        memory.write_int(addr, memory.bits:clear(bitfield, VehicleBitfield.Active))
+    end
+    
+    function RequestPVInSlot(slot)
+        local data = Globals.PersonalVehicleData:g(slot)
+        local addr = data + VehicleOffsets.VehicleBitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_short(Globals.ActivePVSlot:g(), slot)
+        memory.write_int(addr, memory.bits:set(bitfield, VehicleBitfield.Request))
+    end
+    
+    function ReturnActivePV()
+        local slot = memory.read_short(Globals.ActivePVSlot:g())
+        if slot ~= -1 then
+            self:ReturnPVInSlot(slot)
+        end
+    end
+    
+    function RequestNamedPtfxAsset(asset)
+        local timeout = os.time() + 3
+        streaming.request_named_ptfx_asset(asset)
+        repeat
+            util.yield_once()
+            if os.time() > timeout then
+                error(T'Failed to load PTFX asset')
+                return false
+            end
+        until streaming.has_named_ptfx_asset_loaded(asset)
+        graphics.use_particle_fx_asset(asset)
+    end
+    
+    function TriggerTransaction(hash, amount, category)
+        local base = Globals.TriggerTransaction:g()
+        category = category or util.joaat('CATEGORY_SERVICE_WITH_THRESHOLD')
+        memory.write_int(base + 0x8, math.max_int - 1)
+        memory.write_int(base + 0x38, math.max_int)
+        memory.write_int(base + 0x30, 0)
+        memory.write_int(base + 0x28, category)
+        memory.write_int(base + 0x18, hash)
+        memory.write_int(base + 0x10, amount)
+        memory.write_byte(base, 1)
+        util.yield_once()
+        memory.write_byte(base, 0)
+    end
+    
+    function StartNewScript(script_name, stack_size)
+        script.request_script(script_name)
+        repeat
+            script.request_script(script_name)
+            util.yield_once()
+        until script.has_script_loaded(script_name)
+        system.start_new_script(script_name, stack_size or 5000)
+        script.set_script_as_no_longer_needed(script_name)
+    end
+    
+    function IsScriptRunning(script_name)
+        return script.get_number_of_threads_running_the_script_with_this_hash(script_name:joaat()) > 0
+    end
+    
+    function GetEntityAimingAt(distance)
+        local trace_flag = (1 << 32) - 1
+        local cam_data = {
+            pos = cam.get_final_rendered_cam_coord(),
+            rot = cam.get_final_rendered_cam_rot(2),
+        }
+    
+        local direction = cam_data.rot:toDir()
+        local cam_offset = v3.new(cam_data.pos)
+        direction:mul(distance)
+        cam_offset:add(direction)
+    
+        local hit = memory.alloc(1)
+        local end_coords = v3.new()
+        local surface_normal = v3.new()
+        local hit_entity = memory.alloc(4)
+    
+        local handle = shapetest.start_expensive_synchronous_shape_test_los_probe(
+            cam_data.pos.x, cam_data.pos.y, cam_data.pos.z,
+            cam_offset.x, cam_offset.y, cam_offset.z,
+            trace_flag,
+            players.user_ped(), 7
+        )
+    
+        shapetest.get_shape_test_result(handle, hit, end_coords, surface_normal, hit_entity)
+    
+        if memory.read_byte(hit) ~= 0 then
+            return memory.read_int(hit_entity)
+        else
+            return 0
+        end
+    end
+    
+    function ApplyDirForceToEntity(target, force)
+        local dir = entity.get_entity_forward_vector(target)
+        local force = dir:mul(force)
+        entity.apply_force_to_entity(target, 1, force.x, force.y, force.z, 0, 0, 0, 0, false, true, true, true, true)
+    end
+    
+    function ApplyUpwardsForceToEntity(target, force)
+        entity.apply_force_to_entity(target, 1, 0, 0, force, 0, 0, 0, 0, false, true, true, true, true)
+    end
+
+    function ApplyDownwardsForceToEntity(target, force)
+        entity.apply_force_to_entity(target, 1, 0, 0, -force, 0, 0, 0, 0, false, true, true, true, true)
+    end
+    
+    function ApplyBackwardsForceToEntity(target, force)
+        local dir = entity.get_entity_forward_vector(target)
+        local force = dir:mul(-force)
+        entity.apply_force_to_entity(target, 1, force.x, force.y, force.z, 0, 0, 0, 0, false, true, true, true, true)
+    end
+    
+    function UnpackIP(ip)
+        local result = ''
+        for i = 3, 0, -1 do
+            result = result .. tostring(ip >> (i * 8) & 0xFF)
+            if i > 0 then
+                result = result .. '.'
+            end
+        end
+        return result
     end
 end
 
-return Shared
+function Shared:GetProcAddressEx(function_name)
+    -- function has only been tested with kernel32.dll
+    local dos = memory.scan('KERNEL32.DLL', '')
+    local nt = dos + memory.read_uint(dos + 0x3C)
+
+    if not memory.read_short(dos) == 0x5A4D then
+        return
+    end
+
+    if not memory.read_short(nt) == 0x4550 then
+        return
+    end
+
+    local optional_header = nt + 0x18
+    local data_directory = optional_header + 0x70
+    local export_rva = memory.read_uint(data_directory)
+    local export_size = memory.read_uint(data_directory + 0x4)
+    
+    if export_rva ~= 0x99080 or export_size ~= 0xDF58 then
+        return
+    end
+
+    local export_table = dos + export_rva
+    local number_of_functions = memory.read_uint(export_table + 0x14)
+    local function_table = dos + memory.read_uint(export_table + 0x1C)
+    local name_table = dos + memory.read_uint(export_table + 0x20)
+    local ordinal_table = dos + memory.read_uint(export_table + 0x24)
+
+    for i = 0, number_of_functions - 1 do
+        local function_rva = memory.read_uint(function_table + i * 4)
+        local function_name_rva = dos + memory.read_uint(name_table + i * 4)
+        local function_ordinal = memory.read_ushort(ordinal_table + i * 2)
+
+        local name = memory.read_string(function_name_rva)
+        if name == function_name then
+            local function_address = dos + function_rva
+            return function_address
+        end
+    end
+end
+
+function Shared:AreVectorsFacingEachOther(v1, v2)
+    local angle = math.deg(math.acos(v1:dot(v2) / (v3.length(v1) * v3.length(v2))))
+    return angle < 90
+end
+
+function Shared:RequestAnimDict(anim)
+    if not streaming.has_anim_dict_loaded(anim) then
+        streaming.request_anim_dict(anim)
+        while not streaming.has_anim_dict_loaded(anim) do
+            util.yield()
+        end
+    end
+end
+
+return pluto_new Shared()

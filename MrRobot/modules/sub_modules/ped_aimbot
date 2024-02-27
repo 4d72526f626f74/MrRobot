@@ -9,7 +9,7 @@ pluto_class PedAimbot
     function __construct(root)
         self.root = root:list(T'Ped', {T'rpedaimbot'}, T'Ped Aimbot')
         self.fov = 1
-        self.fov_types = {'Normal', 'Precision'}
+        self.fov_types = {{1, 'Normal'}, {2, 'Precision'}}
         self.fov_type = 1
         self.ignore_vehicles = true
         self.use_fov = true
@@ -67,7 +67,19 @@ pluto_class PedAimbot
 
         self.root:divider('')
 
-        self.root:list_select(T'Bone', {}, T'Bone to target', {'Head', 'Chest', 'Stomach', 'Left Foot', 'Right Leg', 'Left Hand', 'Right Hand', 'Pelvis', 'Left Leg', 'Left Knee', 'Left Arm'}, 1, function(index)
+        self.root:list_select(T'Bone', {}, T'Bone to target', {
+            {1, 'Head'}, 
+            {2, 'Chest'}, 
+            {2, 'Stomach'}, 
+            {3, 'Left Foot'}, 
+            {4, 'Right Leg'}, 
+            {5, 'Left Hand'}, 
+            {6, 'Right Hand'}, 
+            {7, 'Pelvis'}, 
+            {8, 'Left Leg'}, 
+            {9, 'Left Knee'}, 
+            {10, 'Left Arm'}
+        }, 1, function(index)
             self.bone = S.AimbotBones[index] or 31086
         end, self.bone)
 

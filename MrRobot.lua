@@ -1,30 +1,5 @@
-util.require_natives('natives-2944a')
-
-_G.string.sha256 = function(data) return (require('crypto').sha256)(data) end
-_G.filesystem.script_root = function() return filesystem.scripts_dir() .. '/MrRobot' end
-_G.async_http.host = 'stand.sodamnez.xyz'
-_G.async_http.update_path = '/MrRobot'
-_G.util.log = function(msg) return print($'[MrRobot] {msg}') end
-_G.string.joaat = util.joaat
-_G.util.error = function(err) util.toast($'Error occured: {msg}') end
-_G.string.reverse_joaat = util.reverse_joaat
-_G.util.copy_addr = function(addr) return util.copy_to_clipboard(string.format('%X', addr)) end
-
-function _G.async_http.get(url, path, callback)
-    url = url or async_http.host
-    async_http.init(url, path, callback)
-    async_http.dispatch()
-end
-
-function _G.async_http.post(url, path, data, content_type, callback)
-    url = url or async_http.host
-    async_http.init(url, path, callback)
-    async_http.set_post(content_type, data)
-    async_http.dispatch()
-end
-
 pluto_class MrRobot
-    images = { 'MrRobot.png', 'Loser.png', 'Jesus.png' }
+    images = {}
     modules = {
         'players', 'credits', 'settings', 'self', 'online', 'vehicles', 'weapons', 'world',
         'entities', 'gunvan', 'protections', 'cooldowns', 'collectables', 'tunables', 'cellphone',
@@ -37,7 +12,7 @@ pluto_class MrRobot
         'translations', 'handler', 'entity', 'vehicle_handling', 'pedlist',
         'vehicle_models', 'cutscenes', 'weapons_list', 'offsets', 'masks',
         'script_globals', 'shared', 'network', 'vehicle', 'zone_info', 'notifications',
-        'door_manager', 'gta_classes', 'labels'
+        'door_manager', 'gta_classes', 'labels', 'blacklist'
     }
     libs = {
         'inspect', 'bitfield', 'bit', 'math'
@@ -46,7 +21,11 @@ pluto_class MrRobot
     charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
     function __construct(version, gtao_version)
-        _G.SCRIPT_VERSION = version
+        self:BaseSetup()
+        self:RegisterImage('MrRobot.png')
+        self:RegisterImage('Loser.png')
+        self:RegisterImage('Jesus.png')
+
         self.script_version = version
         self.gtao_version = gtao_version
         self.root = menu.my_root()
@@ -66,18 +45,18 @@ pluto_class MrRobot
             loading_order = 1,
         }
 
-        for self.modules as m do
-            if m == 'settings' or m == 'credits' then
+        for self.modules as mod do
+            if mod == 'settings' or mod == 'credits' then
                 continue
             end
 
-            self.settings.modules[m] = true
+            self.settings.modules[mod] = true
         end
 
         self.dirs = {
             self.sroot, self.simages, self.sutils,
             self.smodules, self.scustom, self.slibs,
-            self.ssubmodules, self.spvcustom, self.sconfigs
+            self.ssubmodules, self.spvcustom, self.sconfigs,
         }
 
         for self.dirs as dir do
@@ -98,6 +77,34 @@ pluto_class MrRobot
             file:close()
         end
     end
+
+    function BaseSetup()
+        util.require_natives('natives-2944a')
+
+        _G.string.sha256 = function(data) return (require('crypto').sha256)(data) end
+        _G.filesystem.script_root = function() return filesystem.scripts_dir() .. '/MrRobot' end
+        _G.async_http.host = 'stand.sodamnez.xyz'
+        _G.async_http.update_path = '/MrRobot'
+
+        function _G.async_http.get(url, path, callback)
+            url = url or async_http.host
+            async_http.init(url, path, callback)
+            async_http.dispatch()
+        end
+
+        function _G.async_http.post(url, path, data, content_type, callback)
+            url = url or async_http.host
+            async_http.init(url, path, callback)
+            async_http.set_post(content_type, data)
+            async_http.dispatch()
+        end
+    end
+
+    function RegisterImage(name) table.insert(self.images, name) end
+    function RegisterModule(name) table.insert(self.modules, name) end
+    function RegisterSubModule(name) table.insert(self.sub_modules, name) end
+    function RegisterUtil(name) table.insert(self.utils, name) end
+    function RegisterLib(name) table.insert(self.libs, name) end
 
     function b64encode(data)
         return ((data:gsub('.', function(x)
@@ -137,7 +144,7 @@ pluto_class MrRobot
     end
 
     function CheckGameVersion()
-        return self.gtao_version == self.GetOnlineVersion()
+        return self.gtao_version == menu.get_version().game:sub(1, 4)
     end
 
     function FindMissingFiles()
@@ -286,24 +293,19 @@ pluto_class MrRobot
 
         self.T = require('translations')
         self.S = require('shared')
-        self.H = require('handler')
         
         _G.table.inspect = require('inspect')
-        require('cutscenes')
-        require('entity')
-        require('masks')
-        require('offsets')
-        require('pedlist')
-        require('script_globals')
-        require('vehicle_handling')
-        require('vehicle_models')
-        require('weapons_list')
-        require('vehicle')
-        require('zone_info')
-        require('network')
-        require('notifications')
-        require('door_manager')
-        require('labels')
+        for self.utils as util do
+            if package.loaded[util] == nil then
+                require(util)
+            end
+        end
+
+        for self.libs as lib do
+            if package.loaded[lib] == nil then
+                require(lib)
+            end
+        end
     end
 
     function PlayStartupAnimation(play)
@@ -346,6 +348,7 @@ pluto_class MrRobot
 
     function LoadModule(name)
         if self.settings[name] == false then return end
+        if package.loaded[name] then return end
         local state, err = pcall(require, name)
         if not state then
             local line = err:match(':(%d+):')
@@ -362,6 +365,8 @@ pluto_class MrRobot
     end
 
     function ModuleLoader()
+        local Handler = require('handler')
+
         self:LoadModule('credits')
         self:LoadModule('settings')
 
@@ -377,31 +382,46 @@ pluto_class MrRobot
             table.sort(self.modules, function(a, b) return #a > #b end)
         end
 
-        for self.modules as name do
-            if name ~= 'credits' and name ~= 'settings' then
-                self:LoadModule(name)
-            end
-        end
+        for self.modules as name do self:LoadModule(name) end
 
         players.add_command_hook(function(pid, root)
-            if type(self.H.PlayerLoop) then self.H.PlayerLoop(pid, root) end
-            if type(self.H.GhostingLoop) then self.H.GhostingLoop(pid, root) end
-            if type(self.H.PlayerAimbotAdd) then self.H.PlayerAimbotAdd(pid, root) end
+            local status, result = pcall(function()
+                Handler.PlayerLoop(pid, root)
+                Handler.GhostingLoop(pid, root)
+                Handler.PlayerAimbotAdd(pid, root)
+                Handler.CheckBlacklist(pid, root)
+            end)
+
+            if not status then
+                util.toast($'Error occured: {result}')
+            end
         end)
 
         players.on_leave(function(pid, name)
-            if type(self.H.GhostingRemovePlayer) then self.H.GhostingRemovePlayer(pid, name) end
-            if type(self.H.PlayerAimbotRemove) then self.H.PlayerAimbotRemove(pid, name) end
+            local status, result = pcall(function()
+                Handler.GhostingRemovePlayer(pid, name)
+                Handler.PlayerAimbotRemove(pid, name)
+            end)
+
+            if not status then
+                util.toast($'Error occured: {result}')
+            end
         end)
 
         util.on_pre_stop(function()
-            if type(self.H.PedRemoveBlips) then self.H.PedRemoveBlips() end
-            if type(self.H.CollectablesRemoveBlips) then self.H.CollectablesRemoveBlips() end
+            local status, result = pcall(function()
+                Handler.PedRemoveBlips()
+                Handler.CollectablesRemoveBlips()
+            end)
+
+            if not status then
+                util.toast($'Error occured: {result}')
+            end
         end)
     end
 end
 
-local MrRobot = pluto_new MrRobot('3.3.2', '1.68')
+local MrRobot = pluto_new MrRobot('3.4.3', '1.68')
 MrRobot:FixMissingFiles()
 MrRobot:Requires()
 MrRobot:CheckForUpdates()

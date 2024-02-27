@@ -1,36 +1,1242 @@
-pluto_class GTAClasses
-    function __construct()
-        self._cweaponinfo = {
-            { 'm_bullets_in_batch', 0x120, memory.write_int },
-            { 'm_anim_reload_speed', 0x134, memory.write_float },
-            { 'm_weapon_range', 0x28C, memory.write_float },
-            { 'm_accuracy_spread', 0x74, memory.write_float },
-            { 'm_penetration', 0x110, memory.write_float },
-            { 'm_damage', 0xB0, memory.write_float },
-            { 'm_force', 0xD8, memory.write_float },
-            { 'm_force_on_ped', 0xDC, memory.write_float },
-            { 'm_force_on_vehicle', 0xE0, memory.write_float },
-            { 'm_force_on_heli', 0xE4, memory.write_float },
-            { 'm_vehicle_damage_modifier', memory.write_float }
-        }
-    end
+local CPed
+local netObject
+local CPlayerInfo
+local CPedWeaponManager
+local CWeaponInfo
+local CAmmoInfo
 
-    static function GetCurrentWeapon()
-        local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
-        local current_weapon = memory.read_long(weapon_manager + 0x0020)
-        return current_weapon
-    end
+local eGameState <const> = {
+    Invalid = -1,
+    Playing = 0,
+    Died = 1,
+    Arrested = 2,
+    FailedMission = 3,
+    LeftGame = 4,
+    Respawn = 5,
+    InMPCutscene = 6
+}
 
-    static function SetCWeaponInfo(prop, value)
-        pcall(function()
-            local cweaponinfo = GTAClasses.GetCurrentWeapon()
-            for GTAClasses._cweaponinfo as info do
-                if info[1] == prop then
-                    info[3](cweaponinfo + info[2], value)
-                end
+local eDamageType <const> = {
+    Unknown = 0,
+    None = 1,
+    Melee = 2,
+    Bullet = 3,
+    BulletRubber = 4,
+    Explosive = 5,
+    Fire = 6,
+    Collision = 7,
+    Fall = 8,
+    Drown = 9,
+    Electric = 10,
+    BarbedWire = 11,
+    FireExtinguisher = 12,
+    Smoke = 13,
+    WaterCannon = 14,
+    Tranquilizer = 15
+}
+
+local eFireType <const> = {
+    None = 0,
+    Melee = 1,
+    InstantHit = 2,
+    DelayedHit = 3,
+    ProjectTile = 4,
+    VolumetricParticle = 5
+}
+
+local eWeaponWheelSlot <const> = {
+    Pistol = 0,
+    SMG = 1,
+    Rifle = 2,
+    Sniper = 3,
+    UnarmedMelee = 4,
+    ShotGun = 5,
+    Heavy = 6,
+    ThrowableSpecial = 7
+}
+
+local eAmmoSpecialType <const> = {
+    None = 0,
+    ArmorPiercing = 1,
+    Explosive = 2,
+    FMJ = 3,
+    HollowPoint = 4,
+    Incendiary = 5,
+    Tracer = 6
+}
+
+local eAmmoFlags <const> = {
+    InfiniteAmmo = 0,
+    AddSmokeOnExplosion = 1,
+    Fuse = 2,
+    FixedAfterExplosion = 3
+}
+
+-- CPED begin --
+local m_damage_bits <const> = 0x188
+local m_hostility <const> = 0x18C
+local m_health <const> = 0x280
+local m_maxhealth <const> = 0x284
+local m_velocity <const> = 0x300
+local m_ped_type <const> = 0x1098
+local m_seatbelt <const> = 0x143C
+local m_can_switch_weapon <const> = 0x144A
+local m_ped_task_flag <const> = 0x144B
+local m_forced_aim <const> = 0x1450
+local m_armor <const> = 0x150C
+local unk_health_threshold <const> = 0x1510
+local m_fatigued_health_threshold <const> = 0x1514
+local m_injured_health_threshold <const> = 0x1518
+local m_dying_health_threshold <const> = 0x151C
+local m_hurt_health_threshold <const> = 0x1520
+local m_cash <const> = 0x1614
+local fired_sticky_bombs <const> = 0x1960
+local fired_unk_0 <const> = 0x1961
+local fired_flares <const> = 0x1962
+local fired_unk_1 <const> = 0x1963
+local m_net_object <const> = 0xD0
+local m_entity_type <const> = 0x0028
+local m_flags_3 <const> = 0xC0
+local m_flags_4 <const> = 0xC4
+
+CPed = {
+    addr = nil,
+    __index = function(self, key)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawget(self, key)
+        elseif key == 'm_damage_bits' then
+            return memory.read_int(self.addr + m_damage_bits)
+        elseif key == 'm_hostility' then
+            return memory.read_byte(self.addr + m_hostility)
+        elseif key == 'm_health' then
+            return memory.read_float(self.addr + m_health)
+        elseif key == 'm_maxhealth' then
+            return memory.read_float(self.addr + m_maxhealth)
+        elseif key == 'm_velocity' then
+            return v3.new(v3.get(self.addr + m_velocity))
+        elseif key == 'm_ped_type' then
+            return memory.read_int(self.addr + m_ped_type)
+        elseif key == 'm_player_info' then
+            local pid = network.network_get_player_index_from_ped(entities.pointer_to_handle(self.addr))
+            if players.exists(pid) then
+                return CPlayerInfo:new(entities.get_player_info(self.addr))
+            else
+                return setmetatable({}, {__index = function() return 'INVALID' end, __newindex = function() end})
             end
-        end)
-    end
-end
+        elseif key == 'm_weapon_manager' then
+            return CPedWeaponManager:new(entities.get_weapon_manager(self.addr))
+        elseif key == 'm_seatbelt' then
+            return memory.read_byte(self.addr + m_seatbelt)
+        elseif key == 'm_can_switch_weapon' then
+            return memory.read_byte(self.addr + m_can_switch_weapon)
+        elseif key == 'm_ped_task_flag' then
+            return memory.read_int(self.addr + m_ped_task_flag)
+        elseif key == 'm_forced_aim' then
+            return memory.read_byte(self.addr + m_forced_aim)
+        elseif key == 'm_armor' then
+            return memory.read_float(self.addr + m_armor)
+        elseif key == 'unk_health_threshold' then
+            return memory.read_float(self.addr + unk_health_threshold)
+        elseif key == 'm_fatigued_health_threshold' then
+            return memory.read_float(self.addr + m_fatigued_health_threshold)
+        elseif key == 'm_injured_health_threshold' then
+            return memory.read_float(self.addr + m_injured_health_threshold)
+        elseif key == 'm_dying_health_threshold' then
+            return memory.read_float(self.addr + m_dying_health_threshold)
+        elseif key == 'm_hurt_health_threshold' then
+            return memory.read_float(self.addr + m_hurt_health_threshold)
+        elseif key == 'm_cash' then
+            return memory.read_short(self.addr + m_cash)
+        elseif key == 'fired_sticky_bombs' then
+            return memory.read_byte(self.addr + fired_sticky_bombs)
+        elseif key == 'fired_unk_0' then
+            return memory.read_byte(self.addr + fired_unk_0)
+        elseif key == 'fired_flares' then
+            return memory.read_byte(self.addr + fired_flares)
+        elseif key == 'fired_unk_1' then
+            return memory.read_byte(self.addr + fired_unk_1)
+        elseif key == 'm_net_object' then
+            return netObject:new(memory.read_long(self.addr + m_net_object))
+        elseif key == 'm_entity_type' then
+            return memory.read_byte(self.addr + m_entity_type)
+        elseif key == 'm_flags_3' then
+            return memory.read_int(self.addr + m_flags_3)
+        elseif key == 'm_flags_4' then
+            return memory.read_int(self.addr + m_flags_4)
+        end
+    end,
+    __newindex = function(self, key, value)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
 
-return GTAClasses
+        if key == 'addr' then
+            rawset(self, key, value)
+        elseif key == 'm_damage_bits' then
+            memory.write_int(self.addr + m_damage_bits, value)
+        elseif key == 'm_hostility' then
+            memory.write_byte(self.addr + m_hostility, value)
+        elseif key == 'm_health' then
+            memory.write_float(self.addr + m_health, value)
+        elseif key == 'm_maxhealth' then
+            memory.write_float(self.addr + m_maxhealth, value)
+        elseif key == 'm_velocity' then
+            v3.set(self.addr + m_velocity, value)
+        elseif key == 'm_ped_type' then
+            memory.write_int(self.addr + m_ped_type, value)
+        elseif key == 'm_seatbelt' then
+            memory.write_byte(self.addr + m_seatbelt, value)
+        elseif key == 'm_can_switch_weapon' then
+            memory.write_byte(self.addr + m_can_switch_weapon, value)
+        elseif key == 'm_ped_task_flag' then
+            memory.write_int(self.addr + m_ped_task_flag, value)
+        elseif key == 'm_forced_aim' then
+            memory.write_byte(self.addr + m_forced_aim, value)
+        elseif key == 'm_armor' then
+            memory.write_float(self.addr + m_armor, value)
+        elseif key == 'unk_health_threshold' then
+            memory.write_float(self.addr + unk_health_threshold, value)
+        elseif key == 'm_fatigued_health_threshold' then
+            memory.write_float(self.addr + m_fatigued_health_threshold, value)
+        elseif key == 'm_injured_health_threshold' then
+            memory.write_float(self.addr + m_injured_health_threshold, value)
+        elseif key == 'm_dying_health_threshold' then
+            memory.write_float(self.addr + m_dying_health_threshold, value)
+        elseif key == 'm_hurt_health_threshold' then
+            memory.write_float(self.addr + m_hurt_health_threshold, value)
+        elseif key == 'm_cash' then
+            memory.write_short(self.addr + m_cash, value)
+        elseif key == 'fired_sticky_bombs' then
+            memory.write_byte(self.addr + fired_sticky_bombs, value)
+        elseif key == 'fired_unk_0' then
+            memory.write_byte(self.addr + fired_unk_0, value)
+        elseif key == 'fired_flares' then
+            memory.write_byte(self.addr + fired_flares, value)
+        elseif key == 'fired_unk_1' then
+            memory.write_byte(self.addr + fired_unk_1, value)
+        elseif key == 'm_net_object' then
+            return -- don't want to write to this
+        elseif key == 'm_entity_type' then
+            memory.write_byte(self.addr + m_entity_type, value)
+        elseif key == 'm_flags_3' then
+            memory.write_int(self.addr + m_flags_3, value)
+        elseif key == 'm_flags_4' then
+            memory.write_int(self.addr + m_flags_4, value)
+        end
+    end
+}
+
+function CPed:new(addr)
+    local self = {}
+    self.addr = addr
+    self.__index = self
+    return setmetatable(self, CPed)
+end
+-- CPED end --
+
+-- netObject begin --
+local m_object_type <const> = 0x0008
+local m_object_id <const> = 0x000A
+local m_owner_id <const> = 0x0049
+local m_control_id <const> = 0x004A
+local m_next_owner_id <const> = 0x004B
+local m_is_remote <const> = 0x004C
+local m_wants_to_delete <const> = 0x004D
+local m_should_not_be_delete <const> = 0x004F
+
+netObject = {
+    addr = nil,
+    __index = function(self, key)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawget(self, key)
+        elseif key == 'm_object_type' then
+            return memory.read_short(self.addr + m_object_type)
+        elseif key == 'm_object_id' then
+            return memory.read_short(self.addr + m_object_id)
+        elseif key == 'm_owner_id' then
+            return memory.read_byte(self.addr + m_owner_id)
+        elseif key == 'm_control_id' then
+            return memory.read_byte(self.addr + m_control_id)
+        elseif key == 'm_next_owner_id' then
+            return memory.read_byte(self.addr + m_next_owner_id)
+        elseif key == 'm_is_remote' then
+            return memory.read_byte(self.addr + m_is_remote)
+        elseif key == 'm_wants_to_delete' then
+            return memory.read_byte(self.addr + m_wants_to_delete)
+        elseif key == 'm_should_not_be_delete' then
+            return memory.read_byte(self.addr + m_should_not_be_delete)
+        end
+
+    end,
+    __newindex = function(self, key)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawset(self, key)
+        elseif key == 'm_object_type' then
+            return memory.write_short(self.addr + m_object_type, value)
+        elseif key == 'm_object_id' then
+            return memory.write_short(self.addr + m_object_id, value)
+        elseif key == 'm_owner_id' then
+            return memory.write_byte(self.addr + m_owner_id, value)
+        elseif key == 'm_control_id' then
+            return memory.write_byte(self.addr + m_control_id, value)
+        elseif key == 'm_next_owner_id' then
+            return memory.write_byte(self.addr + m_next_owner_id, value)
+        elseif key == 'm_is_remote' then
+            return memory.write_byte(self.addr + m_is_remote, value)
+        elseif key == 'm_wants_to_delete' then
+            return memory.write_byte(self.addr + m_wants_to_delete, value)
+        elseif key == 'm_should_not_be_delete' then
+            return memory.write_byte(self.addr + m_should_not_be_delete, value)
+        end
+    end
+}
+
+function netObject:new(addr)
+    local self = {}
+    self.addr = addr
+    self.__index = self
+    return setmetatable(self, netObject)
+end
+-- netObject end --
+
+-- CPlayerInfo begin --
+local m_swim_speed <const> = 0x01C8
+local m_water_proof <const> = 0x01E0
+local m_game_state <const> = 0x0230
+local m_ped <const> = 0x0240
+local m_frame_flags <const> = 0x0270
+local m_player_controls <const> = 0x02A8
+local m_wanted_can_change <const> = 0x078C
+local m_npc_ignore <const> = 0x08C0
+local m_is_wanted <const> = 0x08D0
+local m_wanted_level <const> = 0x08D8
+local m_wanted_level_display <const> = 0x08DC
+local m_run_speed <const> = 0x0D40
+local m_stamina <const> = 0x0D44
+local m_stamina_regen <const> = 0x0D48
+local m_weapon_damage_mult <const> = 0x0D5C
+local m_weapon_defence_mult <const> = 0x0D60
+local m_melee_weapon_damage_mult <const> = 0x0D68
+local m_melee_damage_mult <const> = 0x0D6C
+local m_melee_defence_mult <const> = 0x0D70
+local m_melee_weapon_defence_mult <const> = 0x0D7C
+local m_name <const> = 0xFC
+
+CPlayerInfo = {
+    addr = nil,
+    __index = function(self, key)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawget(self, key)
+        elseif key == 'm_swim_speed' then
+            return memory.read_float(self.addr + m_swim_speed)
+        elseif key == 'm_water_proof' then
+            return memory.read_int(self.addr + m_water_proof)
+        elseif key == 'm_game_state' then
+            return memory.read_int(self.addr + m_game_state)
+        elseif key == 'm_ped' then
+            return memory.read_long(self.addr + m_ped)
+        elseif key == 'm_frame_flags' then
+            return memory.read_int(self.addr + m_frame_flags)
+        elseif key == 'm_player_controls' then
+            return memory.read_int(self.addr + m_player_controls)
+        elseif key == 'm_wanted_can_change' then
+            return memory.read_float(self.addr + m_wanted_can_change)
+        elseif key == 'm_npc_ignore' then
+            return memory.read_int(self.addr + m_npc_ignore)
+        elseif key == 'm_is_wanted' then
+            return memory.read_byte(self.addr + m_is_wanted)
+        elseif key == 'm_wanted_level' then
+            return memory.read_int(self.addr + m_wanted_level)
+        elseif key == 'm_wanted_level_display' then
+            return memory.read_int(self.addr + m_wanted_level_display)
+        elseif key == 'm_run_speed' then
+            return memory.read_float(self.addr + m_run_speed)
+        elseif key == 'm_stamina' then
+            return memory.read_float(self.addr + m_stamina)
+        elseif key == 'm_stamina_regen' then
+            return memory.read_float(self.addr + m_stamina_regen)
+        elseif key == 'm_weapon_damage_mult' then
+            return memory.read_float(self.addr + m_weapon_damage_mult)
+        elseif key == 'm_weapon_defence_mult' then
+            return memory.read_float(self.addr + m_weapon_defence_mult)
+        elseif key == 'm_melee_weapon_damage_mult' then
+            return memory.read_float(self.addr + m_melee_weapon_damage_mult)
+        elseif key == 'm_melee_damage_mult' then
+            return memory.read_float(self.addr + m_melee_damage_mult)
+        elseif key == 'm_melee_defence_mult' then
+            return memory.read_float(self.addr + m_melee_defence_mult)
+        elseif key == 'm_melee_weapon_defence_mult' then
+            return memory.read_float(self.addr + m_melee_weapon_defence_mult)
+        elseif key == 'm_name' then
+            return memory.read_string(self.addr + m_name)
+        end
+    end,
+    __newindex = function(self, key, value)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawset(self, key)
+        elseif key == 'm_swim_speed' then
+            return memory.write_float(self.addr + m_swim_speed, value)
+        elseif key == 'm_water_proof' then
+            return memory.write_int(self.addr + m_water_proof, value)
+        elseif key == 'm_game_state' then
+            return memory.write_int(self.addr + m_game_state, value)
+        elseif key == 'm_ped' then
+            return -- pointer so don't want to write to this
+        elseif key == 'm_frame_flags' then
+            return memory.write_int(self.addr + m_frame_flags, value)
+        elseif key == 'm_player_controls' then
+            return memory.write_int(self.addr + m_player_controls, value)
+        elseif key == 'm_wanted_can_change' then
+            return memory.write_float(self.addr + m_wanted_can_change, value)
+        elseif key == 'm_npc_ignore' then
+            return memory.write_int(self.addr + m_npc_ignore, value)
+        elseif key == 'm_is_wanted' then
+            return memory.write_byte(self.addr + m_is_wanted, value)
+        elseif key == 'm_wanted_level' then
+            return memory.write_int(self.addr + m_wanted_level, value)
+        elseif key == 'm_wanted_level_display' then
+            return memory.write_int(self.addr + m_wanted_level_display, value)
+        elseif key == 'm_run_speed' then
+            return memory.write_float(self.addr + m_run_speed, value)
+        elseif key == 'm_stamina' then
+            return memory.write_float(self.addr + m_stamina, value)
+        elseif key == 'm_stamina_regen' then
+            return memory.write_float(self.addr + m_stamina_regen, value)
+        elseif key == 'm_weapon_damage_mult' then
+            return memory.write_float(self.addr + m_weapon_damage_mult, value)
+        elseif key == 'm_weapon_defence_mult' then
+            return memory.write_float(self.addr + m_weapon_defence_mult, value)
+        elseif key == 'm_melee_weapon_damage_mult' then
+            return memory.write_float(self.addr + m_melee_weapon_damage_mult, value)
+        elseif key == 'm_melee_damage_mult' then
+            return memory.write_float(self.addr + m_melee_damage_mult, value)
+        elseif key == 'm_melee_defence_mult' then
+            return memory.write_float(self.addr + m_melee_defence_mult, value)
+        elseif key == 'm_melee_weapon_defence_mult' then
+            return memory.write_float(self.addr + m_melee_weapon_defence_mult, value)
+        end
+    end
+}
+
+function CPlayerInfo:new(addr)
+    local self = {}
+    self.addr = addr
+    self.__index = self
+    return setmetatable(self, CPlayerInfo)
+end
+-- CPlayerInfo end --
+
+-- CPedWeaponManager begin --
+local m_owner <const> = 0x0010
+local m_selected_weapon_hash <const> = 0x0018
+local m_weapon_info <const> = 0x0020
+local m_vehicle_weapon_info <const> = 0x0070
+local m_weapon_object <const> = 0x0078
+
+CPedWeaponManager = {
+    addr = nil,
+    __index = function(self, key)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawget(self, key)
+        elseif key == 'm_owner' then
+            return CPed:new(memory.read_long(self.addr + m_owner))
+        elseif key == 'm_selected_weapon_hash' then
+            return memory.read_int(self.addr + m_selected_weapon_hash)
+        elseif key == 'm_weapon_info' then
+            return CWeaponInfo:new(memory.read_long(self.addr + m_weapon_info))
+        elseif key == 'm_vehicle_weapon_info' then
+            return CWeaponInfo:new(memory.read_long(self.addr + m_vehicle_weapon_info))
+        elseif key == 'm_weapon_object' then
+            return memory.read_long(self.addr + m_weapon_object)
+        end
+    end,
+    __newindex = function(self, key, value)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawset(self, key)
+        elseif key == 'm_owner' then
+            return -- pointer so don't want to write to this
+        elseif key == 'm_selected_weapon_hash' then
+            return memory.write_int(self.addr + m_selected_weapon_hash, value)
+        elseif key == 'm_weapon_info' then
+            return -- pointer so don't want to write to this
+        elseif key == 'm_vehicle_weapon_info' then
+            return -- pointer so don't want to write to this
+        elseif key == 'm_weapon_object' then
+            return -- pointer so don't want to write to this
+        end
+    end
+}
+
+function CPedWeaponManager:new(addr)
+    local self = {}
+    self.addr = addr
+    self.__index = self
+    return setmetatable(self, CPedWeaponManager)
+end
+-- CPedWeaponManager end --
+
+-- CWeaponInfo begin --
+local m_damage_type = 0x0020
+local m_fire_type = 0x0054
+local m_wheel_slot = 0x0058
+local m_group = 0x005C
+local m_ammo_info = 0x0060
+local m_aiming_info = 0x0068
+local m_clip_size = 0x0070
+local m_accuracy_spread = 0x0074
+local m_accurate_mode_accuracy_modifier = 0x0078
+local m_run_and_gun_accuracy = 0x007C
+local m_run_and_gun_min_accuracy = 0x0080
+local m_recoil_accuracy_max = 0x0084
+local m_recoil_error_time = 0x0088
+local m_recoil_recovery_rate = 0x008C
+local m_recoil_accuracy_to_allow_headshot_ai = 0x0090
+local m_min_headshot_distance_ai = 0x0094
+local m_max_headshot_distance_ai = 0x0098
+local m_headshot_damage_modifier_ai = 0x009C
+local m_recoil_accuracy_to_allow_headshot_player = 0x00A0
+local m_min_headshot_distance_player = 0x00A4
+local m_max_headshot_distance_player = 0x00A8
+local m_headshot_damage_modifier_player = 0x00AC
+local cweaponinfo_m_damage = 0x00B0
+local m_damage_time = 0x00B4
+local m_damage_time_in_vehicle = 0x00B8
+local m_damage_time_in_vehicle_headshot = 0x00BC
+local m_endurance_damage = 0x00C0
+local m_hit_limbs_damage_modifier = 0x00C8
+local m_network_hit_limbs_damage_modifier = 0x00CC
+local m_lightly_armoured_damage_modifier = 0x00D0
+local m_vehicle_damage_modifier = 0x00D4
+local m_force = 0x00D8
+local m_force_on_ped = 0x00DC
+local m_force_on_vehicle = 0x00E0
+local m_force_on_heli = 0x00E4
+local m_force_max_strength_mult = 0x00F8
+local m_force_falloff_range_start = 0x00FC
+local m_force_falloff_range_end = 0x0100
+local m_force_falloff_range_min = 0x0104
+local m_project_force = 0x0108
+local m_frag_impulse = 0x010C
+local m_penetration = 0x0110
+local m_vertical_launch_adjustment = 0x0114
+local m_drop_forward_velocity = 0x0118
+local m_speed = 0x011C
+local m_bullets_in_batch = 0x0120
+local m_batch_spread = 0x0124
+local m_reload_time_mp = 0x0128
+local m_reload_time_sp = 0x012C
+local m_vehicle_reload_time = 0x0130
+local m_anim_reload_time = 0x0134
+local m_bullets_per_anime_loop = 0x0138
+local m_time_between_shots = 0x013C
+local m_time_left_between_shots_where_should_fire_is_cached = 0x0140
+local m_spinup_time = 0x0144
+local m_spin_time = 0x0148
+local m_spindown_time = 0x014C
+local m_alternate_wait_time = 0x0150
+local m_bullet_bending_near_radius = 0x0154
+local m_bullet_bending_far_radius = 0x0158
+local m_bullet_bending_zoom_radius = 0x015C
+local m_first_person_bullet_bending_near_radius = 0x0160
+local m_first_person_bullet_bending_far_radius = 0x0164
+local m_first_person_bullet_bending_zoom_radius = 0x0168
+local m_weapon_fx = 0x0170
+local m_initial_rumble_duration = 0x0250
+local m_initial_rumble_intensity = 0x0254
+local m_initial_rumble_intensity_trigger = 0x0258
+local m_rumble_duration = 0x025C
+local m_rumble_intensity = 0x0260
+local m_rumble_intensity_trigger = 0x0264
+local m_rumble_damage_intensity = 0x0268
+local m_initial_rumble_duration_fps = 0x026C
+local m_initial_rumble_intensity_fps = 0x0270
+local m_rumble_duration_fps = 0x0274
+local m_rumble_intensity_fps = 0x0278
+local m_network_player_damage_modifier = 0x027C
+local m_network_ped_damage_modifier = 0x0280
+local m_network_headshot_modifier = 0x0284
+local m_lock_on_range = 0x0288
+local m_weapon_range = 0x028C
+local m_ai_sound_range = 0x0290
+local m_ai_potential_blast_event_range = 0x0294
+local m_damage_fall_off_range_min = 0x0298
+local m_damage_fall_off_range_max = 0x029C
+local m_damage_fall_off_modifier = 0x02A8
+local m_vehicle_weapon_hash = 0x02B4
+local m_default_camera_hash = 0x02B8
+local m_aim_camera_hash = 0x02BC
+local m_fire_camera_hash = 0x02C0
+local m_cover_camera_hash = 0x02C4
+local m_cover_ready_to_fire_hash = 0x02C8
+local m_run_and_gun_camera_hash = 0x02CC
+local m_cinematic_shooting_camera_hash = 0x02D0
+local m_alt_or_scoped_camera_hash = 0x02D4
+local m_run_and_gun_alt_or_scoped_camera_hash = 0x02D8
+local m_cinematic_shooting_alt_or_scoped_camera_hash = 0x02DC
+local m_pov_turret_camera_hash = 0x02E0
+local m_recoil_shake_hash = 0x02E4
+local m_recoil_shake_hash_first_person = 0x02E8
+local m_accuracy_offset_shake_hash = 0x02EC
+local m_min_time_between_recoil_shakes = 0x02F0
+local m_recoil_shake_amplitude = 0x02F4
+local m_explosion_shake_amplitude = 0x02F8
+local m_camera_fov = 0x02FC
+local m_first_person_aim_fov_min = 0x0300
+local m_first_person_aim_fov_max = 0x0304
+local m_first_person_scope_fov = 0x0308
+local m_first_person_scope_attachment_fov = 0x030C
+
+CWeaponInfo = {
+    addr = nil,
+    __index = function(self, key)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawget(self, key)
+        elseif key == 'm_damage_type' then
+            return memory.read_int(self.addr + m_damage_type)
+        elseif key == 'm_fire_type' then
+            return memory.read_int(self.addr + m_fire_type)
+        elseif key == 'm_wheel_slot' then
+            return memory.read_int(self.addr + m_wheel_slot)
+        elseif key == 'm_group' then
+            return memory.read_int(self.addr + m_group)
+        elseif key == 'm_ammo_info' then
+            return CAmmoInfo:new(memory.read_long(self.addr + m_ammo_info))
+        elseif key == 'm_aiming_info' then
+            return memory.read_long(self.addr + m_aiming_info)
+        elseif key == 'm_clip_size' then
+            return memory.read_int(self.addr + m_clip_size)
+        elseif key == 'm_accuracy_spread' then
+            return memory.read_float(self.addr + m_accuracy_spread)
+        elseif key == 'm_accurate_mode_accuracy_modifier' then
+            return memory.read_float(self.addr + m_accurate_mode_accuracy_modifier)
+        elseif key == 'm_run_and_gun_accuracy' then
+            return memory.read_float(self.addr + m_run_and_gun_accuracy)
+        elseif key == 'm_run_and_gun_min_accuracy' then
+            return memory.read_float(self.addr + m_run_and_gun_min_accuracy)
+        elseif key == 'm_recoil_accuracy_max' then
+            return memory.read_float(self.addr + m_recoil_accuracy_max)
+        elseif key == 'm_recoil_error_time' then
+            return memory.read_float(self.addr + m_recoil_error_time)
+        elseif key == 'm_recoil_recovery_rate' then
+            return memory.read_float(self.addr + m_recoil_recovery_rate)
+        elseif key == 'm_recoil_accuracy_to_allow_headshot_ai' then
+            return memory.read_float(self.addr + m_recoil_accuracy_to_allow_headshot_ai)
+        elseif key == 'm_min_headshot_distance_ai' then
+            return memory.read_float(self.addr + m_min_headshot_distance_ai)
+        elseif key == 'm_max_headshot_distance_ai' then
+            return memory.read_float(self.addr + m_max_headshot_distance_ai)
+        elseif key == 'm_headshot_damage_modifier_ai' then
+            return memory.read_float(self.addr + m_headshot_damage_modifier_ai)
+        elseif key == 'm_recoil_accuracy_to_allow_headshot_player' then
+            return memory.read_float(self.addr + m_recoil_accuracy_to_allow_headshot_player)
+        elseif key == 'm_min_headshot_distance_player' then
+            return memory.read_float(self.addr + m_min_headshot_distance_player)
+        elseif key == 'm_max_headshot_distance_player' then
+            return memory.read_float(self.addr + m_max_headshot_distance_player)
+        elseif key == 'm_headshot_damage_modifier_player' then
+            return memory.read_float(self.addr + m_headshot_damage_modifier_player)
+        elseif key == 'm_damage' then
+            return memory.read_float(self.addr + cweaponinfo_m_damage)
+        elseif key == 'm_damage_time' then
+            return memory.read_float(self.addr + m_damage_time)
+        elseif key == 'm_damage_time_in_vehicle' then
+            return memory.read_float(self.addr + m_damage_time_in_vehicle)
+        elseif key == 'm_damage_time_in_vehicle_headshot' then
+            return memory.read_float(self.addr + m_damage_time_in_vehicle_headshot)
+        elseif key == 'm_endurance_damage' then
+            return memory.read_float(self.addr + m_endurance_damage)
+        elseif key == 'm_hit_limbs_damage_modifier' then
+            return memory.read_float(self.addr + m_hit_limbs_damage_modifier)
+        elseif key == 'm_network_hit_limbs_damage_modifier' then
+            return memory.read_float(self.addr + m_network_hit_limbs_damage_modifier)
+        elseif key == 'm_lightly_armoured_damage_modifier' then
+            return memory.read_float(self.addr + m_lightly_armoured_damage_modifier)
+        elseif key == 'm_vehicle_damage_modifier' then
+            return memory.read_float(self.addr + m_vehicle_damage_modifier)
+        elseif key == 'm_force' then
+            return memory.read_float(self.addr + m_force)
+        elseif key == 'm_force_on_ped' then
+            return memory.read_float(self.addr + m_force_on_ped)
+        elseif key == 'm_force_on_vehicle' then
+            return memory.read_float(self.addr + m_force_on_vehicle)
+        elseif key == 'm_force_on_heli' then
+            return memory.read_float(self.addr + m_force_on_heli)
+        elseif key == 'm_force_max_strength_mult' then
+            return memory.read_float(self.addr + m_force_max_strength_mult)
+        elseif key == 'm_force_falloff_range_start' then
+            return memory.read_float(self.addr + m_force_falloff_range_start)
+        elseif key == 'm_force_falloff_range_end' then
+            return memory.read_float(self.addr + m_force_falloff_range_end)
+        elseif key == 'm_force_falloff_range_min' then
+            return memory.read_float(self.addr + m_force_falloff_range_min)
+        elseif key == 'm_project_force' then
+            return memory.read_float(self.addr + m_project_force)
+        elseif key == 'm_frag_impulse' then
+            return memory.read_float(self.addr + m_frag_impulse)
+        elseif key == 'm_penetration' then
+            return memory.read_float(self.addr + m_penetration)
+        elseif key == 'm_vertical_launch_adjustment' then
+            return memory.read_float(self.addr + m_vertical_launch_adjustment)
+        elseif key == 'm_drop_forward_velocity' then
+            return memory.read_float(self.addr + m_drop_forward_velocity)
+        elseif key == 'm_speed' then
+            return memory.read_float(self.addr + m_speed)
+        elseif key == 'm_bullets_in_batch' then
+            return memory.read_int(self.addr + m_bullets_in_batch)
+        elseif key == 'm_batch_spread' then
+            return memory.read_float(self.addr + m_batch_spread)
+        elseif key == 'm_reload_time_mp' then
+            return memory.read_float(self.addr + m_reload_time_mp)
+        elseif key == 'm_reload_time_sp' then
+            return memory.read_float(self.addr + m_reload_time_sp)
+        elseif key == 'm_vehicle_reload_time' then
+            return memory.read_float(self.addr + m_vehicle_reload_time)
+        elseif key == 'm_anim_reload_time' then
+            return memory.read_float(self.addr + m_anim_reload_time)
+        elseif key == 'm_bullets_per_anime_loop' then
+            return memory.read_int(self.addr + m_bullets_per_anime_loop)
+        elseif key == 'm_time_between_shots' then
+            return memory.read_float(self.addr + m_time_between_shots)
+        elseif key == 'm_time_left_between_shots_where_should_fire_is_cached' then
+            return memory.read_float(self.addr + m_time_left_between_shots_where_should_fire_is_cached)
+        elseif key == 'm_spinup_time' then
+            return memory.read_float(self.addr + m_spinup_time)
+        elseif key == 'm_spin_time' then
+            return memory.read_float(self.addr + m_spin_time)
+        elseif key == 'm_spindown_time' then
+            return memory.read_float(self.addr + m_spindown_time)
+        elseif key == 'm_alternate_wait_time' then
+            return memory.read_float(self.addr + m_alternate_wait_time)
+        elseif key == 'm_bullet_bending_near_radius' then
+            return memory.read_float(self.addr + m_bullet_bending_near_radius)
+        elseif key == 'm_bullet_bending_far_radius' then
+            return memory.read_float(self.addr + m_bullet_bending_far_radius)
+        elseif key == 'm_bullet_bending_zoom_radius' then
+            return memory.read_float(self.addr + m_bullet_bending_zoom_radius)
+        elseif key == 'm_first_person_bullet_bending_near_radius' then
+            return memory.read_float(self.addr + m_first_person_bullet_bending_near_radius)
+        elseif key == 'm_first_person_bullet_bending_far_radius' then
+            return memory.read_float(self.addr + m_first_person_bullet_bending_far_radius)
+        elseif key == 'm_first_person_bullet_bending_zoom_radius' then
+            return memory.read_float(self.addr + m_first_person_bullet_bending_zoom_radius)
+        elseif key == 'm_weapon_fx' then
+            return memory.read_int(self.addr + m_weapon_fx)
+        elseif key == 'm_initial_rumble_duration' then
+            return memory.read_int(self.addr + m_initial_rumble_duration)
+        elseif key == 'm_initial_rumble_intensity' then
+            return memory.read_float(self.addr + m_initial_rumble_intensity)
+        elseif key == 'm_initial_rumble_intensity_trigger' then
+            return memory.read_float(self.addr + m_initial_rumble_intensity_trigger)
+        elseif key == 'm_rumble_duration' then
+            return memory.read_int(self.addr + m_rumble_duration)
+        elseif key == 'm_rumble_intensity' then
+            return memory.read_float(self.addr + m_rumble_intensity)
+        elseif key == 'm_rumble_intensity_trigger' then
+            return memory.read_float(self.addr + m_rumble_intensity_trigger)
+        elseif key == 'm_rumble_damage_intensity' then
+            return memory.read_float(self.addr + m_rumble_damage_intensity)
+        elseif key == 'm_initial_rumble_duration_fps' then
+            return memory.read_int(self.addr + m_initial_rumble_duration_fps)
+        elseif key == 'm_initial_rumble_intensity_fps' then
+            return memory.read_float(self.addr + m_initial_rumble_intensity_fps)
+        elseif key == 'm_rumble_duration_fps' then
+            return memory.read_int(self.addr + m_rumble_duration_fps)
+        elseif key == 'm_rumble_intensity_fps' then
+            return memory.read_float(self.addr + m_rumble_intensity_fps)
+        elseif key == 'm_network_player_damage_modifier' then
+            return memory.read_float(self.addr + m_network_player_damage_modifier)  
+        elseif key == 'm_network_ped_damage_modifier' then
+            return memory.read_float(self.addr + m_network_ped_damage_modifier)
+        elseif key == 'm_network_headshot_modifier' then
+            return memory.read_float(self.addr + m_network_headshot_modifier)
+        elseif key == 'm_lock_on_range' then
+            return memory.read_float(self.addr + m_lock_on_range)
+        elseif key == 'm_weapon_range' then
+            return memory.read_float(self.addr + m_weapon_range)
+        elseif key == 'm_ai_sound_range' then
+            return memory.read_float(self.addr + m_ai_sound_range)
+        elseif key == 'm_ai_potential_blast_event_range' then
+            return memory.read_float(self.addr + m_ai_potential_blast_event_range)
+        elseif key == 'm_damage_fall_off_range_min' then
+            return memory.read_float(self.addr + m_damage_fall_off_range_min)
+        elseif key == 'm_damage_fall_off_range_max' then
+            return memory.read_float(self.addr + m_damage_fall_off_range_max)
+        elseif key == 'm_damage_fall_off_modifier' then
+            return memory.read_float(self.addr + m_damage_fall_off_modifier)
+        elseif key == 'm_vehicle_weapon_hash' then
+            return memory.read_int(self.addr + m_vehicle_weapon_hash)
+        elseif key == 'm_default_camera_hash' then
+            return memory.read_int(self.addr + m_default_camera_hash)
+        elseif key == 'm_aim_camera_hash' then
+            return memory.read_int(self.addr + m_aim_camera_hash)
+        elseif key == 'm_fire_camera_hash' then
+            return memory.read_int(self.addr + m_fire_camera_hash)
+        elseif key == 'm_cover_camera_hash' then
+            return memory.read_int(self.addr + m_cover_camera_hash)
+        elseif key == 'm_cover_ready_to_fire_hash' then
+            return memory.read_int(self.addr + m_cover_ready_to_fire_hash)
+        elseif key == 'm_run_and_gun_camera_hash' then
+            return memory.read_int(self.addr + m_run_and_gun_camera_hash)
+        elseif key == 'm_cinematic_shooting_camera_hash' then
+            return memory.read_int(self.addr + m_cinematic_shooting_camera_hash)
+        elseif key == 'm_alt_or_scoped_camera_hash' then
+            return memory.read_int(self.addr + m_alt_or_scoped_camera_hash)
+        elseif key == 'm_run_and_gun_alt_or_scoped_camera_hash' then
+            return memory.read_int(self.addr + m_run_and_gun_alt_or_scoped_camera_hash)
+        elseif key == 'm_cinematic_shooting_alt_or_scoped_camera_hash' then
+            return memory.read_int(self.addr + m_cinematic_shooting_alt_or_scoped_camera_hash)
+        elseif key == 'm_pov_turret_camera_hash' then
+            return memory.read_int(self.addr + m_pov_turret_camera_hash)
+        elseif key == 'm_recoil_shake_hash' then
+            return memory.read_int(self.addr + m_recoil_shake_hash)
+        elseif key == 'm_recoil_shake_hash_first_person' then
+            return memory.read_int(self.addr + m_recoil_shake_hash_first_person)
+        elseif key == 'm_accuracy_offset_shake_hash' then
+            return memory.read_int(self.addr + m_accuracy_offset_shake_hash)
+        elseif key == 'm_min_time_between_recoil_shakes' then
+            return memory.read_float(self.addr + m_min_time_between_recoil_shakes)
+        elseif key == 'm_recoil_shake_amplitude' then
+            return memory.read_float(self.addr + m_recoil_shake_amplitude)
+        elseif key == 'm_explosion_shake_amplitude' then
+            return memory.read_float(self.addr + m_explosion_shake_amplitude)
+        elseif key == 'm_camera_fov' then
+            return memory.read_float(self.addr + m_camera_fov)
+        elseif key == 'm_first_person_aim_fov_min' then
+            return memory.read_float(self.addr + m_first_person_aim_fov_min)
+        elseif key == 'm_first_person_aim_fov_max' then
+            return memory.read_float(self.addr + m_first_person_aim_fov_max)
+        elseif key == 'm_first_person_scope_fov' then
+            return memory.read_float(self.addr + m_first_person_scope_fov)
+        elseif key == 'm_first_person_scope_attachment_fov' then
+            return memory.read_float(self.addr + m_first_person_scope_attachment_fov)
+        end
+    end,
+    __newindex = function(self, key, value)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawset(self, key)
+        elseif key == 'm_damage_type' then
+            return memory.write_int(self.addr + m_damage_type, value)
+        elseif key == 'm_fire_type' then
+            return memory.write_int(self.addr + m_fire_type, value)
+        elseif key == 'm_wheel_slot' then
+            return memory.write_int(self.addr + m_wheel_slot, value)
+        elseif key == 'm_group' then
+            return memory.write_int(self.addr + m_group, value)
+        elseif key == 'm_ammo_info' then
+            return -- pointer so don't want to write to this
+        elseif key == 'm_aiming_info' then
+            return -- pointer so don't want to write to this
+        elseif key == 'm_clip_size' then
+            return memory.write_int(self.addr + m_clip_size, value)
+        elseif key == 'm_accuracy_spread' then
+            return memory.write_float(self.addr + m_accuracy_spread, value)
+        elseif key == 'm_accurate_mode_accuracy_modifier' then
+            return memory.write_float(self.addr + m_accurate_mode_accuracy_modifier, value)
+        elseif key == 'm_run_and_gun_accuracy' then
+            return memory.write_float(self.addr + m_run_and_gun_accuracy, value)
+        elseif key == 'm_run_and_gun_min_accuracy' then
+            return memory.write_float(self.addr + m_run_and_gun_min_accuracy, value)
+        elseif key == 'm_recoil_accuracy_max' then
+            return memory.write_float(self.addr + m_recoil_accuracy_max, value)
+        elseif key == 'm_recoil_error_time' then
+            return memory.write_float(self.addr + m_recoil_error_time, value)
+        elseif key == 'm_recoil_recovery_rate' then
+            return memory.write_float(self.addr + m_recoil_recovery_rate, value)
+        elseif key == 'm_recoil_accuracy_to_allow_headshot_ai' then
+            return memory.write_float(self.addr + m_recoil_accuracy_to_allow_headshot_ai, value)
+        elseif key == 'm_min_headshot_distance_ai' then
+            return memory.write_float(self.addr + m_min_headshot_distance_ai, value)
+        elseif key == 'm_max_headshot_distance_ai' then
+            return memory.write_float(self.addr + m_max_headshot_distance_ai, value)
+        elseif key == 'm_headshot_damage_modifier_ai' then
+            return memory.write_float(self.addr + m_headshot_damage_modifier_ai, value)
+        elseif key == 'm_recoil_accuracy_to_allow_headshot_player' then
+            return memory.write_float(self.addr + m_recoil_accuracy_to_allow_headshot_player, value)
+        elseif key == 'm_min_headshot_distance_player' then
+            return memory.write_float(self.addr + m_min_headshot_distance_player, value)
+        elseif key == 'm_max_headshot_distance_player' then
+            return memory.write_float(self.addr + m_max_headshot_distance_player, value)
+        elseif key == 'm_headshot_damage_modifier_player' then
+            return memory.write_float(self.addr + m_headshot_damage_modifier_player, value)
+        elseif key == 'm_damage' then
+            return memory.write_float(self.addr + cweaponinfo_m_damage, value)
+        elseif key == 'm_damage_time' then
+            return memory.write_float(self.addr + m_damage_time, value)
+        elseif key == 'm_damage_time_in_vehicle' then
+            return memory.write_float(self.addr + m_damage_time_in_vehicle, value)  
+        elseif key == 'm_damage_time_in_vehicle_headshot' then
+            return memory.write_float(self.addr + m_damage_time_in_vehicle_headshot, value)
+        elseif key == 'm_endurance_damage' then
+            return memory.write_float(self.addr + m_endurance_damage, value)
+        elseif key == 'm_hit_limbs_damage_modifier' then
+            return memory.write_float(self.addr + m_hit_limbs_damage_modifier, value)
+        elseif key == 'm_network_hit_limbs_damage_modifier' then
+            return memory.write_float(self.addr + m_network_hit_limbs_damage_modifier, value)
+        elseif key == 'm_lightly_armoured_damage_modifier' then
+            return memory.write_float(self.addr + m_lightly_armoured_damage_modifier, value)
+        elseif key == 'm_vehicle_damage_modifier' then
+            return memory.write_float(self.addr + m_vehicle_damage_modifier, value)
+        elseif key == 'm_force' then
+            return memory.write_float(self.addr + m_force, value)
+        elseif key == 'm_force_on_ped' then
+            return memory.write_float(self.addr + m_force_on_ped, value)
+        elseif key == 'm_force_on_vehicle' then
+            return memory.write_float(self.addr + m_force_on_vehicle, value)
+        elseif key == 'm_force_on_heli' then
+            return memory.write_float(self.addr + m_force_on_heli, value)
+        elseif key == 'm_force_max_strength_mult' then
+            return memory.write_float(self.addr + m_force_max_strength_mult, value)
+        elseif key == 'm_force_falloff_range_start' then
+            return memory.write_float(self.addr + m_force_falloff_range_start, value)
+        elseif key == 'm_force_falloff_range_end' then
+            return memory.write_float(self.addr + m_force_falloff_range_end, value)
+        elseif key == 'm_force_falloff_range_min' then
+            return memory.write_float(self.addr + m_force_falloff_range_min, value)
+        elseif key == 'm_project_force' then
+            return memory.write_float(self.addr + m_project_force, value)
+        elseif key == 'm_frag_impulse' then
+            return memory.write_float(self.addr + m_frag_impulse, value)
+        elseif key == 'm_penetration' then
+            return memory.write_float(self.addr + m_penetration, value)
+        elseif key == 'm_vertical_launch_adjustment' then
+            return memory.write_float(self.addr + m_vertical_launch_adjustment, value)
+        elseif key == 'm_drop_forward_velocity' then
+            return memory.write_float(self.addr + m_drop_forward_velocity, value)
+        elseif key == 'm_speed' then
+            return memory.write_float(self.addr + m_speed, value)
+        elseif key == 'm_bullets_in_batch' then
+            return memory.write_int(self.addr + m_bullets_in_batch, value)
+        elseif key == 'm_batch_spread' then
+            return memory.write_float(self.addr + m_batch_spread, value)
+        elseif key == 'm_reload_time_mp' then
+            return memory.write_float(self.addr + m_reload_time_mp, value)
+        elseif key == 'm_reload_time_sp' then
+            return memory.write_float(self.addr + m_reload_time_sp, value)
+        elseif key == 'm_vehicle_reload_time' then
+            return memory.write_float(self.addr + m_vehicle_reload_time, value)
+        elseif key == 'm_anim_reload_time' then
+            return memory.write_float(self.addr + m_anim_reload_time, value)
+        elseif key == 'm_bullets_per_anime_loop' then
+            return memory.write_int(self.addr + m_bullets_per_anime_loop, value)
+        elseif key == 'm_time_between_shots' then
+            return memory.write_float(self.addr + m_time_between_shots, value)
+        elseif key == 'm_time_left_between_shots_where_should_fire_is_cached' then
+            return memory.write_float(self.addr + m_time_left_between_shots_where_should_fire_is_cached, value)
+        elseif key == 'm_spinup_time' then
+            return memory.write_float(self.addr + m_spinup_time, value)
+        elseif key == 'm_spin_time' then
+            return memory.write_float(self.addr + m_spin_time, value)
+        elseif key == 'm_spindown_time' then
+            return memory.write_float(self.addr + m_spindown_time, value)
+        elseif key == 'm_alternate_wait_time' then
+            return memory.write_float(self.addr + m_alternate_wait_time, value)
+        elseif key == 'm_bullet_bending_near_radius' then
+            return memory.write_float(self.addr + m_bullet_bending_near_radius, value)
+        elseif key == 'm_bullet_bending_far_radius' then
+            return memory.write_float(self.addr + m_bullet_bending_far_radius, value)
+        elseif key == 'm_bullet_bending_zoom_radius' then
+            return memory.write_float(self.addr + m_bullet_bending_zoom_radius, value)
+        elseif key == 'm_first_person_bullet_bending_near_radius' then
+            return memory.write_float(self.addr + m_first_person_bullet_bending_near_radius, value)
+        elseif key == 'm_first_person_bullet_bending_far_radius' then
+            return memory.write_float(self.addr + m_first_person_bullet_bending_far_radius, value)
+        elseif key == 'm_first_person_bullet_bending_zoom_radius' then
+            return memory.write_float(self.addr + m_first_person_bullet_bending_zoom_radius, value)
+        elseif key == 'm_weapon_fx' then
+            return memory.write_int(self.addr + m_weapon_fx, value)
+        elseif key == 'm_initial_rumble_duration' then
+            return memory.write_int(self.addr + m_initial_rumble_duration, value)
+        elseif key == 'm_initial_rumble_intensity' then
+            return memory.write_float(self.addr + m_initial_rumble_intensity, value)
+        elseif key == 'm_initial_rumble_intensity_trigger' then
+            return memory.write_float(self.addr + m_initial_rumble_intensity_trigger, value)
+        elseif key == 'm_rumble_duration' then
+            return memory.write_int(self.addr + m_rumble_duration, value)
+        elseif key == 'm_rumble_intensity' then
+            return memory.write_float(self.addr + m_rumble_intensity, value)
+        elseif key == 'm_rumble_intensity_trigger' then
+            return memory.write_float(self.addr + m_rumble_intensity_trigger, value)
+        elseif key == 'm_rumble_damage_intensity' then
+            return memory.write_float(self.addr + m_rumble_damage_intensity, value)
+        elseif key == 'm_initial_rumble_duration_fps' then
+            return memory.write_int(self.addr + m_initial_rumble_duration_fps, value)
+        elseif key == 'm_initial_rumble_intensity_fps' then
+            return memory.write_float(self.addr + m_initial_rumble_intensity_fps, value)
+        elseif key == 'm_rumble_duration_fps' then
+            return memory.write_int(self.addr + m_rumble_duration_fps, value)
+        elseif key == 'm_rumble_intensity_fps' then
+            return memory.write_float(self.addr + m_rumble_intensity_fps, value)
+        elseif key == 'm_network_player_damage_modifier' then
+            return memory.write_float(self.addr + m_network_player_damage_modifier, value)
+        elseif key == 'm_network_ped_damage_modifier' then
+            return memory.write_float(self.addr + m_network_ped_damage_modifier, value)
+        elseif key == 'm_network_headshot_modifier' then
+            return memory.write_float(self.addr + m_network_headshot_modifier, value)
+        elseif key == 'm_lock_on_range' then
+            return memory.write_float(self.addr + m_lock_on_range, value)
+        elseif key == 'm_weapon_range' then
+            return memory.write_float(self.addr + m_weapon_range, value)
+        elseif key == 'm_ai_sound_range' then
+            return memory.write_float(self.addr + m_ai_sound_range, value)
+        elseif key == 'm_ai_potential_blast_event_range' then
+            return memory.write_float(self.addr + m_ai_potential_blast_event_range, value)
+        elseif key == 'm_damage_fall_off_range_min' then
+            return memory.write_float(self.addr + m_damage_fall_off_range_min, value)
+        elseif key == 'm_damage_fall_off_range_max' then
+            return memory.write_float(self.addr + m_damage_fall_off_range_max, value)
+        elseif key == 'm_damage_fall_off_modifier' then
+            return memory.write_float(self.addr + m_damage_fall_off_modifier, value)
+        elseif key == 'm_vehicle_weapon_hash' then
+            return memory.write_int(self.addr + m_vehicle_weapon_hash, value)
+        elseif key == 'm_default_camera_hash' then
+            return memory.write_int(self.addr + m_default_camera_hash, value)
+        elseif key == 'm_aim_camera_hash' then
+            return memory.write_int(self.addr + m_aim_camera_hash, value)
+        elseif key == 'm_fire_camera_hash' then
+            return memory.write_int(self.addr + m_fire_camera_hash, value)
+        elseif key == 'm_cover_camera_hash' then
+            return memory.write_int(self.addr + m_cover_camera_hash, value)
+        elseif key == 'm_cover_ready_to_fire_hash' then
+            return memory.write_int(self.addr + m_cover_ready_to_fire_hash, value)
+        elseif key == 'm_run_and_gun_camera_hash' then
+            return memory.write_int(self.addr + m_run_and_gun_camera_hash, value)
+        elseif key == 'm_cinematic_shooting_camera_hash' then
+            return memory.write_int(self.addr + m_cinematic_shooting_camera_hash, value)
+        elseif key == 'm_alt_or_scoped_camera_hash' then
+            return memory.write_int(self.addr + m_alt_or_scoped_camera_hash, value)
+        elseif key == 'm_run_and_gun_alt_or_scoped_camera_hash' then
+            return memory.write_int(self.addr + m_run_and_gun_alt_or_scoped_camera_hash, value)
+        elseif key == 'm_cinematic_shooting_alt_or_scoped_camera_hash' then
+            return memory.write_int(self.addr + m_cinematic_shooting_alt_or_scoped_camera_hash, value)
+        elseif key == 'm_pov_turret_camera_hash' then
+            return memory.write_int(self.addr + m_pov_turret_camera_hash, value)
+        elseif key == 'm_recoil_shake_hash' then
+            return memory.write_int(self.addr + m_recoil_shake_hash, value)
+        elseif key == 'm_recoil_shake_hash_first_person' then
+            return memory.write_int(self.addr + m_recoil_shake_hash_first_person, value)
+        elseif key == 'm_accuracy_offset_shake_hash' then
+            return memory.write_int(self.addr + m_accuracy_offset_shake_hash, value)
+        elseif key == 'm_min_time_between_recoil_shakes' then
+            return memory.write_float(self.addr + m_min_time_between_recoil_shakes, value)
+        elseif key == 'm_recoil_shake_amplitude' then
+            return memory.write_float(self.addr + m_recoil_shake_amplitude, value)
+        elseif key == 'm_explosion_shake_amplitude' then
+            return memory.write_float(self.addr + m_explosion_shake_amplitude, value)
+        elseif key == 'm_camera_fov' then
+            return memory.write_float(self.addr + m_camera_fov, value)
+        elseif key == 'm_first_person_aim_fov_min' then
+            return memory.write_float(self.addr + m_first_person_aim_fov_min, value)
+        elseif key == 'm_first_person_aim_fov_max' then
+            return memory.write_float(self.addr + m_first_person_aim_fov_max, value)
+        elseif key == 'm_first_person_scope_fov' then
+            return memory.write_float(self.addr + m_first_person_scope_fov, value)
+        elseif key == 'm_first_person_scope_attachment_fov' then
+            return memory.write_float(self.addr + m_first_person_scope_attachment_fov, value)
+        end
+    end
+}
+
+function CWeaponInfo:new(addr)
+    local self = {}
+    self.addr = addr
+    self.__index = self
+    return setmetatable(self, CWeaponInfo)
+end
+-- CWeaponInfo end --
+
+-- CAmmoInfo start --
+
+local m_ammo_max <const> = 0x0020
+local m_ammo_max_50 <const> = 0x0024
+local m_ammo_max_100 <const> = 0x0028
+local m_ammo_max_mp <const> = 0x002C
+local m_ammo_max_50_mp <const> = 0x0030
+local m_ammo_max_100_mp <const> = 0x0034
+local m_ammo_flags <const> = 0x0038
+local m_ammo_special_type <const> = 0x003C
+local m_damage <const> = 0x0040
+local m_lifetime <const> = 0x0044
+local m_from_vehicle_lifetime <const> = 0x0048
+local m_lifetime_after_impact <const> = 0x004C
+local m_lifetime_after_explosion <const> = 0x0050
+local m_explosion_time <const> = 0x0054
+local m_launch_speed <const> = 0x0058
+local m_separation_time <const> = 0x005C
+local m_time_to_reach_target <const> = 0x0060
+local m_amping <const> = 0x0064
+local m_gravity_factor <const> = 0x0068
+local m_ricochet_tolerance <const> = 0x006C
+local m_ped_ricochet_tolerance <const> = 0x0070
+local m_vehicle_ricochet_tolerance <const> = 0x0074
+local m_friction_multiplier <const> = 0x0078
+
+CAmmoInfo = {
+    addr = nil,
+    __index = function(self, key)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawget(self, key)
+        elseif key == 'm_ammo_max' then
+            return memory.read_int(self.addr + m_ammo_max)
+        elseif key == 'm_ammo_max_50' then
+            return memory.read_int(self.addr + m_ammo_max_50)
+        elseif key == 'm_ammo_max_100' then
+            return memory.read_int(self.addr + m_ammo_max_100)
+        elseif key == 'm_ammo_max_mp' then
+            return memory.read_int(self.addr + m_ammo_max_mp)
+        elseif key == 'm_ammo_max_50_mp' then
+            return memory.read_int(self.addr + m_ammo_max_50_mp)
+        elseif key == 'm_ammo_max_100_mp' then
+            return memory.read_int(self.addr + m_ammo_max_100_mp)
+        elseif key == 'm_ammo_flags' then
+            return memory.read_int(self.addr + m_ammo_flags)
+        elseif key == 'm_ammo_special_type' then
+            return memory.read_int(self.addr + m_ammo_special_type)
+        elseif key == 'm_damage' then
+            return memory.read_float(self.addr + m_damage)
+        elseif key == 'm_lifetime' then
+            return memory.read_float(self.addr + m_lifetime)
+        elseif key == 'm_from_vehicle_lifetime' then
+            return memory.read_float(self.addr + m_from_vehicle_lifetime)
+        elseif key == 'm_lifetime_after_impact' then
+            return memory.read_float(self.addr + m_lifetime_after_impact)
+        elseif key == 'm_lifetime_after_explosion' then
+            return memory.read_float(self.addr + m_lifetime_after_explosion)
+        elseif key == 'm_explosion_time' then
+            return memory.read_float(self.addr + m_explosion_time)
+        elseif key == 'm_launch_speed' then
+            return memory.read_float(self.addr + m_launch_speed)
+        elseif key == 'm_separation_time' then
+            return memory.read_float(self.addr + m_separation_time)
+        elseif key == 'm_time_to_reach_target' then
+            return memory.read_float(self.addr + m_time_to_reach_target)
+        elseif key == 'm_amping' then
+            return memory.read_float(self.addr + m_amping)
+        elseif key == 'm_gravity_factor' then
+            return memory.read_float(self.addr + m_gravity_factor)
+        elseif key == 'm_ricochet_tolerance' then
+            return memory.read_float(self.addr + m_ricochet_tolerance)
+        elseif key == 'm_ped_ricochet_tolerance' then
+            return memory.read_float(self.addr + m_ped_ricochet_tolerance)
+        elseif key == 'm_vehicle_ricochet_tolerance' then
+            return memory.read_float(self.addr + m_vehicle_ricochet_tolerance)
+        elseif key == 'm_friction_multiplier' then
+            return memory.read_float(self.addr + m_friction_multiplier)
+        end
+    end,
+    __newindex = function(self, key, value)
+        if rawget(self, 'addr') == nil then return 0 end
+        if rawget(self, 'addr') == 0 then return 0 end
+
+        if key == 'addr' then
+            return rawset(self, key)
+        elseif key == 'm_ammo_max' then
+            return memory.write_int(self.addr + m_ammo_max, value)
+        elseif key == 'm_ammo_max_50' then
+            return memory.write_int(self.addr + m_ammo_max_50, value)
+        elseif key == 'm_ammo_max_100' then
+            return memory.write_int(self.addr + m_ammo_max_100, value)
+        elseif key == 'm_ammo_max_mp' then
+            return memory.write_int(self.addr + m_ammo_max_mp, value)
+        elseif key == 'm_ammo_max_50_mp' then
+            return memory.write_int(self.addr + m_ammo_max_50_mp, value)
+        elseif key == 'm_ammo_max_100_mp' then
+            return memory.write_int(self.addr + m_ammo_max_100_mp, value)
+        elseif key == 'm_ammo_flags' then
+            return memory.write_int(self.addr + m_ammo_flags, value)
+        elseif key == 'm_ammo_special_type' then
+            return memory.write_int(self.addr + m_ammo_special_type, value)
+        elseif key == 'm_damage' then
+            return memory.write_float(self.addr + m_damage, value)
+        elseif key == 'm_lifetime' then
+            return memory.write_float(self.addr + m_lifetime, value)
+        elseif key == 'm_from_vehicle_lifetime' then
+            return memory.write_float(self.addr + m_from_vehicle_lifetime, value)
+        elseif key == 'm_lifetime_after_impact' then
+            return memory.write_float(self.addr + m_lifetime_after_impact, value)
+        elseif key == 'm_lifetime_after_explosion' then
+            return memory.write_float(self.addr + m_lifetime_after_explosion, value)
+        elseif key == 'm_explosion_time' then
+            return memory.write_float(self.addr + m_explosion_time, value)
+        elseif key == 'm_launch_speed' then
+            return memory.write_float(self.addr + m_launch_speed, value)
+        elseif key == 'm_separation_time' then
+            return memory.write_float(self.addr + m_separation_time, value)
+        elseif key == 'm_time_to_reach_target' then
+            return memory.write_float(self.addr + m_time_to_reach_target, value)
+        elseif key == 'm_amping' then
+            return memory.write_float(self.addr + m_amping, value)
+        elseif key == 'm_gravity_factor' then
+            return memory.write_float(self.addr + m_gravity_factor, value)
+        elseif key == 'm_ricochet_tolerance' then
+            return memory.write_float(self.addr + m_ricochet_tolerance, value)
+        elseif key == 'm_ped_ricochet_tolerance' then
+            return memory.write_float(self.addr + m_ped_ricochet_tolerance, value)
+        elseif key == 'm_vehicle_ricochet_tolerance' then
+            return memory.write_float(self.addr + m_vehicle_ricochet_tolerance, value)
+        elseif key == 'm_friction_multiplier' then
+            return memory.write_float(self.addr + m_friction_multiplier, value)
+        end
+    end
+}
+
+function CAmmoInfo:new(addr)
+    local self = {}
+    self.addr = addr
+    self.__index = self
+    return setmetatable(self, CAmmoInfo)
+end
+-- CAmmoInfo end --
+
+--[[
+    Part of CVehicle
+    0x968 = m_flags (1 << 40 = explodes on high explosion damage, 1 << 27 = set vehicle strong)
+    0xA98 = m_wheels_state
+    0xDA0 = m_wheels_count
+]]
+
+return {
+    -- Classes
+    CPed = CPed,
+    netObject = netObject,
+    CPlayerInfo = CPlayerInfo,
+    CPedWeaponManager = CPedWeaponManager,
+    CWeaponInfo = CWeaponInfo,
+    CAmmoInfo = CAmmoInfo,
+
+    -- Enums
+    eGameState = eGameState,
+    eDamageType = eDamageType,
+    eFireType = eFireType,
+    eWeaponWheelSlot = eWeaponWheelSlot,
+    eAmmoSpecialType = eAmmoSpecialType,
+    eAmmoFlags = eAmmoFlags,
+}

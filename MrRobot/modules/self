@@ -2,7 +2,8 @@ local T, S = require('translations'), require('shared')
 local PedList = require('pedlist')
 local Cutscenes = require('cutscenes')
 local ScriptOffsets = require('offsets')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local Network = require('network')
 
 PedList = S:SortTable(PedList, |a, b| -> a < b)
@@ -14,15 +15,11 @@ local VehicleBitfield = ScriptOffsets.Vehicles.VehicleBitfield
 local VehicleData = ScriptOffsets.Vehicles.LSCustoms
 local SpecialAmmoType = ScriptOffsets.Weapons.SpecialAmmoType
 
-local suicide_ref = menu.ref_by_path('Self>Suicide')
-
 pluto_class SelfOptions
     impact_coords = v3()
-    ent_proofs_all = {true, true, true, true, true, true, true}
-    ent_proofs_off = {false, false, false, false, false, false, false, false}
 
     function __construct(root)
-        self.root = root:list(T'Self', {T'rself'}, '')
+        self.root = root:list(T'Self', {T'rself'}, '', nil, nil)
         self.sroot = filesystem.script_root()
         self.simages = $'{self.sroot}/images'
 
@@ -63,32 +60,25 @@ pluto_class SelfOptions
             Settings:Set(value)
         end)
 
-        self.mod_maxhealth = self.healthmod:toggle(T'Mod Max Health', {T'rmoddedhealth'}, T'Modded max health', function(state)
+        self.moddedhealth_amount = self.healthmod:text_input(T'Max Health', {T'rmaxhealth'}, T'Change your max health', function(health)
             if not SCRIPT_CAN_CONTINUE then return end
             local localplayer = players.localplayer()
-            if state then
-                Settings:Set(Bits.ModdedHealth)
-            else
-                Settings:Clear(Bits.ModdedHealth)
-                localplayer:set_ped_max_health(328)
-                localplayer:set_entity_health(328)
-            end
-        end, Settings:IsSet(Bits.ModdedHealth))
-
-        self.moddedhealth_amount = self.healthmod:text_input(T'Max Health', {T'rmaxhealth'}, T'Change your max health', function(health)
-            local localplayer = players.localplayer()
             
-            if Settings:IsSet(Bits.ModdedHealth) then
-                local state, err = pcall(function()
-                    local health = tonumber(health)
-                    localplayer:set_ped_max_health(health)
-                    localplayer:set_entity_health(health)
-                end)
+            local state, err = pcall(function()
+                local health = tonumber(health)
+                localplayer:set_ped_max_health(health)
+                localplayer:set_entity_health(health)
+            end)
 
-                if not state then
-                    util.error(err)
-                end
+            if not state then
+                util.error(err)
             end
+        end)
+
+        self.moddedhealth_reset = self.healthmod:action(T'Reset Max Health', {T'rresetmaxhealth'}, T'Reset your max health to the default value', function()
+            local localplayer = players.localplayer()
+            localplayer:set_ped_max_health(324)
+            localplayer:set_entity_health(324)
         end)
 
         self.p_superpunch = self.superpunch:toggle_loop(T'Super Punch', {}, T'Kill players and peds in a single hit', function()
@@ -96,30 +86,101 @@ pluto_class SelfOptions
         end)
 
         self.orbital_superpunch = self.superpunch:toggle_loop(T'Orbital Cannon Super Punch', {}, T'Kill players and peds in a single hit', function()
-            local orbital_cannon = memory.script_global(Globals.OrbitalCannon)
+            local orbital_cannon = Globals.OrbitalCannon:g()
             memory.write_byte(orbital_cannon, 1)
             self:SuperPunch(60, 1000.0, false, true, 0.0)
         end)
 
-        self.anti_psychpath = self.mental_state:toggle_loop(T'Anti-Psychopath', {T'rantipsychopath'}, T'Disables killing players, peds and cops affecting your mental state', function()
-            local mental_state = memory.script_global(Globals.MentalState)
-            local mental_state_value = memory.script_global(Globals.MentalStateValue)
+        self.superpunch:divider('')
+        self.configurable_sp = self.superpunch:list(T'Configurable Super Punch', {}, T'Configurable Super Punch options')
+
+        self.non_explo_superpunch = self.configurable_sp:toggle_loop(T'Super Punch (Non Explosive)', {}, T'Send peds flying in a single punch', function()
+            local localplayer = players.localplayer()
+            if localplayer:get_selected_ped_weapon() == ('WEAPON_UNARMED'):joaat() then
+                if localplayer:get_ped_last_weapon_impact_coord(self.impact_coords) then
+                    local closest_entity = nil
+                    for entities.get_all_peds_as_pointers() as ptr do
+                        local coords = entities.get_position(ptr)
+                        if closest_entity == nil then
+                            closest_entity = ptr
+                        else
+                            if coords:distance(self.impact_coords) < entities.get_position(closest_entity):distance(self.impact_coords) then
+                                closest_entity = ptr
+                            end
+                        end
+                    end
+
+                    local ent = entities.pointer_to_handle(closest_entity)
+                    if ent ~= 0 then
+                        if not ped.is_ped_a_player(ent) then
+                            local forward_vector = localplayer:get_entity_forward_vector()
+                            forward_vector:mul(-1.0)
+                            S:ApplyUpwardsForceToEntity(ent, self.sp_upwards_power.value)
+                            S:ApplyBackwardsForceToEntity(ent, self.sp_downwards_power.value)
+                            util.yield(50)
+                            ped.set_ped_to_ragdoll_with_fall(ent, 1000, 1000, 1, forward_vector.x, forward_vector.y, forward_vector.z, 1, 0, 0, 0, 0, 0, 0)
+                            S:ApplyBackwardsForceToEntity(ent, 7)
+                            S:ApplyUpwardsForceToEntity(ent, 3)
+                        end
+                    end
+                end
+            end
+        end)
+        self.configurable_sp:divider('')
+
+        self.sp_upwards_power = self.configurable_sp:slider(T'Upwards Power', {T'rspuppower'}, T'How much upwards force to apply', 1, 100, 15, 1, function(value) end)
+        self.sp_downwards_power = self.configurable_sp:slider(T'Backwards Power', {T'rspdownpower'}, T'How much backwards force to apply', 1, 100, 40, 1, function(value) end)
+
+        self.configurable_sp:divider('Configs')
+        self.configurable_sp:action(T'Default Config', {}, T'Reset the sliders to their default values', function()
+            self.sp_upwards_power.value = 15
+            self.sp_downwards_power.value = 40
+        end)
+
+        self.configurable_sp:action(T'Ultra Weak', {}, T'Apply an ultra weak configuration', function()
+            self.sp_upwards_power.value = 1
+            self.sp_downwards_power.value = 1
+        end)
+
+        self.configurable_sp:action(T'Weak', {}, T'Apply a weak configuration', function()
+            self.sp_upwards_power.value = 5
+            self.sp_downwards_power.value = 10
+        end)
+
+        self.configurable_sp:action(T'Medium', {}, T'Apply a medium configuration', function()
+            self.sp_upwards_power.value = 15
+            self.sp_downwards_power.value = 40
+        end)
+
+        self.configurable_sp:action(T'Strong', {}, T'Apply a strong configuration', function()
+            self.sp_upwards_power.value = 25
+            self.sp_downwards_power.value = 60
+        end)
+
+        self.configurable_sp:action(T'Extreme', {}, T'Apply an extreme configuration', function()
+            self.sp_upwards_power.value = 50
+            self.sp_downwards_power.value = 100
+        end)
+
+        self.anti_psychopath = self.mental_state:toggle_loop(T'Anti-Psychopath', {T'rantipsychopath'}, T'Disables killing players, peds and cops affecting your mental state', function()
+            local mental_state = Globals.MentalState:g()
+            local mental_state_value = Globals.MentalStateValue:g()
     
             memory.write_byte(mental_state, 1)
             memory.write_float(mental_state_value, 0.0)
         end,
         function()
-            local mental_state = memory.script_global(Globals.MentalState)
+            local mental_state = Globals.MentalState:g()
             memory.write_byte(mental_state, 0)
         end)
 
         self.psychopath = self.mental_state:toggle_loop(T'Psychopath', {T'rpsychopath'}, T'Show your inner psychopath', function()
-            local mental_state_value = memory.script_global(Globals.MentalStateValue)
+            local mental_state_value = Globals.MentalStateValue:g()
             memory.write_float(mental_state_value, 100.0)
         end)
     
         self.display_mental_state = self.mental_state:toggle_loop(T'Display Mental State', {T'rdisplaymentalstate'}, T'Displays your current mental state', function()
-            local mental_state_value = memory.script_global(Globals.MentalStateValue)
+            local mental_state_value = Globals.MentalStateValue:g()
             local value = memory.read_float(mental_state_value)
             util.draw_debug_text('Mental State: ' .. value)
         end)
@@ -217,7 +278,9 @@ pluto_class SelfOptions
 
         self.stealth_mode = self.root:toggle(T'Stealth', {T'rsstealthmode'}, T'Removes your blip from the radar for the entire session (this method does not trigger a off the radar too long detection)', Network.ToggleStealthMode)
         self.bribe_authorities = self.root:toggle_loop(T'Bribe Authorities', {T'rbribeauthorities'}, T'Bribes the authorities to ignore your crimes', function()
+            local timer = Globals.BribeAuthoritiesTimer:g()
             Network.ToggleBribeAuthorities(true)
+            memory.write_int(timer, network.get_network_time() + 817000 - 120000)
         end,
         function()
             Network.ToggleBribeAuthorities(false)
@@ -239,8 +302,8 @@ pluto_class SelfOptions
         end)
 
         self.fast_respawn = self.root:toggle_loop(T'Fast Respawn', {T'rfastrespawn'}, T'Respawns you instantly', function()
-            local respawn = memory.script_global(Globals.FastRespawn)
-            local respawn_state = memory.script_global(Globals.RespawnState)
+            local respawn = Globals.FastRespawn:g()
+            local respawn_state = Globals.RespawnState:g()
             if memory.read_byte(respawn_state) ~= 0 then
                 memory.write_byte(respawn, 1)
                 util.yield_once()
@@ -249,9 +312,9 @@ pluto_class SelfOptions
         end)
 
         self.killer_karma = self.root:toggle_loop(T'Killer Karma', {T'rkillerkarma'}, T'Karma the plaer that killed you', function()
-            local killer_karma = memory.script_global(Globals.PlayerKiller)
-            local respawn = memory.script_global(Globals.FastRespawn)
-            local respawn_state = memory.script_global(Globals.RespawnState)
+            local killer_karma = Globals.PlayerKiller:g()
+            local respawn = Globals.FastRespawn:g()
+            local respawn_state = Globals.RespawnState:g()
             if memory.read_byte(respawn_state) ~= 0 then
                 local pid = memory.read_int(killer_karma)
                 local state, err = pcall(function()
@@ -273,11 +336,11 @@ pluto_class SelfOptions
         end)
 
         self.infinite_otr_ghost = self.root:toggle_loop(T'Infinite OTR / Ghost Org', {T'rsinfiniteotr'}, T'Freezes the timer for ghost org and off the radar', function()
-            Network.SetOTRGhostOrgTimer(nil)
+            Network.SetOTRGhostOrgTimer(network.get_network_time() + 817000 - 60000)
         end)
 
         self.force_ghost_org = self.root:toggle(T'Force Ghost Org', {T'rsforceghostorg'}, T'Always go ghost org instead of off the radar (this won \'t work unless you are in an organisation)', function(state)
-            local force = memory.script_global(Globals.AbilitiesBitfield)
+            local force = Globals.AbilitiesBitfield:g()
             local value = memory.read_byte(force)
             value = memory.bits:setbool(value, Bits.ForceGhostOrg, state)
             memory.write_byte(force, value)
@@ -307,8 +370,9 @@ pluto_class SelfOptions
                 repeat
                     util.yield_once()
                     localplayer:clear_ped_tasks_immediately()
+                    localplayer:clear_ped_tasks_immediately()
                 until localplayer:is_ped_stopped()
-                util.yield(50)
+                util.yield(200)
 
                 local pos = localplayer:get_offset_from_entity_in_world_coords(0.05, 0.5, -1.11)
                 local scene = network.network_create_synchronised_scene(pos.x, pos.y, pos.z, 0.0, 0.0, localplayer:get_entity_heading() + 90.0, 2, false, false, 1.0, 0.0, 1.0)
@@ -391,8 +455,8 @@ pluto_class SelfOptions
             Network.TogglePauseMenu(state)
         end)
 
-        self.bypass_oncall = self.root:toggle_loop(T'Bypass On Call', {}, T'Bypass the game preventing you leave interiors due to being on call (untested because cannot seem to force the requirements to test it)', function()
-            memory.write_byte(memory.script_global(Globals.BypassOnCall), -1)
+        self.bypass_oncall = self.root:toggle_loop(T'Bypass On Call', {}, T'Bypass the game preventing you leaving interiors due to being on call (untested because cannot seem to force the requirements to test it)', function()
+            memory.write_byte(Globals.BypassOnCall:g(), -1)
         end)
 
         self.out_of_sight = self.root:toggle_loop(T'Out Of Sight', {}, T'Enable out of sight, what else?', function()
@@ -402,35 +466,15 @@ pluto_class SelfOptions
             Network.ToggleOutOfSight(false)
         end)
 
-        -- TODO: Update the offsets and asm instructions to make this work again
-        -- self.base = memory.scan('')
-        -- self.cops_ignore_crimes = self.root:toggle(T'Cops Ignore Crimes', {}, T'Crimes do not increase your wanted level, instead they make it disappear if you have one', function(state)
-        --     if not SCRIPT_CAN_CONTINUE then return end
-        --     local mapped = {
-        --         { offset =  0x660143, modded = 0xB883C7, original = 0x1000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000001
-        --         { offset =  0x660117, modded = 0xB883C7, original = 0x2000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000002
-        --         { offset =  0x6600DD, modded = 0xB883C7, original = 0x3000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000003
-        --         { offset =  0x6600B1, modded = 0xB883C7, original = 0x4000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000004
-        --         { offset =  0x660081, modded = 0xB883C7, original = 0x5000000B883C7 }, -- mov [rbx+B8],00000000, mov [rbx+B8],00000005
-        --         { offset =  0x660143 - 0x2, modded = 0x1A75, original = 0x1A7C }, -- jne GTA5.exe+66012D, jl GTA5.exe+66012D
-        --         { offset =  0x660117 - 0x2, modded = 0x1A75, original = 0x1A7C }, -- jne GTA5.exe+660131, jl GTA5.exe+660131
-        --         { offset =  0x6600DD - 0x2, modded = 0x2675, original = 0x267C }, -- jne GTA5.exe+660103, jl GTA5.exe+660103
-        --         { offset =  0x6600B1 - 0x2, modded = 0x1875, original = 0x187C }, -- jne GTA5.exe+6600C9, jl GTA5.exe+6600C9
-        --         { offset =  0x660081 - 0x2, modded = 0x1C75, original = 0x1C7C }, -- jne GTA5.exe+66009D, jl GTA5.exe+66009D
-        --     }
-            
-        --     for mapped as data do memory.write(self.base + data.offset, state ? data.modded : data.original) end
-        -- end)
-
         self.force_script_host = self.root:toggle_loop(T'Force Script Host', {}, T'Force you to become script host', function()
             Network.BecomeScriptHost()
         end)
 
         self.infinite_bst = self.root:toggle_loop(T'Infinite BST', {}, T'Infinite BST', function()
             local localplayer = players.localplayer()
-            local bst = memory.script_local('freemode', Globals.BSTTimer)
-            local bst_toggle = memory.script_global(Globals.InstantBST)
-            local bst_local = memory.script_local('freemode', Globals.InstantBSTLocal)
+            local bst = memory.script_local(table.unpack(Globals.BSTTimer))
+            local bst_toggle = Globals.InstantBST:g()
+            local bst_local = memory.script_local(table.unpack(Globals.InstantBSTLocal))
 
             if not localplayer:is_entity_dead() and memory.read_byte(bst_toggle) == 0 then
                 util.yield(700)
@@ -444,7 +488,7 @@ pluto_class SelfOptions
         end)
 
         self.infinite_bribe_authorities = self.root:toggle_loop(T'Infinite Bribe Authorities', {}, T'Makes bribe authorities last forever', function()
-            local timer = memory.script_global(Globals.BribeAuthoritiesTimer)
+            local timer = Globals.BribeAuthoritiesTimer:g()
             memory.write_int(timer, network.get_network_time())
         end)
 
@@ -463,15 +507,15 @@ pluto_class SelfOptions
         end)
         self.auto_restock.value = true
 
-        self.remove_bounty = self.bounty:action(T'Remove Bounty', {T'rsremovebounty'}, T'Removes your bounty (this function differently to Stand\'s remove bounty feature)', function()
+        self.remove_bounty = self.bounty:action(T'Remove Bounty', {T'rsremovebounty'}, T'Removes your bounty (this functions differently to Stand\'s remove bounty feature)', function()
             local pid = players.user()
             Network.SetBounty(pid, 0, false)
             Network.SetBountyReward(pid, 0)
         end)
 
         self.collect_bounty = self.bounty:action(T'Collect Bounty', {T'rscollectbounty'}, T'Collect your bounty', function()
-            memory.write_int(memory.script_global(Globals.BountyTimer), 2880000)
-            memory.write_byte(memory.script_global(Globals.BountyLocal), -1)
+            memory.write_int(Globals.BountyTimer:g(), 2880000)
+            memory.write_byte(Globals.BountyLocal:g(), -1)
         end)
 
         self.model_custom_ped = self.model_changer:text_input(T'Custom Model', {T'rscustomped'}, T'Change your ped to something else', function(model)
@@ -515,7 +559,7 @@ pluto_class SelfOptions
         end
 
         self.auto_bst = self.pvp_helper:toggle_loop(T'Auto BST', {T'rsautobst'}, T'Automatically use BST when a player is within 300m of you while using BST', function(state)
-            local bst = memory.script_global(Globals.DisableBST)
+            local bst = Globals.DisableBST:g()
             local player_coords = players.get_position(players.user())
             local localplayer = players.localplayer()
             for pid = 0, players.max_players do
@@ -577,6 +621,17 @@ pluto_class SelfOptions
             self.spoof_interior_state.value = state
             self.invisibility.value = state
         end)
+        self.hide_m3 = self.hiding:toggle(T'Hide Method 3', {T'rsdisappear2'}, T'', function(state)
+            Network.SpoofInteriorState1(state)
+            if state then
+                util.create_tick_handler(function()
+                    if not self.hide_m3.value then
+                        return false
+                    end
+                    Network.SpoofBlipCoords(-99999, -99999, -99999)
+                end)
+            end
+        end)
 
         self.demi_god = self.root:toggle(T'Demi God', {}, T'Become a demi god, this will protect you from bullets, collisions and melee attacks (ONLY AGAINST PEDS, PLAYERS CAN STILL CAUSE YOU DAMAGE)', function(state)
             local ptr = entities.handle_to_pointer(players.user_ped())
@@ -584,8 +639,53 @@ pluto_class SelfOptions
             memory.write_int(addr, memory.bits:setbool(memory.read_int(addr), 1 << 10, state))
         end)
 
-        self.troll_mode = self.root:toggle(T'Troll Mode', {}, T'Enable troll mode, this will prevent you from appearing in the player list, killing a player won\'t show that you did it and you don\'t show on the minimap)', function(state)
-            Network.ToggleTrollMode(state)
+        self.disable_wasted_effect = self.root:toggle(T'Disable Wasted Effect', {T'rsdisablewastedeffect'}, T'Disables the wasted effect, the text and sound will not occur when dying', function(state)
+            local addr = Globals.DisableWastedEffect:g()
+            memory.write_byte(addr, state ? 1 : 0)
+        end)
+
+        self.enable_crouching = self.root:toggle(T'Enable Crouching', {T'rsenablecrouching'}, T'Enables crouching when pressing CTRL to activate stealth movement', function(state)
+            local CPed = players.cped()
+            local player_ped = players.user_ped()
+            if state then
+                util.create_tick_handler(function()
+                    if not self.enable_crouching.value then
+                        return false
+                    end
+
+                    if ped.get_ped_stealth_movement(player_ped) then
+                        CPed.m_ped_task_flag = memory.bits:clear(CPed.m_ped_task_flag, 1 << 4)
+                    end
+                end)
+            end
+        end)
+
+        self.force_crouched_movement = self.root:toggle(T'Force Crouched Movement', {T'rsforcecrouchedmovement'}, T'Forces crouched movement', function(state)
+            local CPed = players.cped()
+            local player_ped = players.user_ped()
+            if state then
+                util.create_tick_handler(function()
+                    if not self.force_crouched_movement.value then
+                        return false
+                    end
+
+                    CPed.m_ped_task_flag = memory.bits:clear(CPed.m_ped_task_flag, 1 << 4)
+                end)
+            end
+        end)
+
+        self.walk_through_water = self.root:toggle(T'Walk Through Water', {T'rswalkthroughwater'}, T'Allows you to walk through water instead of attempting to swim', function(state)
+            local CPed = players.cped()
+            local player_ped = players.user_ped()
+            if state then
+                util.create_tick_handler(function()
+                    if not self.walk_through_water.value then
+                        return false
+                    end
+
+                    CPed.m_ped_task_flag = CPed.m_ped_task_flag &~ 0x600
+                end)
+            end
         end)
 
         self.root:divider('')
@@ -603,7 +703,7 @@ pluto_class SelfOptions
             until wallet == 0
 
             for slot = 0, 415 do
-                local data = memory.script_global(Globals:PersonalVehicleData(slot))
+                local data = memory.script_global(Globals.PersonalVehicleData(slot))
                 local hash = memory.read_int(data + VehicleData.VehicleModel)
                 local addr = data + VehicleData.VehicleBitfield
                 
@@ -634,13 +734,13 @@ pluto_class SelfOptions
                 end
 
                 if bank > 0 then
-                    memory.write_byte(memory.script_global(Globals.SinRemover), bank)
+                    memory.write_byte(Globals.SinRemover:g(), bank)
                     repeat
                         util.yield_once()
                         bank = Network.GetBank()
-                        memory.write_byte(memory.script_global(Globals.InsufficientFunds), 1)
+                        memory.write_byte(Globals.InsufficientFunds:g(), 1)
                     until bank == 0
-                    memory.write_byte(memory.script_global(Globals.InsufficientFunds), 0)
+                    memory.write_byte(Globals.InsufficientFunds:g(), 0)
                     util.yield(1000)
                     S:PlayAnimation(table.unpack(anim_args))
                 end
@@ -678,8 +778,8 @@ pluto_class SelfOptions
         end)
         
         self.instant_bst = self.root:action(T'Instant BST', {T'rinstantbst'}, T'Instantly reap the reward of bst', function()
-            local bst_local = memory.script_local('freemode', Globals.InstantBSTLocal)
-            local bst = memory.script_global(Globals.InstantBST)
+            local bst_local = memory.script_local(table.unpack(Globals.InstantBSTLocal))
+            local bst = Globals.InstantBST:g()
 
             if bst_local ~= 0 then
                 memory.write_byte(bst, 1)
@@ -688,14 +788,14 @@ pluto_class SelfOptions
         end)
 
         self.teleport_hospital = self.root:action(T'Teleport To Nearest Hospital', {T'rstpnearbyhospital'}, T'Teleport you to the nearest hospital as if someone just used the orbital cannon on you', function()
-            local tp = memory.script_global(Globals.TeleportNearestHospital)
+            local tp = Globals.TeleportNearestHospital:g()
             memory.write_byte(tp, 1)
             util.yield(2000)
             memory.write_byte(tp, 0)
         end)
 
         self.equip_ballistic_armor = self.root:action(T'Equip Ballistic Armor', {T'rsequiparmor'}, T'Equip ballistic armor', function()
-            local armor = memory.script_global(Globals.EquipBallisticArmor)
+            local armor = Globals.EquipBallisticArmor:g()
             if memory.read_byte(armor) == 0 then
                 memory.write_byte(armor, 1)
             end
@@ -710,7 +810,7 @@ pluto_class SelfOptions
         end)
 
         self.reset_otr_timer = self.root:action(T'Reset OTR/Ghost Org Timer', {T'rresetotrghostorgtimer'}, T'Reset the timer for off the radar/ghost org', function()
-            memory.write_int(memory.script_global(Globals.OtrGhostTimer), network.get_network_time())
+            memory.write_int(Globals.OtrGhostTimer:g(), network.get_network_time())
         end)
     
         self.disable_otr = self.root:action(T'Disable Ghost Org / OTR', {T'rstophiding'}, T'Disable off the radar / ghost org', function()
@@ -718,11 +818,11 @@ pluto_class SelfOptions
         end)
 
         self.disable_blindeye = self.root:action(T'Disable Blind Eye', {T'stopblindeye'}, T'Disable the cops turning a blind eye to you', function()
-            memory.write_byte(memory.script_global(Globals.BribeAuthorities), 0)
+            memory.write_byte(Globals.BribeAuthorities:g(), 0)
         end)
 
         self.disable_bst = self.root:action(T'Disable BST', {T'disablebst'}, T'Disable bst', function()
-            local bst = memory.script_global(Globals.DisableBST)
+            local bst = Globals.DisableBST:g()
             local value = memory.read_byte(bst)
             if (memory.bits:check(value, 1 << 0)) then
                 memory.write_byte(bst, memory.bits:set(value, 0b00000111))
@@ -746,10 +846,10 @@ pluto_class SelfOptions
         local localplayer = players.localplayer()
         if localplayer:get_selected_ped_weapon() == ('WEAPON_UNARMED'):joaat() then
             if localplayer:get_ped_last_weapon_impact_coord(self.impact_coords) then
-                localplayer:set_entity_proofs(table.unpack(self.ent_proofs_all))
+                localplayer:set_entity_proofs(table.unpack({true, true, true, true, true, true, true}))
                 localplayer:add_owned_explosion(self.impact_coords.x, self.impact_coords.y, self.impact_coords.z, exp_type, damage, is_audible, is_invisible, camera_shake)
                 util.yield(500)
-                localplayer:set_entity_proofs(table.unpack(self.ent_proofs_off))                
+                localplayer:set_entity_proofs(table.unpack({false, false, false, false, false, false, false, false}))                
             end
         end
     end

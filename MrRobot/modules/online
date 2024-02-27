@@ -1,9 +1,9 @@
 local T, S, H = require('translations'), require('shared'), require('handler')
 local Bitfield = require('bitfield')
 local VehModels = require('vehicle_models')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local ScriptOffsets = require('offsets')
-local Masks = require('masks')
 local Network = require('network')
 local Notifications = require('notifications')
 
@@ -27,6 +27,13 @@ pluto_class Online
         self.properties_data = S:SortTable(self.properties, |a, b| -> a < b)
         self.properties = S:SortTableIndexed(self.properties, |a, b| -> a < b)
 
+        self.stand_pos_spoof = menu.ref_by_command_name('spoofpos')
+        self.stand_spoofed_pos = menu.ref_by_command_name('spoofedposition')
+
+        self.updating = {
+            player_sessions = false
+        }
+
         self:CreateFakeNotifs()
         self:CreateServices()
         self:CreateOrganisation()
@@ -41,6 +48,7 @@ pluto_class Online
         self:CreateCargo()
         self:CreateMoney()
         self:CreateYeti()
+        self:CreateTutorialSessions()
 
         self.root:divider('')
         self.root:toggle_loop(T'Anti-Ghosted', {}, T'Prevent other players from becoming ghosted to you', function()
@@ -86,6 +94,34 @@ pluto_class Online
                     end
                 end
             end
+        end)
+
+        self.root:toggle(T'Block Orbital Cannon (M1)', {}, T'Block the orbital cannon from being used on you', function(state)
+            local orbital = Globals.OrbitalCannonCounterM1:g()
+            memory.write_int(orbital, state ? 10 : 4)
+        end)
+
+        self.block_oc_m2 = self.root:toggle(T'Block Orbital Cannon (M2)', {}, T'Block the orbital cannon from being used on you', function(state)
+            util.create_tick_handler(function()
+                local orbital = Globals.OrbitalCannonCounterM2:g()
+                memory.write_int(orbital, memory.bits:setbool(memory.read_int(orbital), 1 << 3, state))
+
+                if not self.block_oc_m2.value then
+                    return false
+                end
+            end)
+        end)
+
+        self.fake_lag = self.root:toggle_loop(T'Fake Lag', {}, T'Create some artificial lag', function()
+            if self.stand_pos_spoof.value then
+                local base = Globals.PlayerBase:g()
+                local coords = v3.new(v3.get(base + 0x678))
+                self.stand_spoofed_pos:trigger($'{coords.x}, {coords.y}, {coords.z}')
+            else
+                self.stand_pos_spoof:trigger()
+            end
+        end, function()
+            self.stand_pos_spoof.value = false
         end)
     end
 
@@ -146,8 +182,8 @@ pluto_class Online
 
     function CreateServices()
         self.services = self.root:list(T'Services', {T'roservices'}, T'Services')
-        self.RequestBase = memory.script_global(Globals.RequestBase)
-        self.AmPiMenuBase = memory.script_global(Globals.AmPiMenuBase)
+        self.RequestBase = Globals.RequestBase:g()
+        self.AmPiMenuBase = Globals.AmPiMenuBase:g()
 
         for ({
             { name = T'Request Nano Drone', func = self.RequestService, args = { self, T'NanoDrone' } },
@@ -449,9 +485,11 @@ pluto_class Online
                 x, y, z = 0, 0, 0
             end
             Network.SpoofInteriorState1(true)
+            Network.SpoofBlipCoords(x, y, z)
         end, function()
+            local coords = players.get_position(players.user())
             Network.SpoofInteriorState1(false)
-            Network.SpoofBlipCoords(0, 0, 0)
+            Network.SpoofBlipCoords(coords.x, coords.y, coords.z)
         end)
     end
 
@@ -491,35 +529,58 @@ pluto_class Online
     function CreateOther()
         self.other = self.root:list(T'Other', {T'roother'}, T'Other')
         self.other:action(T'Toast The Beast', {}, T'Toast the player who is the beast within the hunt the beast event', function()
-            util.spoof_script(Globals.HuntTheBeast, function()
-                local beast = Network.GetTheBeast()
-                if beast ~= -1 then
-                    util.toast(players.get_name(beast) .. ' is the beast')
-                end
-            end)
+            local beast = Network.GetTheBeast()
+            if beast ~= -1 then
+                Notifications.Show($'{players.get_name(beast)} is the beast', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
+            else
+                Notifications.Show('No player is the beast', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
+            end
         end)
 
         self.other:action(T'Quick Bail', {}, T'Force yourself to bail from the session', function()
-            memory.write_int(memory.script_global(Globals.QuickBail), 5)
+            memory.write_int(Globals.QuickBail:g(), 5)
         end)
     end
 
     function CreateCasino()
         self.casino = self.root:list(T'Casino', {T'rocasino'}, T'Casino')
+        self.casino:action(T'Bypass Casino Win/Lose Limit', {}, T'Bypass the casino win/lose limit', function()
+            stats.stat_set_int(('MPPLY_CASINO_CHIPS_WON_GD'):joaat(), 0)
+        end)
+        self.casino:divider('')
         self.blackjack = self.casino:list(T'Blackjack', {T'rblackjack'}, T'Blackjack')
         self.blackjack:toggle_loop(T'Show Dealer Cards', {}, T'Show the cards of the dealer (it also shows your cards)', function()
-            util.spoof_script(Globals.BJScript, function()
-                local dealer = memory.script_local(Globals.BJScript, Globals.BlackjackDealerCards)
-                local player = memory.script_local(Globals.BJScript, Globals.BlackjackPlayerCards)
+            util.spoof_script(G.BJS, function()
+                local dealer = memory.script_local(table.unpack(Globals.BlackjackDealerCards))
+                local player = memory.script_local(table.unpack(Globals.BlackjackPlayerCards))
                 local dealer_cards, player_cards = memory.read_byte(dealer), memory.read_byte(player)
                 util.draw_debug_text('Dealer: ' .. dealer_cards .. ' | Player: ' .. player_cards)
             end)
         end)
 
         self.blackjack:toggle_loop(T'Always Max Bet', {}, T'Always set your bet to max (bypasses limits on lower tables)', function()
-            util.spoof_script(Globals.BJScript, function()
-                local bet = memory.script_local(Globals.BJScript, Globals.BlackjackBetAmount)
+            util.spoof_script(G.BJS, function()
+                local bet = memory.script_local(table.unpack(Globals.BlackjackBetAmount))
                 memory.write_int(bet, 55000)
+            end)
+        end)
+        self.blackjack:divider('')
+
+        self.bet_amount = self.blackjack:text_input(T'Bet Amount', {T'blackjackbetamount'}, T'Set the bet amount', function(amount) end, '1000')
+        self.blackjack:toggle_loop(T'Set Bet', {T'blackjacksetbet'}, T'Set the bet amount', function()
+            util.spoof_script(G.BJS, function()
+                local bet = memory.script_local(table.unpack(Globals.BlackjackBet))
+                local amount = tonumber(self.bet_amount.value)
+                if amount < 0 then amount = 1000 end
+                if amount > 1000000 then amount = 1000000 end
+                memory.write_int(bet, amount)
+            end)
+        end)
+
+        self.blackjack:toggle_loop(T'Display Current Bet', {T'blackjackdisplaybet'}, T'Display the current bet amount', function()
+            util.spoof_script(G.BJS, function()
+                local bet = memory.script_local(table.unpack(Globals.BlackjackBet))
+                util.draw_debug_text('Bet: ' .. memory.read_int(bet))
             end)
         end)
     end
@@ -539,17 +600,17 @@ pluto_class Online
         self.store_holdups = self.root:list(T'Store Holdups', {T'rostoreholdups'}, T'Store Holdups')
 
         self.force_robbery = self.store_holdups:action(T'Force Robbery', {}, T'Force a robbery when you are inside of a store', function()
-            local store = memory.script_local(Globals.HoldUpScript, Globals.HoldUpForceRobbery)
+            local store = memory.script_local(table.unpack(Globals.HoldUpForceRobbery))
             if store ~= 0 then
-                memory.write_int(store, memory.bits:set(memory.read_int(store), Masks.HoldUpForceRobbery))
+                memory.write_int(store, memory.bits:set(memory.read_int(store), memory.bits.masks.HoldUpForceRobbery))
             end
         end)
 
         self.instant_finish_robbery = self.store_holdups:action(T'Instant Finish Robbery', {}, T'Instantly finish a robbery when you are inside of a store', function()
-            local store = memory.script_local(Globals.HoldUpScript, Globals.HoldUpForceRobbery)
-            local scene = memory.script_local(Globals.HoldUpScript, Globals.HoldUpRobberySceneId)
+            local store = memory.script_local(table.unpack(Globals.HoldUpForceRobbery))
+            local scene = memory.script_local(table.unpack(Globals.HoldUpRobberySceneId))
             if store ~= 0 and scene ~= 0 then
-                memory.write_int(store, memory.bits:set(memory.read_int(store), Masks.HoldUpForceRobbery))
+                memory.write_int(store, memory.bits:set(memory.read_int(store), memory.bits.masks.HoldUpForceRobbery))
                 local scene_id = memory.read_int(scene)
                 repeat
                     util.yield_once()
@@ -564,54 +625,53 @@ pluto_class Online
     end
 
     function CreateTaxiService()
-        local Script = Globals.TaxiScript
         self.taxi = self.root:list(T'Taxi Service', {T'rtaxi'}, T'Taxi Service')
 
         self.taxi:action(T'Instant Quit', {}, T'Instantly quit the taxi service', function()
-            local quit = memory.script_local(Script, Globals.TaxiServiceInstantQuit)
+            local quit = memory.script_local(table.unpack(Globals.TaxiServiceInstantQuit))
             if quit ~= 0 then
                 memory.write_int(quit, 2)
             end
         end)
 
         self.taxi:text_input(T'Fare', {T'taxiservicefare'}, T'Set the fare for the taxi service', function(amount)
-            local fare = memory.script_local(Script, Globals.TaxiServiceFare)
+            local fare = memory.script_local(table.unpack(Globals.TaxiServiceFare))
             if fare ~= 0 then
                 memory.write_int(fare, tonumber(amount))
             end
         end)
 
         self.taxi:text_input(T'Tip', {T'taxiservicetip'}, T'Set the tip for the taxi service', function(amount)
-            local tip = memory.script_local(Script, Globals.TaxiServiceTip)
+            local tip = memory.script_local(table.unpack(Globals.TaxiServiceTip))
             if tip ~= 0 then
                 memory.write_int(tip, tonumber(amount))
             end
         end)
 
         self.taxi:toggle_loop(T'Disable Customer Salt', {}, T'Prevent the customer from getting mad at you and decreasing the tip, crashing will still cause the customer to get mad at you though!', function()
-            local salt = memory.script_local(Script, Globals.TaxiServiceSaltTimerActive)
+            local salt = memory.script_local(table.unpack(Globals.TaxiServiceSaltTimerActive))
             if salt ~= 0 then
                 memory.write_int(salt, 0)
             end
         end)
 
         self.taxi:toggle_loop(T'Remove Fare', {}, T'Remove the fare', function()
-            local fare = memory.script_local(Script, Globals.TaxiServiceFare)
+            local fare = memory.script_local(table.unpack(Globals.TaxiServiceFare))
             if fare ~= 0 then
                 memory.write_int(fare, 0)
             end
         end)
 
         self.taxi:toggle_loop(T'Remove Tip', {}, T'Remove the tip', function()
-            local tip = memory.script_local(Script, Globals.TaxiServiceTip)
+            local tip = memory.script_local(table.unpack(Globals.TaxiServiceTip))
             if tip ~= 0 then
                 memory.write_int(tip, 0)
             end
         end)
 
         self.taxi:toggle_loop(T'Max Tip', {}, T'Set the tip to the maximum value', function()
-            local fare = memory.script_local(Script, Globals.TaxiServiceFare)
-            local tip = memory.script_local(Script, Globals.TaxiServiceTip)
+            local fare = memory.script_local(table.unpack(Globals.TaxiServiceFare))
+            local tip = memory.script_local(table.unpack(Globals.TaxiServiceTip))
             if fare ~= 0 and tip ~= 0 then
                 memory.write_int(fare, 0)
                 memory.write_int(tip, 15000)
@@ -651,16 +711,23 @@ pluto_class Online
             cargo_amount = amount
         end, '50')
         self.cargo:toggle_loop(T'Display Crates', {T'rodisplaycrates'}, T'Display the amount of crates in your hangar', function()
-            local total_crates = memory.script_global(Globals.HangarTotalCargo)
+            local total_crates = Globals.HangarTotalCargo:g()
             util.draw_debug_text($'Crates: {memory.read_int(total_crates)}')
+        end)
+
+        self.cargo:toggle_loop(T'Remove Sell Cooldown', {T'roremovesellcooldown'}, T'Remove the cooldown for selling cargo', function()
+            local cooldown = Globals.HangarCargoSellCooldown:g()
+            if cooldown ~= 0 then
+                memory.write_int(cooldown, 0)
+            end
         end)
         self.cargo:divider('')
 
         self.cargo:action(T'Instant Source', {}, T'Instantly source cargo for air freight', function()
-            local source = memory.script_global(Globals.InstantSourceHangarCargo)
-            local total_crates = memory.script_global(Globals.HangarCratesToSource)
-            local cargo_type = memory.script_global(Globals.HangarCrateType)
-            local total_cargo = memory.script_global(Globals.HangarTotalCargo)
+            local source = Globals.InstantSourceHangarCargo:g()
+            local total_crates = Globals.HangarCratesToSource:g()
+            local cargo_type = Globals.HangarCrateType:g()
+            local total_cargo = Globals.HangarTotalCargo:g()
 
             if (memory.read_int(total_cargo) < 50) then
                 memory.write_int(total_crates, cargo_amount)
@@ -674,7 +741,7 @@ pluto_class Online
         end)
 
         self.cargo:action(T'Launch App', {T'roappsmugler'}, T'Remotely open air freight internt application', function()
-            S:StartNewScript(Globals.AppSmuggler)
+            S:StartNewScript(G.AS)
         end)
     end
 
@@ -702,7 +769,7 @@ pluto_class Online
         end)
 
         casino:toggle_loop(T'Member Bonus Loop (5K Chips)', {}, '', function()
-            memory.write_byte(memory.script_global(Globals.CasinoChipsMemBonus), 1)
+            memory.write_byte(Globals.CasinoChipsMemBonus:g(), 1)
             util.yield_once()    
         end)
 
@@ -749,40 +816,42 @@ pluto_class Online
     function CreateYeti()
         self.yeti = self.root:list(T'Yeti', {T'royeti'}, T'Yeti')
         self.yeti:toggle(T'Event State', {}, T'Enable/disable yeti event', function(state)
-            memory.write_int(memory.script_global(Globals.YetiEventEnable), state and 1 or 0)
-        end, memory.read_int(memory.script_global(Globals.YetiEventEnable)) == 1)
+            memory.write_int(Globals.YetiEventEnable:g(), state ? 1 : 0)
+        end, memory.read_int(Globals.YetiEventEnable:g()) == 1)
 
         self.yeti:toggle(T'Big RP', {}, T'Increase RP so you get a total of 450,000 from investigate all clues button below', function(state)
-            memory.write_float(memory.script_global(262145 + 1), state and 90 or 1)
+            memory.write_float(memory.script_global(262145 + 1), state ? 90 : 1)
         end)
 
         self.yeti:toggle(T'Disable RP', {}, T'Disable RP so you don\'t get any from investigating all clues', function(state)
-            memory.write_float(memory.script_global(262145 + 1), state and 0 or 1)
+            memory.write_float(memory.script_global(262145 + 1), state ? 0 : 1)
         end)
 
         self.yeti:action(T'Investigate All Clues', {}, T'Investigate all the clues instantly', function()
-            local addr = memory.script_local(Globals.FMScript, Globals.YetiCluesBitfield)
-            local bitfield = pluto_new Bitfield(memory.read_int(addr), addr)
-            memory.write_int(memory.script_global(Globals.YetiEventEnable), 1)
-            memory.write_int(memory.script_global(Globals.YetiClueReward), 0)
+            local addr = memory.script_local(table.unpack(Globals.YetiCluesBitfield))
+            if addr ~= nil then
+                local bitfield = pluto_new Bitfield(memory.read_int(addr), addr)
+                memory.write_int(Globals.YetiEventEnable:g(), 1)
+                memory.write_int(Globals.YetiClueReward:g(), 0)
 
-            bitfield:Set(0x203)
-            local timeout = os.time() + 2
-            util.create_tick_handler(function()
-                memory.write_int(memory.script_local(Globals.FMScript, Globals.YetiCluesCollected), 5)
-                if os.time() > timeout then
-                    return false
+                bitfield:Set(0x203)
+                local timeout = os.time() + 2
+                util.create_tick_handler(function()
+                    memory.write_int(memory.script_local(table.unpack(Globals.YetiCluesCollected)), 5)
+                    if os.time() > timeout then
+                        return false
+                    end
+                end)
+
+                for i = 0, 5 do
+                    bitfield:Set(1 << 2)
+                    util.yield(50)
+                    bitfield:Clear(1 << 2)
+                    util.yield(200)
                 end
-            end)
 
-            for i = 0, 5 do
-                bitfield:Set(1 << 2)
-                util.yield(50)
-                bitfield:Clear(1 << 2)
-                util.yield(200)
+                memory.write_int(Globals.YetiClueReward:g(), 10000)
             end
-
-            memory.write_int(memory.script_global(Globals.YetiClueReward), 10000)
         end)
         self.yeti:divider('')
 
@@ -812,22 +881,34 @@ pluto_class Online
         end)
     end
 
+    function CreateTutorialSessions()
+        self.tut_sessions = self.root:list(T'Tutorial Sessions', {T'rotutsession'}, T'Tutorial Sessions')
+        self.tut_sessions:toggle(T'Create Safe Session', {}, T'Create a tutorial session that other players cannot join giving you a safe space to go afk without being killed', function(state)
+            if not SCRIPT_CAN_CONTINUE then return end
+            if state then
+                network.network_start_solo_tutorial_session()
+            else
+                network.network_end_tutorial_session()
+            end
+        end, network.network_is_in_tutorial_session())
+    end
+
     function ReturnSparrow()
-        local stats = memory.script_global(Globals.KosatkaStatsBase)
+        local stats = Globals.KosatkaStatsBase:g()
         local value = memory.read_byte(stats)
         value = memory.bits:clear(value, KosatkaStats.ReturnSparrow)
         memory.write_byte(stats, value)
     end
 
     function ReturnAvisa()
-        local stats = memory.script_global(Globals.KosatkaStatsBase)
+        local stats = Globals.KosatkaStatsBase:g()
         local value = memory.read_byte(stats)
         value = memory.bits:clear(value, KosatkaStats.ReturnAvisa)
         memory.write_byte(stats, value) 
     end
 
     function ReturnAvenger(location)
-        local stats = memory.script_global(Globals.AvengerStatsBase)
+        local stats = Globals.AvengerStatsBase:g()
         local stats1 = stats - (4 << 3)
         local value = memory.read_int(stats)
         memory.write_int(stats, memory.bits:set(memory.read_int(stats), 1 << 20))
@@ -859,7 +940,7 @@ pluto_class Online
         if blip ~= 0 then
             local entity = hud.get_blip_info_id_entity_index(blip)
             if entity ~= 0 then
-                local stats = memory.script_global(Globals.AcidLabStatsBase)
+                local stats = Globals.AcidLabStatsBase:g()
                 memory.write_short(stats, memory.bits:clear(memory.read_short(stats), 1 << 6))
                 memory.write_short(stats, memory.bits:set(memory.read_short(stats), 0x300))
                 entities.delete_by_handle(entity)
@@ -872,7 +953,7 @@ pluto_class Online
         if blip ~= 0 then
             local entity = hud.get_blip_info_id_entity_index(blip)
             if entity ~= 0 then
-                local stats = memory.script_global(Globals.AcidLabStatsBase)
+                local stats = Globals.AcidLabStatsBase:g()
                 local stats1 = stats - 0x8
                 memory.write_int(stats1, memory.bits:set(memory.read_int(stats), 1 << 26))
                 memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 0))
@@ -883,7 +964,7 @@ pluto_class Online
     end
 
     function ReturnKosatka()
-        local kosatka = memory.script_global(Globals.ReturnKosatka)
+        local kosatka = Globals.ReturnKosatka:g()
         local kosatka1 = kosatka + 0x8
         memory.write_byte(kosatka, 2)
         memory.write_byte(kosatka1, 17)
@@ -894,7 +975,7 @@ pluto_class Online
         if blip ~= 0 then
             local entity = hud.get_blip_info_id_entity_index(blip)
             if entity ~= 0 then
-                local stats = memory.script_global(Globals.TerrorbyteStatsBase)
+                local stats = Globals.TerrorbyteStatsBase:g()
                 memory.write_int(stats, memory.bits:set(memory.read_int(stats), 0x18000090))
                 memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 11))
                 entities.delete_by_handle(entity)
@@ -908,7 +989,7 @@ pluto_class Online
         if blip ~= 0 then
             local entity = hud.get_blip_info_id_entity_index(blip)
             if entity ~= 0 then
-                local stats = memory.script_global(Globals.MOCStatsBase)
+                local stats = Globals.MOCStatsBase:g()
                 local stats1 = stats + 0x8
                 memory.write_int(stats, memory.bits:set(memory.read_int(stats), 0x100040))
                 memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 5))
@@ -931,8 +1012,8 @@ pluto_class Online
     function RequestService(service)
         switch service do
             case 'NanoDrone':
-                local drone = memory.script_global(Globals.RequestNanoDrone)
-                memory.write_int(drone, memory.read_int(drone) | Masks.RequestNanoDrone)
+                local drone = Globals.RequestNanoDrone:g()
+                memory.write_int(drone, memory.read_int(drone) | memory.bits.masks.RequestNanoDrone)
                 break
             case 'RCBandito':
                 memory.write_byte(self.RequestBase + Offsets.Bandito, 1)
@@ -996,14 +1077,14 @@ pluto_class Online
                 memory.write_byte(self.RequestBase + Offsets.BST, 1)
                 break
             case 'Supplies':
-                local supplies = memory.script_global(Globals.RequestSupplies)
-                local timer = memory.script_global(Globals.RequestSuppliesTimer)
-                memory.write_short(supplies, memory.read_short(supplies) | Masks.RequestSupplies)
+                local supplies = Globals.RequestSupplies:g()
+                local timer = Globals.RequestSuppliesTimer:g()
+                memory.write_short(supplies, memory.read_short(supplies) | memory.bits.masks.RequestSupplies)
                 util.yield(500)
                 memory.write_int(timer, 0)
                 break
             case 'SourceMotorcycle':
-                memory.write_byte(memory.script_global(Globals.SourceMotorcycle), 1)
+                memory.write_byte(Globals.SourceMotorcycle:g(), 1)
                 break
 
         end
@@ -1024,7 +1105,7 @@ pluto_class Online
     end
 
     function LesterLocate(bit)
-        local lester = memory.script_global(Globals.LesterLocate)
+        local lester = Globals.LesterLocate:g()
         memory.write_byte(lester, memory.bits:toggle(memory.read_byte(lester), bit))
         util.yield_once()
         memory.write_byte(lester, memory.bits:toggle(memory.read_byte(lester), bit))
@@ -1032,8 +1113,8 @@ pluto_class Online
 
     function RequestPegasusVehicle(hash)
         -- credit to acjoker for finding the globals that made this possible
-        if not streaming.is_model_valid(hash) then util.toast('Invalid model hash') return end
-        local request = memory.script_global(Globals.PegasusRequest)
+        if not streaming.is_model_valid(hash) then Notifications.Show(T'Invalid Model Hash', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK) return end
+        local request = Globals.PegasusRequest:g()
         local request1 = request + 0x8
         memory.write_int(request1, hash)
         memory.write_byte(request, memory.bits:toggle(memory.read_byte(request), 1 << 7))
@@ -1042,18 +1123,18 @@ pluto_class Online
     end
 
     function RequestCEOVehicle(hash)
-        if not streaming.is_model_valid(hash) then util.toast('Invalid model hash') return end
-        local request = memory.script_global(Globals.OrganisationBase + 10)
+        if not streaming.is_model_valid(hash) then Notifications.Show(T'Invalid Model Hash', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK) return end
+        local request = Globals.OrganisationBase:g() + 0x50
         memory.write_int(request + CEOVehicle.VehicleHash, hash)
         memory.write_byte(request + CEOVehicle.Request, 1)
     end
 
     function RenameAcidLab(name)
-        memory.write_string(memory.script_global(Globals.AcidLabName), name)
+        memory.write_string(Globals.AcidLabName:g(), name)
     end
     
     function GetAcidLabName()
-        return memory.read_string(memory.script_global(Globals.AcidLabName))
+        return memory.read_string(Globals.AcidLabName:g(players.user()))
     end
 end
 

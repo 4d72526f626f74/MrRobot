@@ -1,10 +1,13 @@
 local T, S, H = require('translations'), require('shared'), require('handler')
 local Bitfield = require('bitfield')
 local VehModels = require('vehicle_models')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local ScriptOffsets = require('offsets')
-local Masks = require('masks')
 local Network = require('network')
+local Notifications = require('notifications')
+local Blacklist = require('blacklist')
+local GTAClasses = require('gta_classes')
 
 local shadow_root = menu.shadow_root()
 
@@ -14,27 +17,28 @@ local SpoofingOffsets = ScriptOffsets.Online.SpoofingOffsets
 local PlayerStates = ScriptOffsets.PlayerStates
 local VehStateBitfield = ScriptOffsets.VehStateBitfield
 local Settings = pluto_new Bitfield(Bits.ForceScriptHost)
+local SettingsBits = S.SettingsBits
 
 local ScriptEvents = {
-    'Fake Register CEO', 
-            'Fake Register MC', 
-            'Fake Register VIP',
-            'Fake Off The Radar',
-            'Fake Ghost Org',
-            'Mugged',
-            'Ewo',
-            'Ghosted',
-            'Destroyed Vehicle Cargo',
-            'Cash Stolen',
-            'Cash Banked',
-            'Cash Removed',
-            'Jammer Activated',
-            'Delivered Motorcycle',
-            'Joined Organisation',
-            'Quit Organisation',
-            'Marked For Death',
-            'Interior Invite',
-            'Mugger Killed'
+    {1, 'Fake Register CEO'}, 
+    {2, 'Fake Register MC'}, 
+    {3, 'Fake Register VIP'},
+    {4, 'Fake Off The Radar'},
+    {5, 'Fake Ghost Org'},
+    {6, 'Mugged'},
+    {7, 'Ewo'},
+    {8, 'Ghosted'},
+    {9, 'Destroyed Vehicle Cargo'},
+    {10, 'Cash Stolen'},
+    {11, 'Cash Banked'},
+    {12, 'Cash Removed'},
+    {13, 'Jammer Activated'},
+    {14, 'Delivered Motorcycle'},
+    {15, 'Joined Organisation'},
+    {16, 'Quit Organisation'},
+    {17, 'Marked For Death'},
+    {18, 'Interior Invite'},
+    {19, 'Mugger Killed'}
 }
 
 local DetachableWheels = {
@@ -46,15 +50,50 @@ local DetachableWheels = {
     {index = 5, name = T'Right Middle'},
 }
 
+local colours = {
+    red = { r=255/255, g=0/255, b=0/255, a=255/255 },
+    green = { r=0/255, g=255/255, b=0/255, a=255/255 },
+    blue = { r=0/255, g=0/255, b=255/255, a=255/255 },
+    yellow = { r=255/255, g=255/255, b=0/255, a=255/255 },
+    white = { r=255/255, g=255/255, b=255/255, a=255/255 },
+    black = { r=0/255, g=0/255, b=0/255, a=255/255 },
+    orange = { r=255/255, g=165/255, b=0/255, a=255/255 },
+    purple = { r=128/255, g=0/255, b=128/255, a=255/255 },
+    pink = { r=255/255, g=192/255, b=203/255, a=255/255 },
+    cyan = { r=0/255, g=255/255, b=255/255, a=255/255 },
+    grey = { r=128/255, g=128/255, b=128/255, a=255/255 },
+    brown = { r=165/255, g=42/255, b=42/255, a=255/255 },
+    lime = { r=0/255, g=255/255, b=0/255, a=255/255 },
+    olive = { r=128/255, g=128/255, b=0/255, a=255/255 },
+    maroon = { r=128/255, g=0/255, b=0/255, a=255/255 },
+    teal = { r=0/255, g=128/255, b=128/255, a=255/255 },
+    navy = { r=0/255, g=0/255, b=128/255, a=255/255 },
+    silver = { r=192/255, g=192/255, b=192/255, a=255/255 },
+    gold = { r=255/255, g=215/255, b=0/255, a=255/255 }
+}
+
+local overlay_name_banner = { x=0.02, y=0.02, width=0.25, height=0.02, colour=colours.black }
+local overlay_name_text = { x=0.022, y=0.031, colour=colours.green }
+local overlay_info = { x=0.02, y=0.02*2, width=0.25, height=0.31, colour={ r=0, g=0, b=0, a=180/255 } }
+local text_colour = colours.teal
+local otr_colour = colours.red
+local godmode_colour = colours.red
+local in_rc_colour = colours.red
+local bounty_colour = colours.red
+local bounty_reward_colour = colours.teal
+local host_colour = colours.red
+local scripthost_colour = colours.red
+local ghosted_colour = colours.red
+
 pluto_class Players
     cayo_targets = {
-        'Tequila',
-        'Madrazo Files',
-        'Pink Diamond',
-        'Bearer Bonds',
-        'Ruby Necklace',
-        'Sapphire Panther',
-        'Invalid'
+        {1, 'Tequila'},
+        {2, 'Madrazo Files'},
+        {3, 'Pink Diamond'},
+        {4, 'Bearer Bonds'},
+        {5, 'Ruby Necklace'},
+        {6, 'Sapphire Panther'},
+        {7, 'Invalid'}
     }
 
     function __construct(root)
@@ -64,15 +103,21 @@ pluto_class Players
             player_info = false,
             personal_vehicle = false,
             bounty = false,
-            wheels_states = false
+            wheels_states = false,
+            ghosted = false,
+            tut_session_info = false
         }
         self.wheel_labels = {}
+        self.stand_pos_spoof = menu.ref_by_command_name('spoofpos')
+        self.stand_spoofed_pos = menu.ref_by_command_name('spoofedposition')
+        self.invisibility = menu.ref_by_command_name('invisibility')
 
-        H.PlayerLoop =  S:Partial(self.PlayerLoop, self)
+        H.PlayerLoop = S:Partial(self.PlayerLoop, self)
         H.PlayerRemove = S:Partial(self.PlayerRemove, self)
+        H.CheckBlacklist = S:Partial(self.CheckBlacklist, self)
 
         self.proot = root:list(T'Players', {T'rplayers'}, '')
-        self.proot.visible = false
+        self.proot.visible = true
     end
 
     function PlayerLoop(pid, root)
@@ -81,14 +126,29 @@ pluto_class Players
         if network.network_is_friend(self.gamer_handle) and pid ~= players.user() then S:AddFriend(pid) end
 
         local name = players.get_name(pid)
-        local script_root = self.proot:list(name, {}, name)
+        local script_root = self.proot:list(name, {}, name, function()
+            self.proot:focus()
+            root:getChildren()[1]:focus()
+        end)
 
         root:divider('Mr.Robot')
         self.root = root:list('Mr.Robot', {}, 'Mr.Robot')
+        self.root:onTickInViewport(function()
+            if S.Settings:IsSet(SettingsBits.EnablePlayerOverlay) then
+                self:CreateOverlay(pid)
+            end
+        end)
 
         self.pinfo = self.root:list(T'Player Info', {}, T'Player Info', nil, nil, || -> self:UpdatePlayerInfo(pid))
+        self.pinfo:readonly('', '') -- dev
         self.pinfo:readonly('', '') -- badsport
         self.pinfo:readonly('', '') -- cheater
+        self.pinfo:readonly('', '') -- using orbital cannon
+        self.pinfo:readonly('', '') -- using drone
+        self.pinfo:readonly('', '') -- godmode
+        self.pinfo:readonly('', '') -- vehicle
+        self.pinfo:readonly('', '') -- vehicle health
+        self.pinfo:readonly('', '') -- vehicle owner
 
         self.pv = self.root:list(T'Personal Vehicle', {}, T'Personal Vehicle', nil, nil, || -> self:UpdatePersonalVehicle(pid))
         self.pv:divider(T'Vehicle Info')
@@ -99,6 +159,7 @@ pluto_class Players
         self.pv:readonly('', '') -- invisible
         self.pv:readonly('', '') -- can migrate
         self.pv:readonly('', '') -- network id
+        self.pv:readonly('', '') -- owner
 
         self.pv:divider('')
         self.pv:toggle(T'Force Script Host', {}, T'Forces you to become script host (helps with trolling features)', function(state)
@@ -298,7 +359,7 @@ pluto_class Players
         if pid ~= players.user() then
             self.organisation = self.trolling:list(T'Organisation', {}, T'Organisation')
 
-            self.organisation:toggle_loop(T'Force Join', {}, T'Force join the players organisation, you will instatly rejoin if they kick you', function()
+            self.organisation:toggle_loop(T'Force Join', {}, T'Force join the players organisation, you will instantly rejoin if they kick you', function()
                 Network.SetOrganisationID(pid)
             end)
         end
@@ -308,7 +369,7 @@ pluto_class Players
         local event_choice = self.script_events:list_select(T'Event', {}, T'The event to send', ScriptEvents, 1, function(index) end)
         self.script_events:action(T'Send', {}, T 'Send the event to the player', function()
             local index = event_choice.value
-            local event = ScriptEvents[index]
+            local event = ScriptEvents[index][2]
             local player_id = players.user()
             local amount = event_amount.value
 
@@ -386,7 +447,7 @@ pluto_class Players
             amount = tonumber(amount)
             if amount ~= nil then
                 if amount < 0 or amount > 10000 then
-                    return util.toast(T'Invalid amount')
+                    return Notifications.Show(T'Invalid Amount', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
                 end
 
                 Network.SetBounty(pid, 0, false)
@@ -399,7 +460,7 @@ pluto_class Players
             amount = tonumber(amount)
             if amount ~= nil then
                 if amount < 0 or amount > 10000 then
-                    return util.toast(T'Invalid amount')
+                    return Notifications.Show(T'Invalid Amount', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
                 end
 
                 Network.SetBountyReward(pid, amount)
@@ -421,7 +482,7 @@ pluto_class Players
             local amount = tonumber(bounty_input_amount.value)
             if amount ~= nil then
                 if amount < 0 or amount > 10000 then
-                    return util.toast(T'Invalid amount')
+                    return Notifications.Show(T'Invalid Model Hash', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
                 end
 
                 Network.SetBounty(pid, 0, false)
@@ -433,7 +494,7 @@ pluto_class Players
             local amount = tonumber(bounty_reward_amount.value)
             if amount ~= nil then
                 if amount < 0 or amount > 10000 then
-                    return util.toast(T'Invalid amount')
+                    return Notifications.Show(T'Invalid Model Hash', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
                 end
 
                 Network.SetBountyReward(pid, amount)
@@ -450,7 +511,7 @@ pluto_class Players
 
         self.toxic = self.trolling:list(T'Toxic', {}, T'Toxic')
         self.toxic:action(T'Send Corrupted Invite', {}, T'Send a corrupted invite to the player', function()
-            memory.write_int(memory.script_global(Globals.Interior), -1)
+            memory.write_int(Globals.Interior:g(), -1)
             S:InteriorInvite(pid)
         end)
 
@@ -605,7 +666,7 @@ pluto_class Players
 
         self.trolling:action(T'Unghost', {}, T'Unghost the player', function()
             Network.SetBounty(pid, 0, true)
-            util.yield(100)
+            util.yield(500)
             Network.SetBounty(pid, 0, false)
         end)
 
@@ -620,6 +681,21 @@ pluto_class Players
             local amount = math.random(math.min_int, math.max_int)
             S:SuccessfullyMugged(pid, amount)
             util.yield(100)
+        end)
+
+        self.trolling:toggle_loop(T'Spoof To Player Position', {}, T'Spoof your position to the coordinates of this player', function()
+            
+            if not self.stand_pos_spoof.value then
+                self.stand_pos_spoof:trigger()
+            end
+
+            local coords = players.get_position(pid)
+            coords.z -= 1000
+            self.stand_spoofed_pos:trigger($'{coords.x}, {coords.y}, {coords.z}')
+        end, function()
+            if self.stand_pos_spoof.value then
+                self.stand_pos_spoof.value = false
+            end
         end)
 
         self.friendly = self.root:list(T'Friendly', {}, T'Friendly')
@@ -641,9 +717,63 @@ pluto_class Players
         self.cayo = self.neutral:list(T'Cayo Perico', {}, T'Cayo Perico')
         self.target_choice = self.cayo:list_select(T'Target', {}, T'Target that will be set for this player in the heist', self.cayo_targets, 1, function(index) end)
         self.cayo:toggle_loop(T'Set Target', {}, T'Set the target for this player in the heist (changing the target mid-heist will change the take)', function()
-            local target = memory.script_global(Globals:PlayerCayoPrimaryTarget(pid))
+            local target = Globals.CayoPrimaryTarget:g(pid)
             memory.write_int(target, self.target_choice.value - 1)
         end)
+
+        if pid ~= players.user() then
+            self.ghosted = self.root:list(T'Ghosted', {}, T'Ghosted', nil, nil, || -> self:UpdateGhostedInfo(pid))
+            local times_killed = self.ghosted:readonly(T'Times Killed: 0', '')
+            local is_ghosted = self.ghosted:readonly(T'Ghosted To: No', '')
+
+            self.ghosted:divider('')
+            self.ghosted:action(T'Become Unghosted', {}, T'Become unghosted', function()
+                local is_ghosted = Globals.IsPlayerGhosted:g(pid)
+                local ghosted_bitfield = Globals.GhostedBitfield:g(pid)
+                if memory.read_byte(is_ghosted) == 1 or memory.read_int(ghosted_bitfield) > 0 then
+                    memory.write_int(ghosted_bitfield, 0)
+                else
+                    Notifications.Show(T'You are not ghosted to this player', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
+                end
+            end)
+
+            self.ghosted:action(T'Become Ghosted', {}, T'Become ghosted', function()
+                local is_ghosted = Globals.IsPlayerGhosted:g(pid)
+                local ghosted_bitfield = Globals.GhostedBitfield:g(pid)
+                local killed = Globals.GhostedKilledByPlayerCount:g(pid)
+                if memory.read_byte(is_ghosted) == 0 or memory.read_int(ghosted_bitfield) == 0 then
+                    memory.write_int(ghosted_bitfield, 0xC7D718)
+                    memory.write_byte(is_ghosted, 1)
+                    memory.write_int(killed, 0)
+                    network.set_remote_player_as_ghost(pid, true)
+                else
+                    Notifications.Show(T'You are already ghosted to this player', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
+                end
+            end)
+
+            self.tut_session = self.root:list(T'Tutorial Session', {}, T'Tutorial Session', nil, nil, || -> self:UpdateTutorialSessionInfo(pid))
+            self.tut_session:readonly(T'Instance ID: ?', '')
+            self.tut_session:readonly(T'Team ID: ?', '')
+            self.tut_session:readonly(T'Can Join: ?', '')
+            self.tut_session:divider('')
+
+            self.tut_session:action(T'Join', {}, T'Join the players tutorial session', function()
+                local instance_id, team_id = Network.GetInstanceIDAndTeamID(pid)
+                if instance_id == 64 then
+                    Notifications.Show(T'You cannot join this players tutorial session', 'MrRobot', '', Notifications.HUD_COLOUR_REDDARK)
+                    return
+                end
+                if network.network_get_player_tutorial_session_instance(players.user()) ~= instance_id then
+                    network.network_allow_gang_to_join_tutorial_session(instance_id, team_id)
+                else
+                    Notifications.Show(T'You are already in this players tutorial session', 'MrRobot', '', Notifications.HUD_COLOUR_REDDARK)
+                end
+            end)
+
+            self.tut_session:action(T'Leave', {}, T'Leave the players tutorial session', function()
+                network.network_end_tutorial_session()
+            end)
+        end
     end
 
     function PlayerRemove(pid, name)
@@ -655,6 +785,7 @@ pluto_class Players
     function UpdatePlayerInfo(pid)
         if not self.updating.player_info then
             self.updating.player_info = true
+            local CPed = GTAClasses.CPed:new(entities.handle_to_pointer(player.get_player_ped(pid)))
             util.create_tick_handler(function()
                 local item = menu.get_current_menu_list()
                 if item.menu_name ~= T'Player Info' then 
@@ -662,14 +793,37 @@ pluto_class Players
                     return false 
                 end
                 local children = item:getChildren()
-                if #children == 2 then
-                    local badsport, cheater = children[1], children[2]
-                    if badsport:isValid() then
-                        badsport.menu_name = T'Badsport: ' .. ((Network.StatsPlayerIsBadSport(pid)) ? T'Yes' : T'No')
-                    end
-                    if cheater:isValid() then
-                        cheater.menu_name = T'Cheater: ' .. ((Network.StatsPlayerIsCheater(pid)) ? T'Yes' : T'No')
-                    end
+                local is_dev, badsport, cheater, orbital_cannon, drone, godmode, vehicle, vehicle_health, vehicle_owner = children[1], children[2], children[3], children[4], children[5], children[6], children[7], children[8], children[9]
+                if is_dev:isValid() then
+                    is_dev.menu_name = T'Script Developer: ' .. ((S:IsDev(pid)) ? T'Yes' : T'No')
+                end
+                if badsport:isValid() then
+                    badsport.menu_name = T'Badsport: ' .. ((Network.StatsPlayerIsBadSport(pid)) ? T'Yes' : T'No')
+                end
+                if cheater:isValid() then
+                    cheater.menu_name = T'Cheater: ' .. ((Network.StatsPlayerIsCheater(pid)) ? T'Yes' : T'No')
+                end
+                if orbital_cannon:isValid() then
+                    orbital_cannon.menu_name = T'Orbital Cannon: ' .. ((Network.IsUsingOrbitalCannon(pid)) ? T'Yes' : T'No')
+                end
+                if drone:isValid() then
+                    drone.menu_name = T'Drone: ' .. ((Network.IsUsingDrone(pid)) ? T'Yes' : T'No')
+                end
+                if godmode:isValid() then
+                    godmode.menu_name = T'Godmode: ' .. ((CPed.m_damage_bits & 0x1F0 ~= 0) ? T'Yes' : T'No')
+                end
+                if vehicle:isValid() then
+                    local veh = ped.get_vehicle_ped_is_in(player.get_player_ped(pid), false)
+                    local model = entity.get_entity_model(veh)
+                    vehicle.menu_name = T'Vehicle: ' .. util.get_label_text(util.reverse_joaat(model))
+                end
+                if vehicle_health:isValid() then
+                    local veh = ped.get_vehicle_ped_is_in(player.get_player_ped(pid), false)
+                    vehicle_health.menu_name = T'Vehicle Health: ' .. entity.get_entity_health(veh)
+                end
+                if vehicle_owner:isValid() then
+                    local veh = ped.get_vehicle_ped_is_in(player.get_player_ped(pid), false)
+                    vehicle_owner.menu_name = T'Vehicle Owner: ' .. players.get_name(entities.get_owner(veh))
                 end
             end)
         end
@@ -686,7 +840,7 @@ pluto_class Players
                 end
                 local veh = Network.GetPVFromNetworkID(pid)
                 local children = item:getChildren()
-                local model, health, godmode, frozen, invisible, can_migrate, network_id = children[2], children[3], children[4], children[5], children[6], children[7], children[8]
+                local model, health, godmode, frozen, invisible, can_migrate, network_id, owner = children[2], children[3], children[4], children[5], children[6], children[7], children[8], children[9]
 
                 if model:isValid() then
                     if veh ~= 0 then
@@ -741,6 +895,14 @@ pluto_class Players
                         network_id.menu_name = T'Network ID: ' .. Network.GetPVNetworkID(pid)
                     else
                         network_id.menu_name = T'Network ID: None'
+                    end
+                end
+
+                if owner:isValid() then
+                    if veh ~= 0 then
+                        owner.menu_name = T'Owner: ' .. players.get_name(entities.get_owner(veh))
+                    else
+                        owner.menu_name = T'Owner: None'
                     end
                 end
             end)
@@ -811,6 +973,31 @@ pluto_class Players
         end
     end
 
+    function UpdateGhostedInfo(pid)
+        if not self.updating.ghosted then
+            self.updating.ghosted = true
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= T'Ghosted' then
+                    self.updating.ghosted = false
+                    return false
+                end
+                local children = item:getChildren()
+                local times_killed, is_ghosted = children[1], children[2]
+                local g_is_ghosted = Globals.IsPlayerGhosted:g(pid)
+                local g_times_killed = Globals.GhostedKilledByPlayerCount:g(pid)
+
+                if times_killed:isValid() then
+                    times_killed.menu_name = T'Times Killed: ' .. (memory.read_int(g_times_killed) or 0)
+                end
+
+                if is_ghosted:isValid() then
+                    is_ghosted.menu_name = T'Ghosted To: ' .. ((memory.read_byte(g_is_ghosted) == 1) ? T'Yes' : T'No')
+                end
+            end)
+        end
+    end
+
     function IsEntityGodmode(ent)
         local ptr = entities.handle_to_pointer(ent)
         local mask = 0x1F0
@@ -839,7 +1026,7 @@ pluto_class Players
     end
 
     function OutOfRange()
-        util.toast(T'Player is out of range, spectate them or get closer!')
+        Notifications.Show(T'Player is out of range, spectate them or get closer!', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
     end
 
     function ForceVehicleRespawn(pid)
@@ -854,7 +1041,7 @@ pluto_class Players
                     Network.FailedToRequestControl(veh)
                 end
             else
-                util.toast(T'They are in their vehicle, kick them from it first!')
+                Notifications.Show(T'They are in their vehicle, kick them from it first!', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
             end
         else
             self:OutOfRange()
@@ -921,6 +1108,136 @@ pluto_class Players
             decorator.decor_set_int(veh, 'MPBitset', 0)
         else
             self:OutOfRange()
+        end
+    end
+
+    function FormatNumber(number)
+        number = tostring(number)
+        local formatted = ''
+        local count = 0
+        for i = #number, 1, -1 do
+            count = count + 1
+            formatted = number[i] .. formatted
+            if count % 3 == 0 and i ~= 1 then
+                formatted = ',' .. formatted
+            end
+        end
+        return formatted
+    end
+
+    function CreateOverlay(pid)
+        local name = ''
+        if players.is_marked_as_modder(pid) then
+            name = '[MODDER] ' .. players.get_name(pid)
+        end
+
+        local is_otr = players.is_otr(pid)
+        local is_godmode = players.is_godmode(pid)
+        local vehicle_model = players.get_vehicle_model(pid)
+        local in_rc = players.is_using_rc_vehicle(pid)
+        local bounty_data = Network.GetBounty(pid)
+
+        local veh = ped.get_vehicle_ped_is_in(player.get_player_ped(pid), false)
+
+        otr_colour = is_otr ? colours.green : colours.red
+        godmode_colour = is_godmode ? colours.green : colours.red
+        vehicle_colour = vehicle_model == 0 ? colours.red : colours.green
+        rc_colour = in_rc ? colours.green : colours.red
+        bounty_colour = bounty_data.has_bounty ? colours.green : colours.red
+        host_colour = players.get_host() == pid ? colours.green : colours.red
+        scripthost_colour = players.get_script_host() == pid ? colours.green : colours.red
+        ghosted_colour = network.is_entity_a_ghost(player.get_player_ped(pid)) ? colours.green : colours.red
+
+        if Network.IsBountyModded(bounty_data.amount) and bounty_data.has_bounty then
+            bounty_colour = colours.pink
+        end
+
+        directx.draw_rect(overlay_name_banner.x, overlay_name_banner.y, overlay_name_banner.width, overlay_name_banner.height, overlay_name_banner.colour)
+        directx.draw_text(overlay_name_text.x + (overlay_name_banner.width / 2), overlay_name_text.y, name, ALIGN_CENTRE, 0.5, overlay_name_text.colour)
+        directx.draw_rect(overlay_info.x, overlay_info.y, overlay_info.width, overlay_info.height, overlay_info.colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.025, 0.054, 'RID: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.073, 0.054, players.get_rockstar_id(pid), ALIGN_CENTRE, 0.5, text_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.0274, 0.054 + (overlay_name_banner.height * 1), 'IP: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.078, 0.054 + (overlay_name_banner.height * 1), S:UnpackIP(players.get_connect_ip(pid)), ALIGN_CENTRE, 0.5, text_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.0223, 0.054 + (overlay_name_banner.height * 2), 'Rank: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.057, 0.054 + (overlay_name_banner.height * 2), players.get_rank(pid), ALIGN_CENTRE, 0.5, text_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.0267, 0.054 + (overlay_name_banner.height * 3), 'RP: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.069, 0.054 + (overlay_name_banner.height * 3), self:FormatNumber(players.get_rp(pid)), ALIGN_CENTRE, 0.5, text_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.0262, 0.054 + (overlay_name_banner.height * 4), 'KD: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.0605, 0.054 + (overlay_name_banner.height * 4), players.get_kd(pid), ALIGN_CENTRE, 0.5, text_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.024, 0.054 + (overlay_name_banner.height * 5), 'OTR: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.0595, 0.054 + (overlay_name_banner.height * 5), (is_otr ? T'Yes' : T'No'), ALIGN_CENTRE, 0.5, otr_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.014, 0.054 + (overlay_name_banner.height * 6), 'Godmode: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.0595, 0.054 + (overlay_name_banner.height * 6), (is_godmode ? T'Yes' : T'No'), ALIGN_CENTRE, 0.5, godmode_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.014, 0.054 + (overlay_name_banner.height * 7), 'Vehicle: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.0647, 0.054 + (overlay_name_banner.height * 7), (vehicle_model == 0 ? T'None' : util.get_label_text(util.reverse_joaat(vehicle_model))), ALIGN_CENTRE, 0.5, vehicle_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.0255, 0.054 + (overlay_name_banner.height * 8), 'RC: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.0603, 0.054 + (overlay_name_banner.height * 8), (in_rc ? T'Yes' : T'No'), ALIGN_CENTRE, 0.5, rc_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.016, 0.054 + (overlay_name_banner.height * 9), 'Bounty: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.059, 0.054 + (overlay_name_banner.height * 9), (self:FormatNumber(bounty_data.amount) or 0), ALIGN_CENTRE, 0.5, bounty_colour)
+
+        directx.draw_text((overlay_info.width / 4) + 0.001, 0.054 + (overlay_name_banner.height * 10), 'Bounty Reward: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.059, 0.054 + (overlay_name_banner.height * 10), (self:FormatNumber(bounty_data.reward) or 0), ALIGN_CENTRE, 0.5, bounty_reward_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.020, 0.054 + (overlay_name_banner.height * 11), 'Host: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.0642, 0.054 + (overlay_name_banner.height * 11), (players.get_host() == pid ? T'Yes' : T'No'), ALIGN_CENTRE, 0.5, host_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.004, 0.054 + (overlay_name_banner.height * 12), 'Script Host: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.0642, 0.054 + (overlay_name_banner.height * 12), (players.get_script_host() == pid ? T'Yes' : T'No'), ALIGN_CENTRE, 0.5, scripthost_colour)
+
+        directx.draw_text((overlay_info.width / 4) - 0.013, 0.054 + (overlay_name_banner.height * 13), 'Ghosted: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.0642, 0.054 + (overlay_name_banner.height * 13), (network.is_entity_a_ghost(player.get_player_ped(pid)) ? T'Yes' : T'No'), ALIGN_CENTRE, 0.5, ghosted_colour)
+    
+        local health = veh ~= 0 ? entity.get_entity_health(veh) : 0
+        directx.draw_text((overlay_info.width / 4) - 0.015, 0.054 + (overlay_name_banner.height * 14), 'Health: ', ALIGN_CENTRE, 0.5, text_colour)
+        directx.draw_text((overlay_info.width / 4) + 0.061, 0.054 + (overlay_name_banner.height * 14), health, ALIGN_CENTRE, 0.5, text_colour)
+    end
+
+    function UpdateTutorialSessionInfo(pid)
+        if not self.updating.tut_session_info then
+            self.updating.tut_session_info = true
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= T'Tutorial Session' then
+                    self.updating.tut_session_info = false
+                    return false
+                end
+
+                local children = item:getChildren()
+                local instanceid, teamid, can_join = children[1], children[2], children[3]
+
+                local instance_id, team_id = Network.GetInstanceIDAndTeamID(pid)
+                if instanceid:isValid() then
+                    instanceid.menu_name = T'Instance ID: ' .. instance_id
+                end
+
+                if teamid:isValid() then
+                    teamid.menu_name = T'Team ID: ' .. team_id
+                end
+
+                if can_join:isValid() then
+                    can_join.menu_name = T'Can Join: ' .. ((instance_id == 64 or network.network_get_player_tutorial_session_instance(pid) == -1) ? T'No' : T'Yes')
+                end
+            end)
+        end
+    end
+
+    function CheckBlacklist(pid, root)
+        local rid = players.get_rockstar_id(pid)
+        for Blacklist as entry do
+            if entry.rid == rid then
+                Notifications.Show(players.get_name(pid) .. ' is blacklisted\n\nReason: ' .. entry.reason, 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
+            end
         end
     end
 end

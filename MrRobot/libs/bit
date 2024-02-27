@@ -10,7 +10,7 @@ local meta = {
 }
 
 local Bit = {}
-local BitMask = {}
+local BitMask = {masks = require('masks')}
 local Pack = {}
 
 BitMask = setmetatable(BitMask, meta)

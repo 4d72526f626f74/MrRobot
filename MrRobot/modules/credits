@@ -6,7 +6,7 @@ return function()
     self.root = root:list(T'Credits', {T'rcredits'}, '')
 
     self.root:divider(T'Discord', T'discord')
-    self.root:hyperlink(T'Discord', 'https://discord.gg/qYErTtzNXr', '')
+    self.root:hyperlink(T'Discord', 'https://discord.gg/7SWSkaMdxV', '')
     self.root:hyperlink('Mr.Robot#1019', 'https://github.com/4d72526f626f74/MrRobot', T'Developer')
     self.root:hyperlink(T'IceDoomfist#0001', 'https://github.com/IceDoomfist/Stand-Heist-Control/', T'The stats for cayo automated preset are from Heist Control')
     self.root:divider(T'Resources')

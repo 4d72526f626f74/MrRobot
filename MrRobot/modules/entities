@@ -1,41 +1,41 @@
 local T, S, H = require('translations'), require('shared'), require('handler')
 local ZoneInfo = require('zone_info')
+local GTAClasses = require('gta_classes')
 
 pluto_class PedManager
     function __construct(root)
         self.root = root:list(T'Entities', {T'rpedmanager'}, '')
+        self:Init()
+    end
+
+    function Init()
         self.peds = self.root:list(T'Peds', {T'repeds'}, '', || -> self:PedOnClick())
         self.vehicles = self.root:list(T'Vehicles', {T'revehicles'}, '', || -> self:VehicleOnClick())
 
         self.vehicles.visible = false -- TODO: Implement vehicles
-
+        self.incident_id = memory.alloc(4)
         self.ar_beacons = {}
-        self.blips = setmetatable({}, {
-            __gc = function(self)
-                for self as blip do
-                    util.remove_blip(blip)
-                end
-            end
-        })
         self.commands = {}
-
-        function H.PedRemoveBlips()
-            self.blips = nil
-        end
     end
 
     function MapPeds()
         local localplayer = players.localplayer()
         local player_pos = localplayer:get_offset_from_entity_in_world_coords(0.0, 0.0, 0.0)
+        local player_ptr = entities.handle_to_pointer(players.user_ped())
+        local name = players.get_name(players.user())
         local peds = {}
 
         for entities.get_all_peds_as_pointers() as ptr do
             local model = util.reverse_joaat(entities.get_model_hash(ptr))
             local pos = entities.get_position(ptr)
             local dist = player_pos:distance(pos)
-            if dist <= 200.0 and not model:find('freemode') then
+            if dist <= 200.0 then
                 if not peds[model] then peds[model] = {} end
-                peds[model][dist] = entities.pointer_to_handle(ptr)
+                if model:find('freemode') and ptr == player_ptr then
+                    peds[model][dist] = players.user_ped()
+                elseif not model:find('freemode') then
+                    peds[model][dist] = entities.pointer_to_handle(ptr)
+                end
             end
         end
 
@@ -88,9 +88,12 @@ pluto_class PedManager
                 { T'Gtfo Of The Vehicle', self.commands, T'Makes all peds get the fuck out of their vehicle', function() self:LoopEntityHandlesCallFunc(task.task_leave_any_vehicle, 0, 0) end },
                 { T'Super Splat', self.commands, T'Force all peds to super jump and ragdoll so they go splat', function()
                     self:LoopEntityHandlesCallCustomFunc(function(ent)
-                        task.task_jump(ent, true, true)
-                        util.yield(500)
-                        ped.set_ped_to_ragdoll(ent, 1, 1, 0, true, true, false)
+                        task.clear_ped_tasks_immediately(ent)
+                        util.yield(100)
+                        task.task_jump(ent, true, true, true)
+                        util.yield(300)
+                        local forward_vector = entity.get_entity_forward_vector(ent)
+                        ped.set_ped_to_ragdoll_with_fall(ent, 500, 1000, 1, forward_vector.x, forward_vector.y, forward_vector.z, 1, 0, 0, 0, 0, 0, 0)
                     end)
                 end }
             }) as data do
@@ -154,6 +157,7 @@ pluto_class PedManager
             for i, data in pairs(sorted) do
                 local dist, ent, ped_menu, blip = math.floor(data[1]), data[2], nil, nil
                 local ptr = entities.handle_to_pointer(ent)
+                local CPed = GTAClasses.CPed:new(ptr)
                 local info = {
                     health = nil,
                     maxhealth = nil,
@@ -161,7 +165,8 @@ pluto_class PedManager
                     godmode = nil,
                     frozen = nil,
                     invisible = nil,
-                    network_id = nil
+                    owner = nil,
+                    gender = nil
                 }
 
                 ped_menu = ref:list(tostring(dist) .. 'm', {}, tostring(ent), function()
@@ -174,19 +179,26 @@ pluto_class PedManager
                         else
                             hud.set_blip_colour(blip, 27)
                         end
-                        table.insert(self.blips, blip)
+                        table.insert(S.Blips, blip)
                     end
                     util.create_tick_handler(function()
-                        local pos = ped.get_ped_bone_coords(ent, 31086, 0.0, 0.0, 0.0)
-                        util.draw_ar_beacon(pos)
+                        if ped.is_ped_a_player(ent) then
+                            local pos = ped.get_ped_bone_coords(ent, 31086, 0.0, 0.0, 0.0)
+                            util.draw_ar_beacon(pos)
+                        else
+                            local los = entity.has_entity_clear_los_to_entity(players.user_ped(), ent, 17)
+                            local colour = (los) ? { r=0, g=1, b=0, a=1 } : { r=1, g=0, b=0, a=1 }
+                            S:DrawBoneESP(ent, colour)
+                            S:DrawHealthBar(ent)
+                        end
                         if type(info.health) == 'userdata' then
                             if info.health:isValid() then
-                                info.health.menu_name = T'Health' .. $': {entity.get_entity_health(ent)}'
+                                info.health.menu_name = T'Health' .. $': {(entity.is_entity_dead(ent)) ? 0 : entity.get_entity_health(ent) - 100}'
                             end
                         end
                         if type(info.maxhealth) == 'userdata' then
                             if info.maxhealth:isValid() then
-                                info.maxhealth.menu_name = T'Max Health' .. $': {entity.get_entity_max_health(ent)}'
+                                info.maxhealth.menu_name = T'Max Health' .. $': {entity.get_entity_max_health(ent) - 100}'
                             end
                         end
                         if type(info.armor) == 'userdata' then
@@ -209,6 +221,25 @@ pluto_class PedManager
                                 info.invisible.menu_name = T'Invisible' .. $': {self:IsEntityInvisible(ent)}'
                             end
                         end
+                        if type(info.owner) == 'userdata' then
+                            if info.owner:isValid() then
+                                info.owner.menu_name = T'Owner' .. $': {players.get_name(entities.get_owner(ent))}'
+                            end
+                        end
+                        if type(info.gender) == 'userdata' then
+                            if info.gender:isValid() then
+                                if not ped.is_ped_a_player(ent) then
+                                    info.gender.menu_name = T'Gender' .. $': {ped.is_ped_male(ent) ? "Male" : "Female"}'
+                                else
+                                    local model = util.reverse_joaat(entity.get_entity_model(ent))
+                                    if model:find('mp_m') then
+                                        info.gender.menu_name = T'Gender: Male'
+                                    else
+                                        info.gender.menu_name = T'Gender: Female'
+                                    end
+                                end
+                            end
+                        end
                         if not self.ar_beacons[ent] or entity.is_entity_dead(ent) then
                             util.remove_blip(blip)
                             return false
@@ -225,6 +256,8 @@ pluto_class PedManager
                 info.godmode = ped_menu:readonly(T'Godmode' .. $': {(self:IsEntityGodmode(ptr))}')
                 info.frozen = ped_menu:readonly(T'Frozen' .. $': {self:IsEntityFrozen(ent)}')
                 info.invisible = ped_menu:readonly(T'Invisible' .. $': {self:IsEntityInvisible(ent)}')
+                info.owner = ped_menu:readonly(T'Owner' .. $': {players.get_name(entities.get_owner(ent))}')
+                info.gender = ped_menu:readonly(T'Gender' .. $': {ped.is_ped_male(ent) ? "Male" : "Female"}')
                 
                 ped_menu:onTickInViewport(function()
                     local localplayer = players.localplayer()
@@ -250,7 +283,7 @@ pluto_class PedManager
                 ped_menu:toggle(T'Invincible', {}, T'Makes the ped invincible', function(state)
                     entity.set_entity_invincible(ent, state)
                     local coords = entity.get_offset_from_entity_in_world_coords(ent, 0.0, 0.0, 0.0)
-                    for self.blips as blip do
+                    for S.Blips as blip do
                         local blip_coords = hud.get_blip_coords(blip)
                         local dist = coords:distance(blip_coords)
                         if dist <= 0.0 then
@@ -279,6 +312,18 @@ pluto_class PedManager
                     entity.set_entity_health(ent, entity.get_entity_max_health(ent))
                 end)
 
+                ped_menu:toggle_loop(T'Force Crouch', {}, T'Force the ped to crouch', function()
+                    if CPed.addr ~= 0 then
+                        CPed.m_ped_task_flag = CPed.m_ped_task_flag &~ (1 << 4)
+                    end
+                end)
+
+                ped_menu:toggle_loop(T'Force Swim', {}, T'Force the ped to swim', function()
+                    if CPed.addr ~= 0 then
+                        CPed.m_ped_task_flag = CPed.m_ped_task_flag | 0x600
+                    end
+                end)
+
                 ped_menu:divider('')
 
                 ped_menu:action(T'Soul Swap', {}, T'Become this ped', function()
@@ -286,21 +331,25 @@ pluto_class PedManager
                 end)
 
                 ped_menu:action(T'Teleport To Ped', {}, T'Teleports you to the ped', function()
+                    local min, max = entities.get_model_dimensions(ent)
+                    local size = max:sub(min)
                     local pos = entity.get_offset_from_entity_in_world_coords(ent, 0, -5, 0)
                     local rot = entity.get_entity_rotation(ent, 2)
                     local heading = entity.get_entity_heading(ent)
-                    entity.set_entity_coords(players.user_ped(), pos.x, pos.y, pos.z)
+                    entity.set_entity_coords(players.user_ped(), pos.x, pos.y, pos.z - (size.z / 2) + 0.1)
                     entity.set_entity_rotation(players.user_ped(), rot.x, rot.y, rot.z, 2, true)
                     entity.set_entity_heading(players.user_ped(), heading)
                 end)
 
                 ped_menu:action(T'Teleport To Me', {}, T'Teleports the ped to you', function()
-                    local pos = entity.get_entity_coords(players.user_ped(), true)
+                    local min, max = entities.get_model_dimensions(players.user_ped())
+                    local size = max:sub(min)
+                    local pos = entity.get_offset_from_entity_in_world_coords(players.user_ped(), 0, 5, 0)
                     local rot = entity.get_entity_rotation(players.user_ped(), 2)
                     local heading = entity.get_entity_heading(players.user_ped())
-                    entity.set_entity_coords(ent, pos.x, pos.y, pos.z, true, true, true, true)
+                    entity.set_entity_coords(ent, pos.x, pos.y, pos.z - (size.z / 2) + 0.1, true, true, true, true)
                     entity.set_entity_rotation(ent, rot.x, rot.y, rot.z, 2, true)
-                    entity.set_entity_heading(ent, heading)
+                    entity.set_entity_heading(ent, heading + 180)
                 end)
 
                 ped_menu:action(T'Kill', {}, T'Kills the ped', function()
@@ -327,6 +376,21 @@ pluto_class PedManager
 
                 ped_menu:action(T'Ragdoll', {}, T'Ragdoll the ped', function()
                     ped.set_ped_to_ragdoll(ent, 1000, 1000, 0, true, true, false)
+                    local forward_vector = entity.get_entity_forward_vector(ent)
+                    ped.set_ped_to_ragdoll_with_fall(ent, 500, 1000, 1, forward_vector.x, forward_vector.y, forward_vector.z, 1, 0, 0, 0, 0, 0, 0)
+                end)
+
+                ped_menu:action(T'Fall Over', {}, T'Makes the ped fall over', function()
+                    task.clear_ped_tasks_immediately(ent)
+                    util.yield(100)
+                    task.task_jump(ent, false, false, false)
+                    util.yield(500)
+                    ped.set_ped_to_ragdoll(ent, 1000, 1000, 0, true, true, false)
+                end)
+
+                ped_menu:action(T'Stumble', {}, T'Makes the ped stumble', function()
+                    local forward_vector = entity.get_entity_forward_vector(ent)
+                    ped.set_ped_to_ragdoll_with_fall(ent, 500, 1000, 1, forward_vector.x, forward_vector.y, forward_vector.z, 1, 0, 0, 0, 0, 0, 0)
                 end)
 
                 ped_menu:action(T'Peds Attack', {}, T'Makes all peds nearby attack the ped', function()
@@ -344,38 +408,93 @@ pluto_class PedManager
                     end
                 end)
 
+                ped_menu:action(T'Launch Up', {}, T'Launch the ped upwards', function()
+                    S:ApplyUpwardsForceToEntity(ent, 50)
+                    util.yield(100)
+                    local forward_vector = entity.get_entity_forward_vector(ent)
+                    ped.set_ped_to_ragdoll_with_fall(ent, 2000, 2500, 1, forward_vector.x, forward_vector.y, forward_vector.z, 1, 0, 0, 0, 0, 0, 0)
+                end)
+
+                ped_menu:action(T'Launch Down', {}, T'Launch the ped downwards', function()
+                    S:ApplyDownwardsForceToEntity(ent, 50)
+                    util.yield(100)
+                    local forward_vector = entity.get_entity_forward_vector(ent)
+                    ped.set_ped_to_ragdoll_with_fall(ent, 2000, 2500, 1, forward_vector.x, forward_vector.y, forward_vector.z, 1, 0, 0, 0, 0, 0, 0)
+                end)
+
+                ped_menu:action(T'Send Merryweather', {}, T'Send merryweather to shit on them', function()
+                    if misc.create_incident_with_entity(14, ent, 4, 0, self.incident_id, 0, 0) then
+                        local id = memory.read_int(self.incident_id)
+                        if misc.is_incident_valid(id) then
+                            util.toast($'Mercenaries are on route')
+                            table.insert(S.Incidents, { id=id })
+                        end
+                    else
+                        util.toast($'Mercenaries are already killing that cunt')
+                    end
+                end)
+
                 ped_menu:divider('')
                 ped_menu:action(T'Stop All Tasks', {}, T'Stops all tasks of the ped', function()
                     task.clear_ped_tasks_immediately(ent)
                 end)
 
                 ped_menu:action(T'Pause', {}, T'Pauses the ped', function()
+                    task.clear_ped_tasks_immediately(ent)
+                    util.yield(100)
                     task.task_pause(ent, -1)
                 end)
 
                 ped_menu:action(T'Stand Still', {}, T'Makes the ped stand still', function()
+                    task.clear_ped_tasks_immediately(ent)
+                    util.yield(100)
                     task.task_stand_still(ent, -1)
                 end)
 
                 ped_menu:action(T'Sky Dive', {}, T'Makes the ped sky dive', function()
+                    task.clear_ped_tasks_immediately(ent)
+                    util.yield(100)
                     task.task_sky_dive(ent, false)
                 end)
 
                 ped_menu:action(T'Writhe', {}, T'Makes the ped writhe', function()
+                    task.clear_ped_tasks_immediately(ent)
+                    util.yield(100)
                     task.task_writhe(ent, players.user_ped(), 0, 0, 0, 0)
                 end)
 
                 ped_menu:action(T'Jump', {}, T'Makes the ped jump', function()
+                    task.clear_ped_tasks_immediately(ent)
+                    util.yield(100)
                     task.task_jump(ent, true, true, true)
                 end)
 
-                ped_menu:action(T'Super Splat', {}, T'Launch the ped', function()
+                local super_splat
+                super_splat = ped_menu:action(T'Super Splat', {}, T'Launch the ped', function()
+                    task.clear_ped_tasks_immediately(ent)
+                    util.yield(100)
                     task.task_jump(ent, true, true, true)
-                    util.yield(1000)
-                    ped.set_ped_to_ragdoll(ent, 1, 1, 0, true, true, false)
+                    util.yield(300)
+                    S:ApplyUpwardsForceToEntity(ent, 25)
+                    local forward_vector = entity.get_entity_forward_vector(ent)
+                    ped.set_ped_to_ragdoll_with_fall(ent, 500, 1000, 1, forward_vector.x, forward_vector.y, forward_vector.z, 1, 0, 0, 0, 0, 0, 0)
+                end)
+
+                ped_menu:action(T'Super Flip', {}, T'', function()
+                    super_splat:trigger()
+                    util.yield(10)
+                    super_splat:trigger()
+                end)
+
+                ped_menu:action(T'Mini Flip', {}, T'', function()
+                    super_splat:trigger()
+                    util.yield(50)
+                    super_splat:trigger()
                 end)
 
                 ped_menu:action(T'Gtfo Of The Vehicle', {}, T'Makes the ped get out of the vehicle', function()
+                    task.clear_ped_tasks_immediately(ent)
+                    util.yield(100)
                     task.task_leave_any_vehicle(ent, 0, 0)
                 end)
             end
@@ -387,20 +506,44 @@ pluto_class PedManager
     end
 
     function IsEntityGodmode(ptr)
-        local damage_flags = memory.read_int(ptr + 0x188)
-        local mask = 0x1F0
-        return damage_flags & mask ~= 0
+        local status, result = pcall(function()
+            local damage_flags = memory.read_int(ptr + 0x188)
+            local mask = 0x1F0
+            return damage_flags & mask ~= 0
+        end)
+
+        if status then
+            return result
+        else
+            return false
+        end
     end
 
     function IsEntityFrozen(ent)
-        local ptr = entities.handle_to_pointer(ent)
-        return memory.read_long(ptr + 0x0028) & (1 << 49) ~= 0
+        local status, result = pcall(function()
+            local ptr = entities.handle_to_pointer(ent)
+            return memory.read_long(ptr + 0x0028) & (1 << 49) ~= 0
+        end)
+
+        if status then
+            return result
+        else
+            return false
+        end
     end
 
     function IsEntityInvisible(ent)
-        local ptr = entities.handle_to_pointer(ent)
-        local mask = 0x10000100000000
-        return memory.read_long(ptr + 0x0028) & mask == 0
+        local status, result = pcall(function()
+            local ptr = entities.handle_to_pointer(ent)
+            local mask = 0x10000100000000
+            return memory.read_long(ptr + 0x0028) & mask == 0
+        end)
+
+        if status then
+            return result
+        else
+            return false
+        end
     end
 end
 

@@ -30,6 +30,10 @@ pluto_class World
         self.chams = self.root:list(T'Chams', {T'rwchams'}, 'Chams options')
         self.dispatch_service = self.root:list(T'Dispatch Services', {T'rwdispatch'}, 'Enable/disable certain dispatch services (police, fire dept etc)')
 
+        self:Init()
+    end
+
+    function Init()
         self.blackout:toggle(T'Black Out', {}, 'Turn off all artificial lights', function(state)
             graphics.set_artificial_lights_state(state)
             graphics.set_artificial_vehicle_lights_state(state)
@@ -302,6 +306,50 @@ pluto_class World
                 if not ped.is_ped_a_player(p) and not ped.get_ped_config_flag(p, 17, true) then
                     ped.set_blocking_of_non_temporary_events(p, true)
                     task.task_set_blocking_of_non_temporary_events(p, true)
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Display Health Bar', {}, T'Show a health bar for peds', function()
+            local my_pos = players.get_position(players.user())
+            for entities.get_all_peds_as_pointers() as ptr do
+                local pos = entities.get_position(ptr)
+                if my_pos:distance(pos) < 300 then
+                    local ent = entities.pointer_to_handle(ptr)
+                    if not entity.is_entity_dead(ent) and not ped.is_ped_a_player(ent) then
+                        S:DrawHealthBar(ent)
+                    end
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Bone ESP', {}, T'Show bone positions for peds', function()
+            local my_pos = players.get_position(players.user())
+            for entities.get_all_peds_as_handles() as ent do
+                local pos = entity.get_entity_coords(ent)
+                if my_pos:distance(pos) < 1500 then
+                    if not entity.is_entity_dead(ent) and not ped.is_ped_a_player(ent) then
+                        local los = entity.has_entity_clear_los_to_entity(players.user_ped(), ent, 17)
+                        local colour = (los) ? { r=0, g=1, b=0, a=1 } : { r=1, g=0, b=0, a=1 }
+                        S:DrawBoneESP(ent, colour)
+                    end
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Bone ESP For Hostile Peds', {}, T'Show bone positions for hostile peds', function()
+            local my_pos = players.get_position(players.user())
+            for entities.get_all_peds_as_handles() as ent do
+                local pos = entity.get_entity_coords(ent)
+                if my_pos:distance(pos) < 1500 then
+                    if not entity.is_entity_dead(ent) and not ped.is_ped_a_player(ent) then
+                        local relation = ped.get_relationship_between_peds(ent, players.user_ped())
+                        if relation == 4 or relation == 5 or ped.is_ped_in_combat(ent, players.user_ped()) then
+                            local los = entity.has_entity_clear_los_to_entity(players.user_ped(), ent, 17)
+                            local colour = (los) ? { r=0, g=1, b=0, a=1 } : { r=1, g=0, b=0, a=1 }
+                            S:DrawBoneESP(ent, colour)
+                        end
+                    end
                 end
             end
         end)

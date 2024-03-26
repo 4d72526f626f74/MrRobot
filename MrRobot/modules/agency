@@ -1,6 +1,6 @@
 local T, S = require('translations'), require('shared')
-local Globals = require('script_globals')
-local Masks = require('masks')
+local G = require('script_globals')
+local Globals = G.globals
 
 local AgencyArt = {"None", "Power and Money", "Pop & Hype", "Loyalty and Respect"}
 local AgencyWallpaper = {"None", "Floral", "Marble", "Geometric", "Designer", "Presidential", "Exotic", "Tiled", "Organic", "Royal"}
@@ -11,10 +11,10 @@ pluto_class Agency
     function __construct(root)
         self.root = root:list(T'Agency', {T'ragency'}, '')
 
-        self:CreateSafe()
+        self:Init()
     end
 
-    function CreateSafe()
+    function Init()
         self.safe = self.root:list(T'Agency Safe', {}, T'Agency Safe related options')
         self.trigger_production = self.safe:action(T'Trigger Production', {}, T'Trigger production for agency safe', function()
             self:TriggerAgencySafeProduction()
@@ -30,15 +30,15 @@ pluto_class Agency
             self.trigger_production:trigger()
             repeat
                 util.yield_once()
-            until memory.read_int(memory.script_global(Globals.AgencySafeValue)) ~= 0
+            until memory.read_int(Globals.AgencySafeValue:g()) ~= 0
             self:CollectSafeMoney()
             repeat
                 util.yield_once()
-            until memory.read_int(memory.script_global(Globals.AgencySafeValue)) == 0
+            until memory.read_int(Globals.AgencySafeValue:g()) == 0
         end)
 
         self.display_money = self.safe:toggle_loop(T'Safe Value', {}, T'Shows how much money you have in your safe', function()
-            local money = memory.read_int(memory.script_global(Globals.AgencySafeValue))
+            local money = memory.read_int(Globals.AgencySafeValue:g())
             util.draw_debug_text($'Agency Safe: ${money}')
         end)
     end
@@ -53,9 +53,9 @@ pluto_class Agency
     end
 
     function CollectSafeMoney()
-        local trigger = memory.script_local(Globals.AgencyScript, Globals.TriggerAgencySafeCollection)
-        local trigger1 = memory.script_local(Globals.AgencyScript, Globals.TriggerAgencySafeCollection1)
-        memory.write_int(trigger, memory.bits:set(memory.read_int(trigger), Masks.AgencyTriggerCollection))
+        local trigger = memory.script_local(table.unpack(Globals.TriggerAgencySafeCollection))
+        local trigger1 = memory.script_local(table.unpack(Globals.TriggerAgencySafeCollection1))
+        memory.write_int(trigger, memory.bits:set(memory.read_int(trigger), memory.bits.masks.AgencyTriggerCollection))
         memory.write_byte(trigger1, 1)
     end
 end

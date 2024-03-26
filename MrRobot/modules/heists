@@ -1,5 +1,6 @@
 local T, S = require('translations'), require('shared')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local Network = require('network')
 local DoorManager = require('door_manager')
 local Notifications = require('notifications')
@@ -29,6 +30,10 @@ pluto_class Heists
         self.doors = {'gate', 'door'}
         self.guards_casino = {'s_m_y_westsec_02', 's_m_y_casino_01'}
 
+        self:Init()
+    end
+
+    function Init()
         self:CreateCayo()
         self:CreateDiamondCasino()
     end
@@ -139,7 +144,7 @@ pluto_class Heists
         end)
 
         self.auto_solve_fps = self.cayo:action(T'Auto Solve Fingerprints', {}, T'Completes the hacking for you', function()
-            local fp = memory.script_local(Globals.FMMC20, Globals.SkipHacking)
+            local fp = memory.script_local(table.unpack(Globals.SkipHacking))
             if fp ~= 0 then
                 for i = 0, 3 do
                     for j = 0, 7 do
@@ -153,8 +158,8 @@ pluto_class Heists
 
         self.cayo:action(T'Refresh Planning Board', {}, T'Refreshes the planning board on your kosatka', function()
             -- originally found by IceDoomfist but updated by me for latest GTA update
-            util.spoof_script(Globals.IHS, function()
-                local board = memory.script_local(Globals.IHS, Globals.RefreshPlannningBoard)
+            util.spoof_script(G.IHS, function()
+                local board = memory.script_local(table.unpack(Globals.RefreshPlannningBoard))
                 memory.write_byte(board, 2)
             end)
         end)
@@ -243,8 +248,8 @@ pluto_class Heists
         end)
 
         self.cayo:toggle_loop(T'Break Dual Keycard System', {}, T'Break the dual keycard system so that secondary targets cannot be collected (it will always fail)', function()
-            util.spoof_script(Globals.FMMC20, function()
-                local timer = memory.script_local(Globals.FMMC20, Globals.DualKeycardSystemTimer)
+            util.spoof_script(G.FMMC20, function()
+                local timer = memory.script_local(table.unpack(Globals.DualKeycardSystemTimer))
                 memory.write_int(timer, network.get_network_time())
                 memory.write_int(timer + 0x8, 0)
             end)
@@ -304,7 +309,7 @@ pluto_class Heists
         self.target_choice = self.primary_target:list_select(T'Target', {}, T'Target that will be set for everyone in the heist', self.targets, 1, function(index) end)
         self.primary_target:toggle_loop(T'Set Target', {}, T'Set the target for all players in the heist (changing the target mid-heist will change the take)', function()
             for pid = 0, players.max_players do
-                local target = memory.script_global(Globals:PlayerCayoPrimaryTarget(pid))
+                local target = Globals.CayoPrimaryTarget:g(pid)
                 memory.write_int(target, self.target_choice.value - 1)
             end
         end)

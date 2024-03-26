@@ -65,30 +65,30 @@ local weapons_names = {
 }
 
 local damage_types = {
-    'Melee',
-    'Bullet',
-    'Bullet Rubber',
-    'Explosive',
-    'Fire',
-    'Collision',
-    'Fall',
-    'Drown',
-    'Electric',
-    'Barbed Wire',
-    'Fire Extinguisher',
-    'Smoke',
-    'Water Cannon',
-    'Tranquilizer'
+    {1, 'Melee'},
+    {2, 'Bullet'},
+    {3, 'Bullet Rubber'},
+    {4, 'Explosive'},
+    {5, 'Fire'},
+    {6, 'Collision'},
+    {7, 'Fall'},
+    {8, 'Drown'},
+    {9, 'Electric'},
+    {10, 'Barbed Wire'},
+    {11, 'Fire Extinguisher'},
+    {12, 'Smoke'},
+    {13, 'Water Cannon'},
+    {14, 'Tranquilizer'}
 }
 
 local special_ammo = {
-    'None',
-    'Armor Piercing',
-    'Explosive',
-    'FMJ',
-    'Hollow Point',
-    'Incendiary',
-    'Tracer'
+    {1, 'None'},
+    {2, 'Armor Piercing'},
+    {3, 'Explosive'},
+    {4, 'FMJ'},
+    {5, 'Hollow Point'},
+    {6, 'Incendiary'},
+    {7, 'Tracer'}
 }
 
 pluto_class Weapons
@@ -98,7 +98,13 @@ pluto_class Weapons
         self.thermal = self.root:list(T'Thermal', {T'rthermal'}, T'Thermal')
         self.aimbot = self.root:list(T'Aimbot', {T'raimbot'}, T'Aimbot')
         self.mods = self.root:list(T'Mods', {T'rmods'}, T'Mods', nil, nil, || -> self:UpdateWeaponInfo())
+        self.ent_ptr = memory.alloc(4)
+        self.weapon_ptr = memory.alloc(4)
 
+        self:Init()
+    end
+
+    function Init()
         self:CreateMk2Weapons()
         self:CreateThermal()
         self:CreateAimbot()
@@ -175,6 +181,7 @@ pluto_class Weapons
     function CreateAimbot()
         do pluto_new (require('ped_aimbot'))(self.aimbot) end
         do pluto_new (require('player_aimbot'))(self.aimbot) end
+        do pluto_new (require('experimental_aimbot'))(self.aimbot) end
     end
 
     function CreateMods()
@@ -236,7 +243,7 @@ pluto_class Weapons
                     addr = self:GetCurrentWeapon() + 0x028C 
                 }
             end
-            memory.write_float(self:GetCurrentWeapon() + 0x028C, math.max_int / 2)
+            memory.write_float(self:GetCurrentWeapon() + 0x028C, 1500.0)
         end, function()
             if not SCRIPT_CAN_CONTINUE then return end
             for k, v in pairs(self.weapon_range) do
@@ -292,6 +299,33 @@ pluto_class Weapons
             if not SCRIPT_CAN_CONTINUE then return end
             for k, v in pairs(self.weapon_damages) do
                 memory.write_float(v.addr, v.data)
+            end
+        end)
+
+        self.mods:toggle_loop(T'Super Homing Launcher', {}, T'Fire homing rockets at extremely fast speeds when pressing mouse button 5', function()
+            if true then
+                if player.is_player_free_aiming(players.user()) then
+                    local weapon = weapon.get_current_ped_weapon(players.user_ped(), self.weapon_ptr)
+                    local hash = memory.read_int(self.weapon_ptr)
+                    local valid_weapon = hash == ('WEAPON_HOMINGLAUNCHER'):joaat()
+                    
+                    if player.get_entity_player_is_free_aiming_at(players.user(), self.ent_ptr) then
+                        local ent = memory.read_int(self.ent_ptr)
+
+                        if ent ~= 0 then
+                            if valid_weapon then
+                                local from = players.get_position(players.user())
+                                local to = entity.get_entity_coords(ent)
+                                misc.shoot_single_bullet_between_coords_ignore_entity_new(
+                                    from.x, from.y, from.z, to.x, to.y, to.z, 
+                                    100, 1, ('VEHICLE_WEAPON_RUINER_ROCKET'):joaat(), players.user_ped(),
+                                    true, false, math.max_float, players.user_ped(), 0, 0, ent, 0, 0, 0, 0
+                                )
+                            end
+                        end
+                    end
+                end
+                util.yield(300)
             end
         end)
         self.mods:divider('')
@@ -410,8 +444,8 @@ pluto_class Weapons
                 self.m_spread.value = memory.read_float(self:GetCurrentWeapon() + 0x0074)
                 self.m_reload_speed.value = memory.read_float(self:GetCurrentWeapon() + 0x0134)
                 self.m_vehicle_damage_mod.value = memory.read_float(self:GetCurrentWeapon() + 0x00D4)
-                self.m_damage_type.value = damage_types[memory.read_int(self:GetCurrentWeapon() + 0x0020) - 1]
-                self.m_special_ammo.value = special_ammo[memory.read_int(self:GetCurrentWeaponAmmoInfo() + 0x003C) + 1]
+                self.m_damage_type.value = damage_types[memory.read_int(self:GetCurrentWeapon() + 0x0020) - 1][2]
+                self.m_special_ammo.value = special_ammo[memory.read_int(self:GetCurrentWeaponAmmoInfo() + 0x003C) + 1][2]
             end)
         end)
     end

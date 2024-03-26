@@ -1,0 +1,97 @@
+pluto_class AsyncTimer
+    function __construct(callback=nil)
+        self.duration = duration
+        self.callback = callback
+        self.start = nil
+        self.is_running = false
+    end
+
+    function Start()
+        self.start = os.time() + self.duration
+        util.create_tick_handler(function()
+            if self.start == nil then return false end
+            if os.time() >= self.start then
+                self.is_running = false
+                if self.callback ~= nil and type(self.callback) == 'function' then
+                    self.callback()
+                end
+                self.is_running = true
+                return false
+            end
+        end)
+    end
+
+    function Stop()
+        self.start = nil
+    end
+
+    function IsRunning()
+        return self.is_running
+    end
+
+    function Reset()
+        self.start = os.time() + self.duration
+    end
+
+    function SetDuration(duration)
+        self.duration = duration
+    end
+
+    function SetCallback(callback)
+        self.callback = callback
+    end
+end
+
+pluto_class SyncTimer
+    function Start()
+        self.start = os.time()
+    end
+
+    function Stop()
+        self.start = nil
+    end
+
+    function Reset()
+        self.start = os.time()
+    end
+
+    function Elapsed(time)
+        if self.start == nil then
+            return 0
+        end
+        return os.time() - self.start
+    end
+
+    function HasElapsedFor(time)
+        if self.start == nil then
+            return false
+        end
+        return os.time() - self.start >= time
+    end
+
+    function WaitUntil(time, reset=true)
+        repeat
+            util.yield_once()
+        until self:HasElapsedFor(time)
+        if reset then
+            self:Reset()
+        end
+    end
+
+    function WaitUntilWithCallback(time, callback, reset=true)
+        repeat
+            util.yield_once()
+        until self:HasElapsedFor(time)
+        if reset then
+            self:Reset()
+        end
+        if callback ~= nil and type(callback) == 'function' then
+            callback()
+        end
+    end
+end
+
+return {
+    AsyncTimer = AsyncTimer,
+    SyncTimer = SyncTimer
+}

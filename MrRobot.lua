@@ -1,43 +1,25 @@
-util.require_natives('natives-2944a')
-
-_G.string.sha256 = function(data) return (require('crypto').sha256)(data) end
-_G.filesystem.script_root = function() return filesystem.scripts_dir() .. '/MrRobot' end
-_G.async_http.host = 'stand.sodamnez.xyz'
-_G.async_http.update_path = '/MrRobot'
-_G.util.log = function(msg) return print($'[MrRobot] {msg}') end
-_G.string.joaat = util.joaat
-_G.util.error = function(err) util.toast($'Error occured: {msg}') end
-_G.string.reverse_joaat = util.reverse_joaat
-_G.util.copy_addr = function(addr) return util.copy_to_clipboard(string.format('%X', addr)) end
-
-function _G.async_http.get(url, path, callback)
-    url = url or async_http.host
-    async_http.init(url, path, callback)
-    async_http.dispatch()
-end
-
-function _G.async_http.post(url, path, data, content_type, callback)
-    url = url or async_http.host
-    async_http.init(url, path, callback)
-    async_http.set_post(content_type, data)
-    async_http.dispatch()
-end
+GTA_BASE = memory.scan('')
+SCRIPT_LANGUAGE = 'English'
+VERSION_MISMATCH = false
 
 pluto_class MrRobot
-    images = { 'MrRobot.png', 'Loser.png', 'Jesus.png' }
+    images = {
+        'MrRobot.png', 'Loser.png', 'Jesus.png'
+    }
     modules = {
         'players', 'credits', 'settings', 'self', 'online', 'vehicles', 'weapons', 'world',
         'entities', 'gunvan', 'protections', 'cooldowns', 'collectables', 'tunables', 'cellphone',
         'moduleloader', 'nightclub', 'arcade', 'agency', 'unlocks', 'heists'
     }
     sub_modules = {
-        'pvm', 'ped_aimbot', 'player_aimbot'
+        'pvm', 'ped_aimbot', 'player_aimbot', 'experimental_aimbot'
     }
     utils = {
         'translations', 'handler', 'entity', 'vehicle_handling', 'pedlist',
         'vehicle_models', 'cutscenes', 'weapons_list', 'offsets', 'masks',
         'script_globals', 'shared', 'network', 'vehicle', 'zone_info', 'notifications',
-        'door_manager', 'gta_classes', 'labels'
+        'door_manager', 'gta_classes', 'labels', 'blacklist', 'timer', 'sound', 'toolkit',
+        'hooks', 'german'
     }
     libs = {
         'inspect', 'bitfield', 'bit', 'math'
@@ -46,7 +28,8 @@ pluto_class MrRobot
     charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
     function __construct(version, gtao_version)
-        _G.SCRIPT_VERSION = version
+        self:BaseSetup()
+
         self.script_version = version
         self.gtao_version = gtao_version
         self.root = menu.my_root()
@@ -60,31 +43,30 @@ pluto_class MrRobot
         self.ssubmodules = self.smodules .. '/sub_modules'
         self.spvcustom = self.sroot .. '/personal_vehicles'
         self.sconfigs = self.sroot .. '/config'
+        self.slanguages = self.sroot .. '/languages'
         self.module_instances = {}
         self.settings = {
             modules = {},
             loading_order = 1,
         }
 
-        for self.modules as m do
-            if m == 'settings' or m == 'credits' then
+        for self.modules as mod do
+            if mod == 'settings' or mod == 'credits' then
                 continue
             end
 
-            self.settings.modules[m] = true
+            self.settings.modules[mod] = true
         end
 
         self.dirs = {
             self.sroot, self.simages, self.sutils,
             self.smodules, self.scustom, self.slibs,
-            self.ssubmodules, self.spvcustom, self.sconfigs
+            self.ssubmodules, self.spvcustom, self.sconfigs,
         }
 
         for self.dirs as dir do
             if not filesystem.exists(dir) then
-                if not io.makedir(dir) then
-                    util.log($'Failed to create directory {dir}')
-                end
+                io.makedir(dir)
             end
         end
 
@@ -95,6 +77,38 @@ pluto_class MrRobot
         else
             local file <close> = assert(io.open(self.sconfigs .. '/settings.json', 'r'))
             self.settings = soup.json.decode(file:read('*a'))
+            file:close()
+        end
+    end
+
+    function BaseSetup()
+        util.require_natives('natives-2944a')
+
+        _G.string.sha256 = function(data) return (require('crypto').sha256)(data) end
+        _G.filesystem.script_root = function() return filesystem.scripts_dir() .. '/MrRobot' end
+        _G.async_http.host = 'stand.sodamnez.xyz'
+        _G.async_http.update_path = '/MrRobot'
+
+        function _G.async_http.get(url, path, callback)
+            url = url or async_http.host
+            async_http.init(url, path, callback)
+            async_http.dispatch()
+        end
+
+        function _G.async_http.post(url, path, data, content_type, callback)
+            url = url or async_http.host
+            async_http.init(url, path, callback)
+            async_http.set_post(content_type, data)
+            async_http.dispatch()
+        end
+
+        if filesystem.exists(filesystem.script_root() .. '/config/language.txt') then
+            local file <close> = assert(io.open(filesystem.script_root() .. '/config/language.txt', 'r'))
+            SCRIPT_LANGUAGE = file:read('*a')
+            file:close()
+        else
+            local file <close> = assert(io.open(filesystem.script_root() .. '/config/language.txt', 'w'))
+            file:write(SCRIPT_LANGUAGE)
             file:close()
         end
     end
@@ -137,7 +151,7 @@ pluto_class MrRobot
     end
 
     function CheckGameVersion()
-        return self.gtao_version == self.GetOnlineVersion()
+        return self.gtao_version == menu.get_version().game:sub(1, 4)
     end
 
     function FindMissingFiles()
@@ -196,7 +210,6 @@ pluto_class MrRobot
 
         repeat
             util.yield_once()
-            util.draw_debug_text('Please wait, downloading missing files ...', ALIGN_CENTRE, 0.8, (0xFF4DA6 >> 16 & 0xFF) / 255, (0xFF4DA6 >> 8 & 0xFF) / 255, (0xFF4DA6 & 0xFF) / 255, 1)
         until bytes ~= 0
     end
 
@@ -220,6 +233,7 @@ pluto_class MrRobot
         if self:CheckGameVersion() ~= true then
             local Notifications = require('notifications')
             Notifications.Show($'This script was coded for {self.gtao_version} but your game version is {self:GetOnlineVersion()}, some features may not work as intended', 'Script is outdated', '', Notifications.HUD_COLOUR_REDDARK)
+            VERSION_MISMATCH = true
         end
 
         if async_http.have_access() then
@@ -284,26 +298,13 @@ pluto_class MrRobot
         self:ClearPackagePath()
         self:SetupPackagePath()
 
-        self.T = require('translations')
-        self.S = require('shared')
-        self.H = require('handler')
-        
-        _G.table.inspect = require('inspect')
-        require('cutscenes')
-        require('entity')
-        require('masks')
-        require('offsets')
-        require('pedlist')
-        require('script_globals')
-        require('vehicle_handling')
-        require('vehicle_models')
-        require('weapons_list')
-        require('vehicle')
-        require('zone_info')
-        require('network')
-        require('notifications')
-        require('door_manager')
-        require('labels')
+        util.execute_in_os_thread(function()
+            self.T = require('translations')
+            self.S = require('shared')
+            
+            _G.table.inspect = require('inspect')
+            require('toolkit')
+        end)
     end
 
     function PlayStartupAnimation(play)
@@ -316,7 +317,6 @@ pluto_class MrRobot
         local meta = {
             __index = function(self, key)
                 if not key:match('^[A-Z_]+_[A-Z_]+_[A-Z_]+$') then
-                    --local snake_case_pattern = '^[a-z_]+_[a-z_]+_[a-z_]+$'
                     local snake_case_pattern = '^[a-z_]+'
                     local pascal_case_pattern = '^[A-Z][a-z]+[A-Z][a-z]+[A-Z][a-z]+$' -- TODO: Fix this
                     local camel_case_pattern = '^[a-z]+[A-Z][a-z]+[A-Z][a-z]+$' -- TODO: Fix this
@@ -334,22 +334,25 @@ pluto_class MrRobot
                 return rawget(self, key)
             end
         }
-        
-        for ({
+
+        local ns <const> = {
             'CUTSCENE', 'DECORATOR', 'ENTITY', 'FIRE', 'GRAPHICS', 'HUD', 'INTERIOR', 'NETSHOPPING', 
             'NETWORK', 'OBJECT', 'PAD', 'PED', 'PLAYER', 'STATS', 'VEHICLE', 'WEAPON','CAM', 'TASK',
             'AUDIO', 'MISC', 'STREAMING', 'CUTSCENE', 'SCRIPT', 'ZONE', 'SHAPETEST', 'SYSTEM', 'FILES'
-        }) as key do
+        }
+        
+        for ns as key do
             _G[key:lower()] = setmetatable(_G[key], meta)
         end
     end
 
     function LoadModule(name)
         if self.settings[name] == false then return end
+        if package.loaded[name] then return end
         local state, err = pcall(require, name)
         if not state then
             local line = err:match(':(%d+):')
-            Notifications.Show($'Failed to load module {name}, check the console for more info', name:gsub('^%w', string.upper), $'Error is on line {line}', Notifications.HUD_COLOUR_REDDARK)
+            Notifications.Error($'{name:gsub("^%w", string.upper)}', $'Error is on line {line}', $'Failed to load module {name}, check the console for more info')
             util.log($'Failed to load module {name}: {err}')
         else
             local err_type = type(err)
@@ -358,10 +361,12 @@ pluto_class MrRobot
             elseif err_type == 'function' then
                 err()
             end
-        end   
+        end
     end
 
     function ModuleLoader()
+        local Handler = require('handler')
+
         self:LoadModule('credits')
         self:LoadModule('settings')
 
@@ -377,31 +382,42 @@ pluto_class MrRobot
             table.sort(self.modules, function(a, b) return #a > #b end)
         end
 
-        for self.modules as name do
-            if name ~= 'credits' and name ~= 'settings' then
-                self:LoadModule(name)
-            end
-        end
+        for self.modules as name do self:LoadModule(name) end
 
         players.add_command_hook(function(pid, root)
-            if type(self.H.PlayerLoop) then self.H.PlayerLoop(pid, root) end
-            if type(self.H.GhostingLoop) then self.H.GhostingLoop(pid, root) end
-            if type(self.H.PlayerAimbotAdd) then self.H.PlayerAimbotAdd(pid, root) end
+            repeat
+                util.yield_once()
+            until not util.is_session_transition_active() and util.is_session_started()
+            
+            local status, result = pcall(function()
+                Handler.PlayerLoop(pid, root)
+                Handler.GhostingLoop(pid, root)
+                Handler.PlayerAimbotAdd(pid, root)
+                Handler.CheckBlacklist(pid, root)
+                Handler.BlameKillAdd(pid, root)
+            end)
+
+            if not status then
+                util.toast($'Error occured: {result}')
+            end
         end)
 
         players.on_leave(function(pid, name)
-            if type(self.H.GhostingRemovePlayer) then self.H.GhostingRemovePlayer(pid, name) end
-            if type(self.H.PlayerAimbotRemove) then self.H.PlayerAimbotRemove(pid, name) end
-        end)
+            local status, result = pcall(function()
+                Handler.GhostingRemovePlayer(pid, name)
+                Handler.PlayerAimbotRemove(pid, name)
+                Handler.BlameKillRemove(pid, name)
+            end)
 
-        util.on_pre_stop(function()
-            if type(self.H.PedRemoveBlips) then self.H.PedRemoveBlips() end
-            if type(self.H.CollectablesRemoveBlips) then self.H.CollectablesRemoveBlips() end
+            if not status then
+                util.toast($'Error occured: {result}')
+            end
         end)
     end
 end
 
-local MrRobot = pluto_new MrRobot('3.3.2', '1.68')
+local MrRobot = pluto_new MrRobot('3.6.0', '1.68')
+
 MrRobot:FixMissingFiles()
 MrRobot:Requires()
 MrRobot:CheckForUpdates()

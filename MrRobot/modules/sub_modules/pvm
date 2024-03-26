@@ -1,5 +1,6 @@
 local T, S = require('translations'), require('shared')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local ScriptOffsets = require('offsets')
 local VehModels = require('vehicle_models')
 local Masks = require('masks')
@@ -60,11 +61,29 @@ local wheel_data = {
         'Street',
         'Track'
     },
-    wheel_design = { 'None', 'Custom Tires' }
+    wheel_design = { 
+        { 1, 'None' }, 
+        { 2, 'Custom Tires' } 
+    }
 }
 
-local neon_layouts = { 'None', 'Front', 'Back', 'Sides', 'Front and Back', 'Front and Sides', 'Back and Sides', 'All' }
-local imani_tech = { 'None', 'Remote Control Unit', 'Missile Lock-On Jammer' }
+local neon_layouts = { 
+    { 1, 'None' }, 
+    { 2, 'Front' }, 
+    { 3, 'Back' }, 
+    { 4, 'Sides' }, 
+    { 5, 'Front and Back' }, 
+    { 6, 'Front and Sides' }, 
+    { 7, 'Back and Sides' }, 
+    { 8, 'All' } 
+}
+
+local imani_tech = { 
+    { 1, 'None' }, 
+    { 2, 'Remote Control Unit' }, 
+    { 3, 'Missile Lock-On Jammer' } 
+}
+
 local window_tints = { 'None', 'Limo', 'Dark Smoke','Light Smoke' }
 
 local char_slot = util.get_char_slot()
@@ -72,7 +91,7 @@ local char_slot = util.get_char_slot()
 pluto_class PVM
     function __construct(root)
         self.root = root:list(T'Personal Vehicle Manager', {T'pvm'}, T'Personal Vehicle Manager', || -> self:OnClick())
-        self.pvslot = memory.script_global(Globals.ActivePVSlot)
+        self.pvslot = Globals.ActivePVSlot:g(0)
         self.sroot = filesystem.script_root()
         self.spvcustom = $'{self.sroot}/personal_vehicles'
         self.max_slots = 415
@@ -82,9 +101,9 @@ pluto_class PVM
         self.aircraft = nil
 
         self.active_slot = memory.read_short(self.pvslot)
-        self.active_data = memory.script_global(Globals:PersonalVehicleData(self.active_slot))
+        self.active_data = Globals.PersonalVehicleData:g(self.active_slot)
         self.active_model = util.get_label_text(util.reverse_joaat(memory.read_int(self.active_data + Offsets.VehicleModel)))
-        self.active_plate = memory.read_string(memory.script_global(Globals:PersonalVehicleData(self.active_slot)) + Offsets.LicensePlate)
+        self.active_plate = memory.read_string(Globals.PersonalVehicleData:g(self.active_slot) + Offsets.LicensePlate)
         self.active_display = self.root:readonly(self.active_model .. ' - ' .. self.active_plate .. ' (Slot ' .. self.active_slot .. ')', '')
         self.root:divider('')
         self.root:action('Active Vehicle Shortcut', {}, T'Shortcut for instantly accessing your currently active personal vehicle', function() 
@@ -123,9 +142,9 @@ pluto_class PVM
 
     function OnClick()
         if self.active_display:isValid() then
-            self.active_data = memory.script_global(Globals:PersonalVehicleData(self.active_slot))
+            self.active_data = Globals.PersonalVehicleData:g(self.active_slot)
             self.active_model = util.get_label_text(util.reverse_joaat(memory.read_int(self.active_data + Offsets.VehicleModel)))
-            self.active_plate = memory.read_string(memory.script_global(Globals:PersonalVehicleData(self.active_slot)) + Offsets.LicensePlate)
+            self.active_plate = memory.read_string(Globals.PersonalVehicleData:g(self.active_slot) + Offsets.LicensePlate)
             self.active_display.menu_name = self.active_model .. ' - ' .. self.active_plate .. ' (Slot ' .. self.active_slot .. ')'
         end
 
@@ -153,7 +172,7 @@ pluto_class PVM
 
         for slot = 0, self.max_slots do
             local data = {}
-            data.data = memory.script_global(Globals:PersonalVehicleData(slot))
+            data.data = Globals.PersonalVehicleData:g(slot)
             data.hash = memory.read_int(data.data + Offsets.VehicleModel)
             data.model = util.get_label_text(util.reverse_joaat(data.hash))
             data.bitfield = memory.read_int(data.data + Offsets.VehicleBitfield)
@@ -275,7 +294,10 @@ pluto_class PVM
         pv:action(T'Request', {T'pvm' .. slot .. 'req'}, '', function()
             if not SCRIPT_CAN_CONTINUE then return end
             S:ReturnActivePV()
-            util.yield(200)
+            repeat
+                util.yield_once()
+            until Network.GetPVFromNetworkID(players.user()) == 0
+            
             local mask = VehicleBitfield.Destroyed | VehicleBitfield.Impounded
             memory.write_short(self.pvslot, slot)
 
@@ -284,7 +306,7 @@ pluto_class PVM
             end
             util.yield(50)
             memory.write_int(addr + Offsets.VehicleBitfield, memory.bits:set(bitfield, VehicleBitfield.Request))
-            util.yield(200)
+            util.yield(100)
 
             if not (memory.bits:check(memory.read_int(addr + Offsets.VehicleBitfield), VehicleBitfield.Request)) then
                 self:Request(slot)
@@ -294,7 +316,7 @@ pluto_class PVM
                     if os.time() > timeout then
                         return false
                     end
-                    memory.write_int(memory.script_local(Globals.FMScript, Globals.PersonalVehicleRequestDelay), 0)
+                    memory.write_int(memory.script_local(table.unpack(Globals.PersonalVehicleRequestDelay)), 0)
                 end)
             end
         end)
@@ -338,11 +360,18 @@ pluto_class PVM
             memory.write_int(addr + Offsets.VehicleBitfield, memory.bits:clear(bitfield, VehicleBitfield.Impounded))
         end)
 
+        if S:IsDev(players.user()) then
+            pv:action(T'Copy Address', {T'pvm' .. slot .. T'copyaddr'}, '', function()
+                if not SCRIPT_CAN_CONTINUE then return end
+                util.copy_addr(addr)
+            end)
+        end
+
         pv:divider('')
         local plate = pv:list(T'Plate', {T'pvm' .. slot .. 'plate'}, '')
         plate:text_input(T'License Plate', {T'pvm' .. slot .. 'modplate'}, '', function(new_plate)
             if not SCRIPT_CAN_CONTINUE then return end
-            local active_handle = memory.read_int(memory.script_global(Globals.ActivePVHandle))
+            local active_handle = memory.read_int(Globals.ActivePVHandle:g())
             memory.write_string(addr + Offsets.LicensePlate, new_plate)
             if active_handle ~= 0 then
                 local veh = S.NewVehicle(active_handle)
@@ -457,7 +486,7 @@ pluto_class PVM
 
             lights:list_select(T'Neon Layout', {}, '', neon_layouts, self:GetNeonLayout(slot) or 1, function(value)
                 if not SCRIPT_CAN_CONTINUE then return end
-                local layout = neon_layouts[value]
+                local layout = neon_layouts[1][value]
                 local bitfield = memory.read_int(addr + Offsets.VehicleNeonLayout)
                 switch layout do
                     case 'None':
@@ -663,7 +692,7 @@ pluto_class PVM
     function Request(slot)
         if not SCRIPT_CAN_CONTINUE then return end
         memory.write_short(self.pvslot, slot)
-        local base = memory.script_global(Globals.RequestBase)
+        local base = Globals.RequestBase:g()
         if memory.read_int(base + RequestOffsets.RequestState) == -1 then
             memory.write_int(base + RequestOffsets.RequestSlot, slot)
             memory.write_int(base + RequestOffsets.RequestTrigger, 1)
@@ -673,7 +702,7 @@ pluto_class PVM
     function RequestPegasusVehicle(hash)
         -- credit to acjoker for finding the globals that made this possible
         if not streaming.is_model_valid(hash) then util.toast('Invalid model hash') return end
-        local request = memory.script_global(Globals.PegasusRequest)
+        local request = Globals.PegasusRequest:g()
         local request1 = request + 0x8
         memory.write_int(request1, hash)
         memory.write_byte(request, memory.bits:toggle(memory.read_byte(request), 1 << 7))
@@ -683,13 +712,13 @@ pluto_class PVM
 
     function RequestCEOVehicle(hash)
         if not streaming.is_model_valid(hash) then util.toast('Invalid model hash') return end
-        local request = memory.script_global(Globals.OrganisationBase + 10)
+        local request = Globals.OrganisationBase:g() + 0x50
         memory.write_int(request + CEOVehicle.VehicleHash, hash)
         memory.write_byte(request + CEOVehicle.Request, 1)
     end
 
     function GetNeonLayout(slot)
-        local addr = memory.script_global(Globals:PersonalVehicleData(slot))
+        local addr = Globals.PersonalVehicleData:g(slot)
         return ({
             [0] = 1,
             [0x10] = 2,
@@ -703,11 +732,11 @@ pluto_class PVM
     end
 
     function GetNeonColour(slot)
-        local addr = memory.script_global(Globals:PersonalVehicleData(slot))
+        local addr = Globals.PersonalVehicleData:g(slot)
         return {
-            r = memory.read_byte(addr + Offsets.VehicleNeonColourRed) / 0xFF,
-            g = memory.read_byte(addr + Offsets.VehicleNeonColourGreen) / 0xFF,
-            b = memory.read_byte(addr + Offsets.VehicleNeonColourBlue) / 0xFF,
+            r = (memory.read_short(addr + Offsets.VehicleNeonColourRed) & 0xFF) / 0xFF,
+            g = (memory.read_short(addr + Offsets.VehicleNeonColourGreen) & 0xFF) / 0xFF,
+            b = (memory.read_short(addr + Offsets.VehicleNeonColourBlue) & 0xFF) / 0xFF,
             a = 1
         }
     end

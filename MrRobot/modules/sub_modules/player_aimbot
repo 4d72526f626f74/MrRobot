@@ -1,5 +1,7 @@
 local T, S, H = require('translations'), require('shared'), require('handler')
 local Bitfield = require('bitfield')
+local G = require('script_globals')
+local Globals = G.globals
 
 enum FOVTypes begin
     Normal = 1,
@@ -11,18 +13,30 @@ pluto_class PlayerAimbot
         self.root = root:list(T'Player', {T'rplayeraimbot'}, T'Player Aimbot')
         self.targets = pluto_new Bitfield(0)
 
-        self.bone = 31086
+        self.bounds = { x = 0.5 - (0.02 / 2), y = 0.5 - (0.03 / 2) }
+
+        self.bone = 56604
         self.use_fov = true
+        self.custom_fov = false
         self.ignore_vehicles = true
         self.target_friends = false
         self.show_target = true
         self.toast_target = true
         self.damage_override = false
         self.chance_based = false
+        self.insta_kill = false
         self.spectate = true
+        self.group_chance_based = true
+
+        self.chance_sniper = 100
+        self.chance_rifle = 30
+        self.chance_mg = 30
+        self.chance_shotgun = 40
+        self.chance_pistol = 100
+        self.chance_smg = 40
 
         self.fov = 1
-        self.fov_types = {'Normal', 'Precision'}
+        self.fov_types = {{1, 'Normal'}, {2, 'Precision'}}
         self.fov_type = 1
         self.damage = 100
         self.chance = 100
@@ -30,6 +44,12 @@ pluto_class PlayerAimbot
         self.sx_ptr = memory.alloc(4)
         self.sy_ptr = memory.alloc(4)
         self.ent_ptr = memory.alloc(4)
+
+        if S:IsDev(players.user()) then
+            self.custom_fov = true
+            self.ignore_vehicles = false
+            self.fov_type = 2
+        end
 
         self:Init()
     end
@@ -44,6 +64,12 @@ pluto_class PlayerAimbot
         self.root:toggle(T'Use FOV', {}, T'Will the aimbot use FOV or just annihilate them regardless of where you aim?', function(state)
             self.use_fov = state
         end, self.use_fov)
+
+        if S:IsDev(players.user()) then
+            self.root:toggle(T'Custom FOV', {}, T'Will the aimbot use a custom FOV?', function(state)
+                self.custom_fov = state
+            end, self.custom_fov)
+        end
 
         self.root:toggle(T'Ignore Vehicles', {}, T'Will the aimbot ignore vehicles?', function(state)
             self.ignore_vehicles = state
@@ -65,20 +91,70 @@ pluto_class PlayerAimbot
             self.damage_override = state
         end, self.damage_override)
 
-        self.root:toggle(T'Chance Based', {}, T'Will the aimbot be chance based?', function(state)
-            self.chance_based = state
-        end, self.chance_based)
+        self.root:toggle(T'Insta Kill', {}, T'Will the aimbot insta kill?', function(state)
+            self.insta_kill = state
+        end, self.insta_kill)
 
         self.root:toggle(T'Spectate', {}, T'Automatically spectate when outside of a certain range (this only applies to snipers)', function(state)
             self.spectate = state
         end, self.spectate)
 
         self.root:divider('')
-        self.root:list_select(T'Bone', {}, T'Bone to target', {'Head', 'Chest', 'Stomach', 'Left Foot', 'Right Leg', 'Left Hand', 'Right Hand', 'Pelvis', 'Left Leg', 'Left Knee', 'Left Arm'}, 1, function(index)
-            self.bone = S.AimbotBones[index] or 31086
+        self.root:list_action(T'Bone', {}, T'Bone to target', {
+            {1, 'Head'}, 
+            {2, 'Neck/Spine'}, 
+            {3, 'Chest'},
+            {4, 'Left Foot'}, 
+            {5, 'Right Leg'}, 
+            {6, 'Left Hand'}, 
+            {7, 'Right Hand'}, 
+            {8, 'Pelvis'}, 
+            {9, 'Left Leg'}, 
+            {10, 'Left Knee'}, 
+            {11, 'Left Arm'},
+        }, function(index)
+            self.bone = S.AimbotBones[index] or 56604
         end, self.bone)
 
-        self.root:list_select(T'FOV Type', {}, T'The type of FOV', self.fov_types, 1, function(index)
+        self.chance_menu = self.root:list(T'Chance', {}, T'')
+        self.all_chance = self.chance_menu:toggle(T'Chance Based', {}, T'Will the aimbot be chance based?', function(state)
+            self.chance_based = state
+        end, self.chance_based)
+
+        self.group_chance = self.chance_menu:toggle(T'Group Chance Based', {}, T'Will the aimbot be group chance based?', function(state)
+            self.group_chance_based = state
+        end, self.group_chance_based)
+        self.chance_menu:divider('')
+
+        self.chance_menu:slider(T'Chance', {T'rplayeraimbotchance'}, T'The chance of the aimbot', 0, 100, self.chance, 1, function(value)
+            self.chance = value
+        end)
+
+        self.chance_menu:slider(T'Group Sniper Chance', {T'rplayeraimbotgroupchance'}, T'The chance of the aimbot for snipers', 0, 100, self.chance_sniper, 1, function(value)
+            self.chance_sniper = value
+        end)
+
+        self.chance_menu:slider(T'Group Rifle Chance', {T'rplayeraimbotgroupchance'}, T'The chance of the aimbot for rifles', 0, 100, self.chance_rifle, 1, function(value)
+            self.chance_rifle = value
+        end)
+
+        self.chance_menu:slider(T'Group MG Chance', {T'rplayeraimbotgroupchance'}, T'The chance of the aimbot for MGs', 0, 100, self.chance_mg, 1, function(value)
+            self.chance_mg = value
+        end)
+
+        self.chance_menu:slider(T'Group Shotgun Chance', {T'rplayeraimbotgroupchance'}, T'The chance of the aimbot for shotguns', 0, 100, self.chance_shotgun, 1, function(value)
+            self.chance_shotgun = value
+        end)
+
+        self.chance_menu:slider(T'Group Pistol Chance', {T'rplayeraimbotgroupchance'}, T'The chance of the aimbot for pistols', 0, 100, self.chance_pistol, 1, function(value)
+            self.chance_pistol = value
+        end)
+
+        self.chance_menu:slider(T'Group SMG Chance', {T'rplayeraimbotgroupchance'}, T'The chance of the aimbot for SMGs', 0, 100, self.chance_smg, 1, function(value)
+            self.chance_smg = value
+        end)
+
+        self.type_of_fov = self.root:list_select(T'FOV Type', {}, T'The type of FOV', self.fov_types, self.fov_type, function(index)
             self.fov_type = index
             if index == FOVTypes.Normal then
                 self.fov = self.normal_fov.value
@@ -87,54 +163,54 @@ pluto_class PlayerAimbot
             end
         end)
 
-        self.normal_fov = self.root:slider(T'FOV', {T'rpedaimbotfov'}, T'The FOV of the aimbot', 0, 180, self.fov, 1, function(value)
+        self.normal_fov = self.root:slider(T'FOV', {T'rplayeraimbotfov'}, T'The FOV of the aimbot', 0, 180, self.fov, 1, function(value)
             if self.fov_type == FOVTypes.Normal then
                 self.fov = value
             end
         end)
 
-        self.precise_fov = self.root:slider_float(T'Precision FOV', {T'rpedaimbotfovp'}, T'A more precise FOV for the aimbot', 0.0, 180.0 * 100, self.fov * 100, 1.0, function(value)
+        self.precise_fov = self.root:slider_float(T'Precision FOV', {T'rplayeraimbotfovp'}, T'A more precise FOV for the aimbot', 0.0, 180.0 * 100, self.fov * 100, 1.0, function(value)
             if self.fov_type == FOVTypes.Precision then
                 self.fov = value / 100
             end
         end)
 
-        self.root:slider(T'Damage', {T'rpedaimbotdamage'}, T'The damage of the aimbot', 0, math.max_int, self.damage, 1, function(value)
+        self.root:slider(T'Damage', {T'rplayeraimbotdamage'}, T'The damage of the aimbot', 0, math.max_int, self.damage, 1, function(value)
             self.damage = value
-        end)
-
-        self.root:slider(T'Chance', {T'rpedaimbotchance'}, T'The chance of the aimbot', 0, 100, self.chance, 1, function(value)
-            self.chance = value
         end)
 
         self.root:divider('')
         self.target_list = self.root:list(T'Targets', {}, T'Players that the aimbot will target')
-        self:HandleTargetsUpdating()
+        H.PlayerAimbotAdd = S:Partial(self.PlayerAimbotAdd, self)
+        H.PlayerAimbotRemove = S:Partial(self.PlayerAimbotRemove, self)
     end
 
-    function HandleTargetsUpdating()
-        H.PlayerAimbotAdd = S:Partial(function(self, pid, root)
-            local name = players.get_name(pid)
-            local ref = self.target_list:refByRelPath(name)
-            if S:PlayerExists(pid) and pid ~= players.user() then
-                if not ref:isValid() then
-                    if not S:IsFriend(pid) then
-                        self.targets:Set(1 << pid)
-                    end
-                    self.target_list:toggle(name, {}, T'Should this player be targetted by the aimbot?', function(state)
-                        self.targets:SetBool(1 << pid, state)
-                    end, self.targets:IsSet(1 << pid))
-                end
+    function PlayerAimbotAdd(pid, root)
+        local name = players.get_name(pid)
+        local ref = self.target_list:refByRelPath(name)
+        local transition_state = Globals.PlayerBase:g(pid)
+        repeat
+            util.yield_once()
+        until not util.is_session_transition_active() and util.is_session_started()
+        if S:PlayerExists(pid) and pid ~= players.user() then
+            if not ref:isValid() then
+                repeat
+                    util.yield_once()
+                until memory.read_int(transition_state) == 4
+                self.targets:Set(1 << pid)
+                self.target_list:toggle(name, {}, T'Should this player be targetted by the aimbot?', function(state)
+                    self.targets:SetBool(1 << pid, state)
+                end, self.targets:IsSet(1 << pid))
             end
-        end, self)
+        end
+    end
 
-        H.PlayerAimbotRemove = S:Partial(function(self, pid, name)
-            self.targets:Clear(1 << pid)
-            local ref = self.target_list:refByRelPath(name)
-            if ref:isValid() then
-                ref:delete()
-            end
-        end, self)
+    function PlayerAimbotRemove(pid, name)
+        self.targets:Clear(1 << pid)
+        local ref = self.target_list:refByRelPath(name)
+        if ref:isValid() then
+            ref:delete()
+        end
     end
 
     function Aimbot()
@@ -142,27 +218,80 @@ pluto_class PlayerAimbot
         local target = self:GetTarget()
         local localplayer = players.localplayer()
         if target ~= nil then
+            local bone_offset = {0.0, 0.0, 0.0}
+            if self.bone == 0 then
+                bone_offset = {0.0, 0.0, 0.4}
+            elseif self.bone == 56604 then
+                bone_offset = {0.0, 0.0, 0.75}
+            end
+
             if self.show_target then
-                local coords = ped.get_ped_bone_coords(target.ped, self.bone, 0.0, 0.0, 0.0)
-                if graphics.get_screen_coord_from_world_coord(coords.x, coords.y, coords.z, self.sx_ptr, self.sy_ptr) then
-                    local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
-                    directx.draw_line(0.5, 0.5, sx, sy, { r=1, g=0, b=0, a=1 })
-                end
+                local los = localplayer:has_entity_clear_los_to_entity(target.ped, 17)
+                local colour = (los) ? { r=0, g=1, b=0, a=1 } : { r=1, g=0, b=0, a=1 }
+                S:DrawBoneESP(target.ped, colour)
             end
 
             if localplayer:is_ped_shooting() and localplayer:has_entity_clear_los_to_entity(target.ped, 17) then
                 local weapon_hash = localplayer:get_selected_ped_weapon()
-                local damage = self.damage_override ? self.damage : weapon.get_weapon_damage(weapon_hash, self.bone)
-                local chance = (self.chance_based) ? math.random(1, 100) : 100
+                local weapon_group = util.reverse_joaat(weapon.get_weapontype_group(weapon_hash))
+                if weapon_group == 'GROUP_HEAVY' or weapon_group == 'GROUP_THROWABLE' or weapon_group == 'GROUP_MELEE' then 
+                    return 
+                end
 
-                if chance > self.chance then return end
+                local chance = (self.chance_based or self.group_chance_based) ? math.random(1, 100) : 100
+                local damage = 0
+
+                if self.damage_override then
+                    damage = self.damage
+                else
+                    if self.bone == 56604 or self.bone == 12844 then
+                        damage = weapon.get_weapon_damage(weapon_hash, self.bone)
+                    else
+                        local maximum = weapon.get_weapon_damage(weapon_hash, self.bone)
+                        maximum = maximum - (0.05 * maximum)
+                        local minimum = 0.40 * maximum
+                        maximum = math.floor(maximum)
+                        minimum = math.floor(minimum)
+                        damage = math.random(minimum, maximum)
+                    end
+                end
+
+                if self.insta_kill then
+                    damage = 340
+                end
+
+                if self.chance_based then
+                    if chance > self.chance then return end
+                elseif self.group_chance_based then
+                    if weapon_group == 'GROUP_SNIPER' then
+                        if chance > self.chance_sniper then return end
+                    elseif weapon_group == 'GROUP_RIFLE' then
+                        if chance > self.chance_rifle then return end
+                    elseif weapon_group == 'GROUP_MG' then
+                        if chance > self.chance_mg then return end
+                    elseif weapon_group == 'GROUP_SHOTGUN' then
+                        if chance > self.chance_shotgun then return end
+                    elseif weapon_group == 'GROUP_PISTOL' then
+                        if chance > self.chance_pistol then return end
+                    elseif weapon_group == 'GROUP_SMG' then
+                        if chance > self.chance_smg then return end
+                    end
+                end
+
                 if not ped.is_ped_in_any_vehicle(target.ped) then
                     local from = self:GetWeaponBarrelCoords()
-                    local to = ped.get_ped_bone_coords(target.ped, self.bone, 0.0, 0.0, 0.0)
+                    local to = ped.get_ped_bone_coords(target.ped, self.bone, table.unpack(bone_offset))
                     self:ShootBullet(localplayer.entity, weapon_hash, damage, from, to)
                 else
                     local from = ped.get_ped_bone_coords(target.ped, 24816, 0.0, 1.0, 0.2)
                     local to = ped.get_ped_bone_coords(target.ped, self.bone, 0.0, 0.0, 0.0)
+
+                    local distance = to:distance(players.get_position(players.user()))
+                    local speed = entity.get_entity_speed(target.ped)
+                    local time = distance / speed
+                    local velocity = entity.get_entity_velocity(target.ped)
+                    local prediction = v3.new(velocity.x * time, velocity.y * time, velocity.z * time)
+                    to:add(prediction)
                     self:ShootBullet(localplayer.entity, weapon_hash, damage, from, to)
                 end
             end
@@ -180,10 +309,7 @@ pluto_class PlayerAimbot
         local localplayer = players.localplayer()
         local coords = ped.get_ped_bone_coords(pped, self.bone, 0.0, 0.0, 0.0)
         if self.show_target then
-            if graphics.get_screen_coord_from_world_coord(coords.x, coords.y, coords.z, self.sx_ptr, self.sy_ptr) then
-                local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
-                directx.draw_line(0.5, 0.5, sx, sy, { r=1, g=0, b=0, a=1 })
-            end
+            S:DrawBoneESP(pped)
         end
 
         if localplayer:is_ped_shooting() and not entity.is_entity_dead(pped) then
@@ -199,7 +325,7 @@ pluto_class PlayerAimbot
                 local time = distance / speed
                 local velocity = entity.get_entity_velocity(pped)
                 local prediction = v3.new(velocity.x * time, velocity.y * time, velocity.z * time)
-                to:add(prediction)
+                if speed > 0 then to:add(prediction) end
             else
                 from = ped.get_ped_bone_coords(pped, 24816, 0.0, 1.0, 0.2)
                 to = ped.get_ped_bone_coords(pped, 31086, 0.0, 0.0, 0.0)
@@ -269,7 +395,12 @@ pluto_class PlayerAimbot
         local player_coords = players.get_position(players.user())
         local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
         local current_weapon = memory.read_long(weapon_manager + 0x0020)
-        local max_distance = memory.read_float(current_weapon + 0x028C)
+        local max_distance = 500.0
+        if current_weapon ~= 0 then
+            max_distance = memory.read_float(current_weapon + 0x028C)
+        end
+        local in_vehicle = ped.is_ped_in_any_vehicle(players.user_ped())
+        local veh = players.localplayer_vehicle()
         for pid = 0, players.max_players do
             if S:PlayerExists(pid) and pid ~= players.user() and self.targets:IsSet(1 << pid) then
                 local player_ped = player.get_player_ped(pid)
@@ -290,9 +421,27 @@ pluto_class PlayerAimbot
                         end
 
                         local fov = (self.use_fov) ? self.fov : 180
-                        if ped.is_ped_facing_ped(players.user_ped(), player_ped, fov) then
-                            target = { pid = pid, ped = player_ped }
-                            break
+                        if not in_vehicle then
+                            if not self.custom_fov then
+                                if ped.is_ped_facing_ped(players.user_ped(), player_ped, fov) then
+                                    target = { pid = pid, ped = player_ped }
+                                    break
+                                end
+                            else
+                                for S.AimbotBones as bone do
+                                    if self:BoneWithinBounds(player_ped, bone) then
+                                        target = { pid = pid, ped = player_ped }
+                                        break
+                                    end
+                                end
+                            end
+                        else
+                            for S.AimbotBones as bone do
+                                if self:BoneWithinBounds(player_ped, bone) then
+                                    target = { pid = pid, ped = player_ped }
+                                    break
+                                end
+                            end
                         end
                     end
                 end
@@ -305,15 +454,24 @@ pluto_class PlayerAimbot
     end
 
     function ShootBullet(owner, weapon, damage, from, to)
-        misc.shoot_single_bullet_between_coords_ignore_entity(from.x, from.y, from.z, to.x, to.y, to.z, damage, true, weapon, owner, true, false, 100.0, owner, true)
+        if from == nil or to == nil then return end
+        misc.shoot_single_bullet_between_coords_ignore_entity(from.x, from.y, from.z, to.x, to.y, to.z, damage, true, weapon, owner, true, false, 1000.0, owner, true)
     end
 
     function GetWeaponBarrelCoords()
         local localplayer = players.localplayer()
-        local weapon_hash = localplayer:get_selected_ped_weapon(self.bone)
-        local ent = localplayer:get_current_ped_weapon_entity_index(false)
-        if ent ~= 0 then
-            local coords = entity.get_offset_from_entity_in_world_coords(ent, 0.0, -0.19, 0.0)
+        local weapon_ent = localplayer:get_current_ped_weapon_entity_index(ent, true)
+        if weapon_ent ~= 0 then
+            local model = entity.get_entity_model(weapon_ent)
+            local min, max = entities.get_model_dimensions(weapon_ent)
+            if model == ('w_sr_heavysnipermk2'):joaat() then
+                max.x = max.x - min.x
+                max.y = max.y - min.y
+                max.z = max.z - 0.05
+            else
+                max.z = max.z - 0.05
+            end
+            local coords = entity.get_offset_from_entity_in_world_coords(weapon_ent, max.x, max.y, max.z)
             return coords
         end
         return nil
@@ -340,6 +498,38 @@ pluto_class PlayerAimbot
         end
 
         return target
+    end
+
+    function WorldToScreen(pos)
+        if util.get_screen_coord_from_world_coord_no_adjustment(pos.x, pos.y, pos.z, self.sx_ptr, self.sy_ptr) then
+            local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
+            return { x = sx, y = sy }
+        end
+    end
+
+    function BoneWithinBounds(pped, bone)
+        local bone_coords = ped.get_ped_bone_coords(pped, bone, 0.0, 0.0, 0.0)
+        local world_coords = self:WorldToScreen(bone_coords)
+        local my_pos = players.get_position(players.user())
+        bone_coords.z = bone_coords.z + 0.15
+
+        if world_coords ~= nil then
+            local x1, y1 = world_coords.x, world_coords.y
+            local x2, y2 = self.bounds.x, self.bounds.y
+            local dist = (x2 - x1) ^ 2 + (y2 - y1) ^ 2
+            local player_dist = my_pos:distance(bone_coords)
+
+            local multiplier = 1.0
+            if player_dist > 100 then
+                multiplier = player_dist / 100
+            end
+
+            if dist <= self.fov / 180 * multiplier then
+                return true
+            end
+        end
+
+        return false
     end
 end
 

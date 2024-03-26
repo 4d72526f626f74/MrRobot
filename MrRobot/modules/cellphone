@@ -26,7 +26,10 @@ contacts = S:SortTable(contacts, |a, b| -> a.name < b.name)
 pluto_class Contacts
     function __construct(root)
         self.root = root:list(T'Cellphone', {T'rcellphone'}, '')
+        self:Init()
+    end
 
+    function Init()
         for contacts as contact do
             self.root:action(T'Call ' .. contact.name, {T'call' .. contact.name}, '', function()
                 self:Call(contact.contact_id)

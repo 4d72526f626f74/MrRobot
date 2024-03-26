@@ -228,6 +228,35 @@ pluto_class Notifications
     	HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(dict, dictName, true, 7, title, subject)
     	HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(false, false)
     end
+
+    static function Display(title, subject, msg, colour, dict, dictName)
+        title = title or 'MrRobot'
+        subject = subject or ''
+        dict = dict or 'CHAR_MP_FM_CONTACT'
+        dictName = dictName or 'CHAR_MP_FM_CONTACT'
+        colour = colour or Notifications.HUD_COLOUR_BLACK
+
+        HUD.THEFEED_SET_BACKGROUND_COLOR_FOR_NEXT_POST(colour)
+        util.BEGIN_TEXT_COMMAND_THEFEED_POST(msg)
+        HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(dict, dictName, true, 7, title, subject)
+        HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(false, false)
+    end
+
+    static function Success(title, subject, msg)
+        Notifications.Display(title, subject, msg, Notifications.HUD_COLOUR_GREEN)
+    end
+
+    static function Error(title, subject, msg)
+        Notifications.Display(title, subject, msg, Notifications.HUD_COLOUR_REDDARK)
+    end
+
+    static function Info(title, subject, msg)
+        Notifications.Display(title, subject, msg, Notifications.HUD_COLOUR_BLUE)
+    end
+
+    static function Warning(title, subject, msg)
+        Notifications.Display(title, subject, msg, Notifications.HUD_COLOUR_YELLOW)
+    end
 end
 
 return Notifications

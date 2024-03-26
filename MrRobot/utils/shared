@@ -3,653 +3,1240 @@ local Bitfield = require('bitfield')
 local Bit = require('bit')
 local Vehicle = require('vehicle')
 local T = require('translations')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local ScriptOffsets = require('offsets')
+
+if package.loaded['math'] == nil then require('math') end
+if package.loaded['hooks'] == nil then require('hooks') end
 
 local VehicleOffsets = ScriptOffsets.Vehicles.LSCustoms
 local VehicleBitfield = ScriptOffsets.Vehicles.VehicleBitfield
 
-local Shared = {}
+pluto_class Shared
+    bk_stopflag = false
+    min = v3()
+    max = v3()
+    screen_ptr = memory.alloc(8)
 
-if package.loaded['math'] == nil then
-    require('math')
-end
+    Memory = {}
+    PlayerList = pluto_new Bitfield(0)
+    RiskyRefs = {}
+    -- Patterns = {
+    --     CEventDamage = memory.scan('48 83 C4 ? E9 ? ? ? ? 48 85 C9 0F 84') + 9
+    -- }
 
-Shared.Memory = {}
-Shared.PlayerList = 0
-Shared.RiskyRefs = {}
-
-Shared.ClearCache = {
-    ShouldClear = false,
-    ClearTime = 600,
-    LastClear = os.time() + 600
-}
-util.create_tick_handler(function()
-    if Shared.ClearCache.LastClear - os.time() <= 0 then
-        Shared.ClearCache.ShouldClear = true
-        Shared.ClearCache.LastClear = os.time() + Shared.ClearCache.ClearTime
-    end
-
-    for Shared.RiskyRefs as ref do
-        if ref:isValid() then
-            ref.visible = Shared.Settings:IsSet(Shared.SettingsBits.ShowRiskyOptions)
-        end
-    end
-
-    SCRIPT_CAN_CONTINUE = util.can_continue()
-end)
-
-Shared.Models = {
-    BST = 'prop_drug_package_02', -- Bull Shark Testosterone
-    PRBUBBLE_FIGURE = 'vm_prop_vm_colle_prbubble', -- PR Bubble Figure (casino)
-}
-
-Shared.PropertyIds = {
-    ["Invalid"] = 0,
-    ["Eclipse Towers 31"] = 1,
-    ["Eclipse Towers 9"] = 2,
-    ["Eclipse Towers 40"] = 3,
-    ["Eclipse Towers 5"] = 4,
-    ["3 Alta St, Apt 10"] = 5,
-    ["3 Alta St, Apt 57"] = 6,
-    ["Del Perro Heights, Apt 20"] = 7,
-    ["Power St, Apt 3"] = 8,
-    ["Spanish Ave, Apt 1"] = 9,
-    ["Las Lagunas Blv, 4"] = 10,
-    ["Milton Rd, Apt 13"] = 11,
-    ["The Royale, Apt 19"] = 12,
-    ["S Mo Milton Drive"] = 13,
-    ["Bay City Ave, Apt 45"] = 14,
-    ["0325 S Rockford Dr"] = 15,
-    ["Dream Tower, Apt 15"] = 16,
-    ["Las Lagunas Blv, 9"] = 17,
-    ["San Vitas St, Apt 2"] = 18,
-    ["0112 S Rockford Dr, 13"] = 19,
-    ["Vespucci Blvd, Apt 1"] = 20,
-    ["Cougar Ave, Apt 19"] = 21,
-    ["Prosperity St, 21"] = 22,
-    ["Blvd Del Perro, 18"] = 23,
-    ["Murrieta Heights"] = 24,
-    ["Unit 14 Popular St"] = 25,
-    ["Unit 2 Popular St"] = 26,
-    ["331 Supply St"] = 27,
-    ["Unit 1 Olympic Fwy"] = 28,
-    ["Roy Lowenstein Blvd"] = 29,
-    ["Little Bighorn Ave"] = 30,
-    ["Unit 124 Popular St"] = 31,
-    ["Roy Lowenstein Blvd"] = 32,
-    ["0432 Davis Ave"] = 33,
-    ["Del Perro Heights, 7"] = 34,
-    ["Weazel Plaza, 101"] = 35,
-    ["Weazel Plaza, 70"] = 36,
-    ["Weazel Plaza, 26"] = 37,
-    ["Integrity Way, 30"] = 38,
-    ["Integrity Way, 35"] = 39,
-    ["Richards Majestic, 4"] = 40,
-    ["Richards Majestic, 51"] = 41,
-    ["Tinsel Towers, Apt 45"] = 42,
-    ["Tinsel Towers, Apt 29"] = 43,
-    ["Paleto Blvd"] = 44,
-    ["Strawberry Ave"] = 45,
-    ["Grapeseed Ave"] = 46,
-    ["Senora Way"] = 47,
-    ["Great Ocean Highway"] = 48,
-    ["197 Route 68"] = 49,
-    ["870 Route 68"] = 50,
-    ["1200 Route 68"] = 51,
-    ["8754 Route 68"] = 52,
-    ["1905 Davis Ave"] = 53,
-    ["South Shambles St"] = 54,
-    ["4531 Dry Dock St"] = 55,
-    ["Exceptionalists Way"] = 56,
-    ["Greenwich Parkway"] = 57,
-    ["Innocence Blvd"] = 58,
-    ["Blvd Del Perro"] = 59,
-    ["Mirror Park Blvd"] = 60,
-    ["Eclipse Towers 3"] = 61,
-    ["Del Perro Heights 4"] = 62,
-    ["Richards Majestics, 2"] = 63,
-    ["Tinsel Towers, Apt 42"] = 64,
-    ["Integrity Way, 28"] = 65,
-    ["4 Hangman Ave"] = 66,
-    ["12 Sustancia Rd"] = 67,
-    ["4584 Procopio Dr"] = 68,
-    ["4401 Procopio Dr"] = 69,
-    ["0232 Paleto Blvd"] = 70,
-    ["140 Zancudo Ave"] = 71,
-    ["1893 Grapeseed Ave"] = 72,
-    ["3655 Wild Oats Dr"] = 73,
-    ["2044 North Conker Ave"] = 74,
-    ["2868 Hillcrest Ave"] = 75,
-    ["2862 Hillcrest Ave"] = 76,
-    ["3677 Whispymound Dr"] = 77,
-    ["2117 Milton Rd"] = 78,
-    ["2866 Hillcrest Ave"] = 79,
-    ["2874 Hillcrest Ave"] = 80,
-    ["2113 Mad Wayne T Dr"] = 81,
-    ["2045 North Conker Ave"] = 82,
-    ["Eclipse Penthouse, Suite 1"] = 83,
-    ["Eclipse Penthouse, Suite 2"] = 84,
-    ["Eclipse Penthouse, Suite 3"] = 85,
-    ["Invalid (1)"] = 86,
-    ["Lombank West"] = 87,
-    ["Maze Bank West"] = 88,
-    ["Arcadius"] = 89,
-    ["Maze Bank Tower"] = 90,
-    ["Rancho Clubhouse"] = 91,
-    ["Del Perro Beach Clubhouse"] = 92,
-    ["Philbox Hill Clubhouse"] = 93,
-    ["Great Chaparral Clubhouse"] = 94,
-    ["Paleto Bay Clubhouse"] = 95,
-    ["Sandy Shores Clubhouse"] = 96,
-    ["La Mesa Clubhouse"] = 97,
-    ["Vinewood Clubhouse"] = 98,
-    ["Hawick Clubhouse"] = 99,
-    ["Grapeseed Clubhouse"] = 100,
-    ["Paleto Bay Clubhouse (0)"] = 101,
-    ["Vespucci Beach Clubhouse"] = 102,
-    ["Office Garage 1 (Lombank)"] = 103,
-    ["Office Garage 2 (Lombank)"] = 104,
-    ["Office Garage 3 (Lombank)"] = 105,
-    ["Office Garage 1 (Maze Bank West)"] = 106,
-    ["Office Garage 2 (Maze Bank West)"] = 107,
-    ["Office Garage 3 (Maze Bank West)"] = 108,
-    ["Office Garage 1 (Arcadius)"] = 109,
-    ["Office Garage 2 (Arcadius)"] = 110,
-    ["Office Garage 3 (Arcadius)"] = 111,
-    ["Office Garage 1 (Maze Bank Tower)"] = 112,
-    ["Office Garage 2 (Maze Bank Tower)"] = 113,
-    ["Office Garage 3 (Maze Bank Tower)"] = 114,
-    ["Vehicle Warehouse"] = 115,
-    ["Definitely Invalid"] = (1 << 31) - 1
-}
-
-Shared.AimbotBones = {
-    31086, -- head (SKEL_Head)
-    39317, -- neck (SKEL_Neck_1)
-    24816, -- spine (SKEL_Spine_Root)
-    14201, -- left foot (SKEL_L_Foot)
-    51826, -- right leg (SKEL_R_Calf)
-    60309, -- left hand (SKEL_L_Hand)
-    57005, -- right hand (SKEL_R_Hand)
-    11816, -- pelvis (SKEL_Pelvis)
-    58271, -- left leg (SKEL_L_Calf)
-    63931, -- left knee (SKEL_L_Thigh)
-    61163, -- left arm (SKEL_L_UpperArm)
-}
-
-Shared.SettingsBits = {
-    ShowAlerts = 1 << 0,
-    RemoveTransactionError = 1 << 1,
-    UNKOWN = 1 << 2,
-    Debug = 1 << 3,
-    SuppressRequestControlFailures = 1 << 4,
-    ShowRiskyOptions = 1 << 5,
-    CacheGlobals = 1 << 6
-}
-
-Shared.Settings = pluto_new Bitfield(
-    Shared.SettingsBits.ShowAlerts 
-    | Shared.SettingsBits.RemoveTransactionError
-    | Shared.SettingsBits.CacheGlobals
-)
-
-if Shared.Settings:IsSet(Shared.SettingsBits.Debug) then
-    util.create_tick_handler(function()
-        directx.draw_text(0.01, 0.01, $'v{SCRIPT_VERSION}-dbg', ALIGN_TOP_LEFT, 1, {r=1, g=0, b=0, a=1})
-    end)
-end
-
-function Shared:AddPlayer(pid)
-    self.PlayerList = self.PlayerList | (1 << pid)
-end
-
-function Shared:RemovePlayer(pid)
-    self.PlayerList = self.PlayerList & ~(1 << pid)
-end
-
-function Shared:PlayerExists(pid)
-    return self.PlayerList & (1 << pid) == (1 << pid)
-end
-
-function Shared:AddFriend(pid)
-    pid = pid + 0x20
-    self.PlayerList = self.PlayerList | (1 << pid)
-end
-
-function Shared:RemoveFriend(pid)
-    pid = pid + 0x20
-    self.PlayerList = self.PlayerList & ~(1 << pid)
-end
-
-function Shared:IsFriend(pid)
-    pid = pid + 0x20
-    return self.PlayerList & (1 << pid) == (1 << pid)
-end
-
-_G.memory.write = function(addr, value)
-    local value_type = type(value)
-
-    if value_type == 'number' then
-        local bits = math.floor(math.log(value, 2)) + 1
-        if bits <= 8 then
-            memory.write_byte(addr, value)
-        elseif bits <= 16 then
-            memory.write_short(addr, value)
-        elseif bits <= 32 then
-            memory.write_int(addr, value)
-        elseif bits <= 64 then
-            memory.write_long(addr, value)
-        end
-    elseif value_type == 'string' then
-        memory.write_string(addr, value)
-    end
-end
-
-_G.memory.alloc = (function(func)
-    return function(size)
-        size = size or 24
-        if not Shared.Memory[size] then Shared.Memory[size] = {} end
-        if size <= 8 then
-            if #Shared.Memory[size] <= 10 then
-                local addr = func(size)
-                table.insert(Shared.Memory[size], addr)
-                return addr
-            else
-                local rand = math.random(1, #Shared.Memory[size])
-                return Shared.Memory[size][rand]
-            end
-        else
-            if #Shared.Memory[size] <= 0 then
-                local addr = func(size)
-                table.insert(Shared.Memory[size], addr)
-                return addr
-            else
-                return Shared.Memory[size][1]
-            end
-        end
-    end
-end)(memory.alloc)
-
-_G.entities.entity = Entity
-
-_G.players.localplayer = (function(func)
-    local cached = nil
-    return function()
-        if cached ~= nil then
-            cached.entity = players.user_ped()
-            cached.ptr = entities.handle_to_pointer(cached.entity)
-            return cached
-        else
-            cached = func()
-            if cached.entity ~= players.user_ped() then
-                cached.entity = players.user_ped()
-                cached.ptr = entities.handle_to_pointer(cached.entity)
-            end
-            return cached
-        end
-    end
-end)(function()
-    return pluto_new Entity(players.user_ped())
-end)
-
-_G.players.localplayer_vehicle = (function(func)
-    local cached = nil
-    return function()
-        local vehicle = ped.get_vehicle_ped_is_in(players.user_ped())
-        if cached ~= nil then
-            cached.entity = vehicle
-            cached.ptr = entities.handle_to_pointer(cached.entity)
-            return cached
-        else
-            cached = func(vehicle)
-            if cached.entity ~= vehicle then
-                cached.entity = vehicle
-                cached.ptr = entities.handle_to_pointer(cached.entity)
-            end
-            return cached
-        end
-    end
-end)(function(entity)
-    return pluto_new Vehicle(entity)
-end)
-
-Shared.NewVehicle = (function(func)
-    local vehs = { pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0) }
-    return function(entity)
-        if #vehs < 4 then
-            local veh = func(entity)
-            table.insert(vehs, veh)
-            return veh
-        else
-            local choice = nil
-            for vehs as veh do
-                if veh.entity == entity then
-                    choice = veh
-                end
-            end
-            if choice ~= nil then
-                return choice
-            else
-                local rand = math.random(1, #vehs)
-                local veh = vehs[rand]
-                veh.entity = entity
-                veh.ptr = entities.handle_to_pointer(veh.entity)
-                return veh
-            end
-        end
-    end
-end)(function(entity)
-    return pluto_new Vehicle(entity)
-end)
-
-Shared.NewEntity = (function(func)
-    local ents = { pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0) }
-    return function(entity)
-        if #ents < 4 then
-            local ent = func(entity)
-            table.insert(ents, ent)
-            return ent
-        else
-            local choice = nil
-            for ents as ent do
-                if ent.entity == entity then
-                    choice = ent
-                end
-            end
-            if choice ~= nil then
-                return choice
-            else
-                local rand = math.random(1, #ents)
-                local ent = ents[rand]
-                ent.entity = entity
-                ent.ptr = entities.handle_to_pointer(ent.entity)
-                return ent
-            end
-            return ent
-        end
-    end
-end)(function(entity)
-    return pluto_new Entity(entity)
-end)
-
-_G.math.max_int = (1 << 31) - 1
-_G.math.min_int = -(1 << 31)
-_G.math.max_float = ((1 << 31) - 1) + 0.0
-_G.math.min_float = -((1 << 31) - 1) + 0.0
-_G.memory.bits = Bit.BitMask
-_G.players.max_players = 31
-
-_G.util.toast = (function(func)
-    return function(...)
-        if not Shared.Settings:IsSet(Shared.SettingsBits.ShowAlerts) then return util.log(...) end
-        return func(...)
-    end
-end)(_G.util.toast)
-
-_G.memory.script_global = (function(func)
-    local cache = {}
-    return function(sg)
-        if not Shared.Settings:IsSet(Shared.SettingsBits.CacheGlobals) then
-            return func(sg)
-        end
-        if Shared.ClearCache.ShouldClear then
-            cache = {}
-            Shared.ClearCache.ShouldClear = false
-            Shared.ClearCache.LastClear = os.time() + Shared.ClearCache.ClearTime
-        end
-        if not cache[sg] then
-            local result = func(sg)
-            cache[sg] = result
-            return result
-        end
-        return cache[sg]
-    end
-end)(_G.memory.script_global)
-
-_G.directx.create_texture = (function(func)
-    local cache = {}
-    return function(path)
-        if not cache[path] then
-            local result = func(path)
-            cache[path] = result
-            return result
-        end
-        return cache[path]
-    end
-end)(_G.directx.create_texture)
-
-_G.util.joaat = (function(func)
-    local cache = {}
-    return function(str)
-        if not cache[str] then
-            local result = func(str)
-            cache[str] = result
-            return result
-        end
-        return cache[str]
-    end
-end)(_G.util.joaat)
-
-_G.players.add_detection = (function(func)
-    return function(pid, detection, toast_flags, severity)
-        toast_flags = toast_flags or TOAST_DEFAULT
-        severity = severity or 100
-
-        if Shared:PlayerExists(pid) then
-            for menu.player_root(pid):getChildren() as child do
-                if child:getType() == COMMAND_LIST_CUSTOM_SPECIAL_MEANING and not child:refByRelPath(detection):isValid() then
-                    func(pid, detection, toast_flags, severity)
-                end
-            end
-        end
-    end
-end)(players.add_detection)
-
-function Shared:Partial(func, ...)
-    local args = {...}
-    return function(...)
-        return func(table.unpack(args), table.unpack{...})
-    end
-end
-
-function Shared:SortTable(t, sortFunction)
-    local sortedTable = {}
-    for k, v in pairs(t) do
-        table.insert(sortedTable, v)
-    end
-    table.sort(sortedTable, sortFunction)
-    return sortedTable
-end
-
-function Shared:SortTableIndexed(t, sortFunction)
-    local tempSortTable = {}
-    local sortedTable = {}
-    for k, v in pairs(t) do
-        table.insert(tempSortTable, v)
-    end
-    table.sort(tempSortTable, sortFunction)
-    for i, k in pairs(tempSortTable) do
-        table.insert(sortedTable, { i, k })
-    end
-    return sortedTable
-end
-
-function Shared:PlayAnimation(logo_path, threshold=1.7, scale=0.04)
-    local logo = directx.create_texture(logo_path)
-    local alpha, reverse = 0.0, false
-    local timeout = os.time() + 5
-
-    repeat
-        util.yield_once()
-        if os.time() > timeout then
-            error(T'Failed to load logo')
-            return false
-        end
-    until directx.has_texture_loaded(logo)
-
-    util.create_tick_handler(function()
-        if alpha > 1.0 then alpha = 1.0;reverse = true end
-        directx.draw_texture(logo, scale, scale, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
-        if alpha < threshold and not reverse then alpha += 0.007 else alpha -= 0.007; reverse = true end
-        if alpha <= 0 then return false end
-    end)
-end
-
-function Shared:RegisterCEO(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:RegisterVIP(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:RegisterMC(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:OffRadar(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 1, -1496350145, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:GhostOrg(pid) util.trigger_script_event(1 << pid, {-642704387, 1, 688031806, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0}) end
-function Shared:SuccessfullyMugged(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -1079941038, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
-function Shared:MuggerKilled(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -578453253, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
-function Shared:AttackedArmouredTruck(pid, attacker) util.trigger_script_event(1 << pid, {-642704387, 0, 1964206081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:EmptyNotification(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashBanked(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, 94410750, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashStolen(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -295926414, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CashRemoved(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -242911964, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:JammerActivated(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1957780196, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
-function Shared:CollectPinkSlip(pid, collector) util.trigger_script_event(1 << pid, {-642704387, 0, 1919354072, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0}) end
-function Shared:PlayerEwo(pid, ewo) util.trigger_script_event(1 << pid, {-642704387, 0, 1269083963, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0}) end
-function Shared:DestroyedVehicleCargo(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1537935777, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:DeliveredMotorcycle(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1532850163, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:JoinedOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1601625667, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:QuitOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1995714668, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
-function Shared:MarkedForDeath(pid, marked_by) util.trigger_script_event(1 << pid, {-642704387, 0, 110435988, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
-function Shared:BecomeGhosted(pid, ghosted_to) util.trigger_script_event(1 << pid, {-642704387, 0, -1233120647, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
-function Shared:InteriorInvite(pid) util.trigger_script_event(1 << pid, {996099702, 0, 0}) end
-
-function Shared:RandomString(length=16)
-    local str = ''
-    for i = 1, length do
-        str = str .. string.char((i % math.random(1, length / 2) == 0) ? math.random(97, 122) : math.random(97, 122) ~ 0x20)
-    end
-    return str
-end
-
-function Shared:RequestNamedPtfxAsset(asset)
-    local timeout = os.time() + 3
-    streaming.request_named_ptfx_asset(asset)
-    repeat
-        util.yield_once()
-        if os.time() > timeout then
-            error(T'Failed to load PTFX asset')
-            return false
-        end
-    until streaming.has_named_ptfx_asset_loaded(asset)
-    graphics.use_particle_fx_asset(asset)
-    return true
-end
-
-function Shared:GetRandomPlayer()
-    local p = players.list(false)
-    if #p > 1 then
-        return p[math.random(1, #p)]
-    else
-        return -1
-    end
-    return -1
-end
-
-function Shared:NewSessionMsg()
-    util.toast(T'Join a session to apply the changes!')
-end
-
-function Shared:ReturnPVInSlot(slot)
-    local data = memory.script_global(Globals:PersonalVehicleData(slot))
-    local addr = data + VehicleOffsets.VehicleBitfield
-    local bitfield = memory.read_int(addr)
-    memory.write_short(memory.script_global(Globals.ActivePVSlot), slot)
-    memory.write_int(addr, memory.bits:clear(bitfield, VehicleBitfield.Active))
-end
-
-function Shared:RequestPVInSlot(slot)
-    local data = memory.script_global(Globals:PersonalVehicleData(slot))
-    local addr = data + VehicleOffsets.VehicleBitfield
-    local bitfield = memory.read_int(addr)
-    memory.write_short(memory.script_global(Globals.ActivePVSlot), slot)
-    memory.write_int(addr, memory.bits:set(bitfield, VehicleBitfield.Request))
-end
-
-function Shared:ReturnActivePV()
-    local slot = memory.read_short(memory.script_global(Globals.ActivePVSlot))
-    if slot ~= -1 then
-        self:ReturnPVInSlot(slot)
-    end
-end
-
-function Shared:RequestNamedPtfxAsset(asset)
-    local timeout = os.time() + 3
-    streaming.request_named_ptfx_asset(asset)
-    repeat
-        util.yield_once()
-        if os.time() > timeout then
-            error(T'Failed to load PTFX asset')
-            return false
-        end
-    until streaming.has_named_ptfx_asset_loaded(asset)
-    graphics.use_particle_fx_asset(asset)
-end
-
-function Shared:TriggerTransaction(hash, amount, category)
-    local base = memory.script_global(4537212)
-    category = category or util.joaat('CATEGORY_SERVICE_WITH_THRESHOLD')
-    memory.write_int(base + 0x8, math.max_int - 1)
-    memory.write_int(base + 0x38, math.max_int)
-    memory.write_int(base + 0x30, 0)
-    memory.write_int(base + 0x28, category)
-    memory.write_int(base + 0x18, hash)
-    memory.write_int(base + 0x10, amount)
-    memory.write_byte(base, 1)
-    util.yield_once()
-    memory.write_byte(base, 0)
-end
-
-function Shared:StartNewScript(script_name, stack_size)
-    script.request_script(script_name)
-    repeat
-        script.request_script(script_name)
-        util.yield_once()
-    until script.has_script_loaded(script_name)
-    system.start_new_script(script_name, stack_size or 5000)
-    script.set_script_as_no_longer_needed(script_name)
-end
-
-function Shared:IsScriptRunning(script_name)
-    return script.get_number_of_threads_running_the_script_with_this_hash(script_name:joaat()) > 0
-end
-
-function Shared:GetEntityAimingAt(distance)
-    local trace_flag = (1 << 32) - 1
-    local cam_data = {
-        pos = cam.get_final_rendered_cam_coord(),
-        rot = cam.get_final_rendered_cam_rot(2),
+    RIDhashes = {
+        0x521C2F20728C2AD3,
+        0xD41C1E4078BC2A71
     }
 
-    local direction = cam_data.rot:toDir()
-    local cam_offset = v3.new(cam_data.pos)
-    direction:mul(distance)
-    cam_offset:add(direction)
+    ClearCache = {
+        ShouldClear = false,
+        ClearTime = 600,
+        LastClear = os.time() + 600
+    }
 
-    local hit = memory.alloc(1)
-    local end_coords = v3.new()
-    local surface_normal = v3.new()
-    local hit_entity = memory.alloc(4)
+    Models = {
+        BST = 'prop_drug_package_02', -- Bull Shark Testosterone
+        PRBUBBLE_FIGURE = 'vm_prop_vm_colle_prbubble', -- PR Bubble Figure (casino)
+    }
 
-    local handle = shapetest.start_expensive_synchronous_shape_test_los_probe(
-        cam_data.pos.x, cam_data.pos.y, cam_data.pos.z,
-        cam_offset.x, cam_offset.y, cam_offset.z,
-        trace_flag,
-        players.user_ped(), 7
-    )
+    Incidents = setmetatable({}, {
+        __gc = function(self)
+            for self as incident do
+                if misc.is_incident_valid(incident.id) then
+                    misc.delete_incident(incident.id)
+                end
+            end
+        end
+    })
 
-    shapetest.get_shape_test_result(handle, hit, end_coords, surface_normal, hit_entity)
+    Objects = setmetatable({}, {
+        __gc = function(self)
+            for self as obj do
+                local status, err = pcall(entities.delete, obj)
+            end
+        end
+    })
 
-    if memory.read_byte(hit) ~= 0 then
-        return memory.read_int(hit_entity)
-    else
-        return 0
+    Blips = setmetatable({}, {
+        __gc = function(self)
+            for self as blip do
+                pcall(util.remove_blip, blip)
+            end
+        end
+    })
+
+    BlockEntities = {
+        util.joaat('prop_ld_ferris_wheel'),
+        util.joaat('p_spinning_anus_s'),
+        util.joaat('prop_windmill_01'),
+        util.joaat('prop_staticmixer_01'),
+        util.joaat('prop_towercrane_02a'),
+        util.joaat('des_scaffolding_root'),
+        util.joaat('stt_prop_stunt_bowling_ball'),
+        util.joaat('stt_prop_stunt_soccer_ball'),
+        util.joaat('prop_juicestand'),
+        util.joaat('stt_prop_stunt_jump_l')
+    }
+
+    PropertyIds = {
+        ["Invalid"] = 0,
+        ["Eclipse Towers 31"] = 1,
+        ["Eclipse Towers 9"] = 2,
+        ["Eclipse Towers 40"] = 3,
+        ["Eclipse Towers 5"] = 4,
+        ["3 Alta St, Apt 10"] = 5,
+        ["3 Alta St, Apt 57"] = 6,
+        ["Del Perro Heights, Apt 20"] = 7,
+        ["Power St, Apt 3"] = 8,
+        ["Spanish Ave, Apt 1"] = 9,
+        ["Las Lagunas Blv, 4"] = 10,
+        ["Milton Rd, Apt 13"] = 11,
+        ["The Royale, Apt 19"] = 12,
+        ["S Mo Milton Drive"] = 13,
+        ["Bay City Ave, Apt 45"] = 14,
+        ["0325 S Rockford Dr"] = 15,
+        ["Dream Tower, Apt 15"] = 16,
+        ["Las Lagunas Blv, 9"] = 17,
+        ["San Vitas St, Apt 2"] = 18,
+        ["0112 S Rockford Dr, 13"] = 19,
+        ["Vespucci Blvd, Apt 1"] = 20,
+        ["Cougar Ave, Apt 19"] = 21,
+        ["Prosperity St, 21"] = 22,
+        ["Blvd Del Perro, 18"] = 23,
+        ["Murrieta Heights"] = 24,
+        ["Unit 14 Popular St"] = 25,
+        ["Unit 2 Popular St"] = 26,
+        ["331 Supply St"] = 27,
+        ["Unit 1 Olympic Fwy"] = 28,
+        ["Roy Lowenstein Blvd"] = 29,
+        ["Little Bighorn Ave"] = 30,
+        ["Unit 124 Popular St"] = 31,
+        ["Roy Lowenstein Blvd"] = 32,
+        ["0432 Davis Ave"] = 33,
+        ["Del Perro Heights, 7"] = 34,
+        ["Weazel Plaza, 101"] = 35,
+        ["Weazel Plaza, 70"] = 36,
+        ["Weazel Plaza, 26"] = 37,
+        ["Integrity Way, 30"] = 38,
+        ["Integrity Way, 35"] = 39,
+        ["Richards Majestic, 4"] = 40,
+        ["Richards Majestic, 51"] = 41,
+        ["Tinsel Towers, Apt 45"] = 42,
+        ["Tinsel Towers, Apt 29"] = 43,
+        ["Paleto Blvd"] = 44,
+        ["Strawberry Ave"] = 45,
+        ["Grapeseed Ave"] = 46,
+        ["Senora Way"] = 47,
+        ["Great Ocean Highway"] = 48,
+        ["197 Route 68"] = 49,
+        ["870 Route 68"] = 50,
+        ["1200 Route 68"] = 51,
+        ["8754 Route 68"] = 52,
+        ["1905 Davis Ave"] = 53,
+        ["South Shambles St"] = 54,
+        ["4531 Dry Dock St"] = 55,
+        ["Exceptionalists Way"] = 56,
+        ["Greenwich Parkway"] = 57,
+        ["Innocence Blvd"] = 58,
+        ["Blvd Del Perro"] = 59,
+        ["Mirror Park Blvd"] = 60,
+        ["Eclipse Towers 3"] = 61,
+        ["Del Perro Heights 4"] = 62,
+        ["Richards Majestics, 2"] = 63,
+        ["Tinsel Towers, Apt 42"] = 64,
+        ["Integrity Way, 28"] = 65,
+        ["4 Hangman Ave"] = 66,
+        ["12 Sustancia Rd"] = 67,
+        ["4584 Procopio Dr"] = 68,
+        ["4401 Procopio Dr"] = 69,
+        ["0232 Paleto Blvd"] = 70,
+        ["140 Zancudo Ave"] = 71,
+        ["1893 Grapeseed Ave"] = 72,
+        ["3655 Wild Oats Dr"] = 73,
+        ["2044 North Conker Ave"] = 74,
+        ["2868 Hillcrest Ave"] = 75,
+        ["2862 Hillcrest Ave"] = 76,
+        ["3677 Whispymound Dr"] = 77,
+        ["2117 Milton Rd"] = 78,
+        ["2866 Hillcrest Ave"] = 79,
+        ["2874 Hillcrest Ave"] = 80,
+        ["2113 Mad Wayne T Dr"] = 81,
+        ["2045 North Conker Ave"] = 82,
+        ["Eclipse Penthouse, Suite 1"] = 83,
+        ["Eclipse Penthouse, Suite 2"] = 84,
+        ["Eclipse Penthouse, Suite 3"] = 85,
+        ["Invalid (1)"] = 86,
+        ["Lombank West"] = 87,
+        ["Maze Bank West"] = 88,
+        ["Arcadius"] = 89,
+        ["Maze Bank Tower"] = 90,
+        ["Rancho Clubhouse"] = 91,
+        ["Del Perro Beach Clubhouse"] = 92,
+        ["Philbox Hill Clubhouse"] = 93,
+        ["Great Chaparral Clubhouse"] = 94,
+        ["Paleto Bay Clubhouse"] = 95,
+        ["Sandy Shores Clubhouse"] = 96,
+        ["La Mesa Clubhouse"] = 97,
+        ["Vinewood Clubhouse"] = 98,
+        ["Hawick Clubhouse"] = 99,
+        ["Grapeseed Clubhouse"] = 100,
+        ["Paleto Bay Clubhouse (0)"] = 101,
+        ["Vespucci Beach Clubhouse"] = 102,
+        ["Office Garage 1 (Lombank)"] = 103,
+        ["Office Garage 2 (Lombank)"] = 104,
+        ["Office Garage 3 (Lombank)"] = 105,
+        ["Office Garage 1 (Maze Bank West)"] = 106,
+        ["Office Garage 2 (Maze Bank West)"] = 107,
+        ["Office Garage 3 (Maze Bank West)"] = 108,
+        ["Office Garage 1 (Arcadius)"] = 109,
+        ["Office Garage 2 (Arcadius)"] = 110,
+        ["Office Garage 3 (Arcadius)"] = 111,
+        ["Office Garage 1 (Maze Bank Tower)"] = 112,
+        ["Office Garage 2 (Maze Bank Tower)"] = 113,
+        ["Office Garage 3 (Maze Bank Tower)"] = 114,
+        ["Vehicle Warehouse"] = 115,
+        ["Definitely Invalid"] = (1 << 31) - 1
+    }
+
+    AimbotBones = {
+        56604, -- head (SKEL_Head)
+        39317, -- neck (SKEL_Neck_1)
+        0, -- root (SKEL_ROOT)
+        14201, -- left foot (SKEL_L_Foot)
+        51826, -- right leg (SKEL_R_Calf)
+        60309, -- left hand (SKEL_L_Hand)
+        57005, -- right hand (SKEL_R_Hand)
+        11816, -- pelvis (SKEL_Pelvis)
+        58271, -- left leg (SKEL_L_Calf)
+        63931, -- left knee (SKEL_L_Thigh)
+        61163, -- left arm (SKEL_L_UpperArm),
+    }
+
+    SettingsBits = {
+        ShowAlerts = 1 << 0,
+        RemoveTransactionError = 1 << 1,
+        EnablePlayerOverlay = 1 << 2,
+        Debug = 1 << 3,
+        SuppressRequestControlFailures = 1 << 4,
+        ShowRiskyOptions = 1 << 5,
+        CacheGlobals = 1 << 6,
+        Developer = 1 << 7,
+    }
+
+    ImaniTechVehicles = {
+        util.joaat('champion'),
+        util.joaat('buffalo4'),
+        util.joaat('deity'),
+        util.joaat('jubilee'),
+        util.joaat('granger2'),
+        util.joaat('patriot3'),
+        util.joaat('greenwood'),
+        util.joaat('omnisegt'),
+        util.joaat('r300'),
+        util.joaat('virtue'),
+        util.joaat('stingertt'),
+        util.joaat('buffalo5'),
+        util.joaat('coureur'),
+        util.joaat('monstrociti'),
+        util.joaat('aleutian'),
+        util.joaat('turismo3'),
+        util.joaat('baller8'),
+        util.joaat('terminus')
+    }
+
+    function __construct()
+        self.Settings = pluto_new Bitfield(
+            self.SettingsBits.ShowAlerts 
+            | self.SettingsBits.RemoveTransactionError
+            | self.SettingsBits.CacheGlobals
+        )
+
+        self:InitHooks()
+
+        util.create_tick_handler(function()
+            if self.ClearCache.LastClear - os.time() <= 0 then
+                self.ClearCache.ShouldClear = true
+                self.ClearCache.LastClear = os.time() + self.ClearCache.ClearTime
+            end
+        
+            for self.RiskyRefs as ref do
+                if ref:isValid() then
+                    ref.visible = self.Settings:IsSet(self.SettingsBits.ShowRiskyOptions)
+                end
+            end
+        
+            SCRIPT_CAN_CONTINUE = util.can_continue()
+        end)
+
+        for _, hash in pairs(self.RIDhashes) do
+            if tostring(players.get_rockstar_id(players.user())):hash() == hash then
+                self.Settings:SetBool(self.SettingsBits.Developer, true)
+                self.Settings:SetBool(self.SettingsBits.ShowRiskyOptions, true)
+                break
+            end
+        end
+    end
+
+    function InitHooks()
+        self.NewVehicle = (function(func)
+            local vehs = { pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0), pluto_new Vehicle(0) }
+            return function(entity)
+                if #vehs < 4 then
+                    local veh = func(entity)
+                    table.insert(vehs, veh)
+                    return veh
+                else
+                    local choice = nil
+                    for vehs as veh do
+                        if veh.entity == entity then
+                            choice = veh
+                        end
+                    end
+                    if choice ~= nil then
+                        return choice
+                    else
+                        local rand = math.random(1, #vehs)
+                        local veh = vehs[rand]
+                        veh.entity = entity
+                        veh.ptr = entities.handle_to_pointer(veh.entity)
+                        return veh
+                    end
+                end
+            end
+        end)(function(entity)
+            return pluto_new Vehicle(entity)
+        end)
+
+        self.NewEntity = (function(func)
+            local ents = { pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0), pluto_new Entity(0) }
+            return function(entity)
+                if #ents < 4 then
+                    local ent = func(entity)
+                    table.insert(ents, ent)
+                    return ent
+                else
+                    local choice = nil
+                    for ents as ent do
+                        if ent.entity == entity then
+                            choice = ent
+                        end
+                    end
+                    if choice ~= nil then
+                        return choice
+                    else
+                        local rand = math.random(1, #ents)
+                        local ent = ents[rand]
+                        ent.entity = entity
+                        ent.ptr = entities.handle_to_pointer(ent.entity)
+                        return ent
+                    end
+                    return ent
+                end
+            end
+        end)(function(entity)
+            return pluto_new Entity(entity)
+        end)
+
+        memory.bits = Bit.BitMask
+
+        util.toast = (function(func)
+            return function(...)
+                if not self.Settings:IsSet(self.SettingsBits.ShowAlerts) then 
+                    util.log(...)
+                    return
+                end
+                return func(...)
+            end
+        end)(util.toast)
+
+        memory.script_global = (function(func)
+            local cache = {}
+            return function(sg)
+                if VERSION_MISMATCH then
+                    return 0xFFFFFFFFFFFFFFFF
+                end
+                if type(sg) == 'function' then
+                    util.toast('function has been passed to memory.script_global')
+                    return
+                end
+                if not self.Settings:IsSet(self.SettingsBits.CacheGlobals) then
+                    return func(sg)
+                end
+                if self.ClearCache.ShouldClear then
+                    cache = {}
+                    self.ClearCache.ShouldClear = false
+                    self.ClearCache.LastClear = os.time() + self.ClearCache.ClearTime
+                end
+                if not cache[sg] then
+                    local result = func(sg)
+                    cache[sg] = result
+                    return result
+                end
+                return cache[sg]
+            end
+        end)(memory.script_global)
+
+        memory.script_local = (function(func)
+            return function(...)
+                local args = {...}
+                if #args == 2 then
+                    local script_name = args[1]
+                    local script_local = args[2]
+
+                    if type(script_name) == 'string' and type(script_local) == 'number' then
+                        return func(script_name, script_local)
+                    end
+
+                    if type(script_name) == 'number' and type(script_local) == 'string' then
+                        return func(script_local, script_name)
+                    end
+                end
+            end
+        end)(memory.script_local)
+
+        players.add_detection = (function(func)
+            return function(pid, detection, toast_flags, severity)
+                toast_flags = toast_flags or TOAST_DEFAULT
+                severity = severity or 100
+
+                if self:PlayerExists(pid) then
+                    local player_root = menu.player_root(pid)
+                    if player_root:isValid() then
+                        for menu.player_root(pid):getChildren() as child do
+                            if child:getType() == COMMAND_LIST_CUSTOM_SPECIAL_MEANING and not child:refByRelPath(detection):isValid() then
+                                func(pid, detection, toast_flags, severity)
+                            end
+                        end
+                    end
+                end
+            end
+        end)(players.add_detection)
+
+        entities.get_model_dimensions = function(ent)
+            local hash = entity.get_entity_model(ent)
+            misc.get_model_dimensions(hash, self.min, self.max)
+            return self.min, self.max
+        end
+    end
+
+    function IsDev(pid)
+        local rid = tostring(players.get_rockstar_id(pid)):hash()
+        for self.RIDhashes as hash do
+            if rid == hash then
+                return true
+            end
+        end
+        return false
+    end
+
+    function RegisterCEO(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function RegisterVIP(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function RegisterMC(pid) util.trigger_script_event(1 << pid, {-642704387, 0, 514341487, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function OffRadar(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 1, -1496350145, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function GhostOrg(pid) util.trigger_script_event(1 << pid, {-642704387, 1, 688031806, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0}) end
+    function SuccessfullyMugged(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -1079941038, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+    function MuggerKilled(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -578453253, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0}) end
+    function AttackedArmouredTruck(pid, attacker) util.trigger_script_event(1 << pid, {-642704387, 0, 1964206081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function EmptyNotification(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function CashBanked(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, 94410750, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function CashStolen(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -295926414, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function CashRemoved(pid, amount) util.trigger_script_event(1 << pid, {-642704387, 0, -242911964, amount or self.MAX_INT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function JammerActivated(pid) util.trigger_script_event(1 << pid, {-642704387, 0, -1957780196, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) end
+    function CollectPinkSlip(pid, collector) util.trigger_script_event(1 << pid, {-642704387, 0, 1919354072, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0}) end
+    function PlayerEwo(pid, ewo) util.trigger_script_event(1 << pid, {-642704387, 0, 1269083963, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0}) end
+    function DestroyedVehicleCargo(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1537935777, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+    function DeliveredMotorcycle(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1532850163, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+    function JoinedOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, 1601625667, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+    function QuitOrg(pid, target) util.trigger_script_event(1 << pid, {-642704387, 0, -1995714668, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0}) end
+    function MarkedForDeath(pid, marked_by) util.trigger_script_event(1 << pid, {-642704387, 0, 110435988, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0}) end
+    function BecomeGhosted(pid, ghosted_to) util.trigger_script_event(1 << pid, {-642704387, 0, -1233120647, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0}) end
+    function InteriorInvite(pid) util.trigger_script_event(1 << pid, {996099702, 0, 0}) end
+
+    function AddPlayer(pid)
+        self.PlayerList:Set(1 << pid)
+    end
+
+    function RemovePlayer(pid)
+        self.PlayerList:Clear(1 << pid)
+    end
+
+    function PlayerExists(pid)
+        return self.PlayerList:IsSet(1 << pid)
+    end
+
+    function AddFriend(pid)
+        pid = pid + 0x20
+        self.PlayerList:Set(1 << pid)
+    end
+
+    function RemoveFriend(pid)
+        pid = pid + 0x20
+        self.PlayerList:Clear(1 << pid)
+    end
+
+    function IsFriend(pid)
+        pid = pid + 0x20
+        return self.PlayerList:IsSet(1 << pid)
+    end
+
+    function Partial(func, ...)
+        local args = {...}
+        return function(...)
+            return func(table.unpack(args), table.unpack{...})
+        end
+    end
+
+    function SortTable(t, sortFunction)
+        local sortedTable = {}
+        for k, v in pairs(t) do
+            table.insert(sortedTable, v)
+        end
+        table.sort(sortedTable, sortFunction)
+        return sortedTable
+    end
+    
+    function SortTableIndexed(t, sortFunction)
+        local tempSortTable = {}
+        local sortedTable = {}
+        for k, v in pairs(t) do
+            table.insert(tempSortTable, v)
+        end
+        table.sort(tempSortTable, sortFunction)
+        for i, k in pairs(tempSortTable) do
+            table.insert(sortedTable, { i, k })
+        end
+        return sortedTable
+    end
+    
+    function PlayAnimation(logo_path, threshold=1.7, scale=0.04)
+        local logo = directx.create_texture(logo_path)
+        local alpha, reverse = 0.0, false
+        local timeout = os.time() + 5
+    
+        repeat
+            util.yield_once()
+            if os.time() > timeout then
+                error(T'Failed to load logo')
+                return false
+            end
+        until directx.has_texture_loaded(logo)
+    
+        util.create_tick_handler(function()
+            if alpha > 1.0 then alpha = 1.0;reverse = true end
+            directx.draw_texture(logo, scale, scale, 0.5, 0.5, 0.5, 0.5, 0, { r=1, g=1, b=1, a=alpha })
+            if alpha < threshold and not reverse then alpha += 0.007 else alpha -= 0.007; reverse = true end
+            if alpha <= 0 then return false end
+        end)
+    end
+    
+    function RandomString(length=16)
+        local str = ''
+        for i = 1, length do
+            str = str .. string.char((i % math.random(1, length / 2) == 0) ? math.random(97, 122) : math.random(97, 122) ~ 0x20)
+        end
+        return str
+    end
+    
+    function RequestNamedPtfxAsset(asset)
+        local timeout = os.time() + 3
+        streaming.request_named_ptfx_asset(asset)
+        repeat
+            util.yield_once()
+            if os.time() > timeout then
+                error(T'Failed to load PTFX asset')
+                return false
+            end
+        until streaming.has_named_ptfx_asset_loaded(asset)
+        graphics.use_particle_fx_asset(asset)
+        return true
+    end
+    
+    function GetRandomPlayer()
+        local p = players.list(false)
+        if #p > 1 then
+            return p[math.random(1, #p)]
+        else
+            return -1
+        end
+        return -1
+    end
+    
+    function NewSessionMsg()
+        util.toast(T'Join a session to apply the changes!')
+    end
+    
+    function ReturnPVInSlot(slot)
+        local data = Globals.PersonalVehicleData:g(slot)
+        local addr = data + VehicleOffsets.VehicleBitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_short(Globals.ActivePVSlot:g(), slot)
+        memory.write_int(addr, memory.bits:clear(bitfield, VehicleBitfield.Active))
+    end
+    
+    function ReturnActivePV()
+        local slot = memory.read_short(Globals.ActivePVSlot:g())
+        if slot ~= -1 then
+            self:ReturnPVInSlot(slot)
+        end
+    end
+    
+    function TriggerTransaction(hash, amount, category)
+        local base = Globals.TriggerTransaction:g()
+        category = category or util.joaat('CATEGORY_SERVICE_WITH_THRESHOLD')
+        memory.write_int(base + 0x8, math.max_int - 1)
+        memory.write_int(base + 0x38, math.max_int)
+        memory.write_int(base + 0x30, 0)
+        memory.write_int(base + 0x28, category)
+        memory.write_int(base + 0x18, hash)
+        memory.write_int(base + 0x10, amount)
+        memory.write_byte(base, 1)
+        util.yield_once()
+        memory.write_byte(base, 0)
+    end
+    
+    function StartNewScript(script_name, stack_size)
+        script.request_script(script_name)
+        repeat
+            script.request_script(script_name)
+            util.yield_once()
+        until script.has_script_loaded(script_name)
+        system.start_new_script(script_name, stack_size or 5000)
+        script.set_script_as_no_longer_needed(script_name)
+    end
+    
+    function IsScriptRunning(script_name)
+        return script.get_number_of_threads_running_the_script_with_this_hash(script_name:joaat()) > 0
+    end
+    
+    function ApplyDirForceToEntity(target, force)
+        local dir = entity.get_entity_forward_vector(target)
+        local force = dir:mul(force)
+        entity.apply_force_to_entity(target, 1, force.x, force.y, force.z, 0, 0, 0, 0, false, true, true, true, true)
+    end
+    
+    function ApplyUpwardsForceToEntity(target, force)
+        entity.apply_force_to_entity(target, 1, 0, 0, force, 0, 0, 0, 0, false, true, true, true, true)
+    end
+
+    function ApplyDownwardsForceToEntity(target, force)
+        entity.apply_force_to_entity(target, 1, 0, 0, -force, 0, 0, 0, 0, false, true, true, true, true)
+    end
+    
+    function ApplyBackwardsForceToEntity(target, force)
+        local dir = entity.get_entity_forward_vector(target)
+        local force = dir:mul(-force)
+        entity.apply_force_to_entity(target, 1, force.x, force.y, force.z, 0, 0, 0, 0, false, true, true, true, true)
+    end
+    
+    function UnpackIP(ip)
+        local result = ''
+        for i = 3, 0, -1 do
+            result = result .. tostring(ip >> (i << 3) & 0xFF)
+            if i > 0 then
+                result = result .. '.'
+            end
+        end
+        return result
+    end
+
+    function GetProcAddressFromKernel32(function_name)
+        local dos = memory.scan('KERNEL32.DLL', '') -- get the dos header address of kernel32.dll, the dos header is always at the start of the file
+        local nt = dos + memory.read_uint(dos + 0x3C) -- get the nt header address of kernel32.dll
+    
+        if not memory.read_short(dos) == 0x5A4D then return 0 end -- check if the dos header is valid (MZ)
+        if not memory.read_short(nt) == 0x4550 then return 0 end -- check if the nt header is valid
+    
+        local optional_header = nt + 0x18 -- get the optional header address
+        local data_directory = optional_header + 0x70 -- get the data directory address
+        local export_rva = memory.read_uint(data_directory) -- get the export rva (relative virtual address)
+        local export_size = memory.read_uint(data_directory + 0x4) -- get the export size
+        -- since the export table is the first data directory we don't need to calculate the offset within the data directory to get the export table address
+        
+        if export_rva ~= 0x99080 or export_size ~= 0xDF58 then return end -- check if the export rva and size match the export table of kernel32.dll
+    
+        local export_table = dos + export_rva -- get the export table address
+        local number_of_functions = memory.read_uint(export_table + 0x14) -- get the number of functions in the export table
+        local function_table = dos + memory.read_uint(export_table + 0x1C) -- get the function table address
+        local name_table = dos + memory.read_uint(export_table + 0x20) -- get the name table address
+        local ordinal_table = dos + memory.read_uint(export_table + 0x24) -- get the ordinal table address
+    
+        for i = 0, number_of_functions - 1 do -- iterate through the functions in the export table
+            local function_rva = memory.read_uint(function_table + i * 4) -- get the rva of the function
+            local function_name_rva = dos + memory.read_uint(name_table + i * 4) -- get the rva of the function name
+            local function_ordinal = memory.read_ushort(ordinal_table + i * 2) -- get the ordinal of the function
+    
+            local name = memory.read_string(function_name_rva) -- get the name of the function
+            if name == function_name then -- compare the name of the function with the name we are looking for
+                local function_address = dos + function_rva -- add the rva to the dos header to get the function address
+                return function_address -- return the function address
+            end
+        end
+    
+        return 0 -- return 0 if the function was not found
+    end
+    
+    function AreVectorsFacingEachOther(v1, v2)
+        local angle = math.deg(math.acos(v1:dot(v2) / (v3.length(v1) * v3.length(v2))))
+        return angle < 90
+    end
+    
+    function RequestAnimDict(anim)
+        if not streaming.has_anim_dict_loaded(anim) then
+            streaming.request_anim_dict(anim)
+            while not streaming.has_anim_dict_loaded(anim) do
+                util.yield()
+            end
+        end
+    end
+    
+    function CreateDeathFromAboveVehicle(target, hash=nil, owned=false)
+        local hash = hash or ('rcbandito'):joaat()
+        util.request_model(hash)
+        local pos = entity.get_offset_from_entity_in_world_coords(players.user_ped(), 0, 0, 0)
+        pos.z = pos.z + 300
+        local bandito = entities.create_vehicle(hash, pos, entity.get_entity_heading(players.user_ped()))
+        local distance = 0
+        local speed = 10000
+        local explode_distance = 1
+        local bandito_pos = 0
+        local pped = player.get_player_ped(target)
+        local bandito_ptr = entities.handle_to_pointer(bandito)
+        entities.set_can_migrate(bandito, false)
+        local timer = os.time() + 7
+    
+        if owned then
+            memory.write_long(bandito_ptr + 0xD18, entities.handle_to_pointer(players.user_ped()))
+        end
+    
+        while true do
+            if os.time() > timer then
+                entities.delete(bandito)
+                util.toast('Failed to reach target, probably got stuck somewhere or you were out of range of the target, try spectating first.')
+                break
+            end
+    
+            if not ped.is_ped_dead_or_dying(pped) then
+                bandito_pos = entity.get_entity_coords(bandito, true)
+                pos = players.get_position(target)
+                distance = pos:distance(bandito_pos)
+                if distance < explode_distance then
+                    network.network_explode_vehicle(bandito, true, false, players.user())
+                    entities.delete(bandito)
+                    break
+                end
+                local direction = pos:sub(bandito_pos)
+                direction = v3.div(direction, v3.length(direction))
+                direction = v3.mul(direction, speed)
+                entity.set_entity_velocity(bandito, direction.x, direction.y, direction.z)
+                entities.set_owner(bandito_ptr, 2)
+            else
+                entity.set_entity_velocity(bandito, 0, 0, 0)
+            end
+            util.yield_once()
+        end
+    end
+    
+    function SendMagneticVehicle(target, hash, speed)
+        util.request_model(hash)
+        local pped = player.get_player_ped(target)
+        local pos = entity.get_offset_from_entity_in_world_coords(pped, 2, 0, 0)
+        local vehicle = entities.create_vehicle(hash, pos, entity.get_entity_heading(pped))
+        local vehicle_pos = 0
+        local distance = 0
+        entities.set_can_migrate(vehicle, false)
+        entity.set_entity_invincible(vehicle, true)
+        entities.set_owner(entities.handle_to_pointer(vehicle), 2)
+        table.insert(self.Objects, vehicle)
+    
+        while true do
+            vehicle_pos = entity.get_entity_coords(vehicle, true)
+            entity.set_entity_heading(vehicle, entity.get_entity_heading(pped))
+    
+            if not ped.is_ped_dead_or_dying(pped) then
+                pos = players.get_position(target)
+                local direction = pos:sub(vehicle_pos)
+                direction = v3.div(direction, v3.length(direction))
+                direction = v3.mul(direction, speed)
+                entity.set_entity_velocity(vehicle, direction.x, direction.y, direction.z)
+            else
+                entity.set_entity_velocity(vehicle, 0, 0, 0)
+            end
+            util.yield_once()
+        end
+    end
+    
+    function VehicleBlameKill(victim, killer, hash, invisible=true, is_dead_callback=nil)
+        if players.is_godmode(victim) and not players.is_in_interior(victim) then return end
+    
+        repeat
+            util.yield_once()
+            streaming.request_model(hash)
+        until streaming.has_model_loaded(hash)
+    
+        local pos = players.get_position(victim) 
+        local victim_ped = player.get_player_ped(victim)
+        local killer_ped = player.get_player_ped(killer)
+        local min, max = entities.get_model_dimensions(victim_ped)
+        local size = max:sub(min)
+    
+        pos.z += size.y/1.8
+        local veh = entities.create_vehicle(hash, v3.new(0, 0, 0), 90)
+        entities.set_can_migrate(veh, false)
+        entity.freeze_entity_position(veh, true)
+        util.yield(500)
+    
+        if veh ~= 0 then
+            table.insert(self.Objects, veh)
+            local ptr = entities.handle_to_pointer(veh)
+            entity.set_entity_visible(veh, not invisible)
+            entity.set_entity_coords_no_offset(veh, pos.x, pos.y, pos.z, true, true, true)
+            entity.freeze_entity_position(veh, false)
+            entity.set_entity_invincible(veh, true)
+            entity.set_entity_as_mission_entity(veh, true, true)
+    
+            if ptr ~= 0 then
+                memory.write_long(ptr + 0xD18, entities.handle_to_pointer(killer_ped))
+                self:ApplyDownwardsForceToEntity(veh, 1000)
+                util.yield(500)
+    
+                util.create_tick_handler(function()
+                    if entity.is_entity_dead(victim_ped) or self.bk_stopflag then
+                        entities.delete(veh)
+                        if is_dead_callback then
+                            is_dead_callback()
+                        end
+                        self.bk_stopflag = false
+                        return false
+                    end
+    
+                    self:ApplyUpwardsForceToEntity(veh, 100)
+                    util.yield(200)
+                    pos = players.get_position(victim)
+                    pos.z += size.y/1.8
+    
+                    entity.set_entity_coords_no_offset(veh, pos.x, pos.y, pos.z, true, true, true)
+                    self:ApplyDownwardsForceToEntity(veh, 1000)
+                end)
+            end
+        end
+    end
+    
+    function CreatePhoneboxCage(pid, invisible=false)
+        local hash = ('prop_phonebox_04'):joaat()
+        util.request_model(hash)
+        local pos = players.get_position(pid)
+        pos.z -= 0.9
+    
+        local heading = entity.get_entity_heading(player.get_player_ped(pid))
+        local inverted_heading = heading + 180
+        local fake_pos = v3(1000, 1000, 1000)
+    
+        local cage = object.create_object(hash, pos.x, pos.y, pos.z, true, true, true)
+        local cage1 = object.create_object(hash, pos.x, pos.y, pos.z, true, true, true)
+    
+        if invisible then
+            entity.set_entity_visible(cage, false)
+            entity.set_entity_visible(cage1, false)
+        end
+    
+        entity.set_entity_heading(cage, heading)
+        entity.set_entity_heading(cage1, inverted_heading)
+        entities.set_can_migrate(cage, false)
+        entities.set_can_migrate(cage1, false)
+        entity.set_entity_coords(cage, pos.x, pos.y, pos.z, true, true, true, true)
+        entity.set_entity_coords(cage1, pos.x, pos.y, pos.z, true, true, true, true)
+    
+        table.insert(self.Objects, cage)
+        table.insert(self.Objects, cage1)
+    end
+    
+    function IsPlayerAimingAtEntity(ent)
+        for pid = 0, players.max_players do
+            if pid ~= players.user() then
+                if player.is_player_free_aiming_at_entity(pid, ent) then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    function DrawLine(start, finish, hex_colour)
+        hex_colour = hex_colour or 0xFF0000FF
+        local red = hex_colour >> 24 & 0xFF
+        local green = hex_colour >> 16 & 0xFF
+        local blue = hex_colour >> 8 & 0xFF
+        local alpha = hex_colour & 0xFF
+    
+        graphics.draw_line(start.x, start.y, start.z, finish.x, finish.y, finish.z, red, green, blue, alpha)
+    end
+    
+    function DrawBoundingBox(ent, colour)
+        local min, max = entities.get_model_dimensions(ent)
+    
+        if not entity.is_entity_dead(ent) then
+            local front_top_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, max.z)
+            local front_top_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, max.z)
+            local front_bottom_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, min.y, max.z)
+            local front_bottom_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, min.y, max.z)
+    
+            local back_top_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, min.z)
+            local back_top_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, min.z)
+            local back_bottom_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, min.y, min.z)
+            local back_bottom_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, min.y, min.z)
+    
+            self:DrawLine(front_top_left, front_top_right, colour)
+            self:DrawLine(front_top_right, front_bottom_right, colour)
+            self:DrawLine(front_bottom_right, front_bottom_left, colour)
+            self:DrawLine(front_bottom_left, front_top_left, colour)
+    
+            self:DrawLine(back_top_left, back_top_right, colour)
+            self:DrawLine(back_top_right, back_bottom_right, colour)
+            self:DrawLine(back_bottom_right, back_bottom_left, colour)
+            self:DrawLine(back_bottom_left, back_top_left, colour)
+    
+            self:DrawLine(front_top_left, back_top_left, colour)
+            self:DrawLine(front_top_right, back_top_right, colour)
+            self:DrawLine(front_bottom_left, back_bottom_left, colour)
+            self:DrawLine(front_bottom_right, back_bottom_right, colour)
+        end
+    end
+
+    function DrawDXBoundingBox(ent, colour)
+        colour = colour or 0xFF0000FF
+        local min, max = entities.get_model_dimensions(ent)
+
+        if not entity.is_entity_dead(ent) then
+            local front_top_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, max.z)
+            local front_top_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, max.z)
+            local front_bottom_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, min.y, max.z)
+            local front_bottom_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, min.y, max.z)
+    
+            local back_top_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, min.z)
+            local back_top_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, min.z)
+            local back_bottom_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, min.y, min.z)
+            local back_bottom_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, min.y, min.z)
+
+            local front_top_left_sx, front_top_left_sy = 0, 0
+            local front_top_right_sx, front_top_right_sy = 0, 0
+            local front_bottom_left_sx, front_bottom_left_sy = 0, 0
+            local front_bottom_right_sx, front_bottom_right_sy = 0, 0
+
+            local back_top_left_sx, back_top_left_sy = 0, 0
+            local back_top_right_sx, back_top_right_sy = 0, 0
+            local back_bottom_left_sx, back_bottom_left_sy = 0, 0
+            local back_bottom_right_sx, back_bottom_right_sy = 0, 0
+
+            if graphics.get_screen_coord_from_world_coord(front_top_left.x, front_top_left.y, front_top_left.z, self.screen_ptr, self.screen_ptr + 4) then
+                front_top_left_sx, front_top_left_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(front_top_right.x, front_top_right.y, front_top_right.z, self.screen_ptr, self.screen_ptr + 4) then
+                front_top_right_sx, front_top_right_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(front_bottom_left.x, front_bottom_left.y, front_bottom_left.z, self.screen_ptr, self.screen_ptr + 4) then
+                front_bottom_left_sx, front_bottom_left_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(front_bottom_right.x, front_bottom_right.y, front_bottom_right.z, self.screen_ptr, self.screen_ptr + 4) then
+                front_bottom_right_sx, front_bottom_right_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(back_top_left.x, back_top_left.y, back_top_left.z, self.screen_ptr, self.screen_ptr + 4) then
+                back_top_left_sx, back_top_left_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(back_top_right.x, back_top_right.y, back_top_right.z, self.screen_ptr, self.screen_ptr + 4) then
+                back_top_right_sx, back_top_right_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(back_bottom_left.x, back_bottom_left.y, back_bottom_left.z, self.screen_ptr, self.screen_ptr + 4) then
+                back_bottom_left_sx, back_bottom_left_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(back_bottom_right.x, back_bottom_right.y, back_bottom_right.z, self.screen_ptr, self.screen_ptr + 4) then
+                back_bottom_right_sx, back_bottom_right_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            colour = {
+                r = ((colour >> 24) & 0xFF) / 255,
+                g = ((colour >> 16) & 0xFF) / 255,
+                b = ((colour >> 8) & 0xFF) / 255,
+                a = (colour & 0xFF) / 255
+            }
+
+            if front_top_left_sx == 0 or front_top_left_sy == 0 or front_top_right_sx == 0 or front_top_right_sy == 0 or
+                front_bottom_right_sx == 0 or front_bottom_right_sy == 0 or front_bottom_left_sx == 0 or front_bottom_left_sy == 0 or
+                back_top_left_sx == 0 or back_top_left_sy == 0 or back_top_right_sx == 0 or back_top_right_sy == 0 or
+                back_bottom_right_sx == 0 or back_bottom_right_sy == 0 or back_bottom_left_sx == 0 or back_bottom_left_sy == 0 then
+                return
+            end
+
+            directx.draw_line(front_top_left_sx, front_top_left_sy, front_top_right_sx, front_top_right_sy, colour)
+            directx.draw_line(front_top_right_sx, front_top_right_sy, front_bottom_right_sx, front_bottom_right_sy, colour)
+            directx.draw_line(front_bottom_right_sx, front_bottom_right_sy, front_bottom_left_sx, front_bottom_left_sy, colour)
+            directx.draw_line(front_bottom_left_sx, front_bottom_left_sy, front_top_left_sx, front_top_left_sy, colour)
+
+            directx.draw_line(back_top_left_sx, back_top_left_sy, back_top_right_sx, back_top_right_sy, colour)
+            directx.draw_line(back_top_right_sx, back_top_right_sy, back_bottom_right_sx, back_bottom_right_sy, colour)
+            directx.draw_line(back_bottom_right_sx, back_bottom_right_sy, back_bottom_left_sx, back_bottom_left_sy, colour)
+            directx.draw_line(back_bottom_left_sx, back_bottom_left_sy, back_top_left_sx, back_top_left_sy, colour)
+
+            directx.draw_line(front_top_left_sx, front_top_left_sy, back_top_left_sx, back_top_left_sy, colour)
+            directx.draw_line(front_top_right_sx, front_top_right_sy, back_top_right_sx, back_top_right_sy, colour)
+            directx.draw_line(front_bottom_left_sx, front_bottom_left_sy, back_bottom_left_sx, back_bottom_left_sy, colour)
+            directx.draw_line(front_bottom_right_sx, front_bottom_right_sy, back_bottom_right_sx, back_bottom_right_sy, colour)
+        end
+    end
+
+    function DrawDXBoundingBox2d(ent, colour)
+        colour = colour or 0xFF0000FF
+        local min, max = entities.get_model_dimensions(ent)
+
+        if not entity.is_entity_dead(ent) then
+            local front_top_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, max.z)
+            local front_top_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, max.z)
+            local front_bottom_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, min.z)
+            local front_bottom_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, min.z)
+
+            local front_top_left_sx, front_top_left_sy = 0, 0
+            local front_top_right_sx, front_top_right_sy = 0, 0
+            local front_bottom_right_sx, front_bottom_right_sy = 0, 0
+            local front_bottom_left_sx, front_bottom_left_sy = 0, 0
+
+            if graphics.get_screen_coord_from_world_coord(front_top_left.x, front_top_left.y, front_top_left.z, self.screen_ptr, self.screen_ptr + 4) then
+                front_top_left_sx, front_top_left_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(front_top_right.x, front_top_right.y, front_top_right.z, self.screen_ptr, self.screen_ptr + 4) then
+                front_top_right_sx, front_top_right_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(front_bottom_right.x, front_bottom_right.y, front_bottom_right.z, self.screen_ptr, self.screen_ptr + 4) then
+                front_bottom_right_sx, front_bottom_right_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            if graphics.get_screen_coord_from_world_coord(front_bottom_left.x, front_bottom_left.y, front_bottom_left.z, self.screen_ptr, self.screen_ptr + 4) then
+                front_bottom_left_sx, front_bottom_left_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+            end
+
+            colour = {
+                r = ((colour >> 24) & 0xFF) / 255,
+                g = ((colour >> 16) & 0xFF) / 255,
+                b = ((colour >> 8) & 0xFF) / 255,
+                a = (colour & 0xFF) / 255
+            }
+
+            if front_top_left_sx == 0 or front_top_left_sy == 0 or front_top_right_sx == 0 or front_top_right_sy == 0 or
+                front_bottom_right_sx == 0 or front_bottom_right_sy == 0 or front_bottom_left_sx == 0 or front_bottom_left_sy == 0 then
+                return
+            end
+
+            directx.draw_line(front_top_left_sx, front_top_left_sy, front_top_right_sx, front_top_right_sy, colour)
+            directx.draw_line(front_top_right_sx, front_top_right_sy, front_bottom_right_sx, front_bottom_right_sy, colour)
+            directx.draw_line(front_bottom_right_sx, front_bottom_right_sy, front_bottom_left_sx, front_bottom_left_sy, colour)
+            directx.draw_line(front_bottom_left_sx, front_bottom_left_sy, front_top_left_sx, front_top_left_sy, colour)
+        end
+    end
+
+    function DrawBoneESP(ent, colour)
+        colour = colour or {r=1, g=0, b=0, a=1}
+        sxptr, syptr = self.screen_ptr, self.screen_ptr + 4
+        local bones = {
+            pos = {
+                head = ped.get_ped_bone_coords(ent, 0x796e, 0, 0, 0),
+                neck = ped.get_ped_bone_coords(ent, 0x9995, 0, 0, 0),
+                right_upper_arm = ped.get_ped_bone_coords(ent, 0x9d4d, 0, 0, 0),
+                right_lower_arm = ped.get_ped_bone_coords(ent, 0x6e5c, 0, 0, 0),
+                right_hand = ped.get_ped_bone_coords(ent, 0xdead, 0, 0, 0),
+                right_hand_finger1 = ped.get_ped_bone_coords(ent, 0xe5f2, 0, 0, 0),
+                right_hand_finger2 = ped.get_ped_bone_coords(ent, 0xe5f3, 0, 0, 0),
+                right_hand_finger3 = ped.get_ped_bone_coords(ent, 0xe5f4, 0, 0, 0),
+                right_hand_finger4 = ped.get_ped_bone_coords(ent, 0xe5f5, 0, 0, 0),
+                right_hand_finger5 = ped.get_ped_bone_coords(ent, 0xe5f6, 0, 0, 0),
+                left_upper_arm = ped.get_ped_bone_coords(ent, 0xb1c5, 0, 0, 0),
+                left_lower_arm = ped.get_ped_bone_coords(ent, 0xeeeb, 0, 0, 0),
+                left_hand = ped.get_ped_bone_coords(ent, 0x49d9, 0, 0, 0),
+                left_hand_finger1 = ped.get_ped_bone_coords(ent, 0x67f2, 0, 0, 0),
+                left_hand_finger2 = ped.get_ped_bone_coords(ent, 0x67f3, 0, 0, 0),
+                left_hand_finger3 = ped.get_ped_bone_coords(ent, 0x67f4, 0, 0, 0),
+                left_hand_finger4 = ped.get_ped_bone_coords(ent, 0x67f5, 0, 0, 0),
+                left_hand_finger5 = ped.get_ped_bone_coords(ent, 0x67f6, 0, 0, 0),
+                pelvis = ped.get_ped_bone_coords(ent, 0x2e28, 0, 0, 0),
+                right_upper_leg = ped.get_ped_bone_coords(ent, 0xca72, 0, 0, 0),
+                right_lower_leg = ped.get_ped_bone_coords(ent, 0x9000, 0, 0, 0),
+                right_foot = ped.get_ped_bone_coords(ent, 0xcc4d, 0, 0, 0),
+                right_toe = ped.get_ped_bone_coords(ent, 0x512d, 0, 0, 0),
+                left_upper_leg = ped.get_ped_bone_coords(ent, 0xe39f, 0, 0, 0),
+                left_lower_leg = ped.get_ped_bone_coords(ent, 0xf9bb, 0, 0, 0),
+                left_foot = ped.get_ped_bone_coords(ent, 0x3779, 0, 0, 0),
+                left_toe = ped.get_ped_bone_coords(ent, 0x83c, 0, 0, 0)
+            },
+            screen_coords = {
+                head = {x=0, y=0},
+                neck = {x=0, y=0},
+                right_upper_arm = {x=0, y=0},
+                right_lower_arm = {x=0, y=0},
+                right_hand = {x=0, y=0},
+                right_hand_finger1 = {x=0, y=0},
+                right_hand_finger2 = {x=0, y=0},
+                right_hand_finger3 = {x=0, y=0},
+                right_hand_finger4 = {x=0, y=0},
+                right_hand_finger5 = {x=0, y=0},
+                left_upper_arm = {x=0, y=0},
+                left_lower_arm = {x=0, y=0},
+                left_hand = {x=0, y=0},
+                left_hand_finger1 = {x=0, y=0},
+                left_hand_finger2 = {x=0, y=0},
+                left_hand_finger3 = {x=0, y=0},
+                left_hand_finger4 = {x=0, y=0},
+                left_hand_finger5 = {x=0, y=0},
+                pelvis = {x=0, y=0},
+                right_upper_leg = {x=0, y=0},
+                right_lower_leg = {x=0, y=0},
+                right_foot = {x=0, y=0},
+                right_toe = {x=0, y=0},
+                left_upper_leg = {x=0, y=0},
+                left_lower_leg = {x=0, y=0},
+                left_foot = {x=0, y=0},
+                left_toe = {x=0, y=0}
+            }
+        }
+    
+        for bone, pos in pairs(bones.pos) do
+            if graphics.get_screen_coord_from_world_coord(pos.x, pos.y, pos.z, sxptr, syptr) then
+                bones.screen_coords[bone].x, bones.screen_coords[bone].y = memory.read_float(sxptr), memory.read_float(syptr)
+            else
+                return
+            end
+        end
+    
+        if entity.is_entity_dead(ent) then return end
+        directx.draw_line(bones.screen_coords.head.x, bones.screen_coords.head.y, bones.screen_coords.neck.x, bones.screen_coords.neck.y, colour)
+        directx.draw_line(bones.screen_coords.neck.x, bones.screen_coords.neck.y, bones.screen_coords.right_upper_arm.x, bones.screen_coords.right_upper_arm.y, colour)
+        directx.draw_line(bones.screen_coords.right_upper_arm.x, bones.screen_coords.right_upper_arm.y, bones.screen_coords.right_lower_arm.x, bones.screen_coords.right_lower_arm.y, colour)
+        directx.draw_line(bones.screen_coords.right_lower_arm.x, bones.screen_coords.right_lower_arm.y, bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, colour)
+        directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger1.x, bones.screen_coords.right_hand_finger1.y, colour)
+        directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger2.x, bones.screen_coords.right_hand_finger2.y, colour)
+        directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger3.x, bones.screen_coords.right_hand_finger3.y, colour)
+        directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger4.x, bones.screen_coords.right_hand_finger4.y, colour)
+        directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger5.x, bones.screen_coords.right_hand_finger5.y, colour)
+        directx.draw_line(bones.screen_coords.neck.x, bones.screen_coords.neck.y, bones.screen_coords.left_upper_arm.x, bones.screen_coords.left_upper_arm.y, colour)
+        directx.draw_line(bones.screen_coords.left_upper_arm.x, bones.screen_coords.left_upper_arm.y, bones.screen_coords.left_lower_arm.x, bones.screen_coords.left_lower_arm.y, colour)
+        directx.draw_line(bones.screen_coords.left_lower_arm.x, bones.screen_coords.left_lower_arm.y, bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, colour)
+        directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger1.x, bones.screen_coords.left_hand_finger1.y, colour)
+        directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger2.x, bones.screen_coords.left_hand_finger2.y, colour)
+        directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger3.x, bones.screen_coords.left_hand_finger3.y, colour)
+        directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger4.x, bones.screen_coords.left_hand_finger4.y, colour)
+        directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger5.x, bones.screen_coords.left_hand_finger5.y, colour)
+        directx.draw_line(bones.screen_coords.neck.x, bones.screen_coords.neck.y, bones.screen_coords.pelvis.x, bones.screen_coords.pelvis.y, colour)
+        directx.draw_line(bones.screen_coords.pelvis.x, bones.screen_coords.pelvis.y, bones.screen_coords.right_upper_leg.x, bones.screen_coords.right_upper_leg.y, colour)
+        directx.draw_line(bones.screen_coords.right_upper_leg.x, bones.screen_coords.right_upper_leg.y, bones.screen_coords.right_lower_leg.x, bones.screen_coords.right_lower_leg.y, colour)
+        directx.draw_line(bones.screen_coords.right_lower_leg.x, bones.screen_coords.right_lower_leg.y, bones.screen_coords.right_foot.x, bones.screen_coords.right_foot.y, colour)
+        directx.draw_line(bones.screen_coords.right_foot.x, bones.screen_coords.right_foot.y, bones.screen_coords.right_toe.x, bones.screen_coords.right_toe.y, colour)
+        directx.draw_line(bones.screen_coords.pelvis.x, bones.screen_coords.pelvis.y, bones.screen_coords.left_upper_leg.x, bones.screen_coords.left_upper_leg.y, colour)
+        directx.draw_line(bones.screen_coords.left_upper_leg.x, bones.screen_coords.left_upper_leg.y, bones.screen_coords.left_lower_leg.x, bones.screen_coords.left_lower_leg.y, colour)
+        directx.draw_line(bones.screen_coords.left_lower_leg.x, bones.screen_coords.left_lower_leg.y, bones.screen_coords.left_foot.x, bones.screen_coords.left_foot.y, colour)
+        directx.draw_line(bones.screen_coords.left_foot.x, bones.screen_coords.left_foot.y, bones.screen_coords.left_toe.x, bones.screen_coords.left_toe.y, colour)
+    end
+
+    function DrawNameESP(ent, name, colour)
+        colour = colour or {r=1, g=0, b=0, a=1}
+        local min, max = entities.get_model_dimensions(ent)
+        local head = ped.get_ped_bone_coords(ent, 0x796e, max.x + 0.1, 0, 0)
+        local sx, sy = 0, 0
+        if graphics.get_screen_coord_from_world_coord(head.x, head.y, head.z, self.screen_ptr, self.screen_ptr + 4) then
+            sx, sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+        end
+        directx.draw_text(sx, sy, name, ALIGN_CENTRE, 0.3, colour)
+    end
+
+    function DrawHealthBar(ent, width, height)
+        width, height = width or 0.033, height or 0.007
+        do 
+            local health = entity.get_entity_health(ent) - 100
+            local max_health = entity.get_entity_max_health(ent) - 100
+        
+            local health_percentage = health / max_health
+            local health_width = math.clamp(width * health_percentage, 0, width)
+        
+            if not entity.is_entity_dead(ent) then
+                local head = ped.get_ped_bone_coords(ent, 0x796e, 0.5, 0, 0)
+                local sx, sy = 0, 0
+
+                if graphics.get_screen_coord_from_world_coord(head.x, head.y, head.z, self.screen_ptr, self.screen_ptr + 4) then
+                    sx, sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+                end
+
+                if sx == 0 or sy == 0 then
+                    return
+                end
+
+                local colour = { r=57/255, g=152/255, b=57/255, a=1 }
+                if health_percentage < 0.75 then
+                    colour = { r=1, g=1, b=0, a=1 }
+                end
+
+                if health_percentage < 0.5 then
+                    colour = { r=1, g=0.5, b=0, a=1 }
+                end
+
+                if health_percentage < 0.25 then
+                    colour = { r=1, g=0, b=0, a=1 }
+                end
+
+                sx = sx - width / 2
+                sy = sy - height / 2
+
+                directx.draw_rect(sx, sy, width, height, { r=0, g=0, b=0, a=200/255 })
+                directx.draw_rect(sx, sy, health_width, height, colour)
+            end
+        end
+
+        do
+            local armour = ped.get_ped_armour(ent)
+            local max_armour = 50
+        
+            local armour_percentage = armour / max_armour
+            local armour_width = math.clamp(width * armour_percentage, 0, width)
+        
+            if not entity.is_entity_dead(ent) then
+                local head = ped.get_ped_bone_coords(ent, 0x796e, 0.5, 0, 0)
+                local sx, sy = 0, 0
+
+                if graphics.get_screen_coord_from_world_coord(head.x, head.y, head.z, self.screen_ptr, self.screen_ptr + 4) then
+                    sx, sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+                end
+
+                if sx == 0 or sy == 0 then
+                    return
+                end
+
+                local colour = { r=62/255, g=118/255, b=147/255, a=1 }
+                if armour_percentage < 0.75 then
+                    colour = { r=1, g=1, b=0, a=1 }
+                end
+
+                if armour_percentage < 0.5 then
+                    colour = { r=1, g=0.5, b=0, a=1 }
+                end
+
+                if armour_percentage < 0.25 then
+                    colour = { r=1, g=0, b=0, a=1 }
+                end
+
+                sx = sx - width / 2
+                sy = sy + height / 2
+
+                directx.draw_rect(sx, sy, width, height, { r=0, g=0, b=0, a=200/255 })
+                directx.draw_rect(sx, sy, armour_width, height, colour)
+            end
+        end
     end
 end
 
-return Shared
+return pluto_new Shared()

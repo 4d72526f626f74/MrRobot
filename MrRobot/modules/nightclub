@@ -1,6 +1,6 @@
 local T, S = require('translations'), require('shared')
-local Globals = require('script_globals')
-local Masks = require('masks')
+local G = require('script_globals')
+local Globals = G.globals
 
 pluto_class Nightclub
     nightclub_setups = {
@@ -17,6 +17,10 @@ pluto_class Nightclub
     function __construct(root)
         self.root = root:list(T'Nightclub', {T'rnightclub'}, '')
 
+        self:Init()
+    end
+
+    function Init()
         self:CreateSafe()
         self:CreateNC()
     end
@@ -34,26 +38,35 @@ pluto_class Nightclub
 
         self.nightclub:divider('')
 
+        local is_running = false
         self.afk_loop = self.nightclub:toggle_loop(T'AFK Loop', {}, T'AFK Loop you only need to be in your nightclub for this', function()
+            util.spoof_script(G.NCS, function() is_running = true end)
+            if not is_running then return end
+
             self.trigger_production:trigger()
             repeat
                 util.yield_once()
-            until memory.read_int(memory.script_global(Globals.NightclubSafeValue)) ~= 0
+            until memory.read_int(Globals.NightclubSafeValue:g()) ~= 0
             self:CollectSafeMoney()
             repeat
                 util.yield_once()
-            until memory.read_int(memory.script_global(Globals.NightclubSafeValue)) == 0
+            until memory.read_int(Globals.NightclubSafeValue:g()) == 0
+            is_running = false
         end)
 
         self.auto_collect = self.nightclub:toggle_loop(T'Auto Collect', {}, T'Auto collect money from the safe when entering your nightclub', function()
-            if memory.read_int(memory.script_global(Globals.NightclubSafeValue)) ~= 0 then
+            util.spoof_script(G.NCS, function() is_running = true end)
+            if not is_running then return end
+
+            if memory.read_int(Globals.NightclubSafeValue:g()) ~= 0 then
                 self:CollectSafeMoney()
                 util.yield(1000)
             end
+            is_running = false
         end)
 
         self.display_money = self.nightclub:toggle_loop(T'Safe Value', {}, T'Shows how much money you have in your safe', function()
-            local money = memory.read_int(memory.script_global(Globals.NightclubSafeValue))
+            local money = memory.read_int(Globals.NightclubSafeValue:g())
             util.draw_debug_text($'Nightclub Safe: ${money}')
         end)
     end
@@ -110,7 +123,7 @@ pluto_class Nightclub
         for i = Globals.NCSafeIncomeStart, Globals.NCSafeIncomeEnd do
             memory.write_int(memory.script_global(262145 + i), 300000)
         end
-        memory.write_int(memory.script_global(Globals.NCSafeCapacity), 300000)
+        memory.write_int(Globals.NCSafeCapacity:g(), 300000)
         stats.stat_set_int(($'MP{char_slot}_CLUB_PAY_TIME_LEFT'):joaat(), 1, true)
     end
 
@@ -118,7 +131,7 @@ pluto_class Nightclub
         if not S:IsScriptRunning('am_mp_nightclub') then
             util.toast('You need to be in your nightclub to collect money from the safe')
         else
-            local trigger = memory.script_local(Globals.NCScript, Globals.TriggerNCSafeCollection)
+            local trigger = memory.script_local(table.unpack(Globals.TriggerNCSafeCollection))
         
             if trigger ~= 0 then
                 memory.write_byte(trigger, 1)
@@ -128,38 +141,38 @@ pluto_class Nightclub
     end
 
     function ClearNightclub(state)
-        local clear = memory.script_global(Globals.NightclubStatsBase + 2)
-        memory.write_byte(clear, memory.bits:setbool(memory.read_byte(clear), Masks.NightclubCleared, state))
+        local clear = Globals.NightclubStatsBase:g() + 0x10
+        memory.write_byte(clear, memory.bits:setbool(memory.read_byte(clear), memory.bits.masks.NightclubCleared, state))
     end
 
     function IsNightclubCleared()
-        local clear = memory.script_global(Globals.NightclubStatsBase + 2)
-        return memory.bits:check(memory.read_byte(clear), Masks.NightclubCleared)
+        local clear = Globals.NightclubStatsBase:g() + 0x10
+        return memory.bits:check(memory.read_byte(clear), memory.bits.masks.NightclubCleared)
     end
 
     function DisableNightclubOfficeLights(state)
-        local lights = memory.script_global(Globals.NightclubStatsBase + 2)
-        memory.write_int(lights, memory.bits:setbool(memory.read_int(lights), Masks.NightclubOfficeLights, state))
+        local lights = Globals.NightclubStatsBase:g() + 0x10
+        memory.write_int(lights, memory.bits:setbool(memory.read_int(lights), memory.bits.masks.NightclubOfficeLights, state))
     end
 
     function AreNightclubOfficeLightsDisabled()
-        local lights = memory.script_global(Globals.NightclubStatsBase + 2)
-        return memory.bits:check(memory.read_int(lights), Masks.NightclubOfficeLights)
+        local lights = Globals.NightclubStatsBase:g() + 0x10
+        return memory.bits:check(memory.read_int(lights), memory.bits.masks.NightclubOfficeLights)
     end
 
     function UnlockNightclubDryIce(state)
-        local ice = memory.script_global(Globals.NightclubStatsBase + 2)
-        memory.write_int(ice, memory.bits:setbool(memory.read_int(ice), Masks.NightclubDryIce, state))
+        local ice = Globals.NightclubStatsBase:g() + 0x10
+        memory.write_int(ice, memory.bits:setbool(memory.read_int(ice), memory.bits.masks.NightclubDryIce, state))
     end
 
     function IsNightclubDryIceUnlocked()
-        local ice = memory.script_global(Globals.NightclubStatsBase + 2)
-        return memory.bits:check(memory.read_int(ice), Masks.NightclubDryIce)
+        local ice = Globals.NightclubStatsBase:g() + 0x10
+        return memory.bits:check(memory.read_int(ice), memory.bits.masks.NightclubDryIce)
     end
 
     function UnlockNightclubUpgrades()
-        local upgrades = memory.script_global(Globals.NightclubStatsBase + 1)
-        memory.write_int(upgrades, Masks.NightclubMaxUpgrades)
+        local upgrades = Globals.NightclubStatsBase:g() + 0x8
+        memory.write_int(upgrades, memory.bits.masks.NightclubMaxUpgrades)
         self:UnlockNightclubDryIce(true)
     end
 
@@ -170,15 +183,15 @@ pluto_class Nightclub
     end
 
     function SpawnTroublemaker()
-        util.spoof_script(Globals.NCScript, function()
-            memory.write_int(memory.script_global(Globals.NCTroubleMakerScenario), 2)
-            memory.write_int(memory.script_local(Globals.NCScript, Globals.NCTriggerTrobleMaker), 0)
+        util.spoof_script(G.NCS, function()
+            memory.write_int(Globals.NCTroubleMakerScenario:g(), 2)
+            memory.write_int(memory.script_local(table.unpack(Globals.NCTriggerTrobleMaker)), 0)
         end)
     end
 
     function YeetTroubleMaker()
-        util.spoof_script(Globals.NCScript, function()
-            memory.write_int(memory.script_local(Globals.NCScript, Globals.NCTriggerYeetTroubleMaker), 0)
+        util.spoof_script(G.NCS, function()
+            memory.write_int(memory.script_local(table.unpack(Globals.NCTriggerYeetTroubleMaker)), 0)
         end)
     end
 end

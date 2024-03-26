@@ -11,8 +11,22 @@ local T = setmetatable(trans, {
     end,
     __mode = 'k',
     __call = function(self, key)
-        return self[key]
+        if not rawget(self, key) then
+            return key
+        end
+
+        local result = rawget(self, key)
+        return result or key
     end
 })
+
+function T:T(key, ...)
+    return string.format(self[key], ...)
+end
+
+local state, _T = pcall(require, SCRIPT_LANGUAGE)
+if state then
+    _T(T)
+end
 
 return T

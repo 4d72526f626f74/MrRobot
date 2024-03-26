@@ -1,18 +1,5 @@
 local T, S, H = require('translations'), require('shared'), require('handler')
 
-local blips = setmetatable({}, {
-    __index = blips,
-    __gc = function(self)
-        for self as blip do
-            util.remove_blip(blip.handle)
-        end
-    end
-})
-
-function H.CollectablesRemoveBlips()
-    blips = nil
-end
-
 enum Category begin
     Invalid = 0,
     CasinoCards = 1,
@@ -25,6 +12,10 @@ pluto_class Collectables
         self.root:action(T'Find All', {}, T'Finds most of the collectables', || -> self:FindAll())
         self.root:divider('')
 
+        self:Init()
+    end
+
+    function Init()
         self:CreateCasino()
         self:CreateJammers()
         self:CreateFigurines()
@@ -96,15 +87,7 @@ pluto_class Collectables
                     local blip = hud.add_blip_for_coord(vector.x, vector.y, vector.z)
                     hud.set_blip_sprite(blip, 680)
                     hud.set_blip_scale(blip, 0.7)
-                    table.insert(blips, {handle=blip, category=Category.CasinoCards})
-                end
-            else
-                if blips ~= nil then
-                    for blips as blip do
-                        if blip.category == Category.CasinoCards then
-                            util.remove_blip(blip.handle)
-                        end
-                    end
+                    table.insert(S.Blips, blip)
                 end
             end
         end)
@@ -171,15 +154,7 @@ pluto_class Collectables
                     local blip = hud.add_blip_for_coord(vector.x, vector.y, vector.z)
                     hud.set_blip_sprite(blip, 802)
                     hud.set_blip_scale(blip, 1.1)
-                    table.insert(blips, {handle=blip, category=Category.SignalJammers})
-                end
-            else
-                if blips ~= nil then
-                    for blips as blip do
-                        if blip.category == Category.SignalJammers then
-                            util.remove_blip(blip.handle)
-                        end
-                    end
+                    table.insert(S.Blips, blip)
                 end
             end
         end)

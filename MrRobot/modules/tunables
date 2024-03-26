@@ -9,6 +9,10 @@ pluto_class Tunables
     
         self.commands = {}
         self.root:divider('')
+        self:Init()
+    end
+
+    function Init()
         for ({
             { args = { T'Write Long', self.commands, T'Write a long (64 bits)' }, func = 'write_long' },
             { args = { T'Write Int', self.commands, T'Write an int (32 bits)' }, func = 'write_int' },

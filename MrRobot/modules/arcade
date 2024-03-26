@@ -1,7 +1,7 @@
 local T, S = require('translations'), require('shared')
 local Bitfield = require('bitfield')
-local Globals = require('script_globals')
-local Masks = require('masks')
+local G = require('script_globals')
+local Globals = G.globals
 
 pluto_class Arcade
     arcade_setups = {
@@ -14,8 +14,12 @@ pluto_class Arcade
 
     function __construct(root)
         self.root = root:list(T'Arcade', {T'rarcade'}, '')
-        self.arcade_bitfield = pluto_new Bitfield(0, memory.script_global(Globals.UnlockArcades))
+        self.arcade_bitfield = pluto_new Bitfield(0, Globals.UnlockArcades:g())
 
+        self:Init()
+    end
+
+    function Init()
         self:CreateSafe()
         self:CreateArcade()
     end
@@ -33,25 +37,29 @@ pluto_class Arcade
         self.arcade:divider('')
 
         self.auto_collect = self.arcade:toggle_loop(T'Auto Collect', {}, T'Auto collect money from the safe when entering your arcade', function()
-            if memory.read_int(memory.script_global(Globals.ArcadeSafeValue)) ~= 0 then
+            if memory.read_int(Globals.ArcadeSafeValue:g()) ~= 0 then
                 self:CollectSafeMoney()
                 util.yield(500)
             end
         end)
 
+        local is_running = false
         self.afk_loop = self.arcade:toggle_loop(T'AFK Loop', {}, T'AFK Loop you only need to be in your arcade for this', function()
+            util.spoof_script(G.NCS, function() is_running = true end)
+            if not is_running then return end
             self.trigger_production:trigger()
             repeat
                 util.yield_once()
-            until memory.read_int(memory.script_global(Globals.ArcadeSafeValue)) ~= 0
+            until memory.read_int(Globals.ArcadeSafeValue:g()) ~= 0
             self:CollectSafeMoney()
             repeat
                 util.yield_once()
-            until memory.read_int(memory.script_global(Globals.ArcadeSafeValue)) == 0
+            until memory.read_int(Globals.ArcadeSafeValue:g()) == 0
+            is_running = false
         end)
 
         self.display_money = self.arcade:toggle_loop(T'Safe Value', {}, T'Shows how much money you have in your safe', function()
-            local money = memory.read_int(memory.script_global(Globals.ArcadeSafeValue))
+            local money = memory.read_int(Globals.ArcadeSafeValue:g())
             util.draw_debug_text($'Arcade Safe: ${money}')
         end)
 
@@ -67,7 +75,7 @@ pluto_class Arcade
 
         self.unlock_arcades = self.root:action(T'Unlock Arcades', {T'raunlockarcades'}, T'Unlocks arcades on mazebank without going to Lester', function()
             self.arcade_bitfield.value = memory.read_int(self.arcade_bitfield.addr)
-            self.arcade_bitfield:Set(Masks.UnlockArcades)
+            self.arcade_bitfield:Set(memory.bits.masks.UnlockArcades)
         end)
 
         self.root:toggle(T'Wonderama', {}, T'Unlock Wonderama arcade', function(state)
@@ -106,13 +114,13 @@ pluto_class Arcade
         for i = Globals.ArcadeSafeIncomeStart, Globals.ArcadeSafeIncomeEnd do
             memory.write_int(memory.script_global(262145 + i), 200000)
         end
-        memory.write_int(memory.script_global(Globals.ArcadeSafeCapacity), 200000)
+        memory.write_int(Globals.ArcadeSafeCapacity:g(), 200000)
         stats.stat_set_int(($'MP{char_slot}_ARCADE_PAY_TIME_LEFT'):joaat(), 1, true)
     end
 
     function CollectSafeMoney()
-        local trigger = memory.script_local(Globals.ArcadeScript, Globals.TriggerArcadeSafeCollection)
-        local trigger1 = memory.script_local(Globals.ArcadeScript, Globals.TriggerArcadeSafeCollection1)
+        local trigger = memory.script_local(table.unpack(Globals.TriggerArcadeSafeCollection))
+        local trigger1 = memory.script_local(table.unpack(Globals.TriggerArcadeSafeCollection1))
 
         if trigger ~= 0 and trigger1 ~= 0 then
             memory.write_byte(trigger, 1)
@@ -121,24 +129,24 @@ pluto_class Arcade
     end
 
     function IsArcadeSetup()
-        local bypass = memory.script_global(Globals.ArcadeStatsBase + 1)
-        return memory.bits:check(memory.read_int(bypass), Masks.ArcadeSetup)
+        local bypass = Globals.ArcadeStatsBase:g() + 0x8
+        return memory.bits:check(memory.read_int(bypass), memory.bits.masks.ArcadeSetup)
     end
 
     function UnlockArcade(index, state)
-        local unlock = memory.script_global(Globals.ArcadeStatsBase)
-        memory.write_byte(unlock, memory.bits:clear(memory.read_byte(unlock), Masks.ClearUnlockedArcade))
+        local unlock = Globals.ArcadeStatsBase:g()
+        memory.write_byte(unlock, memory.bits:clear(memory.read_byte(unlock), memory.bits.masks.ClearUnlockedArcade))
         memory.write_byte(unlock, memory.bits:set(memory.read_byte(unlock), index))
     end
 
     function IsWonderamaArcadeUnlocked()
-        local unlock = memory.script_global(Globals.ArcadeStatsBase)
-        return memory.bits:check(memory.read_byte(unlock), Masks.ArcadeWonderama)
+        local unlock = Globals.ArcadeStatsBase:g()
+        return memory.bits:check(memory.read_byte(unlock), memory.bits.masks.ArcadeWonderama)
     end
 
     function IsEightBitArcadeUnlocked()
-        local unlock = memory.script_global(Globals.ArcadeStatsBase)
-        return memory.bits:check(memory.read_byte(unlock), Masks.ArcadeEightBit)
+        local unlock = Globals.ArcadeStatsBase:g()
+        return memory.bits:check(memory.read_byte(unlock), memory.bits.masks.ArcadeEightBit)
     end
 
     function BypassArcadeSetup()
@@ -148,43 +156,43 @@ pluto_class Arcade
     end
 
     function UnlockArcadeGarage(state)
-        local unlock = memory.script_global(Globals.ArcadeStatsBase + 1)
-        memory.write_byte(unlock, memory.bits:setbool(memory.read_byte(unlock), Masks.ArcadeGarageUnlock, state))
+        local unlock = Globals.ArcadeStatsBase:g() + 0x8
+        memory.write_byte(unlock, memory.bits:setbool(memory.read_byte(unlock), memory.bits.masks.ArcadeGarageUnlock, state))
     end
 
     function IsArcadeGarageUnlocked()
-        local unlock = memory.script_global(Globals.ArcadeStatsBase + 1)
-        return memory.bits:check(memory.read_byte(unlock), Masks.ArcadeGarageUnlock)
+        local unlock = Globals.ArcadeStatsBase:g() + 0x8
+        return memory.bits:check(memory.read_byte(unlock), memory.bits.masks.ArcadeGarageUnlock)
     end
 
     function UnlockArcadeMasterControlTerminal(state)
-        local unlock = memory.script_global(Globals.ArcadeStatsBase + 1)
-        memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), Masks.ArcadeMCTUnlock, state))
+        local unlock = Globals.ArcadeStatsBase:g() + 0x8
+        memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), memory.bits.masks.ArcadeMCTUnlock, state))
     end
 
     function IsArcadeMasterControlTerminalUnlocked()
-        local unlock = memory.script_global(Globals.ArcadeStatsBase + 1)
-        return memory.bits:check(memory.read_int(unlock), Masks.ArcadeMCTUnlock)
+        local unlock = Globals.ArcadeStatsBase:g() + 0x8
+        return memory.bits:check(memory.read_int(unlock), memory.bits.masks.ArcadeMCTUnlock)
     end
 
     function UnlockArcadeWeaponWorkshop(state)
-        local unlock = memory.script_global(Globals.ArcadeStatsBase + 1)
-        memory.write_short(unlock, memory.bits:setbool(memory.read_short(unlock), Masks.ArcadeWeaponWorkshopUnlock, state))
+        local unlock = Globals.ArcadeStatsBase:g() + 0x8
+        memory.write_short(unlock, memory.bits:setbool(memory.read_short(unlock), memory.bits.masks.ArcadeWeaponWorkshopUnlock, state))
     end
 
     function IsArcadeWeaponWorkshopUnlocked()
-        local unlock = memory.script_global(Globals.ArcadeStatsBase + 1)
-        return memory.bits:check(memory.read_short(unlock), Masks.ArcadeWeaponWorkshopUnlock)
+        local unlock = Globals.ArcadeStatsBase:g() + 0x8
+        return memory.bits:check(memory.read_short(unlock), memory.bits.masks.ArcadeWeaponWorkshopUnlock)
     end
 
     function ArcadeUnlockNanoDroneStation(state)
-        local unlock = memory.script_global(Globals.ArcadeStatsBase + 1)
-        memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), Masks.ArcadeUnlockNanoDroneStation, state))
+        local unlock = Globals.ArcadeStatsBase:g() + 0x8
+        memory.write_int(unlock, memory.bits:setbool(memory.read_int(unlock), memory.bits.masks.ArcadeUnlockNanoDroneStation, state))
     end
 
     function IsArcadeNanoDroneStationUnlocked()
-        local unlock = memory.script_global(Globals.ArcadeStatsBase + 1)
-        return memory.bits:check(memory.read_int(unlock), Masks.ArcadeUnlockNanoDroneStation)
+        local unlock = Globals.ArcadeStatsBase:g() + 0x8
+        return memory.bits:check(memory.read_int(unlock), memory.bits.masks.ArcadeUnlockNanoDroneStation)
     end
 end
 

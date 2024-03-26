@@ -1,0 +1,97 @@
+local T, S, H = require('translations'), require('shared'), require('handler')
+
+pluto_class Aimbot
+    function __construct(root)
+        self.root = root:list(T'Experimental Aimbot', {}, T'')
+    end
+end
+
+--[[
+    New FOV system that to be implemented in the future
+    this system uses a circle to determine if the player is within the bounds of the circle
+    in order to determine if the player is within the bounds the models dimensions are used
+    to create an imaginary box (acts like the hitbox) around the player which is what the circle
+    is compared to, the box itself still needs to be adjusted to be more accurate but it works
+
+    local x, y = 0.5, 0.5
+    local fov = math.rad(0.5)
+    local radius = math.tan(fov / 2) / math.cos(fov / 2)
+
+    local self = {}
+    self.screen_ptr = memory.alloc(8)
+
+    util.create_tick_handler(function()
+        directx.draw_circle(x, y, radius, 1, 0, 0, 0.3)
+
+        local ent = player.get_player_ped(0)
+        local min, max = entities.get_model_dimensions(ent)
+
+        local front_top_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, max.z)
+        local front_top_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, max.z)
+        local front_bottom_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, min.z)
+        local front_bottom_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, min.z)
+
+        local front_top_left_sx, front_top_left_sy = 0, 0
+        local front_top_right_sx, front_top_right_sy = 0, 0
+        local front_bottom_right_sx, front_bottom_right_sy = 0, 0
+        local front_bottom_left_sx, front_bottom_left_sy = 0, 0
+
+        if graphics.get_screen_coord_from_world_coord(front_top_left.x, front_top_left.y, front_top_left.z, self.screen_ptr, self.screen_ptr + 4) then
+            front_top_left_sx, front_top_left_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+        end
+
+        if graphics.get_screen_coord_from_world_coord(front_top_right.x, front_top_right.y, front_top_right.z, self.screen_ptr, self.screen_ptr + 4) then
+            front_top_right_sx, front_top_right_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+        end
+
+        if graphics.get_screen_coord_from_world_coord(front_bottom_right.x, front_bottom_right.y, front_bottom_right.z, self.screen_ptr, self.screen_ptr + 4) then
+            front_bottom_right_sx, front_bottom_right_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+        end
+
+        if graphics.get_screen_coord_from_world_coord(front_bottom_left.x, front_bottom_left.y, front_bottom_left.z, self.screen_ptr, self.screen_ptr + 4) then
+            front_bottom_left_sx, front_bottom_left_sy = memory.read_float(self.screen_ptr), memory.read_float(self.screen_ptr + 4)
+        end
+
+        if front_top_left_sx == 0 or front_top_right_sx == 0 or front_bottom_right_sx == 0 or front_bottom_left_sx == 0 then
+            goto continue
+        end
+
+        directx.draw_line(front_top_left_sx, front_top_left_sy, front_top_right_sx, front_top_right_sy, 1, 0, 0, 1)
+        directx.draw_line(front_top_right_sx, front_top_right_sy, front_bottom_right_sx, front_bottom_right_sy, 1, 0, 0, 1)
+        directx.draw_line(front_bottom_right_sx, front_bottom_right_sy, front_bottom_left_sx, front_bottom_left_sy, 1, 0, 0, 1)
+        directx.draw_line(front_bottom_left_sx, front_bottom_left_sy, front_top_left_sx, front_top_left_sy, 1, 0, 0, 1)
+        
+        local in_box_x = front_top_left_sx
+        local in_box_y = front_top_right_sx
+        local in_box_z = front_bottom_right_sx
+        local in_box_w = front_bottom_left_sx
+
+        local in_box_y2 = front_top_left_sy
+        local in_box_z2 = front_top_right_sy
+        local in_box_w2 = front_bottom_right_sy
+        local in_box_x2 = front_bottom_left_sy
+
+        in_box_x = in_box_x - radius
+        in_box_y = in_box_y + radius
+        in_box_z = in_box_z - radius
+        in_box_w = in_box_w + radius
+
+        in_box_y2 = in_box_y2 - radius
+        in_box_z2 = in_box_z2 + radius
+        in_box_w2 = in_box_w2 - radius
+        in_box_x2 = in_box_x2 + radius
+
+        local in_box = x >= in_box_x and x <= in_box_y and y >= in_box_y2 and y <= in_box_z2
+        local in_box2 = x >= in_box_z and x <= in_box_w and y >= in_box_z2 and y <= in_box_w2
+        local in_box3 = x >= in_box_x and x <= in_box_w and y >= in_box_y2 and y <= in_box_w2
+        local in_box4 = x >= in_box_x and x <= in_box_y and y >= in_box_z2 and y <= in_box_w2
+
+        if in_box or in_box2 or in_box3 or in_box4 then
+            util.draw_debug_text('In Box')
+        end
+
+        ::continue::
+    end)
+]]
+
+return Aimbot

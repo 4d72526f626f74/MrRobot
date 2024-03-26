@@ -1,5 +1,11 @@
 local T, S = require('translations'), require('shared')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
+local ScriptOffsets = require('offsets')
+local Notifications = require('notifications')
+local GTAClasses = require('gta_classes')
+
+local SelfBits = ScriptOffsets.Self.Bits
 
 pluto_class Protections 
     function __construct(root)
@@ -15,20 +21,25 @@ pluto_class Protections
         self.stand_pos_spoof = menu.ref_by_command_name('spoofpos')
         self.stand_spoofed_pos = menu.ref_by_command_name('spoofedposition')
 
+        self:Init()
+    end
+
+    function Init()
         self:CreateVehicleProtections()
         self:CreatePlayerProtections()
         self:CreateNotifProtections()
         self:CreateDetections()
         self:CreateEvents()
+        self:CreateAntiDetections()
     end
 
     function CreateVehicleProtections()
         self.veh_kick = self.vehicle:toggle(T'Vehicle Kick', {}, T'Prevents you from being kicked from your vehicle', function(state)
-            memory.write_byte(memory.script_global(Globals.VehicleKickProtection), state ? 1 : 0)
+            memory.write_byte(Globals.VehicleKickProtection:g(), state ? 1 : 0)
         end)
 
         self.smart_veh_kick = self.vehicle:toggle_loop(T'Smart Vehicle Kick', {}, T'Vehicle kick protection will only be enabled when you enter a personal vehicle (this prevents missions from breaking)', function()
-            local veh = memory.read_int(memory.script_global(Globals.ActivePVHandle))
+            local veh = memory.read_int(Globals.ActivePVHandle:g())
             local localplayer = players.localplayer()
 
             if veh ~= -1 and localplayer:is_ped_in_any_vehicle() then
@@ -106,8 +117,8 @@ pluto_class Protections
         end)
 
         self.anti_attacker = self.player:toggle_loop(T'Anti-Attacker', {}, T'Prevent other players from sending mercenaries, muggers or strike teams to kill you', function()
-            util.spoof_script(Globals.GangCall, function()
-                local sender = memory.script_local(Globals.GangCall, Globals.AttackerSender)
+            util.spoof_script(G.GC, function()
+                local sender = memory.script_local(table.unpack(Globals.AttackerSender))
                 local target = sender + 0x8
                 memory.write_byte(sender, players.user())
                 memory.write_byte(target, -1)
@@ -115,7 +126,7 @@ pluto_class Protections
         end)
 
         self.anti_beast = self.player:toggle_loop(T'Anti-Beast', {}, T'Prevents you from becoming the beast', function()
-            util.spoof_script(Globals.HuntTheBeast, script.terminate_this_thread)
+            util.spoof_script(G.HTBS, script.terminate_this_thread)
         end)
 
         self.bounty = self.player:toggle_loop(T'Anti-Bounty', {}, T'Automatically remove any bounties that are set on you', function()
@@ -184,20 +195,34 @@ pluto_class Protections
             for pid = 0, players.max_players do
                 if S:PlayerExists(pid) and pid ~= players.user() then
                     local ped = player.get_player_ped(pid)
-                    local int = interior.get_interior_from_entity(ped)
+                    local coords = players.get_position(pid)
+                    local int = interior.get_interior_at_coords(coords.x, coords.y, coords.z)
+                    network.set_remote_player_as_ghost(pid, int == 281345 and memory.read_byte(Globals.PlayerBase:g(pid) + 0x248) == 1)
+                end
+            end
+        end)
+
+        self.player:toggle_loop(T'Anti-Guided Missile (Aggressive)', {}, T'Destroys guided missiles when their object syncs with your player, if you are too close to their sub it will cause the sub to explode', function()
+            local my_pos = players.get_position(players.user())
+
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    local ped = player.get_player_ped(pid)
+                    local coords = players.get_position(pid)
+                    local int = interior.get_interior_at_coords(coords.x, coords.y, coords.z)
                     if int == 281345 then
-                        local ptr = entities.handle_to_pointer(ped)
-                        if ptr ~= 0 then
-                            local damage_bits = memory.read_int(ptr + 0x188)
-                            if memory.bits:check(damage_bits, 1 << 22) == false then
-                                network.set_remote_player_as_ghost(pid, true)
-                            else
-                                network.set_remote_player_as_ghost(pid, false)
-                            end
+                        local drone_obj = Globals.DroneObject:g(players.user()) + ((pid + 1) << 3)
+                        local obj = memory.read_int(drone_obj)
+                        if entity.does_entity_exist(obj) then
+                            local pos = entity.get_entity_coords(obj)
+                            misc.shoot_single_bullet_between_coords(pos.x, pos.y, pos.z, pos.x, pos.y, pos.z, 1000, true, ('WEAPON_RPG'):joaat(), players.user_ped(), false, false, 1000.0)
+                            break
                         end
                     end
                 end
             end
+
+            util.yield(100)
         end)
 
         self.anti_rc = self.player:toggle_loop(T'Anti RC', {}, T'Auto ghost bots when they\'re in an RC vehicle trying to kill you', function()
@@ -216,16 +241,16 @@ pluto_class Protections
 
     function CreateNotifProtections()
         self.notifs:toggle(T'Block Mugger Notification', {}, T'Block mugger notification spam', function(state)
-            memory.write_byte(memory.script_global(Globals.MuggerEventProtection), state ? 1 : 0)
+            memory.write_byte(Globals.MuggerEventProtection:g(), state ? 1 : 0)
         end)
 
         self.notifs:toggle(T'Block Stand Notification Spam', {}, T'Block Stand cash removed/banked notification spam', function(state)
-            local block = memory.script_global(Globals.StandNotificationSpamProtection)
+            local block = Globals.StandNotificationSpamProtection:g()
             for i = 0, 3 do memory.write_byte(block + (i << 3), state ? 1 : 0) end
         end)
 
         self.notifs:toggle(T'Block All Notifications', {}, T'Block all notifications', function(state)
-            memory.write_byte(memory.script_global(Globals.BlockAllNotifications), state ? 1 : 0)
+            memory.write_byte(Globals.BlockAllNotifications:g(), state ? 1 : 0)
         end)
     end
 
@@ -248,7 +273,7 @@ pluto_class Protections
             local player_id = players.user()
             for pid = 0, players.max_players do
                 if S:PlayerExists(pid) and pid ~= player_id then
-                    local base = memory.script_global(Globals:PlayerBase(pid))
+                    local base = Globals.PlayerBase:g(pid)
                     local pos = v3(memory.read_float(base + 0x678), memory.read_float(base + 0x680), memory.read_float(base + 0x684))
                     local current_pos = players.get_position(pid)
 
@@ -275,15 +300,121 @@ pluto_class Protections
                     if event == 174 and script.get_event_data(1, i, event_data, size) then
                         local event_hash = memory.read_int(event_data)
                         local pid = memory.read_int(event_data + (1 * 8))
-                        util.log(event_hash)
             
                         if event_hash == 1489206770 then
-                            util.toast($'{players.get_name(pid)} has collected BST')
+                            Notifications.Show($'{players.get_name(pid)} has collected BST', 'MrRobot', '', Notifications.HUD_COLOUR_BLACK)
                         end
                     end
                 end
             end)
         end)
+
+        local weapon_ptr = memory.alloc(4)
+        self.ballisitc_armor_blip_spoofing = self.detections:toggle_loop(T'Ballistic Armor Blip Spoofing', {}, T'Detects when a player is spoofing their ballistic armor blip', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= player_id then
+                    local current_weapon = weapon.get_current_ped_weapon(player.get_player_ped(pid), weapon_ptr, true)
+                    local blip = Globals.BallisticArmorBlip:g(pid)
+                    if memory.read_int(blip) == 0x42BF8A85 and current_weapon ~= 0x42BF8A85 then
+                        players.add_detection(pid, T'Ballistic Armor Blip Spoofing')
+                    end
+                end
+            end
+        end)
+
+        self.blip_pos_spoofing = self.detections:toggle_loop(T'Blip Position Spoofing', {}, T'Detects when a player is spoofing their blip position', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= player_id then
+                    local interior_state = Globals.SpoofInteriorState1:g(pid)
+                    local blip_pos = Globals.InteriorBlipX:g(pid)
+                    local base = Globals.PlayerBase:g(pid)
+                    local real_pos = players.get_position(pid)
+                    local pos = v3.new(v3.get(blip_pos))
+                    
+                    if memory.read_byte(interior_state) == 1 then
+                        if pos:distance(real_pos) ~= 0.0 then
+                            players.add_detection(pid, T'Blip Position Spoofing')
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.spoofing_as_interior = self.detections:toggle_loop(T'Spoofing As Interior', {}, T'Detects when a player is spoofing as an interior', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= player_id then
+                    local is_interior = Globals.BecomeInterior:g(pid)
+                    if not players.is_in_interior(pid) and memory.bits:check(memory.read_byte(is_interior), SelfBits.BecomeInterior) then
+                        players.add_detection(pid, T'Spoofing As Interior')
+                    end
+                end
+            end
+        end)
+
+        self.modded_rank = self.detections:toggle_loop(T'Modded Rank', {}, T'Detects when a player has a modded rank', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    local rank = players.get_rank(pid)
+                    if rank > 1500 then
+                        players.add_detection(pid, T'Modded Rank')
+                    end
+                end
+            end
+        end)
+
+        self.dev = self.detections:toggle_loop(T'MrRobot', {}, T'Detects if the player is the script developer', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) and pid ~= players.user() then
+                    if S:IsDev(pid) then
+                        local name = players.get_name(pid)
+                        if name == 'UndiscoveredPlayer' then continue end
+                        players.add_detection(pid, T'MrRobot Developer')
+                    end
+                end
+            end
+        end)
+        self.dev.value = true
+
+        self.detections:toggle_loop(T'Modded Anti-Lock On', {}, T'Detects if a players vehicle has anti-lock on capabilities without imani missile lock-on jammer', function()
+            for pid = 0, players.max_players do
+                if S:PlayerExists(pid) then
+                    local player_ped = player.get_player_ped(pid)
+                    local veh = S.NewVehicle(ped.get_vehicle_ped_is_using(player_ped, false))
+                    if veh.ptr ~= 0 then
+                        local driver_ped = veh:get_ped_in_vehicle_seat(-1)
+                        local driver = network.network_get_player_index_from_ped(driver_ped)
+                        local value = memory.read_long(veh.ptr + 0xAE8)
+                        if veh:get_vehicle_mod(44) ~= 1 and not memory.bits:check(value, 1 << 48) then
+                            players.add_detection(driver, T'Modded Anti-Lock On')
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.detections:toggle_loop(T'Glitch Player/Forcefield', {}, T'Detects players using JinxScript glitch player feature', function()
+            for entities.get_all_objects_as_pointers() as ptr do
+                local model = entities.get_model_hash(ptr)
+                for S.BlockEntities as hash do
+                    if model == hash then
+                        if memory.read_long(ptr + 0x28) & 0x10000100000000 == 0 then
+                            local owner = entities.get_owner(ptr)
+                            if S:PlayerExists(owner) and owner ~= players.user() then
+                                players.add_detection(owner, T'Glitch Player/Forcefield')
+                                entities.delete(ptr)
+                            end
+                        end
+                        break
+                    end
+                end
+            end
+            util.yield(100)
+        end)
+
+        self.detections:divider('')
 
         self.plate_detection = self.detections:list(T'Modded License Plate', {}, '')
         self.plate_detection:toggle_loop(T'Modded License Plate', {}, T'Detects players that have a modded license plate', function()
@@ -321,32 +452,34 @@ pluto_class Protections
         self.plate_detection:slider_float(T'Entropy Threshold', {}, T'The entropy threshold for a license plate to be considered modded', 0.0, 1000, self.entropy_threshold * 100, 10, function(value)
             self.entropy_threshold = value / 100
         end)
+
+        self.anti_detections = self.detections:list(T'Anti-Detections', {T'rantidetections'}, '')
     end
 
     function CreateEvents()
         local commands = {}
         for ({
-            { args = { T'Block CEO/MC Invites', commands, T'Block CEO/MC invites from other players in the session' }, sg = Globals.BlockCEOMCInviteProtection },
-            { args = { T'Block Island Heist Invite', commands, T'Block island heist invites from other players in the session' }, sg = Globals.BlockIslandHeistInviteProtection },
-            { args = { T'Block Remove Wanted Level', {}, T'Block remove wanted level from other players in the session' }, sg = Globals.BlockRemoveWantedLevelProtection },
-            { args = { T'Block Property Invite', {}, T'Block property invites from other players in the session' }, sg = Globals.BlockPropertyInviteProtection },
-            { args = { T'Block Bounty', {}, T'Block bounty event' }, sg = Globals.Bounty },
-            { args = { T'Block Remote Off The Radar', {}, T'Block remote off the radar event' }, sg = Globals.BlockRemoteOffTheRadarProtection },
-            { args = { T'Block CEO Money Loop', {}, T'Block CEO money loop event' }, sg = Globals.BlockCEOMoneyLoopProtection }
+            { args = { T'Block CEO/MC Invites', commands, T'Block CEO/MC invites from other players in the session' }, sg = Globals.BlockCEOMCInviteProtection:g() },
+            { args = { T'Block Island Heist Invite', commands, T'Block island heist invites from other players in the session' }, sg = Globals.BlockIslandHeistInviteProtection:g() },
+            { args = { T'Block Remove Wanted Level', {}, T'Block remove wanted level from other players in the session' }, sg = Globals.BlockRemoveWantedLevelProtection:g() },
+            { args = { T'Block Property Invite', {}, T'Block property invites from other players in the session' }, sg = Globals.BlockPropertyInviteProtection:g() },
+            { args = { T'Block Bounty', {}, T'Block bounty event' }, sg = Globals.Bounty:g() },
+            { args = { T'Block Remote Off The Radar', {}, T'Block remote off the radar event' }, sg = Globals.BlockRemoteOffTheRadarProtection:g() },
+            { args = { T'Block CEO Money Loop', {}, T'Block CEO money loop event' }, sg = Globals.BlockCEOMoneyLoopProtection:g() }
         }) as data do
             local args = data.args
             args[4] = function(state)
-                memory.write_byte(memory.script_global(data.sg), state ? 1 : 0)
+                memory.write_byte(data.sg, state ? 1 : 0)
             end
             self.events:toggle(table.unpack(args))
         end
 
         self.ceo_kick_event = self.events:toggle_loop(T'Block CEO/MC Kick', {}, T'Block CEO/MC kick event', function()
-            local ceo_kick = memory.script_global(Globals.CeoKickProtection1)
-            memory.write_byte(memory.script_global(Globals.CeoKickProtection), 1)
+            local ceo_kick = Globals.CeoKickProtection1:g()
+            memory.write_byte(Globals.CeoKickProtection:g(), 1)
             memory.write_byte(ceo_kick, memory.read_byte(ceo_kick) & ~(1 << 5))
         end, function()
-            memory.write_byte(memory.script_global(Globals.CeoKickProtection), 0)
+            memory.write_byte(Globals.CeoKickProtection:g(), 0)
         end)
     end
 
@@ -428,6 +561,55 @@ pluto_class Protections
         end
     
         return entropy
+    end
+
+    function CreateAntiDetections()
+        self.modded_repair = self.anti_detections:toggle_loop(T'Modded Repair/Upgrade', {}, T'Prevent modded vehiscle repairs and upgrade detections from detecting you', function()
+            local interior = Globals.InteriorID:g()
+            local veh = players.localplayer_vehicle()
+            if veh.ptr ~= 0 then
+                memory.write_byte(interior, 1)
+            end
+        end)
+
+        self.spawned_vehicle = self.anti_detections:toggle_loop(T'Spawned Vehicle', {}, T'Prevent spawned vehicle detections from detecting you', function()
+            local veh = players.localplayer_vehicle()
+            if veh.ptr ~= 0 then
+                decorator.decor_set_bool(veh.entity, 'CreatedByPegasus', true)
+            end
+        end)
+
+        self.anti_orbital = self.anti_detections:toggle(T'Anti-Orbital Cannon', {}, T'Prevent orbital cannon detections from detecting you (NOTE: it will not show as an orbital cannon kill)', function(state)
+            if not state then return end
+            local player_id = players.user()
+            local orbital = Globals.OrbitalCannon:g()
+
+            util.create_tick_handler(function()
+                if not self.anti_orbital.value then
+                    return false
+                end
+
+                memory.write_byte(orbital, 0)
+            end)
+        end)
+
+        self.anti_spectate = self.anti_detections:toggle(T'Anti-Spectate', {}, T'Prevent spectate detections from detecting you (this anti-detection is specific to JinxScript modded spectate, it will also counter some other detections too)', function(state)
+            if not state then return end
+            local CPed = GTAClasses.CPed:new(entities.handle_to_pointer(players.user_ped()))
+
+            util.create_tick_handler(function()
+                if not self.anti_spectate.value then
+                    CPed.m_player_info.m_game_state = GTAClasses.eGameState.Playing
+                    return false
+                end
+
+                if CPed.addr ~= 0 and not util.is_session_transition_active() then
+                    if CPed.m_player_info.m_game_state ~= GTAClasses.eGameState.InMPCutscene then    
+                        CPed.m_player_info.m_game_state = GTAClasses.eGameState.InMPCutscene
+                    end
+                end
+            end)
+        end)
     end
 end
 

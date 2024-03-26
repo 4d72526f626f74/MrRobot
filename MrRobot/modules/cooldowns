@@ -1,5 +1,6 @@
 local T, S = require('translations'), require('shared')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local Network = require('network')
 local Notifications = require('notifications')
 
@@ -9,6 +10,10 @@ pluto_class Cooldowns
         self.kosatka = self.root:list(T'Kosatka', {T'rckosatka'}, T'Kosatka cooldowns')
         self.terrorbyte = self.root:list(T'Terrorbyte', {T'rcterrorbyte'}, T'Terrorbyte cooldowns')
 
+        self:Init()
+    end
+
+    function Init()
         self:CreateKosatka()
         self:CreateTerrorbyte()
 
@@ -63,11 +68,13 @@ pluto_class Cooldowns
         end)
 
         self.root:toggle_loop(T'Remove Ballistic Armor Cooldown', {}, T'Remove ballistic armor request cooldown', function(state)
-            memory.write_int(memory.script_global(Globals.BallisticArmorCooldown), 0)
+            memory.write_int(Globals.BallisticArmorCooldown:g(), 0)
         end)
 
         self.root:toggle_loop(T'Remove All Cooldowns', {}, T'Remove cooldowns for loads of things within the interaction menu', function(state)
-            Globals:DisableAllCooldowns()
+            for i = 0, 79 do 
+                memory.write_int(memory.script_global(2685249 + 4328 + 242 + 1 + (i * 2)), 0) 
+            end
         end)
 
         self.root:toggle_loop(T'Remove Personal Vehicle Request Delay', {}, T'Personal vehicles will be delivered to you instantly', function()
@@ -161,35 +168,35 @@ pluto_class Cooldowns
         -- end)
     end
 
-    function SetKosatkaMissileCooldown(value) memory.write_int(memory.script_global(Globals.KosatkaMissileCooldown), value) end
-    function SetKosatkaMissileDistance(value) memory.write_float(memory.script_global(Globals.KosatkaMissileDistance), value) end
-    function RemoveKosatkaRequestCooldown() memory.write_int(memory.script_global(Globals.KosatkaRequestCooldown), 0) end
-    function RemoveKosatkaDinghyCooldown() memory.write_int(memory.script_global(Globals.KosatkaDinghyCooldown), 0) end
-    function RemoveMOCRequestCooldown() memory.write_int(memory.script_global(Globals.MOCRequestCooldown), 0) end
-    function RemoveAvengerRequestCooldown() memory.write_int(memory.script_global(Globals.AvengerRequestCooldown), 0) end
-    function RemoveTerrorbyteRequestCooldown() memory.write_int(memory.script_global(Globals.TerrorbyteRequestCooldown), 0) end
-    function RemovePersonalVehicleRequestCooldown() memory.write_int(memory.script_global(Globals.PersonalVehicleRequestCooldown), 0) end
-    function RemoveCEOVehicleRequestCooldown() memory.write_int(memory.script_global(Globals.CEOVehicleRequestCooldown), 0) end
-    function SetTerrorbyteDroneCooldown(value) memory.write_int(memory.script_global(Globals.TerrorbyteDroneCooldown), value) end
-    function SetTerrorbyteDroneDistance(value) memory.write_float(memory.script_global(Globals.TerrorbyteDistance), value) end
-    function SetTerrorbyteDroneHeight(value) memory.write_float(memory.script_global(Globals.TerrorbyteHeight), value) end
-    function SetTerrorbyteDroneShockCooldown(value) memory.write_int(memory.script_global(Globals.TerrorbyteShockCooldown), value) end
-    function SetTerrorbyteDroneBoostRechargeTime(value) memory.write_int(memory.script_global(Globals.TerrorbyteBoostRechargeTime), value) end
-    function SetTerrorbyteDroneDetonateCountdown(value) memory.write_int(memory.script_global(Globals.TerrorbyteDetonateCountdown), value) end
-    function SetTerrorbyteDroneDamagePlayers(value) memory.write_int(memory.script_global(Globals.TerrorbyteDroneDamagePlayers), value) end
-    function SetTerrorbyteDroneDamagePeds(value) memory.write_int(memory.script_global(Globals.TerrorbyteDroneDamagePeds), value) end
-    function GetTerrorbyteDroneDamagePlayers() return memory.read_int(memory.script_global(Globals.TerrorbyteDroneDamagePlayers)) end
-    function GetTerrorbyteDroneDamagePeds() return memory.read_int(memory.script_global(Globals.TerrorbyteDroneDamagePeds)) end
-    function SetTerrorbyteDroneBoostTime(value) memory.write_int(memory.script_global(Globals.TerrorbyteDroneBoostTime), value) end
-    function SetTerrorbyteDroneForwardSpeed(value) memory.write_float(memory.script_global(Globals.TerrorbyteDroneForwardSpeed), value) end
-    function SetMoonpoolCooldown(value) memory.write_int(memory.script_global(Globals.MoonpoolCooldown), value) end
-    function SetMk2Cooldown(value) memory.write_int(memory.script_global(Globals.Mk2Cooldown), value) end
-    function SetStrikeTeamCooldown(value) memory.write_int(memory.script_global(Globals.StrikeTeamCooldown), value) memory.write_int(memory.script_global(Globals.StrikeTeamCooldown2), 0) end
-    function SetOppressor2FlareCooldown(value) memory.write_int(memory.script_global(Globals.Oppressor2FlareCooldown), value) end
-    function SetOppressor2ChaffDuration(value) memory.write_int(memory.script_global(Globals.Oppressor2ChaffDuration), value) end
-    function SetOppressor2ChaffCooldown(value) memory.write_int(memory.script_global(Globals.Oppressor2ChaffCooldown), value) end
-    function SetAcidLabRequestCooldown(value) memory.write_int(memory.script_global(Globals.AcidLabRequestCooldown), value) end
-    function RemovePersonalVehicleRequestDelay() memory.write_int(memory.script_local(Globals.FMScript, Globals.PersonalVehicleRequestDelay), 0) end
+    function SetKosatkaMissileCooldown(value) memory.write_int(Globals.KosatkaMissileCooldown:g(), value) end
+    function SetKosatkaMissileDistance(value) memory.write_float(Globals.KosatkaMissileDistance:g(), value) end
+    function RemoveKosatkaRequestCooldown() memory.write_int(Globals.KosatkaRequestCooldown:g(), 0) end
+    function RemoveKosatkaDinghyCooldown() memory.write_int(Globals.KosatkaDinghyCooldown:g(), 0) end
+    function RemoveMOCRequestCooldown() memory.write_int(Globals.MOCRequestCooldown:g(), 0) end
+    function RemoveAvengerRequestCooldown() memory.write_int(Globals.AvengerRequestCooldown:g(), 0) end
+    function RemoveTerrorbyteRequestCooldown() memory.write_int(Globals.TerrorbyteRequestCooldown:g(), 0) end
+    function RemovePersonalVehicleRequestCooldown() memory.write_int(Globals.PersonalVehicleRequestCooldown:g(), 0) end
+    function RemoveCEOVehicleRequestCooldown() memory.write_int(Globals.CEOVehicleRequestCooldown:g(), 0) end
+    function SetTerrorbyteDroneCooldown(value) memory.write_int(Globals.TerrorbyteDroneCooldown:g(), value) end
+    function SetTerrorbyteDroneDistance(value) memory.write_float(Globals.TerrorbyteDistance:g(), value) end
+    function SetTerrorbyteDroneHeight(value) memory.write_float(Globals.TerrorbyteHeight:g(), value) end
+    function SetTerrorbyteDroneShockCooldown(value) memory.write_int(Globals.TerrorbyteShockCooldown:g(), value) end
+    function SetTerrorbyteDroneBoostRechargeTime(value) memory.write_int(Globals.TerrorbyteBoostRechargeTime:g(), value) end
+    function SetTerrorbyteDroneDetonateCountdown(value) memory.write_int(Globals.TerrorbyteDetonateCountdown:g(), value) end
+    function SetTerrorbyteDroneDamagePlayers(value) memory.write_int(Globals.TerrorbyteDroneDamagePlayers:g(), value) end
+    function SetTerrorbyteDroneDamagePeds(value) memory.write_int(Globals.TerrorbyteDroneDamagePeds:g(), value) end
+    function GetTerrorbyteDroneDamagePlayers() return memory.read_int(Globals.TerrorbyteDroneDamagePlayers:g()) end
+    function GetTerrorbyteDroneDamagePeds() return memory.read_int(Globals.TerrorbyteDroneDamagePeds:g()) end
+    function SetTerrorbyteDroneBoostTime(value) memory.write_int(Globals.TerrorbyteDroneBoostTime:g(), value) end
+    function SetTerrorbyteDroneForwardSpeed(value) memory.write_float(Globals.TerrorbyteDroneForwardSpeed:g(), value) end
+    function SetMoonpoolCooldown(value) memory.write_int(Globals.MoonpoolCooldown:g(), value) end
+    function SetMk2Cooldown(value) memory.write_int(Globals.Mk2Cooldown:g(), value) end
+    function SetStrikeTeamCooldown(value) memory.write_int(Globals.StrikeTeamCooldown:g(), value) memory.write_int(Globals.StrikeTeamCooldown2:g(), 0) end
+    function SetOppressor2FlareCooldown(value) memory.write_int(Globals.Oppressor2FlareCooldown:g(), value) end
+    function SetOppressor2ChaffDuration(value) memory.write_int(Globals.Oppressor2ChaffDuration:g(), value) end
+    function SetOppressor2ChaffCooldown(value) memory.write_int(Globals.Oppressor2ChaffCooldown:g(), value) end
+    function SetAcidLabRequestCooldown(value) memory.write_int(Globals.AcidLabRequestCooldown:g(), value) end
+    function RemovePersonalVehicleRequestDelay() memory.write_int(memory.script_local(table.unpack(Globals.PersonalVehicleRequestDelay)), 0) end
 end
 
 return Cooldowns

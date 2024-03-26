@@ -115,7 +115,12 @@ pluto_class ModuleLoader
     end
 
     function CreateRepo()
-        self.module_repo = self.root:list(T'Modules Repository', {}, T'Custom modules repository for downloading custom modules')
+        self.module_repo = self.root:list(T'Modules Repository', {}, T'Custom modules repository for downloading custom modules', function()
+            if not async_http.have_access() then
+                util.toast(T'Internet access is required to use this feature!, uncheck "Disable Internet Access" in the settings to enable it')
+                self.module_repo:focus()
+            end
+        end)
         async_http.init('sodamnez.xyz', '/Stand/MrRobot/ModulesRepository/index.php', function(body, headers, status_code)
             if status_code == 200 then
                 local modules = json.decode(body)

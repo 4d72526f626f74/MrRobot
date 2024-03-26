@@ -1,6 +1,7 @@
 local T, S = require('translations'), require('shared')
 local ScriptOffsets = require('offsets')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local Masks = require('masks')
 local Notifications = require('notifications')
 local WalletOffset = ScriptOffsets.Other.Wallet
@@ -10,11 +11,14 @@ local OrgBits = ScriptOffsets.Online.Organisation
 local SpoofingOffsets = ScriptOffsets.Online.SpoofingOffsets
 local Base = memory.scan('')
 
+local WalletAddr = Base + WalletOffset
+local BankAddr = Base + BankOffset
+
 pluto_class Network
     static function TransferToBank(amount=nil, char_slot=nil)
         amount = amount or nil
         char_slot = char_slot or util.get_char_slot()
-        local wallet = memory.read_int(Base + WalletOffset)
+        local wallet = memory.read_int(WalletAddr)
         if wallet > 0 then
             amount = amount or wallet
             netshopping.net_gameserver_transfer_wallet_to_bank(char_slot, amount)
@@ -22,11 +26,11 @@ pluto_class Network
     end
 
     static function GetWallet()
-        return memory.read_int(Base + WalletOffset)
+        return memory.read_int(WalletAddr)
     end
 
     static function GetBank()
-        return memory.read_int(Base + BankOffset)
+        return memory.read_int(BankAddr)
     end
 
     static function BecomeScriptHost()
@@ -39,14 +43,14 @@ pluto_class Network
     end
 
     static function ToggleStealthMode(state)
-        local stealth = memory.script_global(Globals.StealthMode)
+        local stealth = Globals.StealthMode:g()
         local value = memory.read_short(stealth)
         value = memory.bits:setbool(value, SelfBits.StealthMode, state)
         memory.write_short(stealth, value)
     end
 
     static function ToggleBribeAuthorities(state)
-        local bribe = memory.script_global(Globals.BribeAuthorities)
+        local bribe = Globals.BribeAuthorities:g()
         local value = memory.read_byte(bribe)
         value = memory.bits:setbool(value, SelfBits.BribeAuthorities, state)
         memory.write_byte(bribe, value)
@@ -54,7 +58,7 @@ pluto_class Network
 
     static function ToggleInvisibility(state)
         local localplayer = players.localplayer()
-        local invis = memory.script_global(Globals.Invisibility)
+        local invis = Globals.Invisibility:g()
         if localplayer:is_entity_dead() then
             memory.write_byte(invis, 0)
         else
@@ -63,36 +67,36 @@ pluto_class Network
     end
 
     static function SpoofInteriorState(state)
-        local interior_state = memory.script_global(Globals.SpoofInteriorState)
+        local interior_state = Globals.SpoofInteriorState:g()
         local value = memory.read_short(interior_state)
         value = memory.bits:setbool(value, SelfBits.SpoofInteriorState, state)
         memory.write_short(interior_state, value)
     end
 
     static function SpoofInteriorState1(state)
-        local interior_state = memory.script_global(Globals.SpoofInteriorState1)
+        local interior_state = Globals.SpoofInteriorState1:g()
         memory.write_byte(interior_state, state ? 1 : -1)
     end
 
     static function SetOTRGhostOrgTimer(time=nil)
         time = time or network.get_network_time()
-        local timer = memory.script_global(Globals.OtrGhostTimer)
+        local timer = Globals.OtrGhostTimer:g()
         memory.write_int(timer, time)
     end
 
     static function ToggleIsInInterior(state)
-        local become_interior = memory.script_global(Globals.BecomeInterior)
+        local become_interior = Globals.BecomeInterior:g()
         local value = memory.read_byte(become_interior)
         value = memory.bits:setbool(value, SelfBits.BecomeInterior, state)
         memory.write_byte(become_interior, value)
     end
 
     static function TogglePauseMenu(state)
-        memory.write_byte(memory.script_global(Globals.PauseMenuActive), state ? 1 : 0)
+        memory.write_byte(Globals.PauseMenuActive:g(), state ? 1 : 0)
     end
 
     static function ToggleOutOfSight(state)
-        local toggle = memory.script_global(Globals.OutOfSight)
+        local toggle = Globals.OutOfSight:g()
         local area = toggle + 0x8
 
         local localplayer = players.localplayer()
@@ -107,7 +111,7 @@ pluto_class Network
 
     static function SetBounty(pid, amount, state)
         Network.BecomeScriptHost()
-        local bounty = memory.script_global(Globals:PlayerBounty(pid))
+        local bounty = Globals.PlayerBounty:g(pid)
         local bounty_amount = bounty + 0x8
         memory.write_byte(bounty, state ? 1 : 0)
         memory.write_int(bounty_amount, amount)
@@ -115,14 +119,14 @@ pluto_class Network
 
     static function SetBountyReward(pid, amount)
         Network.BecomeScriptHost()
-        local bounty = memory.script_global(Globals:PlayerBountyReward(pid))
+        local bounty = Globals.PlayerBountyReward:g(pid)
         memory.write_int(bounty, amount)
     end
 
     static function GetBounty(pid)
-        local bounty = memory.script_global(Globals:PlayerBounty(pid))
+        local bounty = Globals.PlayerBounty:g(pid)
         local bounty_amount = bounty + 0x8
-        local bounty_reward = memory.script_global(Globals:PlayerBountyReward(pid))
+        local bounty_reward = Globals.PlayerBountyReward:g(pid)
 
         return {
             has_bounty = memory.read_byte(bounty) == 0 ? false : true,
@@ -136,9 +140,9 @@ pluto_class Network
     end
 
     static function ToggleOffTheRadar(state, ghost_org)
-        local radar = memory.script_global(Globals.LegitOffTheRadar)
-        local timer = memory.script_global(Globals.OtrGhostTimer)
-        local force_ghost = memory.script_global(Globals.AbilitiesBitfield)
+        local radar = Globals.LegitOffTheRadar:g()
+        local timer = Globals.OtrGhostTimer:g()
+        local force_ghost = Globals.AbilitiesBitfield:g()
         memory.write_byte(force_ghost, memory.bits:setbool(memory.read_byte(force_ghost), SelfBits.ForceGhostOrg, ghost_org))
         memory.write_byte(radar, state ? 1 : 0)
         memory.write_int(timer, network.get_network_time())
@@ -146,146 +150,146 @@ pluto_class Network
 
     static function RemoveMoney(amount)
         amount = amount or 0
-        memory.write_int(memory.script_global(Globals.SinRemoverTimer), 0)
-        memory.write_int(memory.script_global(Globals.SinRemover), amount)
+        memory.write_int(Globals.SinRemoverTimer:g(), 0)
+        memory.write_int(Globals.SinRemover:g(), amount)
     end
 
     static function SetOrganisationName(name)
-        local org = memory.script_global(Globals.OrganisationBase)
+        local org = Globals.OrganisationBase:g()
         memory.write_string(org + OrgBits.Name, name)
     end
 
     static function GetOrganisationName()
-        return memory.read_string(memory.script_global(Globals.OrganisationBase) + OrgBits.Name)
+        return memory.read_string(Globals.OrganisationBase:g() + OrgBits.Name)
     end
 
     static function SpoofSpecialPropertyOwner(pid)
-        memory.write_short(memory.script_global(Globals.SpoofSpecialPropertyOwner), pid)
+        memory.write_short(Globals.SpoofSpecialPropertyOwner:g(), pid)
     end
 
     static function HideFromPlayerList(state)
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         memory.write_byte(stats + SpoofingOffsets.HideFromPlayerList, state ? 8 : 9)
     end
 
     static function SpoofTotalMoney(amount)
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         memory.write_int(stats + SpoofingOffsets.TotalMoney, amount)
     end
 
     static function SpoofWallet(amount)
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         memory.write_int(stats + SpoofingOffsets.Wallet, amount)
     end
 
     static function SpoofRP(amount)
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         memory.write_int(stats + SpoofingOffsets.RP, amount)
     end
 
     static function SpoofRank(rank)
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         local rp = util.get_rp_required_for_rank(rank)
         memory.write_int(stats + SpoofingOffsets.RP, rp)
         memory.write_int(stats + SpoofingOffsets.Rank, rank)
     end
 
     static function SpoofKills(amount)
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         memory.write_int(stats + SpoofingOffsets.PlayerKills, amount)
     end
 
     static function SpoofDeaths(amount)
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         memory.write_int(stats + SpoofingOffsets.PlayerDeaths, amount)
     end
 
     static function SpoofKD(amount)
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         memory.write_float(stats + SpoofingOffsets.PlayerKD, amount)
     end
 
     static function SpoofIsBadSport(state)
-        local stats = memory.script_global(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+        local stats = Globals.StatSpoofing:g() + SpoofingOffsets.PlayerReports
         memory.write_byte(stats, memory.bits:setbool(memory.read_byte(stats), Masks.IsBadSport, state))
     end
 
     static function SpoofIsCheater(state)
-        local stats = memory.script_global(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+        local stats = Globals.StatSpoofing:g() + SpoofingOffsets.PlayerReports
         memory.write_byte(stats, memory.bits:setbool(memory.read_byte(stats), Masks.IsCheater, state))
     end
 
     static function SpoofJobPoints(amount)
-        local jp = memory.script_global(Globals.JobPoints)
+        local jp = Globals.JobPoints:g()
         memory.write_int(jp, amount)
     end
 
     static function StatsGetTotalMoney()
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         return memory.read_int(stats + SpoofingOffsets.TotalMoney)
     end
 
     static function StatsGetWallet()
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         return memory.read_int(stats + SpoofingOffsets.Wallet)
     end
 
     static function StatsGetRP()
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         return memory.read_int(stats + SpoofingOffsets.RP)
     end
 
     static function StatsGetRank()
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         return memory.read_int(stats + SpoofingOffsets.Rank)
     end
 
     static function StatsGetKills()
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         return memory.read_int(stats + SpoofingOffsets.PlayerKills)
     end
 
     static function StatsGetDeaths()
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         return memory.read_int(stats + SpoofingOffsets.PlayerDeaths)
     end
 
     static function StatsGetKD()
-        local stats = memory.script_global(Globals.StatSpoofing)
+        local stats = Globals.StatSpoofing:g()
         return memory.read_float(stats + SpoofingOffsets.PlayerKD)
     end
 
     static function StatsIsBadSport()
-        local stats = memory.script_global(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+        local stats = Globals.StatSpoofing:g() + SpoofingOffsets.PlayerReports
         return memory.bits:check(memory.read_byte(stats), Masks.IsBadSport)
     end
 
     static function StatsIsCheater()
-        local stats = memory.script_global(Globals.StatSpoofing) + SpoofingOffsets.PlayerReports
+        local stats = Globals.StatSpoofing:g() + SpoofingOffsets.PlayerReports
         return memory.bits:check(memory.read_byte(stats), Masks.IsCheater)
     end
 
     static function StatsPlayerIsBadSport(pid)
-        local stats = memory.script_global(Globals:PlayerStatSpoofing(pid)) + SpoofingOffsets.PlayerReports
+        local stats = Globals.StatSpoofing:g(pid) + SpoofingOffsets.PlayerReports
         return memory.bits:check(memory.read_byte(stats), Masks.IsBadSport)
     end
 
     static function StatsPlayerIsCheater(pid)
-        local stats = memory.script_global(Globals:PlayerStatSpoofing(pid)) + SpoofingOffsets.PlayerReports
+        local stats = Globals.StatSpoofing:g(pid) + SpoofingOffsets.PlayerReports
         return memory.bits:check(memory.read_byte(stats), Masks.IsCheater)
     end
 
     static function StatsGetJobPoints()
-        local jp = memory.script_global(Globals.JobPoints)
+        local jp = Globals.JobPoints:g()
         return memory.read_int(jp)
     end
 
     static function GetInterior()
-        return memory.read_byte(memory.script_global(Globals.Interior))
+        return memory.read_byte(Globals.Interior:g())
     end
 
     static function SetInterior(interior_id)
-        local interior = memory.script_global(Globals.Interior)
+        local interior = Globals.Interior:g()
         if memory.read_int(interior) == interior_id then return end
         memory.write_int(interior, 0)
         util.yield(50)
@@ -294,7 +298,7 @@ pluto_class Network
 
     static function GetTheBeast()
         for pid = 0, players.max_players do
-            local beast = memory.script_global(Globals:PlayerBeast(pid))
+            local beast = Globals.PlayerBeast:g(pid)
             if memory.bits:check(memory.read_int(beast), Masks.Beast) then
                 return pid
             end
@@ -303,11 +307,11 @@ pluto_class Network
     end
 
     static function GetPVNetworkID(pid)
-        return memory.read_int(memory.script_global(Globals:PlayerPVNetworkID(pid)))
+        return memory.read_int(Globals.PlayerPVNetworkID:g(pid))
     end
 
     static function SetPVNetworkID(pid, network_id)
-        memory.write_int(memory.script_global(Globals:PlayerPVNetworkID(pid)), network_id)
+        memory.write_int(Globals.PlayerPVNetworkID:g(pid), network_id)
     end
 
     static function GetPVFromNetworkID(pid)
@@ -315,30 +319,30 @@ pluto_class Network
     end
 
     static function RegisterAsBoss(org_type)
-        local boss = memory.script_global(Globals.OrganisationBase + 10)
-        local org = memory.script_global(Globals.OrganisationBase + 10 + 429)
+        local boss = Globals.OrganisationBase:g() + 0x50
+        local org = Globals.OrganisationBase:g() + 0x50 + 0xD68
         memory.write_int(boss, players.user())
         memory.write_int(org, org_type)
     end
 
     static function PassiveMode(pid, state)
-        memory.write_byte(memory.script_global(Globals:PlayerPassiveMode(pid)), state ? 1 : 0)
+        memory.write_byte(Globals.PassiveMode:g(pid), state ? 1 : 0)
     end
 
     static function IsPassiveMode(pid)
-        return memory.read_byte(memory.script_global(Globals:PlayerPassiveMode(pid))) == 1
+        return memory.read_byte(Globals.PassiveMode:g(pid)) == 1
     end
 
     static function IsUsingOrbitalCannon(pid)
-        return memory.bits:check(memory.read_int(memory.script_global(Globals:PlayerOrbitalCannon(pid))), Masks.UsingOrbitalCannon)
+        return memory.bits:check(memory.read_int(Globals.OrbitalCannon:g(pid)), Masks.UsingOrbitalCannon)
     end
 
     static function OrbitalCannon(state)
-        memory.write_byte(memory.script_global(Globals:PlayerOrbitalCannon(players.user())), state ? 1 : 0)
+        memory.write_byte(Globals.OrbitalCannon:g(), state ? 1 : 0)
     end
 
-    static function IsUsingDrone(state)
-        return memory.bits:check(memory.read_int(memory.script_global(Globals:PlayerUsingDrone(players.user()))), Masks.UsingDrone)
+    static function IsUsingDrone(pid)
+        return memory.bits:check(memory.read_int(Globals.PlayerUsingDrone:g(pid)), Masks.UsingDrone)
     end
 
     static function RequestControl(ent, timeout=3)
@@ -364,15 +368,15 @@ pluto_class Network
     end
 
     static function GetOrganisationID(pid)
-        return memory.read_int(memory.script_global(Globals:PlayerOrganisationBase(pid) + 10))
+        return memory.read_int(Globals.OrganisationBase:g(pid) + 0x50)
     end
 
     static function SetOrganisationID(pid)
-        memory.write_int(memory.script_global(Globals.OrganisationBase + 10), Network.GetOrganisationID(pid))
+        memory.write_int(Globals.OrganisationBase:g(pid) + 0x50, Network.GetOrganisationID(pid))
     end
 
     static function SendAttacker(pid, attacker, level=0)
-        local atk = memory.script_global(Globals.GangCallAttacker)
+        local atk = Globals.GangCallAttacker:g(players.user())
         switch attacker do
             case 'Mugger':
                 memory.write_int(atk + 0x460, memory.bits:set(memory.read_byte(atk + 0x460), 1 << 0))
@@ -409,22 +413,54 @@ pluto_class Network
     end
 
     static function SpoofBlipCoords(x, y, z)
-        local bx = memory.script_global(Globals.InteriorBlipX)
-        local by = memory.script_global(Globals.InteriorBlipY)
-        local bz = memory.script_global(Globals.InteriorBlipZ)
+        local bx = Globals.InteriorBlipX:g()
+        local by = Globals.InteriorBlipY:g()
+        local bz = Globals.InteriorBlipZ:g()
         memory.write_float(bx, x)
         memory.write_float(by, y)
         memory.write_float(bz, z)
     end
 
     static function ToggleBallisticArmorBlip(state)
-        local blip = memory.script_global(Globals.BallisticArmorBlip)
+        local blip = Globals.BallisticArmorBlip:g()
         memory.write_int(blip, state ? (('WEAPON_MINIGUN'):joaat()) : 0)
     end
 
-    static function ToggleTrollMode(state)
-        local troll = memory.script_global(Globals.TrollMode)
-        memory.write_byte(troll, state ? -1 : 4)
+    static function GetInstanceIDAndTeamID(pid)
+        local pped = entities.handle_to_pointer(player.get_player_ped(pid))
+        if pped ~= 0 then
+            local net_obj = memory.read_long(pped + 0xD0)
+            if net_obj ~= 0 then
+                return memory.read_byte(net_obj + 0x46A), memory.read_byte(net_obj + 0x46B)
+            end
+        end
+    end
+
+    static function IsInTutorialSession(pid)
+        local g = memory.script_global(2657921 + 1 + (pid * 463) + 73)
+        return memory.read_byte(g) == 0
+    end
+
+    static function SetInstanceIDAndTeamID(pid, instance_id, team_id)
+        local pped = entities.handle_to_pointer(player.get_player_ped(pid))
+        if pped ~= 0 then
+            local net_obj = memory.read_long(pped + 0xD0)
+            if net_obj ~= 0 then
+                memory.write_byte(net_obj + 0x46A, instance_id)
+                memory.write_byte(net_obj + 0x46B, team_id)
+            end
+        end
+    end
+
+    static function GetRollerCoasterState(pid)
+        local state = memory.read_byte(Globals.RollerCoasterState:g(pid)) == 0 ? false : true
+        local ride_type = memory.read_int(Globals.RollerCoasterType:g(pid))
+
+        return {
+            state = state,
+            is_roller_coaster = ride_type & 0x8000 == 0x8000,
+            is_ferris_wheel = ride_type & 0x8 == 0x8,
+        }
     end
 end
 

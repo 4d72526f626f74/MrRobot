@@ -9,7 +9,7 @@ pluto_class PedAimbot
     function __construct(root)
         self.root = root:list(T'Ped', {T'rpedaimbot'}, T'Ped Aimbot')
         self.fov = 1
-        self.fov_types = {'Normal', 'Precision'}
+        self.fov_types = {{1, 'Normal'}, {2, 'Precision'}}
         self.fov_type = 1
         self.ignore_vehicles = true
         self.use_fov = true
@@ -67,7 +67,19 @@ pluto_class PedAimbot
 
         self.root:divider('')
 
-        self.root:list_select(T'Bone', {}, T'Bone to target', {'Head', 'Chest', 'Stomach', 'Left Foot', 'Right Leg', 'Left Hand', 'Right Hand', 'Pelvis', 'Left Leg', 'Left Knee', 'Left Arm'}, 1, function(index)
+        self.root:list_select(T'Bone', {}, T'Bone to target', {
+            {1, 'Head'}, 
+            {2, 'Chest'}, 
+            {2, 'Stomach'}, 
+            {3, 'Left Foot'}, 
+            {4, 'Right Leg'}, 
+            {5, 'Left Hand'}, 
+            {6, 'Right Hand'}, 
+            {7, 'Pelvis'}, 
+            {8, 'Left Leg'}, 
+            {9, 'Left Knee'}, 
+            {10, 'Left Arm'}
+        }, 1, function(index)
             self.bone = S.AimbotBones[index] or 31086
         end, self.bone)
 
@@ -102,16 +114,24 @@ pluto_class PedAimbot
         local target = self:GetTarget()
         if target ~= nil then
             if self.show_target then
-                local coords = ped.get_ped_bone_coords(target, self.bone, 0.0, 0.0, 0.0)
-                if graphics.get_screen_coord_from_world_coord(coords.x, coords.y, coords.z, self.sx_ptr, self.sy_ptr) then
-                    local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
-                    directx.draw_line(0.5, 0.5, sx, sy, { r=1, g=0, b=0, a=1 })
-                end
+                local los = players.localplayer():has_entity_clear_los_to_entity(target, 17)
+                local colour = (los) ? { r=0, g=1, b=0, a=1 } : { r=1, g=0, b=0, a=1 }
+                S:DrawBoneESP(target, colour)
             end
 
             local localplayer = players.localplayer()
             local weapon_hash = localplayer:get_selected_ped_weapon()
-            local damage = self.damage_override ? self.damage : weapon.get_weapon_damage(weapon_hash, self.bone)
+            local damage = 0
+            if self.damage_override then
+                damage = self.damage
+            else
+                local maximum = weapon.get_weapon_damage(weapon_hash, self.bone)
+                maximum = maximum - (0.1 * maximum)
+                local minimum = 0.25 * maximum
+                maximum = math.floor(maximum)
+                minimum = math.floor(minimum)
+                damage = math.random(minimum, maximum)
+            end
 
             if localplayer:is_ped_shooting() then
                 if not ped.is_ped_in_any_vehicle(target) then

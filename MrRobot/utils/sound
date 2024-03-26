@@ -1,0 +1,39 @@
+pluto_class Sound
+    function __construct(audio_name, audio_ref=0)
+        self.audio_name = audio_name
+        self.audio_ref = audio_ref
+        self.id = audio.get_sound_id()
+    end
+
+    static function AmberHomingLockOn() return pluto_new Sound('VULKAN_LOCK_ON_AMBER') end
+    static function RedHomingLockOn() return pluto_new Sound('VULKAN_LOCK_ON_RED') end
+
+    function __gc()
+        self:Stop()
+    end
+
+    function Play()
+        audio.play_sound_frontend(self.id, self.audio_name, self.audio_ref, 1)
+    end
+
+    function Stop()
+        if self.id ~= -1 then
+            audio.stop_sound(self.id)
+            audio.release_sound_id(self.id)
+        end
+    end
+
+    function HasFinished()
+        return audio.has_sound_finished(self.id)
+    end
+
+    function PlayFromEntity(ent)
+        audio.play_sound_from_entity(self.id, self.audio_name, ent, self.audio_ref, 1)
+    end
+
+    function PlayAtCoord(pos)
+        audio.play_sound_from_coord(self.id, self.audio_name, pos.x, pos.y, pos.z, self.audio_ref, 1)
+    end
+end
+
+return Sound

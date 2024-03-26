@@ -1,17 +1,30 @@
 local T, S = require('translations'), require('shared')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 
 local SettingsBits = S.SettingsBits
 
 pluto_class Settings
     function __construct(root, version, settings)
         self.root = root:list(T'Settings', {T'rsettings'}, '')
-        self.root:divider($'v{version}')
+        self.dll_path = ''
+        self.settings = settings
+
+        if not S:IsDev(players.user()) then
+            self.root:divider($'v{version}')
+        else
+            self.root:divider($'v{version}-dev')
+        end
         root:divider('')
 
-        self.remove_transaction_errors = self.root:toggle_loop(T'Remove Transaction Errors', {}, T'Removes annoying transaction error notifications', || -> memory.write_byte(memory.script_global(Globals.TransactionErrorNotification), 0))
+        self:Init()
+    end
 
-        self.show_alerts = self.root:toggle(T'Show Alerts', {}, T'Should alerts be shown? (enabling this will force alerts to be sent to console instead of displaying)', function(state)
+    function Init()
+        local settings = self.settings
+        self.remove_transaction_errors = self.root:toggle_loop(T'Remove Transaction Errors', {}, T'Removes annoying transaction error notifications', || -> memory.write_byte(Globals.TransactionErrorNotification:g(), 0))
+
+        self.show_alerts = self.root:toggle(T'Show Alerts', {}, T'Should alerts be shown? (disabling this will force alerts to be sent to console instead of displaying)', function(state)
             S.Settings:SetBool(SettingsBits.ShowAlerts, state)
         end, S.Settings:IsSet(SettingsBits.ShowAlerts))
 
@@ -32,7 +45,7 @@ pluto_class Settings
 
         self.cache:toggle_loop(T'Show Timer', {}, '', function()
             local time_left = (S.ClearCache.LastClear - os.time())
-            util.draw_debug_text($'Time Remaining: {time_left} seconds')
+            util.draw_debug_text(T:T('Time Remaining %d seconds', time_left))
         end)
 
         self.cache:slider(T'Cache Timer', {T'scachetimer'}, T'How long should globals be cached for? (in seconds)', 1, 3600, 600, 1, function(value)
@@ -61,6 +74,98 @@ pluto_class Settings
             self.modules:toggle(k:gsub('^%l', string.upper), {}, '', function(state)
                 settings.modules[k] = state
             end, v)
+        end
+
+        self.experimental = self.root:list(T'Experimental', {T'rexperimental'}, T'Experimental features that may have unintended behaviour')
+        self.experimental:text_input(T'DLL Path', {T'rdllpath'}, T'Path to the DLL to load', function(value)
+           self.dll_path = value
+        end, self.dll_path)
+
+        local langs = {
+            {1, 'English'},
+            {2, 'German'},
+            {3, 'French'},
+            {4, 'Spanish'}
+        }
+        local index = 1
+
+        self.lang = self.root:list(T'Language', {T'rlanguage'}, T'')
+        for k, v in pairs(langs) do
+            if v[2] == SCRIPT_LANGUAGE then
+                index = k
+                break
+            end
+        end
+        self.lang_select = self.lang:list_select(T'Language', {}, T'Change the language of the script', langs, index, function(value)
+            if SCRIPT_CAN_CONTINUE then
+                local file <close> = assert(io.open(filesystem.script_root() .. '/config/language.txt', 'w'))
+                file:write(langs[value][2])
+                file:close()
+                util.restart_script()
+            end
+        end)
+
+        self.experimental:action(T'Load DLL', {T'rloaddll'}, T'Loads the DLL from the path specified', function()
+            if self.dll_path ~= '' then
+                if filesystem.exists(self.dll_path) then
+                    local LoadLibraryA = S:GetProcAddressFromKernel32('LoadLibraryA')
+                    if LoadLibraryA ~= 0 then
+                        local name = self.dll_path:match('%w+.dll$')
+                        local base = memory.scan(name)
+
+                        if base ~= GTA_BASE then
+                            util.toast($'DLL already loaded at {string.format("0x%X", base)}')
+                        else
+                            if util.call_foreign_function(LoadLibraryA, self.dll_path) ~= 0 then
+                                base = memory.scan(name)
+                                util.toast($'DLL loaded at {string.format("0x%X", base)}')
+                            else
+                                util.toast('Failed to load DLL')
+                            end
+                        end
+                    end
+                else
+                    util.toast('DLL path does not exist')
+                end
+            else
+                util.toast('No DLL path specified')
+            end
+        end)
+
+        if S:IsDev(players.user()) then
+            self.ent = memory.alloc(4)
+            self.dev = self.root:list(T'Developer', {T'rdeveloper'}, T'')
+            self.dev:toggle_loop(T'Display Entity Aiming At', {}, T'Displays the entity you are aiming at', function()
+                if player.get_entity_player_is_free_aiming_at(players.user(), self.ent) then
+                    local ent = memory.read_int(self.ent)
+                    if ent ~= 0 then
+                        local model_hash = entity.get_entity_model(ent)
+                        util.draw_debug_text($'{util.reverse_joaat(model_hash)} - {ent}')
+                    end
+                end
+            end)
+
+            self.dev:toggle_loop(T'Display Last Driver Of Vehicle', {}, T'Displays the last driver of the vehicle you are in', function()
+                if player.get_entity_player_is_free_aiming_at(players.user(), self.ent) then
+                    local ent = memory.read_int(self.ent)
+                    if ent ~= 0 then
+                        if entity.is_entity_a_vehicle(ent) then
+                            local ptr = entities.handle_to_pointer(ent)
+                            if ptr ~= 0 then
+                                local last_driver = memory.read_long(ptr + 0xD18)
+                                if last_driver ~= 0 then
+                                    local pid = network.network_get_player_index_from_ped(entities.pointer_to_handle(last_driver))
+                                    if pid ~= -1 then
+                                        util.draw_debug_text($'Last Driver: {players.get_name(pid)}')
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+
+            self.dev:divider('')
         end
     end
 

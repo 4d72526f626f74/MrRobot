@@ -1,0 +1,48 @@
+local Toolkit = {
+    S = require('shared'),
+    T = require('translations'),
+    H = require('handler'),
+    Utils = {
+        Blacklist = require('blacklist'),
+        Cutscenes = require('cutscenes'),
+        DoorManager = require('door_manager'),
+        Entity = require('entity'),
+        GTAClasses = require('gta_classes'),
+        Network = require('network'),
+        Notifications = require('notifications'),
+        Offsets = require('offsets'),
+        PedList = require('pedlist'),
+        Globals = require('script_globals'),
+        Sound = require('sound'),
+        Timer = require('timer'),
+        Vehicle = require('vehicle'),
+        VehicleHandling = require('vehicle_handling'),
+        VehicleModels = require('vehicle_models'),
+        WeaponsList = require('weapons_list'),
+        ZoneInfo = require('zone_info')
+    },
+    Libs = {
+        Bit = require('bit'),
+        Bitfield = require('bitfield'),
+        Inspect = require('inspect'),
+        Math = require('math'),
+    }
+}
+
+function Toolkit:Default(include_handler=false, include_globals=false)
+    if not include_handler and not include_globals then
+        return self.S, self.T
+    elseif include_handler and not include_globals then
+        return self.S, self.T, self.H
+    elseif not include_handler and include_globals then
+        return self.S, self.T, self.Utils.Globals, self.Utils.Globals.globals
+    else
+        return self.S, self.T, self.H, self.Utils.Globals, self.Utils.Globals.globals
+    end
+end
+
+function Toolkit:Globals()
+    return self.Utils.Globals, self.Utils.Globals.globals
+end
+
+return Toolkit

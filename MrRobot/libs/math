@@ -1,19 +1,94 @@
-_G.math.log2 = function(x)
+math.log2 = function(x)
     return math.log(x, 2)
 end
 
-_G.math.exp2 = function(x)
+math.exp2 = function(x)
     return 2 ** x
 end
 
-_G.math.round = function(num, dp)
+math.round = function(num, dp)
     local mult = 10 ^ (dp or 0)
     return math.floor(num * mult + 0.5) / mult
 end
 
-_G.math.factorial = function(n)
+math.factorial = function(n)
     if n == 0 then
         return 1
     end
     return n * math.factorial(n - 1)
+end
+
+math.max_int = (1 << 31) - 1
+math.min_int = -(1 << 31)
+math.max_float = ((1 << 31) - 1) + 0.0
+math.min_float = -((1 << 31) - 1) + 0.0
+
+math.sum = function(...)
+    local args = {...}
+    local v = args[1]
+    table.remove(args, 1)
+    for args as arg do
+        while arg ~= 0 do
+            local carry = v & arg
+            v = v ~ arg
+            arg = carry << 1
+        end
+    end
+    return v
+end
+
+math._ = function(a, b)
+    while b ~= 0 do
+        local carry = a & b
+        a = a ~ b
+        b = carry << 1
+    end
+    return a
+end
+
+math.product = function(a, b)
+    local result = 0
+    while b ~= 0 do
+        if b & 1 ~= 0 then
+            result = result + a
+        end
+        a = a << 1
+        b = b >> 1
+    end
+    return result
+end
+
+math.frexp = function(x)
+    local exp = math.floor(math.log2(x))
+    local mant = x / 2 ^ exp
+    return mant, exp
+end
+
+math.int2float = function(int)
+    local sign = int >> 31
+    local exponent = (int >> 23) & 0xFF
+    local mantissa = int & 0x7FFFFF
+    local float = (-1) ^ sign * (1 + mantissa / 2 ^ 23) * 2 ^ (exponent - 127)
+
+    return float
+end
+
+math.float2int = function(float)
+    local sign = float < 0 and 1 or 0
+    local exponent = 0
+    local mantissa = 0
+
+    if float ~= 0 then
+        local abs_float = math.abs(float)
+        local mantissa_float, exponent_float = math.frexp(abs_float)
+        mantissa = (mantissa_float * 2 - 1) * 2 ^ 23
+        exponent = exponent_float + 127
+    end
+
+    local int = (sign << 31) | (exponent << 23) | (math.floor(mantissa) & 0x7FFFFF)
+    return math.floor(int / 2)
+end
+
+math.clamp = function(value, min, max)
+    return math.max(min, math.min(max, value))
 end

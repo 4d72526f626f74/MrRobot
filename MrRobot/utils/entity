@@ -59,6 +59,15 @@ pluto_class Entity
         end
     end
 
+    function __gc()
+        local model = util.reverse_joaat(entities.get_model_hash(self.ptr))
+        if model ~= '' then
+            --util.toast($'{model} has been garbage collected')
+        end
+        self.entity = nil
+        self.ptr = nil
+    end
+
     function PlayerID()
         if self.IS_PED_A_PLAYER() then
             if players.user_ped() == self.entity then
@@ -72,10 +81,6 @@ pluto_class Entity
 
     function IsPlayer()
         return self:IS_PED_A_PLAYER()
-    end
-
-    function set_entity_health(ent, health)
-        ENTITY.SET_ENTITY_HEALTH(ent, health, 0)
     end
 end
 

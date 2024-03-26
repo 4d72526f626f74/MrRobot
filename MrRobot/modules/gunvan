@@ -1,5 +1,6 @@
 local T, S, L = require('translations'), require('shared'), require('labels')
-local Globals = require('script_globals')
+local G = require('script_globals')
+local Globals = G.globals
 local Weapons = require('weapons_list')
 local ZoneInfo = require('zone_info')
 
@@ -38,8 +39,13 @@ local GunVanCoordinates = {
 
 pluto_class GunVan
     function __construct(root)
-        self.updating = { position = false }
         self.gunvan_root = root:list(T'Gun Van', {T'rgunvan'}, '')
+        self.updating = { position = false }
+
+        self:Init()
+    end
+
+    function Init()
         local weapons_tbl = S:SortTable(Weapons:AsTable(), |a, b| -> a < b)
    
         for index, weapon in pairs(weapons_tbl) do
@@ -48,6 +54,8 @@ pluto_class GunVan
                 weapons_tbl[index] = name
             end
         end
+
+        weapons_tbl = S:SortTableIndexed(weapons_tbl, |a, b| -> a < b)
 
         self.gunvan_weapons = self.gunvan_root:list(T'Weapons', {T'gunvanweapons'}, T'Gun Van Weapons', nil, nil, function()
             local start, finish = Globals.GunVanWeaponsStart, Globals.GunVanWeaponsEnd-2
@@ -66,7 +74,7 @@ pluto_class GunVan
                     local slot = self.gunvan_weapons:list(L:Get(name), {}, '')
 
                     slot:list_action(T'Weapon', {}, T'Weapon to change to', weapons_tbl, function(index)
-                        local weapon = weapons_tbl[index]
+                        local weapon = weapons_tbl[index][2]
                         local hash = Weapons:FindHash(weapon)
                         local name = L:Get(util.reverse_joaat(hash):upper())
                         memory.write_int(weapon_index, hash)
@@ -109,7 +117,7 @@ pluto_class GunVan
                     local slot = self.gunvan_throwables:list(name, {}, '')
 
                     slot:list_action(T'Weapon', {}, T'Weapon to change to', weapons_tbl, function(index)
-                        local weapon = weapons_tbl[index]
+                        local weapon = weapons_tbl[index][2]
                         local hash = Weapons:FindHash(weapon)
                         local name = L:Get(util.reverse_joaat(hash):upper())
                         memory.write_int(weapon_index, hash)
@@ -138,15 +146,19 @@ pluto_class GunVan
         self.gunvan_root:divider('')
         self.gunvan_pos = self.gunvan_root:list(T'Position', {}, T'Gun Van position', nil, nil, || -> self:UpdatePositionInfo())
         self.gunvan_root:toggle(T'Remove Proximity', {}, T'Remove proximity radius so the gun van will appear on your map regardless of where you are', function(state)
-            local proximity = memory.script_global(Globals.GunVanProximity)
+            local proximity = Globals.GunVanProximity:g()
             memory.write_float(proximity, state ? math.max_float : 500.0)
         end)
 
-        local positions = {'None', 'Default', 'You'}
+        local positions = {
+            {1, 'None'}, 
+            {2, 'Default'}, 
+            {3, 'You'}
+        }
         self.gunvan_pos:list_select(T'Location', {}, T'Change gun van location', positions, 1, function(index)
             if not SCRIPT_CAN_CONTINUE then return end
             local choice = positions[index]
-            local coords = memory.script_global(Globals.GunVanPositionVectorStart)
+            local coords = Globals.GunVanPositionVectorStart:g()
 
             switch choice do
                 case 'None':
@@ -164,7 +176,7 @@ pluto_class GunVan
         end)
 
         self.gunvan_pos:action(T'Teleport', {T'gunvanteleport'}, T'Teleport to gun van', function()
-            local index = memory.read_int(memory.script_global(Globals.GunVanPositionIndex))
+            local index = memory.read_int(Globals.GunVanPositionIndex:g())
             local coords = GunVanCoordinates[index + 1]
 
             if coords ~= nil then
@@ -184,7 +196,7 @@ pluto_class GunVan
                     self.updating.position = false
                     return false
                 end
-                local current_index = memory.script_global(Globals.GunVanPositionIndex)
+                local current_index = Globals.GunVanPositionIndex:g()
                 local index = memory.read_int(current_index)
                 local coords = GunVanCoordinates[index + 1]
 

@@ -1,11 +1,11 @@
 pluto_class Bitfield
-    function __construct(value=0, addr=nil)
-        self.value = value
+    function __construct(value=0, addr=-1)
+        self.value = value or 0
         self.addr = addr
     end
 
     function __call()
-        if self.addr then memory.write_int(self.addr, self.value) end
+        if self.addr ~= -1 then memory.write_int(self.addr, self.value) end
     end
 
     function IsSet(mask)

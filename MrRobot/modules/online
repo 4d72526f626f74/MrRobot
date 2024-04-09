@@ -1257,8 +1257,10 @@ pluto_class Online
     function RequestService(service)
         switch service do
             case 'NanoDrone':
-                local drone = Globals.RequestNanoDrone:g()
-                memory.write_int(drone, memory.read_int(drone) | memory.bits.masks.RequestNanoDrone)
+                do
+                    local drone = Globals.RequestNanoDrone:g()
+                    memory.write_int(drone, memory.read_int(drone) | memory.bits.masks.RequestNanoDrone)
+                end
                 break
             case 'RCBandito':
                 memory.write_byte(self.RequestBase + Offsets.Bandito, 1)
@@ -1322,11 +1324,13 @@ pluto_class Online
                 memory.write_byte(self.RequestBase + Offsets.BST, 1)
                 break
             case 'Supplies':
-                local supplies = Globals.RequestSupplies:g()
-                local timer = Globals.RequestSuppliesTimer:g()
-                memory.write_short(supplies, memory.read_short(supplies) | memory.bits.masks.RequestSupplies)
-                util.yield(500)
-                memory.write_int(timer, 0)
+                do
+                    local supplies = Globals.RequestSupplies:g()
+                    local timer = Globals.RequestSuppliesTimer:g()
+                    memory.write_short(supplies, memory.read_short(supplies) | memory.bits.masks.RequestSupplies)
+                    util.yield(500)
+                    memory.write_int(timer, 0)
+                end
                 break
             case 'SourceMotorcycle':
                 memory.write_byte(Globals.SourceMotorcycle:g(), 1)

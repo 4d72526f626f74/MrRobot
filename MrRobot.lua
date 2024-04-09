@@ -298,17 +298,16 @@ pluto_class MrRobot
         self:ClearPackagePath()
         self:SetupPackagePath()
 
-        util.execute_in_os_thread(function()
-            self.T = require('translations')
-            self.S = require('shared')
-            
-            _G.table.inspect = require('inspect')
-            require('toolkit')
-        end)
+        self.T = require('translations')
+        self.S = require('shared')
+        self.N = require('notifications')
+        
+        _G.table.inspect = require('inspect')
+        require('toolkit')
     end
 
     function PlayStartupAnimation(play)
-        if play then
+        if play and self.S ~= nil then
             self.S:PlayAnimation(self.simages .. '/MrRobot.png')
         end
     end
@@ -317,17 +316,12 @@ pluto_class MrRobot
         local meta = {
             __index = function(self, key)
                 if not key:match('^[A-Z_]+_[A-Z_]+_[A-Z_]+$') then
-                    local snake_case_pattern = '^[a-z_]+'
-                    local pascal_case_pattern = '^[A-Z][a-z]+[A-Z][a-z]+[A-Z][a-z]+$' -- TODO: Fix this
-                    local camel_case_pattern = '^[a-z]+[A-Z][a-z]+[A-Z][a-z]+$' -- TODO: Fix this
+                    if not key:match('^[A-Z_]+_[A-Z_]+_[A-Z_]+$') then
+                        local snake_case_pattern = '^[a-z_]+'
         
-                    if key:match(snake_case_pattern) then
-                        key = key:upper()
-                    elseif key:match(pascal_case_pattern) then
-                        key = key:gsub('([A-Z])', '_%1'):sub(2):upper()
-                    elseif key:match(camel_case_pattern) then
-                        local first = key:sub(1, 1):upper()
-                        key = first .. key:gsub('([A-Z])', '_%1'):sub(2):upper()
+                        if key:match(snake_case_pattern) then
+                            key = key:upper()
+                        end
                     end
                 end
         
@@ -352,7 +346,7 @@ pluto_class MrRobot
         local state, err = pcall(require, name)
         if not state then
             local line = err:match(':(%d+):')
-            Notifications.Error($'{name:gsub("^%w", string.upper)}', $'Error is on line {line}', $'Failed to load module {name}, check the console for more info')
+            self.N.Error($'{name:gsub("^%w", string.upper)}', $'Error is on line {line}', $'Failed to load module {name}, check the console for more info')
             util.log($'Failed to load module {name}: {err}')
         else
             local err_type = type(err)
@@ -416,7 +410,7 @@ pluto_class MrRobot
     end
 end
 
-local MrRobot = pluto_new MrRobot('3.6.1', '1.68')
+local MrRobot = pluto_new MrRobot('3.6.2', '1.68')
 
 MrRobot:FixMissingFiles()
 MrRobot:Requires()

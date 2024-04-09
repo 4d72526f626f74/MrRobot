@@ -5,82 +5,42 @@ pluto_class Entity
     end
 
     function __index(key)
-        local state, value = pcall(function()
+        if key:startswith('__') then
+            return rawget(Entity, key)
+        else
             if not key:match('^[A-Z_]+_[A-Z_]+_[A-Z_]+$') then
-                -- local snake_case_pattern = '^[a-z_]+_[a-z_]+_[a-z_]+$'
                 local snake_case_pattern = '^[a-z_]+'
-                local pascal_case_pattern = '^[A-Z][a-z]+[A-Z][a-z]+[A-Z][a-z]+$' -- TODO: Fix this
-                local camel_case_pattern = '^[a-z]+[A-Z][a-z]+[A-Z][a-z]+$' -- TODO: Fix this
 
                 if key:match(snake_case_pattern) then
                     key = key:upper()
-                elseif key:match(pascal_case_pattern) then
-                    key = key:gsub('([A-Z])', '_%1'):sub(2):upper()
-                elseif key:match(camel_case_pattern) then
-                    local first = key:sub(1, 1):upper()
-                    key = first .. key:gsub('([A-Z])', '_%1'):sub(2):upper()
                 end
             end
 
-            local mt = getmetatable(self)
-            local f = ENTITY[key] or PED[key] or WEAPON[key] or FIRE[key] or TASK[key] or NETWORK[key] or nil
-            local f_type = type(f)
+            local func = ENTITY[key] or PED[key] or WEAPON[key] or FIRE[key] or TASK[key] or NETWORK[key] or nil
+            local func_type = type(func)
 
-            if f ~= nil then
-                if f_type == 'function' and self.entity ~= 0 then
+            if func ~= nil and func_type == 'function' then
+                if self.entity ~= 0 then
                     return function(...)
                         local args = {...}
                         table.remove(args, 1)
 
                         if #args > 0 then
-                            return f(self.entity, table.unpack(args))
+                            return func(self.entity, table.unpack(args))
                         else
-                            return f(self.entity)
+                            return func(self.entity)
                         end
                     end
-                else
-                    return f
                 end
             else
-                local m = getmetatable(self)
-                for k, v in pairs(m) do
-                    if k:lower() == key:lower() then
-                        return v
-                    end
-                end
-                return m[key]
+                return function(...) end
             end
-        end)
-
-        if state then
-            return value
-        else
-            return nil
         end
     end
 
     function __gc()
-        local model = util.reverse_joaat(entities.get_model_hash(self.ptr))
-        if model ~= '' then
-            --util.toast($'{model} has been garbage collected')
-        end
         self.entity = nil
         self.ptr = nil
-    end
-
-    function PlayerID()
-        if self.IS_PED_A_PLAYER() then
-            if players.user_ped() == self.entity then
-                return players.user()
-            else
-                return -1
-            end
-        end
-        return -1
-    end
-
-    function IsPlayer()
-        return self:IS_PED_A_PLAYER()
     end
 end
 

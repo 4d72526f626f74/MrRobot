@@ -15,7 +15,7 @@ local WalletAddr = Base + WalletOffset
 local BankAddr = Base + BankOffset
 
 pluto_class Network
-    static function TransferToBank(amount=nil, char_slot=nil)
+    static function TransferToBank(amount, char_slot)
         amount = amount or nil
         char_slot = char_slot or util.get_char_slot()
         local wallet = memory.read_int(WalletAddr)
@@ -78,7 +78,7 @@ pluto_class Network
         memory.write_byte(interior_state, state ? 1 : -1)
     end
 
-    static function SetOTRGhostOrgTimer(time=nil)
+    static function SetOTRGhostOrgTimer(time)
         time = time or network.get_network_time()
         local timer = Globals.OtrGhostTimer:g()
         memory.write_int(timer, time)

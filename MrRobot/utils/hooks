@@ -158,8 +158,8 @@ function util.copy_addr(addr)
     return util.copy_to_clipboard(string.format('%X', addr)) 
 end
 
-function string.g(raw, index=nil)
-    if index == nil then index = players.user() end
+function string.g(raw, index=-1)
+    if index == -1 then index = players.user() end
     if not raw:find('Global') then return end
     if not raw:find('%[.*%]') and not raw:find('/%*%d+%*/') then
         local base = raw:match('%d+')

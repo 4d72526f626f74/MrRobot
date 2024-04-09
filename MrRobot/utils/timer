@@ -1,7 +1,7 @@
 pluto_class AsyncTimer
-    function __construct(callback=nil)
+    function __construct(callback)
         self.duration = duration
-        self.callback = callback
+        self.callback = callback or nil
         self.start = nil
         self.is_running = false
     end
@@ -12,7 +12,7 @@ pluto_class AsyncTimer
             if self.start == nil then return false end
             if os.time() >= self.start then
                 self.is_running = false
-                if self.callback ~= nil and type(self.callback) == 'function' then
+                if type(self.callback) == 'function' then
                     self.callback()
                 end
                 self.is_running = true

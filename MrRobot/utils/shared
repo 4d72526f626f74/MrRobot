@@ -692,7 +692,7 @@ pluto_class Shared
         end
     end
     
-    function CreateDeathFromAboveVehicle(target, hash=nil, owned=false)
+    function CreateDeathFromAboveVehicle(target, hash, owned=false)
         local hash = hash or ('rcbandito'):joaat()
         util.request_model(hash)
         local pos = entity.get_offset_from_entity_in_world_coords(players.user_ped(), 0, 0, 0)
@@ -768,7 +768,7 @@ pluto_class Shared
         end
     end
     
-    function VehicleBlameKill(victim, killer, hash, invisible=true, is_dead_callback=nil)
+    function VehicleBlameKill(victim, killer, hash, invisible=true, is_dead_callback=-1)
         if players.is_godmode(victim) and not players.is_in_interior(victim) then return end
     
         repeat
@@ -805,7 +805,7 @@ pluto_class Shared
                 util.create_tick_handler(function()
                     if entity.is_entity_dead(victim_ped) or self.bk_stopflag then
                         entities.delete(veh)
-                        if is_dead_callback then
+                        if type(is_dead_callback) == 'function' then
                             is_dead_callback()
                         end
                         self.bk_stopflag = false

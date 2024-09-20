@@ -1,0 +1,797 @@
+pluto_use class
+
+local Module, T = require('abstract_base_classes.module'), require('languages.trans')
+local unlock_data = require('data.unlocks')
+local char_slot = util.get_char_slot()
+
+class Unlocks extends Module
+    function __construct(root)
+        self.root = root
+        self.avoid = { -- These need to be split up into multiple tables to avoid triggering obfuscation detection
+            {
+                7387, 7388, 7389, 7390, 7391, 7392, 7393, 7394, 
+                7395, 7396, 7397, 7398, 7399, 7400, 7401, 7402, 
+                7403, 7404, 7405, 7406, 7407, 7408, 7409, 7410, 
+                7411, 7412, 7413, 7414, 7415, 7416, 7417, 7418, 
+                7419, 7420, 7421, 7422, 7423, 7424, 7425, 7426, 
+                7427, 7428, 7429, 7430, 7431, 7432, 7433, 7434, 
+                7435, 7436, 7437, 7438, 7439, 7440, 7441, 7442, 
+                7443, 7444, 7445, 7446, 7447, 7448, 7449, 7466, 
+                7621, 7622, 7623, 7624, 7625, 7626, 7627, 15441, 
+                15442, 15443, 15444, 15445, 15446, 18100, 18101, 
+                18102, 18103, 18104, 18105, 15995, 15548, 25241, 
+                25242, 25243, 25518, 25519, 30321, 30322, 30323, 
+                28259, 28260, 28261, 34376, 34377, 36670, 36671, 
+                36672
+            },
+            {
+                41869, 42126, 42127, 51191
+            }
+        }
+
+        self.root:action(T'Unlock All', {}, T'Unlocks loads of useless shit like clothes, hats, masks, guns etc', function()
+            for i = 0, 1000000 do
+                if self:should_avoid(i) == false then
+                    stats.set_packed_stat_bool_code(i, true, char_slot)
+                end
+            end
+
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_0'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_1'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_2'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_3'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_4'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_5'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_6'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_7'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_8'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_ASPASSEDLESSON_9'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_0'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_1'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_2'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_3'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_4'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_5'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_6'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_7'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_8'):joaat(), 1, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_PILOT_SCHOOL_MEDAL_9'):joaat(), 1, true)
+            stats.stat_set_int(('MP' .. char_slot .. '_SR_HIGHSCORE_1'):joaat(), 900, true)
+            stats.stat_set_int(('MP' .. char_slot .. '_SR_HIGHSCORE_2'):joaat(), 2400, true)
+            stats.stat_set_int(('MP' .. char_slot .. '_SR_HIGHSCORE_3'):joaat(), 3400, true)
+            stats.stat_set_int(('MP' .. char_slot .. '_SR_HIGHSCORE_4'):joaat(), 3300, true)
+            stats.stat_set_int(('MP' .. char_slot .. '_SR_HIGHSCORE_5'):joaat(), 4100, true)
+            stats.stat_set_int(('MP' .. char_slot .. '_SR_HIGHSCORE_6'):joaat(), 550, true)
+            stats.stat_set_int(('MP' .. char_slot .. '_SR_WEAPON_BIT_SET'):joaat(), 262143, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_SR_TIER_1_REWARD'):joaat(), true, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_SR_INCREASE_THROW_CAP'):joaat(), true, true)
+            stats.stat_set_bool(('MP' .. char_slot .. '_SR_TIER_3_REWARD'):joaat(), true, true)
+        end)
+
+        self.root:toggle_loop(T'Bypass Ammunation Restrictions', {}, T'Bypass rank and locked items restrictions in ammunation allowing you to purchase any gun, tint etc', function()
+            local unlock = memory.script_local(table.unpack(self.g.BypassAmmunationRestrictions))
+            if unlock ~= 0 then
+                memory.write_short(unlock, memory.read_int(unlock) | self.masks.gunshop_bypass_restrictions)
+            end
+        end)
+
+        self.root:divider('')
+        self.achievements = self.root:list(T'Achievements', {}, T'Achievements')
+        self.bunker_research = self.root:list(T'Bunker Research', {}, T'Bunker Research')
+        self.vehicle_trade_in_prices = self.root:list(T'Vehicle Trade-In Prices', {}, T'Vehicle Trade-In Prices')
+        self.kosatka = self.root:list(T'Kosatka', {}, T'Kosatka unlocks, this does not just unlock them, it also sets them as owned')
+        self.interaction_menu = self.root:list(T'Interaction Menu', {}, T'Interaction Menu')
+        self.penthouse = self.root:list(T'Casino Penthouse', {}, T'Casino Penthouse')
+        self.casino = self.root:list(T'Casino', {}, T'Casino')
+        self.autoshop = self.root:list(T'Autoshop', {}, T'Autoshop')
+        self.arena_workshop = self.root:list(T'Arena Workshop', {}, T'Arena Workshop')
+        self.facility = self.root:list(T'Facility', {}, T'Facility')
+        self.hangar = self.root:list(T'Hangar', {}, T'Hangar')
+        self.other = self.root:list(T'Other', {}, T'Other')
+
+        self.achievements:action(T'Unlock All', {}, T'Unlock all achievements', function()
+            for unlock_data.achievements as name do
+                self:unlock_achievement(name)
+            end
+        end)
+
+        self.achievements:divider('')
+        for self.utils:sort_table(unlock_data.achievements, |a, b| -> a < b) as name do
+            self.achievements:action(tostring(name), {}, tostring(name), function()
+                if self:unlock_achievement(name) then
+                    util.display_success(T:T('%s is now unlocked', name))
+                else
+                    util.display_info(T:T('%s is already unlocked', name))
+                end
+            end)
+        end
+
+        self.bunker_research:action(T'Unlock All', {}, T'Unlock all bunker research', function()
+            for unlock_data.bunker_research as offset do
+                memory.write_byte(memory.script_global(GLOBAL_TUNABLE_BASE + offset), 1)
+            end
+        end)
+
+        self.bunker_research:divider('')
+        for name, offset in pairs(unlock_data.bunker_research) do
+            self.bunker_research:action(tostring(name), {}, tostring(name), function()
+                memory.write_byte(memory.script_global(GLOBAL_TUNABLE_BASE + offset), 1)
+            end)
+        end
+
+        self.vehicle_trade_in_prices:action('Unlock All', {}, 'Unlock All', function()
+            for unlock_data.aircraft_tradein as offset do
+                memory.write_byte(memory.script_global(GLOBAL_TUNABLE_BASE + offset), 0)
+            end
+        end)
+    
+        self.vehicle_trade_in_prices:divider('')
+    
+        for name, offset in pairs(unlock_data.aircraft_tradein) do
+            self.vehicle_trade_in_prices:action(name, {}, 'Unlock ' .. name .. ' trade-in price', function()
+                memory.write_byte(memory.script_global(GLOBAL_TUNABLE_BASE + offset), 0)
+            end)
+        end
+
+        self.kosatka:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
+            if not util.can_continue() then return end
+            self.k_unlock_kosatka.value = state
+            self.k_unlock_sonar.value = state
+            self.k_guided_missiles.value = state
+            self.k_kosatka_weapons_workshop.value = state
+            self.k_unlock_sparrow.value = state
+            self.k_unlock_avisa.value = state
+        end)
+
+        self.kosatka:divider('')
+        self.k_unlock_kosatka = self.kosatka:toggle(T'Kosatka', {}, T'Unlock kosatka', function(state)
+            if not util.can_continue() then return end
+            self:unlock_kosatka(state)
+        end, self:is_kosatka_unlocked())
+
+        self.k_unlock_sonar = self.kosatka:toggle(T'Sonar', {}, T'Unlock sonar', function(state)
+            if not util.can_continue() then return end
+            self:unlock_sonar(state)
+        end, self:is_sonar_unlocked())
+
+        self.k_guided_missiles = self.kosatka:toggle(T'Guided Missiles', {}, T'Unlock guided missiles', function(state)
+            if not util.can_continue() then return end
+            self:unlock_guided_missiles(state)
+        end, self:is_guided_missiles_unlocked())
+
+        self.k_kosatka_weapons_workshop = self.kosatka:toggle(T'Weapon Workshop', {}, T'Unlock weapon workshop', function(state)
+            if not util.can_continue() then return end
+            self:unlock_weapon_workshop(state)
+        end, self:is_weapon_workshop_unlocked())
+
+        self.k_unlock_sparrow = self.kosatka:toggle(T'Sparrow', {}, T'Unlock sparrow', function(state)
+            if not util.can_continue() then return end
+            self:unlock_sparrow(state)
+        end, self:is_sparrow_unlocked())
+
+        self.k_unlock_avisa = self.kosatka:toggle(T'Avisa', {}, T'Unlock avisa', function(state)
+            if not util.can_continue() then return end
+            self:unlock_avisa(state)
+        end, self:is_avisa_unlocked())
+
+        self.interaction_menu:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
+            if not util.can_continue() then return end
+            self.r_unlock_acidlab.value = state
+            self.r_unlock_ballisticequipment.value = state
+            self.r_unlock_nanodrone.value = state
+            self.r_unlock_rcbandito.value = state
+            self.r_unlock_rctank.value = state
+        end)
+
+        self.interaction_menu:divider('')
+        self.r_unlock_acidlab = self.interaction_menu:toggle(T'Unlock Acid Lab', {}, T'Unlock acid lab without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_acid_lab(state)
+        end, self:is_acid_lab_unlocked())
+
+        self.r_unlock_ballisticequipment = self.interaction_menu:toggle(T'Unlock Ballistic Equipment', {}, T'Unlock ballistic equipment', function(state)
+            if not util.can_continue() then return end
+            self:unlock_ballistic_equipment(state)
+        end, self:is_ballistic_equipment_unlocked())
+
+        self.r_unlock_nanodrone = self.interaction_menu:toggle(T'Unlock Nano Drone', {}, T'Unlock nano drone', function(state)
+            if not util.can_continue() then return end
+            self:unlock_nano_drone(state)
+        end, self:is_nano_drone_unlocked())
+
+        self.r_unlock_rcbandito = self.interaction_menu:toggle(T'Unlock RC Bandito', {}, T'Unlock rc bandito without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
+            if not util.can_continue() then return end
+            self:unlock_rc_bandito(state)
+        end, self:is_rc_bandito_unlocked())
+
+        self.r_unlock_rctank = self.interaction_menu:toggle(T'Unlock RC Tank', {}, T'Unlock rc tank without having to buy it (using it without buying will result in you being unable to exit the vehicle)', function(state)
+            if not util.can_continue() then return end
+            self:unlock_rc_tank(state)
+        end, self:is_rc_tank_unlocked())
+
+        self.penthouse:toggle(T'Unlock All', {}, T'Unlock everything', function(state)
+            if not util.can_continue() then return end
+            self.p_unlock_penthouse.value = state
+            self.p_unlock_penthouse_lounge.value = state
+            self.p_unlock_penthouse_bar.value = state
+            self.p_unlock_penthouse_dealer.value = state
+            self.p_unlock_penthouse_sparebedroom.value = state
+            self.p_unlock_penthouse_media.value = state
+            self.p_unlock_penthouse_spa.value = state
+            self.p_unlock_penthouse_office.value = state
+            self.p_unlock_penthouse_garage.value = state
+        end)
+
+        self.penthouse:divider('')
+        self.p_unlock_penthouse = self.penthouse:toggle(T'Unlock Penthouse', {}, T'Unlock penthouse without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_penthouse(state)
+        end, self:is_penthouse_unlocked())
+
+        self.p_unlock_penthouse_lounge = self.penthouse:toggle(T'Unlock Lounge', {}, T'Unlock lounge without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_penthouse_lounge(state)
+        end, self:is_penthouse_lounge_unlocked())
+
+        self.p_unlock_penthouse_bar = self.penthouse:toggle(T'Unlock Bar', {}, T'Unlock bar without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_penthouse_bar(state)
+        end, self:is_penthouse_bar_unlocked())
+
+        self.p_unlock_penthouse_dealer = self.penthouse:toggle(T'Unlock Dealer Room', {}, T'Unlock dealer room without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_penthouse_dealer_room(state)
+        end, self:is_penthouse_dealer_room_unlocked())
+
+        self.p_unlock_penthouse_sparebedroom = self.penthouse:toggle(T'Unlock Spare Bedroom', {}, T'Unlock spare bedroom without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_penthouse_spare_bedroom(state)
+        end, self:is_penthouse_spare_bedroom_unlocked())
+
+        self.p_unlock_penthouse_media = self.penthouse:toggle(T'Unlock Media Room', {}, T'Unlock media room without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_penthouse_media_room(state)
+        end, self:is_penthouse_media_room_unlocked())
+
+        self.p_unlock_penthouse_spa = self.penthouse:toggle(T'Unlock Spa', {}, T'Unlock spa without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_penthouse_spa(state)
+        end, self:is_penthouse_spa_unlocked())
+
+        self.p_unlock_penthouse_office = self.penthouse:toggle(T'Unlock Office', {}, T'Unlock office without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_penthouse_office(state)
+        end, self:is_penthouse_office_unlocked())
+
+        self.p_unlock_penthouse_garage = self.penthouse:toggle(T'Unlock Garage', {}, T'Unlock garage without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_penthouse_garage(state)
+        end, self:is_penthouse_garage_unlocked())
+
+        self.casino:toggle(T'Unlock Casino Membership', {}, T'Unlock casino membership without having to buy it', function(state)
+            if not util.can_continue() then return end
+            self:unlock_casino_membership(state)
+        end, self:is_casino_membership_unlocked())
+
+        self.autoshop:toggle(T'La Mesa', {}, T'Unlock La Mesa auto shop without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_auto_shop(0, state)
+            end
+        end, self:is_la_mesa_auto_shop_unlocked())
+
+        self.autoshop:toggle(T'Strawberry', {}, T'Unlock Strawberry auto shop without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_auto_shop(1, state)
+            end
+        end, self:is_strawberry_auto_shop_unlocked())
+
+        self.autoshop:toggle(T'Rancho', {}, T'Unlock Rancho auto shop without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_auto_shop(2, state)
+            end
+        end, self:is_rancho_auto_shop_unlocked())
+
+        self.arena_workshop:toggle(T'Workshop', {}, T'Unlock arena workshop without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_arena_workshop(state)
+            end
+        end, self:is_arena_workshop_unlocked())
+
+        self.arena_workshop:toggle(T'Benny Mechanic', {}, T'Unlock benny mechanic without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_aw_benny_mechanic(state)
+            end
+        end, self:is_aw_benny_mechanic_unlocked())
+
+        self.arena_workshop:toggle(T'Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_aw_weapon_workshop(state)
+            end
+        end, self:is_aw_weapon_workshop_unlocked())
+
+        self.facility:toggle(T'Facility', {}, T'Unlock facility without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_facility(state)
+            end
+        end, self:is_facility_unlocked())
+
+        self.facility:toggle(T'Orbital Cannon', {}, T'Unlock orbital cannon without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_facility_orbital_cannon(state)
+            end
+        end, self:is_facility_orbital_cannon_unlocked())
+
+        self.facility:toggle(T'Security Room', {}, T'Unlock security room without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_facility_security_room(state)
+            end
+        end, self:is_facility_security_room_unlocked())
+
+        self.facility:toggle(T'Sleeping Quarters (Utility)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_facility_sleeping_quarters(0, state)
+            end
+        end, self:is_facility_sleeping_quarters_utility_unlocked())
+
+        self.facility:toggle(T'Sleeping Quarters (Prestige)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_facility_sleeping_quarters(1, state)
+            end
+        end, self:is_facility_sleeping_quarters_prestige_unlocked())
+
+        self.facility:toggle(T'Sleeping Quarters (Premier)', {}, T'Unlock sleeping quarters without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_facility_sleeping_quarters(2, state)
+            end
+        end, self:is_facility_sleeping_quarters_premier_unlocked())
+
+        self.hangar:toggle(T'Hangar', {}, T'Unlock hangar without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_hangar(state)
+            end
+        end, self:is_hangar_unlocked())
+
+        self.other:action(T'Unlock Double Action Revolver', {}, T'Unlock Double Action Revolver', function()
+            if util.can_continue() then
+                self:unlock_double_action_revolver()
+            end
+        end)
+
+        self.other:action(T'Unlock Stone Hatchet', {}, T'Unlock Stone Hatchet', function()
+            if util.can_continue() then
+                self:unlock_stone_hatchet()
+            end
+        end)
+
+        self.other:action(T'Unlock Navy Revolver', {}, T'Unlock Navy Revolver', function()
+            if util.can_continue() then
+                self:unlock_navy_revolver()
+            end
+        end)
+
+        self.other:action(T'Unlock Gooch Outfit', {}, T'Unlock Gooch Outfit', function()
+            if util.can_continue() then
+                self:unlock_gooch_outfit()
+            end
+        end)
+
+        self.other:action(T'Unlock Yeti Outfit', {}, T'Unlock Yeti Outfit', function()
+            if util.can_continue() then
+                self:unlock_yeti_outfit()
+            end
+        end)
+
+        self.other:action(T'Unlock Snowman Outfit', {}, T'Unlock Snowman Outfit', function()
+            if util.can_continue() then
+                self:unlock_snowman_outfit()
+            end
+        end)
+
+        self.other:divider('')
+        self.other:toggle(T'Xmas Cannon Gift', {}, T'Unlock Xmas Cannon Gift', function(state)
+            if util.can_continue() then
+                memory.write_byte(self.g.EnableXmasCannonGift:g(), state ? 1 : 0)
+            end
+        end, memory.read_byte(self.g.EnableXmasCannonGift:g()) == 1)
+    end
+
+    inline function unlock_achievement(name)
+        if not player.has_achievement_been_passed(name) then
+            if player.give_achievement_to_player(name) then
+                return true
+            else
+                return false
+            end
+        else
+            return false
+        end
+    end
+
+    inline function unlock_kosatka(state)
+        stats.set_packed_stat_bool_code(30309, true, char_slot)
+        local unlock = self.g.KosatkaUnlock:g()
+        memory.write_int(unlock, memory.bits:bool(memory.read_int(unlock), 1 << 0, state))
+    end
+
+    inline function is_kosatka_unlocked()
+        local unlock = self.g.KosatkaUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 0)
+    end
+
+    inline function unlock_sonar(state)
+        local unlock = self.g.KosatkaUnlock:g()
+        memory.write_int(unlock, memory.bits:bool(memory.read_int(unlock), 1 << 1, state))
+    end
+
+    inline function unlock_guided_missiles(state)
+        local unlock = self.g.KosatkaUnlock:g()
+        memory.write_int(unlock, memory.bits:bool(memory.read_int(unlock), 1 << 2, state))
+    end
+
+    inline function unlock_weapon_workshop(state)
+        local unlock = self.g.KosatkaUnlock:g()
+        memory.write_int(unlock, memory.bits:bool(memory.read_int(unlock), 1 << 3, state))
+    end
+
+    inline function unlock_sparrow(state)
+        local unlock = self.g.KosatkaUnlock:g()
+        memory.write_int(unlock, memory.bits:bool(memory.read_int(unlock), 1 << 4, state))
+    end
+
+    inline function unlock_avisa(state)
+        local unlock = self.g.KosatkaUnlock:g()
+        memory.write_int(unlock, memory.bits:bool(memory.read_int(unlock), 1 << 5, state))
+    end
+
+    inline function unlock_acid_lab(state)
+        local unlock = self.g.KosatkaUnlock:g()
+        memory.write_int(unlock, memory.bits:bool(memory.read_int(unlock), 1 << 14, state))
+    end
+
+    inline function is_sonar_unlocked()
+        local unlock = self.g.KosatkaUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 1)
+    end
+
+    inline function is_guided_missiles_unlocked()
+        local unlock = self.g.KosatkaUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 2)
+    end
+
+    inline function is_weapon_workshop_unlocked()
+        local unlock = self.g.KosatkaUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 3)
+    end
+
+    inline function is_sparrow_unlocked()
+        local unlock = self.g.KosatkaUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 4)
+    end
+
+    inline function is_avisa_unlocked()
+        local unlock = self.g.KosatkaUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 5)
+    end
+
+    inline function is_sparrow_being_used()
+        local unlock = self.g.KosatkaUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 6)
+    end
+
+    inline function is_avisa_being_used()
+        local unlock = self.g.KosatkaUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 7)
+    end
+
+    inline function is_acid_lab_unlocked()
+        local unlock = self.g.KosatkaUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 14)
+    end
+
+    inline function unlock_ballistic_equipment(state)
+        stats.set_packed_stat_bool_code(9461, state, char_slot)
+        stats.set_packed_stat_bool_code(25, state, char_slot)
+        memory.write_byte(self.g.BallisticEquipmentUnlock:g(), state and 1 or 0)
+    end
+
+    inline function is_ballistic_equipment_unlocked()
+        return stats.get_packed_stat_bool_code(9461, char_slot) and stats.get_packed_stat_bool_code(25, char_slot)
+    end
+
+    inline function unlock_nano_drone(state)
+        local unlock = self.g.NanoDroneUnlock:g()
+        local unlock1 = self.g.RequestNanoDrone:g()
+
+        memory.write_int(unlock, state and memory.bits:set(memory.read_int(unlock), 1 << 27) or memory.bits:clear(memory.read_int(unlock), 1 << 27))
+        memory.write_int(unlock1, state and memory.bits:set(memory.read_int(unlock1), 1 << 25) or memory.bits:clear(memory.read_int(unlock1), 1 << 25))
+    end
+
+    inline function is_nano_drone_unlocked()
+        local unlock = self.g.NanoDroneUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 27)
+    end
+
+    inline function unlock_rc_bandito(state)
+        stats.set_packed_stat_bool_code(25237, state, char_slot)
+        stats.set_packed_stat_bool_code(28085, state, char_slot)
+
+        local l = memory.script_local('freemode', 15648)
+        if l ~= 0 then
+            memory.write_short(l, state and memory.bits:set(memory.read_short(l), 1 << 9) or memory.bits:clear(memory.read_short(l), 1 << 9))
+        end
+    end
+
+    inline function is_rc_bandito_unlocked()
+        return stats.get_packed_stat_bool_code(25237, char_slot) or stats.get_packed_stat_bool_code(28085, char_slot)
+    end
+
+    inline function unlock_rc_tank(state)
+        stats.set_packed_stat_bool_code(25516, state, char_slot)
+        stats.set_packed_stat_bool_code(28086, state, char_slot)
+
+        local l = memory.script_local('freemode', 15648)
+        if l ~= 0 then
+            memory.write_short(l, state and memory.bits:set(memory.read_short(l), 1 << 10) or memory.bits:clear(memory.read_short(l), 1 << 10))
+        end
+    end
+
+    inline function is_rc_tank_unlocked()
+        return stats.get_packed_stat_bool_code(25516, char_slot) or stats.get_packed_stat_bool_code(28086, char_slot)
+    end
+
+    inline function unlock_penthouse(state)
+        local penthouse = self.g.CasinoPenthouseUnlock:g()
+        memory.write_byte(penthouse, state and 1 or 0)
+    end
+
+    inline function is_penthouse_unlocked()
+        local penthouse = self.g.CasinoPenthouseUnlock:g()
+        return memory.read_byte(penthouse) == 1
+    end
+
+    inline function unlock_penthouse_lounge(state)
+        local lounge = self.g.CasinoPenthouseUnlock:g() + 0x10
+        memory.write_int(lounge, state and memory.bits:set(memory.read_int(lounge), 1 << 0) or memory.bits:clear(memory.read_int(lounge), 1 << 0))
+    end
+
+    inline function is_penthouse_lounge_unlocked()
+        local lounge = self.g.CasinoPenthouseUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(lounge), 1 << 0)
+    end
+
+    inline function unlock_penthouse_bar(state)
+        local bar = self.g.CasinoPenthouseUnlock:g() + 0x10
+        memory.write_int(bar, state and memory.bits:set(memory.read_int(bar), 1 << 1) or memory.bits:clear(memory.read_int(bar), 1 << 1))
+    end
+
+    inline function is_penthouse_bar_unlocked()
+        local bar = self.g.CasinoPenthouseUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(bar), 1 << 1)
+    end
+
+    inline function unlock_penthouse_dealer_room(state)
+        local dealer = self.g.CasinoPenthouseUnlock:g() + 0x10
+        memory.write_int(dealer, state and memory.bits:set(memory.read_int(dealer), 1 << 2) or memory.bits:clear(memory.read_int(dealer), 1 << 2))
+    end
+
+    inline function is_penthouse_dealer_room_unlocked()
+        local dealer = self.g.CasinoPenthouseUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(dealer), 1 << 2)
+    end
+
+    inline function unlock_penthouse_spare_bedroom(state)
+        local spare = self.g.CasinoPenthouseUnlock:g() + 0x10
+        memory.write_int(spare, state and memory.bits:set(memory.read_int(spare), 1 << 3) or memory.bits:clear(memory.read_int(spare), 1 << 3))
+    end
+
+    inline function is_penthouse_spare_bedroom_unlocked()
+        local spare = self.g.CasinoPenthouseUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(spare), 1 << 3)
+    end
+
+    inline function unlock_penthouse_media_room(state)
+        local media = self.g.CasinoPenthouseUnlock:g() + 0x10
+        memory.write_int(media, state and memory.bits:set(memory.read_int(media), 1 << 4) or memory.bits:clear(memory.read_int(media), 1 << 4))
+    end
+
+    inline function is_penthouse_media_room_unlocked()
+        local media = self.g.CasinoPenthouseUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(media), 1 << 4)
+    end
+
+    inline function unlock_penthouse_spa(state)
+        local spa = self.g.CasinoPenthouseUnlock:g() + 0x10
+        memory.write_int(spa, state and memory.bits:set(memory.read_int(spa), 1 << 5) or memory.bits:clear(memory.read_int(spa), 1 << 5))
+    end
+
+    inline function is_penthouse_spa_unlocked()
+        local spa = self.g.CasinoPenthouseUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(spa), 1 << 5)
+    end
+
+    inline function unlock_penthouse_office(state)
+        local office = self.g.CasinoPenthouseUnlock:g() + 0x10
+        memory.write_int(office, state and memory.bits:set(memory.read_int(office), 1 << 6) or memory.bits:clear(memory.read_int(office), 1 << 6))
+    end
+
+    inline function is_penthouse_office_unlocked()
+        local office = self.g.CasinoPenthouseUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(office), 1 << 6)
+    end
+
+    inline function unlock_penthouse_garage(state)
+        local garage = self.g.CasinoPenthouseUnlock:g() + 0x10
+        memory.write_int(garage, state and memory.bits:set(memory.read_int(garage), 1 << 7) or memory.bits:clear(memory.read_int(garage), 1 << 7))
+    end
+
+    inline function is_penthouse_garage_unlocked()
+        local garage = self.g.CasinoPenthouseUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(garage), 1 << 7)
+    end
+
+    inline function unlock_auto_shop(index, state)
+        -- 0 = la mesa
+        -- 1 = strawberry
+        -- 2 = rancho
+        local unlock = self.g.AutoshopUnlock:g()
+        memory.write_int(unlock, memory.bits:clear(memory.read_int(unlock), 0x7))
+        memory.write_int(unlock, state and memory.bits:set(memory.read_int(unlock), 1 << index) or memory.bits:clear(memory.read_int(unlock), 1 << index))
+    end
+
+    inline function is_la_mesa_auto_shop_unlocked()
+        local unlock = self.g.AutoshopUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 1)
+    end
+
+    inline function is_strawberry_auto_shop_unlocked()
+        local unlock = self.g.AutoshopUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 2)
+    end
+
+    inline function is_rancho_auto_shop_unlocked()
+        local unlock = self.g.AutoshopUnlock:g()
+        return memory.bits:isset(memory.read_int(unlock), 1 << 3)
+    end
+
+    inline function unlock_arena_workshop(state)
+        local unlock = self.g.ArenaWorkshopUnlock:g()
+        memory.write_int(unlock, 1)
+    end
+
+    inline function is_arena_workshop_unlocked()
+        local unlock = self.g.ArenaWorkshopUnlock:g()
+        return memory.read_int(unlock) == 1
+    end
+
+    inline function unlock_aw_benny_mechanic(state)
+        local unlock = self.g.ArenaWorkshopUnlock:g() + 0x10
+        memory.write_int(unlock, state and memory.bits:set(memory.read_int(unlock), 1 << 12) or memory.bits:clear(memory.read_int(unlock), 1 << 12))
+    end
+
+    inline function is_aw_benny_mechanic_unlocked()
+        local unlock = self.g.ArenaWorkshopUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(unlock), 1 << 12)
+    end
+
+    inline function unlock_aw_weapon_workshop(state)
+        local unlock = self.g.ArenaWorkshopUnlock:g() + 0x10
+        memory.write_int(unlock, state and memory.bits:set(memory.read_int(unlock), 1 << 13) or memory.bits:clear(memory.read_int(unlock), 1 << 13))
+    end
+
+    inline function is_aw_weapon_workshop_unlocked()
+        local unlock = self.g.ArenaWorkshopUnlock:g() + 0x10
+        return memory.bits:isset(memory.read_int(unlock), 1 << 13)
+    end
+
+    inline function unlock_facility(state)
+        local unlock = self.g.FacilityUnlock:g()
+        memory.write_byte(unlock, state and 1 or 0)
+    end
+
+    inline function is_facility_unlocked()
+        local unlock = self.g.FacilityUnlock:g()
+        return memory.read_byte(unlock) == 1
+    end
+
+    inline function unlock_facility_sleeping_quarters(index, state)
+        -- 0 = utility
+        -- 1 = prestige
+        -- 2 = premier
+        local unlock = self.g.FacilityUnlock:g() + 0x8
+        memory.write_byte(unlock, memory.bits:clear(memory.read_byte(unlock), 0x7))
+        memory.write_byte(unlock, state and memory.bits:set(memory.read_byte(unlock), 1 << index) or memory.bits:clear(memory.read_byte(unlock), 1 << index))
+    end
+
+    inline function is_facility_sleeping_quarters_utility_unlocked()
+        local unlock = self.g.FacilityUnlock:g() + 0x8
+        return memory.bits:isset(memory.read_byte(unlock), 1 << 0)
+    end
+
+    inline function is_facility_sleeping_quarters_prestige_unlocked()
+        local unlock = self.g.FacilityUnlock:g() + 0x8
+        return memory.bits:isset(memory.read_byte(unlock), 1 << 1)
+    end
+
+    inline function is_facility_sleeping_quarters_premier_unlocked()
+        local unlock = self.g.FacilityUnlock:g() + 0x8
+        return memory.bits:isset(memory.read_byte(unlock), 1 << 2)
+    end
+
+    inline function unlock_facility_security_room(state)
+        local unlock = self.g.FacilityUnlock:g() + 0x8
+        memory.write_byte(unlock, state and memory.bits:set(memory.read_byte(unlock), 1 << 3) or memory.bits:clear(memory.read_byte(unlock), 1 << 3))
+    end
+
+    inline function is_facility_security_room_unlocked()
+        local unlock = self.g.FacilityUnlock:g() + 0x8
+        return memory.bits:isset(memory.read_byte(unlock), 1 << 3)
+    end
+
+    inline function unlock_facility_orbital_cannon(state)
+        local unlock = self.g.FacilityUnlock:g() + 0x8
+        memory.write_byte(unlock, state and memory.bits:set(memory.read_byte(unlock), 1 << 5) or memory.bits:clear(memory.read_byte(unlock), 1 << 5))
+    end
+
+    inline function is_facility_orbital_cannon_unlocked()
+        local unlock = self.g.FacilityUnlock:g() + 0x8
+        return memory.bits:isset(memory.read_byte(unlock), 1 << 5)
+    end
+
+    inline function unlock_double_action_revolver()
+        stats.set_packed_stat_bool_code(18981, true, char_slot)
+    end
+
+    inline function unlock_stone_hatchet()
+        stats.set_packed_stat_bool_code(7315, true, char_slot)
+    end
+
+    inline function unlock_navy_revolver()
+        stats.set_packed_stat_bool_code(28158, true, char_slot)
+    end
+
+    inline function unlock_hangar()
+        local unlock = self.g.HangarUnlock:g()
+        memory.write_byte(unlock, 1)
+    end
+
+    inline function is_hangar_unlocked()
+        local unlock = self.g.HangarUnlock:g()
+        return memory.read_byte(unlock) == 1
+    end
+
+    inline function unlock_casino_membership(state)
+        local unlock = self.g.CasinoPenthouseUnlock:g() + 0x8
+        memory.write_int(unlock, state and memory.bits:set(memory.read_int(unlock), 1 << 18) or memory.bits:clear(memory.read_int(unlock), 1 << 18))
+    end
+
+    inline function is_casino_membership_unlocked()
+        local unlock = self.g.CasinoPenthouseUnlock:g() + 0x8
+        return memory.bits:isset(memory.read_int(unlock), 1 << 18)
+    end
+
+    inline function unlock_gooch_outfit()
+        stats.set_packed_stat_bool_code(36775, true, char_slot)
+        stats.set_packed_stat_bool_code(34761, true, char_slot)
+    end
+
+    inline function unlock_yeti_outfit()
+        stats.set_packed_stat_bool_code(42119, true, char_slot)
+    end
+
+    inline function unlock_snowman_outfit()
+        stats.set_packed_stat_bool_code(36776, true, char_slot)
+    end
+
+    inline function should_avoid(boolcode)
+        for self.avoid as avoid do
+            for avoid as code do
+                if boolcode == code then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+end
+
+return Unlocks

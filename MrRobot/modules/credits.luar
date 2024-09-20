@@ -1,0 +1,19 @@
+return function(root)
+    local T = require('languages.trans')
+
+    local self = {}
+    self.root = root
+
+    self.root:divider(T'Discord', T'discord')
+    self.root:hyperlink(T'Discord', 'https://discord.gg/7SWSkaMdxV', '')
+    self.root:hyperlink('Mr.Robot#1019', 'https://github.com/4d72526f626f74/MrRobot', T'Developer')
+    self.root:hyperlink(T'IceDoomfist#0001', 'https://github.com/IceDoomfist/Stand-Heist-Control/', T'The stats for cayo automated preset are from Heist Control')
+    self.root:hyperlink(T'acjoker8818#9860', 'https://github.com/acjoker8818/AcjokerScript.git', T'Helped with some stuff such as returning MOC and finding some globals')
+    self.root:divider(T'Resources')
+    self.root:hyperlink(T'Root-Cause', 'https://github.com/root-cause/v-decompiled-scripts', T'Provided updated decompiled scripts for latest patch (1.68)')
+    self.root:hyperlink(T'UnknownCheats', 'https://www.unknowncheats.me/forum/grand-theft-auto-v/500059-globals-locals-discussion-read-page-1-a-5.html', 'Has a bunch of other useful globals and locals that didn\'t get around to finding myself')
+    self.root:hyperlink(T'FiveM docs', 'https://docs.fivem.net/docs/game-references/', T'Has an extensive list with values for different things such as controls, blips, blip sprites and more')
+    self.root:hyperlink(T'NativeDB', 'https://nativedb.dotindustries.dev/natives', T'Provides an enormous list of GTA natives that were used in the script')
+
+    return self
+end

@@ -1,0 +1,4 @@
+return {
+    wallet = 0x1D8D0C0,
+    bank = 0x1D8D0C8,
+}

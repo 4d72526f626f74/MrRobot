@@ -1,0 +1,10 @@
+return {
+    cocaine_price = 0xA0,
+    meth_price = 0xA8,
+    weed_price = 0xB0,
+    acid_price = 0xB8,
+    cocaine_sells_left = 0xC0,
+    meth_sells_left = 0xC8,
+    weed_sells_left = 0xD0,
+    acid_sells_left = 0xD8,
+}

@@ -1,0 +1,40 @@
+pluto_use try, catch
+
+local setmetatable = setmetatable
+local trans = {}
+
+local T = setmetatable(trans, {
+    __index = function(self, key)
+        if not rawget(self, key) then
+            return key
+        end
+
+        return rawget(self, key)
+    end,
+    __mode = 'k',
+    __call = function(self, key)
+        if not rawget(self, key) then
+            return key
+        end
+
+        local result = rawget(self, key)
+        return result or key
+    end
+})
+
+function T:T(key, ...)
+    try
+        return string.format(self[key], ...)
+    catch e then
+        return key
+    end
+end
+
+try
+    local _T = require($'languages.{SCRIPT_LANGUAGE}')
+    _T(T)
+catch e then
+    
+end
+
+return T

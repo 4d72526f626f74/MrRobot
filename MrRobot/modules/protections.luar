@@ -1,0 +1,338 @@
+pluto_use class
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+
+class Protections extends Module
+    function __construct(root)
+        self.root = root
+        self.net_hash = network.network_hash_from_player_handle(players.user())
+        self.event_data = memory.alloc(54*8)
+
+        self.vehicle = self.root:list(T'Vehicle', {$'rpvehicle'}, '')
+        self.player = self.root:list(T'Player', {$'rpplayer'}, '')
+        self.events = self.root:list(T'Event', {$'rpevent'}, '')
+        self.notifs = self.root:list(T'Notification', {$'rpnotif'}, '')
+
+        do
+            self.veh_kick = self.vehicle:toggle(T'Vehicle Kick', {}, T'Prevents you from being kicked from your vehicle', function(state)
+                memory.write_byte(self.g.VehicleKickProtection:g(), state ? 1 : 0)
+            end)
+    
+            self.smart_veh_kick = self.vehicle:toggle_loop(T'Smart Vehicle Kick', {}, T'Vehicle kick protection will only be enabled when you enter a personal vehicle (this prevents missions from breaking)', function()
+                local veh = memory.read_int(self.g.ActivePVHandle:g())
+                local localplayer = players.localplayer()
+    
+                if veh ~= -1 and localplayer:is_ped_in_any_vehicle() then
+                    if self.veh_kick:isValid() then
+                        self.veh_kick.value = true
+                    end
+                else
+                    if self.veh_kick:isValid() then
+                        self.veh_kick.value = false
+                    end
+                end
+            end)
+    
+            self.anti_harry = self.vehicle:toggle_loop(T'Anti-Oppressor MKII', {}, T'Delete harry potters pet broomstick before he gets the chance to use it against you like the useless faggot he is', function()
+                for entities.get_all_vehicles_as_pointers() as ent do
+                    local model = entities.get_model_hash(ent)
+                    if model == 'oppressor2':joaat() then
+                        local passengers = memory.read_byte(ent + 0x0C42)
+                        if passengers <= 0 then
+                            entities.delete_by_pointer(ent)
+                        end
+                    end
+                end
+            end) 
+        end
+
+        do
+            self.bounty_notify = self.player:toggle(T'Bounty Notify', {}, T'Notify you when your bounty is removed', function(state) end)
+            self.attacker_notify = self.player:toggle(T'Attacker Notify', {}, T'Notify you when someone sends mercenaries, mugger or a strike team after you', function(state) end)
+            self.player:divider('')
+
+            self.presets = self.player:list(T'Presets')
+            self.presets:toggle(T'Anti-Annoying', {$'antiannoy'}, T'Enable certain protections that prevent annoying things from happening to you', function(state)
+                self.anti_orbital.value = state
+                self.ghost_godmode_trash.value = state
+                self.anti_attacker.value = state
+                self.anti_guided_missile.value = state
+            end)
+
+            self.anti_orbital = self.player:toggle_loop(T'Anti-Orbital Cannon', {}, T'Prevents you from being targetted by the orbital cannon (they can still get you with manual targetting but it is unlikely anyone will try that)', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        network.set_remote_player_as_ghost(pid, self:is_using_orbital_cannon(pid))
+                    end
+                end
+            end)
+
+            self.ghost_godmode_trash = self.player:toggle_loop(T'Ghost Godmode Trash', {}, T'Prevents you from being killed by trash players in godmode by ghosting them', function()
+                local player_id = players.user()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= player_id then
+                        if not players.is_in_interior(pid) and players.is_godmode(pid) then
+                            network.set_remote_player_as_ghost(pid, true)
+                        else
+                            network.set_remote_player_as_ghost(pid, false)
+                        end
+                    end
+                end
+            end)
+
+            self.anti_attacker = self.player:toggle_loop(T'Anti-Attacker', {}, T'Prevent other players from sending mercenaries, muggers or strike teams to kill you', function()
+                local me = players.user()
+
+                util.spoof_script(self.GC, function()
+                    local sender = memory.script_local(table.unpack(self.g.AttackerSender))
+                    local target = sender + 0x8
+
+                    local sender_pid = memory.read_byte(sender)
+                    local target_pid = memory.read_byte(sender + 8)
+                    local atk_type = memory.read_byte(self.g.GangCallAttacker:g(sender_pid) + 0x460)
+
+                    if target_pid == me and sender_pid ~= me then
+                        if self.attacker_notify.value then 
+                            util.display_success(T:T('Successfully stopped a %s sent by %s', (atk_type == 1) ? 'mugger' : 'mercenaries/strike team', players.get_name(sender_pid)))
+                        end
+                    end
+
+                    memory.write_byte(sender, me)
+                    memory.write_byte(target, -1)
+                end)
+            end)
+
+            self.anti_beast = self.player:toggle_loop(T'Anti-Beast', {}, T'Prevents you from becoming the beast', function()
+                util.spoof_script(self.HTBS, script.terminate_this_thread)
+            end)
+
+            self.modded_bounty = self.player:toggle_loop(T'Anti-Modded Bounty', {}, T'Automatically remove modded bounties that are set on you', function()
+                local player_id = players.user()
+                local bounty = players.get_bounty(player_id)
+                if bounty == nil then goto continue end
+                if bounty & 0xF ~= 0x8 then -- 8 = 1 << 3
+                    players.set_bounty(player_id, 0, false)
+                    players.set_bounty_reward(player_id, -1)
+                    if self.bounty_notify.value then
+                        util.display_success(T:T('Removed a modded bounty of %s', bounty))
+                    else
+                        util.log(T:T('Removed a modded bounty of %s', bounty))
+                    end
+                end
+                ::continue::
+
+                --[[
+                    1000 = 1111101000 (normal bounty)
+                    2000 = 11111010000 (modded bounty)
+
+                    0xF = 1111
+                    1 << 3 = 1000
+
+                    1111101000 & 1111 = 1000 (1000 & 0xF = 8)
+                    11111010000 & 1111 = 0000 (2000 & 0xF = 0)
+
+                    We using the most significant bit of the least significant nibble to determine if the bounty is modded
+                    when the result is 8 (4th bit is set), the bounty is normal
+                    when the result is 0 (4th bit is not set), the bounty is modded
+                ]]
+            end)
+
+            self.player:toggle_loop(T'Anti-Bounty', {}, T'Automatically remove bounties that are set on you', function()
+                local player_id = players.user()
+                local bounty = players.get_bounty(player_id)
+                if bounty == nil then goto continue end
+                players.set_bounty(player_id, 1, true)
+                players.set_bounty_reward(player_id, -1)
+                players.set_bounty(player_id, 0, false)
+                ::continue::
+            end)
+
+            self.player:toggle_loop(T'Anti-Modded Bounty (Session Wide)', {}, T'Automatically remove modded bounties that are set on you and other players in the session', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        print(pid)
+                        if bounty == nil then goto continue end
+                        local bounty = players.get_bounty(pid)
+                        if bounty & 0xF ~= 0x8 then
+                            players.set_bounty(pid, 0, false)
+                            players.set_bounty_reward(pid, -1)
+                        end
+                        ::continue::
+                    end
+                end
+            end)
+
+            self.player:toggle_loop(T'Anti-Bounty (Session Wide)', {}, T'Automatically remove bounties that are set on you and other players in the session', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        if bounty == nil then goto continue end
+                        local bounty = players.get_bounty(pid)
+                        players.set_bounty(pid, 1, true)
+                        players.set_bounty_reward(pid, -1)
+                        players.set_bounty(pid, 0, false)
+                        ::continue::
+                    end
+                end
+            end)
+
+            self.anti_bst = self.player:toggle_loop(T'Anti-BST', {}, T'Disable the effects of BST when someone is using BST (they will still deal 2x damage to you but the damage you deal to them will be the same as if they didn\'t have BST active)', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        local ped = player.get_player_ped(pid)
+                        local ptr = entities.handle_to_pointer(ped)
+                        if ptr ~= 0 then
+                            local player_info = entities.get_player_info(ptr)
+                            if player_info then
+                                local weapon_defense = memory.read_float(player_info + 0x0D70)
+                                if weapon_defense < 0.99607843160629 then
+                                    memory.write_float(player_info + 0x0D70, 0.99607843160629)
+                                end
+                            end
+                        end
+                    end
+                end
+            end, function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        local ped = player.get_player_ped(pid)
+                        local ptr = entities.handle_to_pointer(ped)
+                        if ptr ~= 0 then
+                            local player_info = entities.get_player_info(ptr)
+                            if player_info then
+                                local weapon_defense = memory.read_float(player_info + 0x0D60)
+                                if weapon_defense ~= 0.99607843160629 then
+                                    memory.write_float(player_info + 0x0D60, 0.99607843160629)
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+
+            self.anti_guided_missile = self.player:toggle_loop(T'Anti Guided-Missile', {}, T'Auto ghost bots trying to kill you with guided missiles', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        local ped = player.get_player_ped(pid)
+                        local coords = players.get_position(pid)
+                        local int = interior.get_interior_at_coords(coords.x, coords.y, coords.z)
+                        if int == 281345 and memory.read_byte(self.g.PlayerBase:g(pid) + 0x248) == 1 then
+                            network.set_remote_player_as_ghost(pid, true)
+                        else
+                            network.set_remote_player_as_ghost(pid, false)
+                        end
+                    end
+                end
+            end)
+
+            self.player:toggle_loop(T'Anti-Guided Missile (Aggressive)', {}, T'Destroys guided missiles when their object syncs with your player, if you are too close to their sub it will cause the sub to explode', function()
+                local my_pos = players.get_position(players.user())
+    
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        local ped = player.get_player_ped(pid)
+                        local coords = players.get_position(pid)
+                        local int = interior.get_interior_at_coords(coords.x, coords.y, coords.z)
+                        if int == 281345 then
+                            local drone_obj = self.g.DroneObject:g(players.user()) + ((pid + 1) << 3)
+                            local obj = memory.read_int(drone_obj)
+                            if entity.does_entity_exist(obj) then
+                                local pos = entity.get_entity_coords(obj)
+                                misc.shoot_single_bullet_between_coords(
+                                    pos.x, pos.y, pos.z + 3, 
+                                    pos.x, pos.y, pos.z - 2, 
+                                    1000, true, ('WEAPON_RPG'):joaat(), 
+                                    players.user_ped(), false, false, 1000.0
+                                )
+                                break
+                            end
+                        end
+                    end
+                end
+    
+                util.yield(100)
+            end)
+
+            local rc_ghosted = {}
+            self.anti_rc = self.player:toggle_loop(T'Anti RC', {}, T'Auto ghost bots when they\'re in an RC vehicle trying to kill you', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        if not rc_ghosted[pid] then rc_ghosted[pid] = false end
+                        local p = player.get_player_ped(pid)
+                        local veh = ped.get_vehicle_ped_is_using(p, false)
+                        if veh ~= 0 then
+                            local model = util.reverse_joaat(entity.get_entity_model(veh))
+                            local should_ghost = model == 'rcbandito' or model == 'minitank'
+                            network.set_remote_player_as_ghost(pid, should_ghost)
+                            rc_ghosted[pid] = should_ghost
+                        end
+                    end
+                end
+            end, function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        if (rc_ghosted[pid]) then
+                            network.set_remote_player_as_ghost(pid, false)
+                            rc_ghosted[pid] = false
+                        end
+                    end
+                end
+            end)
+        end
+
+        do
+            local commands = {}
+            for ({
+                { args = { T'Block CEO/MC Invites', commands, T'Block CEO/MC invites from other players in the session' }, sg = self.g.BlockCEOMCInviteProtection:g() },
+                { args = { T'Block Island Heist Invite', commands, T'Block island heist invites from other players in the session' }, sg = self.g.BlockIslandHeistInviteProtection:g() },
+                { args = { T'Block Remove Wanted Level', {}, T'Block remove wanted level from other players in the session' }, sg = self.g.BlockRemoveWantedLevelProtection:g() },
+                { args = { T'Block Property Invite', {}, T'Block property invites from other players in the session' }, sg = self.g.BlockPropertyInviteProtection:g() },
+                { args = { T'Block Bounty', {}, T'Block bounty event' }, sg = self.g.Bounty:g() },
+                { args = { T'Block Remote Off The Radar', {}, T'Block remote off the radar event' }, sg = self.g.BlockRemoteOffTheRadarProtection:g() },
+                { args = { T'Block CEO Money Loop', {}, T'Block CEO money loop event' }, sg = self.g.BlockCEOMoneyLoopProtection:g() },
+            }) as data do
+                local args = data.args
+                args[4] = function(state)
+                    memory.write_byte(data.sg, state ? 1 : 0)
+                end
+                self.events:toggle(table.unpack(args))
+            end
+
+            self.ceo_kick_event = self.events:toggle_loop(T'Block CEO/MC Kick', {}, T'Block CEO/MC kick event', function()
+                local ceo_kick = self.g.CeoKickProtection1:g()
+                memory.write_byte(self.g.CeoKickProtection:g(), 1)
+                memory.write_byte(ceo_kick, memory.read_byte(ceo_kick) | (1 << 5))
+            end, function()
+                memory.write_byte(self.g.CeoKickProtection:g(), 0)
+            end)
+
+            self.events:toggle(T'Block Collectibles', {}, T'Prevent other playes from giving you RP through collectibles', function(state)
+                memory.write_byte(self.g.BlockCollectibles:g(), state ? 1 : 0)
+            end)
+
+            self.events:toggle(T'Block All Events', {}, T'Block all events, this will block collectibles, notifications, invites, bounties and more', function(state)
+                local g = self.g.ScriptEventsProtectionBase:g()
+                for i = 0, 1312 do
+                    memory.write_byte(g + (i << 3), state ? 1 : 0)
+                end
+            end)
+        end
+            
+        do
+            self.notifs:toggle(T'Block Mugger Notification', {}, T'Block mugger notification spam', function(state)
+                memory.write_byte(self.g.MuggerEventProtection:g(), state ? 1 : 0)
+            end)
+    
+            self.notifs:toggle(T'Block Stand Notification Spam', {}, T'Block Stand cash removed/banked notification spam', function(state)
+                local block = self.g.StandNotificationSpamProtection:g()
+                for i = 0, 3 do memory.write_byte(block + (i << 3), state ? 1 : 0) end
+            end)
+    
+            self.notifs:toggle(T'Block All Notifications', {}, T'Block all notifications', function(state)
+                memory.write_byte(self.g.BlockAllNotifications:g(), state ? 1 : 0)
+            end)
+        end
+    end
+end
+
+return Protections

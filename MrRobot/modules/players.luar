@@ -1,0 +1,1614 @@
+pluto_use class, try, catch, new
+
+local Module = require('abstract_base_classes.module')
+local Vehicle = require('utils.vehicle')
+local T = require('languages.trans')
+local script_settings = require('flags.script_settings')
+local bitwise = require('libs.bitwise')
+local esp = require('libs.esp')
+local colour = require('libs.colour')
+local weapons = require('data.weapons')
+local casino_state_flags = require('flags.casino_state')
+local damage_flags = require('flags.damage_flags')
+local org_flags = require('flags.organisation')
+local script_ids = require('data.script_ids')
+local pvm = require('utils.pvm')
+
+enum eUpdateFlags begin
+    UF_PLAYER_INFO = 1 << 0,
+    UF_PERSONAL_VEHICLE = 1 << 1,
+    UF_BOUNTY = 1 << 2,
+    UF_WHEEL_STATES = 1 << 3,
+    UF_GHOSTED = 1 << 4,
+    UF_TUT_SESSIONS = 1 << 5,
+    UF_RECOVERY = 1 << 4,
+end
+
+class Players extends Module 
+    function __construct(root)
+        self.proot = root
+        self.update = new bitwise.bitfield(0)
+        self.pvm = require('utils.pvm')
+        self.vehicles = require('data.vehicles')
+        self.nethash = network.network_hash_from_player_handle(players.user())
+        self.wheel_labels = {}
+        self.property_ids = require('data.property_ids')
+
+        self.properties = {}
+        for k, v in pairs(self.property_ids) do
+            self.properties[v] = k
+        end
+        self.properties = self.utils:sort_table_indexed(self.properties)
+
+        self.detachable_wheels = {
+            {index = 0, name = T'Left Front'},
+            {index = 1, name = T'Right Front'},
+            {index = 2, name = T'Left Rear'},
+            {index = 3, name = T'Right Rear'},
+            {index = 4, name = T'Left Front Middle'},
+            {index = 5, name = T'Right Front Middle'},
+            {index = 6, name = T'Left Back Middle'},
+            {index = 7, name = T'Right Back Middle'},
+        }
+
+        self.cayo_targets = {
+            {1, 'Tequila'},
+            {2, 'Madrazo Files'},
+            {3, 'Pink Diamond'},
+            {4, 'Bearer Bonds'},
+            {5, 'Ruby Necklace'},
+            {6, 'Sapphire Panther'},
+            {7, 'Invalid'}
+        }
+
+        self.esp_bone = 0xFF0000FF
+        self.esp_box = 0xFF0000FF
+        self.esp_name = 0xFF0000FF
+
+        self.handler.player_loop = self.utils:partial(self.player_loop, self)
+        self.handler.player_remove = self.utils:partial(self.player_remove, self)
+    end
+
+    function player_loop(pid, root)
+        network.network_handle_from_player(pid, self.gamer_handle, 104 // 8)
+        self.utils:add_player(pid)
+        if network.network_is_friend(self.gamer_handle) and pid ~= players.user() then self.utils:add_friend(pid) end
+
+        if self.utils.settings.spoof_yacht_names and pid ~= players.user() then
+            if self:is_yacht_owned(pid) then
+                if self.utils:is_friend(pid) then
+                    if not self.utils:player_cnet_ready(pid) then 
+                        util.create_tick_handler(function()
+                            if self.utils:player_cnet_ready(pid) then
+                                return false
+                            end
+                            local name_ref = menu.ref_by_path('Stand>Lua Scripts>MrRobot>Online>Spoofing>Yacht Name Spoofing>Remote Yacht>Name')
+                            if name_ref:isValid() then
+                                self:set_yacht_name(name_ref.value, pid)
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+
+        local name = players.get_name(pid)
+        local is_self = pid == players.user()
+
+        if is_self and self.utils:is_dev(players.user()) then
+            local anti_annoy_preset = menu.ref_by_command_name($'antiannoy')
+            if anti_annoy_preset:isValid() then
+                anti_annoy_preset.value = true
+            end
+        end
+
+        if self.utils.settings.seperate_players then
+            local script_root = self.proot:list(name, {}, name, function()
+                self.proot:focus()
+                menu.ref_by_command_name($'mrrobot{name}'):getChildren()[1]:focus()
+            end)
+
+            if not root:isValid() then root = menu.player_root(pid) end
+            self.root = root:list('Mr.Robot', {$'mrrobot{name}'}, 'Mr.Robot')
+        else
+            self.root = self.proot:list(name, {}, name)
+        end
+
+        self.pinfo = self.root:list(T'Player Info', {}, '', nil, nil, || -> self:update_player_info(pid))
+        self.pv = self.root:list(T'Personal Vehicle', {}, '', nil, nil, || -> self:update_personal_vehicle(pid))
+        self.trolling = self.root:list(T'Trolling', {}, '')
+        self.friendly = self.root:list(T'Friendly', {}, '')
+        self.neutral = self.root:list(T'Neutral', {}, '')
+
+        self.pinfo_dev = self.pinfo:readonly('', '')
+        self.pinfo_badsport = self.pinfo:readonly('', '')
+        self.pinfo_cheater = self.pinfo:readonly('', '')
+        self.pinfo_orbital = self.pinfo:readonly('', '')
+        self.pinfo_drone = self.pinfo:readonly('', '')
+        self.pinfo_godmode = self.pinfo:readonly('', '')
+        self.pinfo_vehicle = self.pinfo:readonly('', '')
+        self.pinfo_vehicle_health = self.pinfo:readonly('', '')
+        self.pinfo_vehicle_owner = self.pinfo:readonly('', '')
+        self.pinfo_mental_state = self.pinfo:readonly('', '')
+        self.pinfo_latency = self.pinfo:readonly('', '')
+        self.pinfo_casino_state = self.pinfo:readonly('', '')
+        self.pinfo_interior_id = self.pinfo:readonly('', '')
+        self.pinfo_damage_bits = self.pinfo:readonly('', '')
+        self.pinfo_interior_name = self.pinfo:readonly('', '')
+        self.pinfo_property_id = self.pinfo:readonly('', '')
+        self.pinfo_accuracy = self.pinfo:readonly('', '')
+        self.pinfo_mission_id = self.pinfo:readonly('', '')
+        self.pinfo_script_name = self.pinfo:readonly('', '')
+        self.pinfo_crew_rank = self.pinfo:readonly('', '')
+        self.pinfo_yatch_name = self.pinfo:readonly('', '')
+        self.pinfo_tryhard_rating = self.pinfo:readonly('', '')
+
+        self.pv:divider(T'Vehicle Info')
+        self.pv_model = self.pv:readonly('', '')
+        self.pv_health = self.pv:readonly('', '')
+        self.pv_godmode = self.pv:readonly('', '')
+        self.pv_frozen = self.pv:readonly('', '')
+        self.pv_invisible = self.pv:readonly('', '')
+        self.pv_can_migrate = self.pv:readonly('', '')
+        self.pv_net_id = self.pv:readonly('', '')
+        self.pv_owner = self.pv:readonly('', '')
+        self.pv:divider('')
+
+        local force_sh, lock_doors, can_migrate, conceal_vehicle
+
+        force_sh = self.pv:toggle(T'Force Script Host', {}, T'Requests script host, this can help with some trolling options', function(state)
+            local spect = menu.ref_by_rel_path(root, 'Spectate>Nuts Method')
+            if spect:isValid() then
+                spect.value = state
+            end
+        end)
+
+        if not is_self then
+            self.pv:toggle(T'Spectate', {}, T'Spectate the player', function(state)
+                local spect = menu.ref_by_rel_path(root, 'Spectate>Nuts Method')
+                if spect:isValid() then
+                    spect.value = state
+                end
+            end)
+        end
+
+        lock_doors = self.pv:toggle_loop(T'Lock Doors', {}, T'Locks the doors of the vehicle', function()
+            if force_sh.value then util.request_script_host('freemode') end
+
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    vehicle.set_vehicle_doors_locked_for_player(veh, pid, true)
+                    vehicle.set_vehicle_doors_shut(veh, true)
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end, function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                vehicle.set_vehicle_doors_locked_for_player(veh, pid, false)
+                vehicle.set_vehicle_doors_shut(veh, false)
+            end
+        end)
+
+        can_migrate = self.pv:toggle_loop(T'Can Migrate', {}, T'Prevent control requests', function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    entities.set_can_migrate(veh, true) -- set/clear bit 48 of net_obj + 0x48
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end, function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                entities.set_can_migrate(veh, false)
+            end
+        end)
+
+        conceal_vehicle = self.pv:toggle_loop(T'Conceal Vehicle', {}, T'Stops the vehicle from being networked', function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    if not network.network_is_entity_concealed(veh) then
+                        network.network_conceal_entity(veh, true)
+                    end
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end, function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    if network.network_is_entity_concealed(veh) then
+                        network.network_conceal_entity(veh, false)
+                    end
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end)
+
+        self.pv:toggle_loop(T'Freeze Vehicle', {}, T'Freeze the vehicle in place', function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    entity.freeze_entity_position(veh, true)
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end, function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    entity.freeze_entity_position(veh, false)
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end)
+
+        self.pv_spoof = self.pv:toggle(T'Spoof', {}, T'Spoof this players personal vehicle as your own', function(state)
+            self.pvm:return_active()
+            self:hard_vehicle_spoof(pid, state)
+        end, self:is_vehicle_spoofed(pid))
+
+        self.pv:divider('')
+
+        self.pv:action(T'Add Explosive Device', {}, T'Add explosive device to the players vehicle', function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    vehicle.add_vehicle_phone_explosive_device(veh)
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end)
+
+        self.pv:action(T'Clear Explosive Device', {}, T 'Removes the explosive device from the players vehicle', function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    vehicle.clear_vehicle_phone_explosive_device(veh)
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end)
+
+        self.pv:action(T'Detonate Explosive Device', {}, T'Detonate the explosive device', function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    vehicle.detonate_vehicle_phone_explosive_device(veh)
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end)
+
+        self.pv:action(T'Force Respawn', {}, T'Force the vehicle to respawn', function()
+            if force_sh.value then util.request_script_host('freemode') end
+            self:force_vehicle_respawn(pid)
+        end)
+
+        self.pv:action(T'Unlock Vehicle', {}, T'Bypass vehicle access settings', function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    vehicle.set_vehicle_doors_locked_for_player(veh, pid, false)
+                    vehicle.set_vehicle_doors_shut(veh, false)
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end)
+
+        self.pv:action(T'Repair', {}, T'Repair their vehicle', function()
+            local veh = self:get_pv_from_network_id(pid)
+            if veh ~= 0 then
+                if entities.request_control(veh) then
+                    vehicle.set_vehicle_fixed(veh)
+                else
+                    self:control_failure()
+                end
+            else
+                self:out_of_range()
+            end
+        end)
+
+        self.pv:divider('')
+
+        self.veh_kicks = self.pv:list(T'Kicks', {}, T'Kicks the player from their vehicle')
+        self.veh_kicks:action(T'Takeover Kick', {}, '', || -> self:takeover_kick(pid))
+        self.veh_kicks:action(T'Regular Kick', {}, '', || -> self:regular_kick(pid))
+
+        self.pv_trolling_se = self.pv:list(T'Trolling', {})
+        self.pv_trolling_se:action(T'Force Engine On', {}, T'Force the engine on', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 1572141092, 1, 1, 0 })
+        end)
+
+        self.pv_trolling_se:action(T'Force Engine Off', {}, T'Force the engine off', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 1572141092, 1, 0, 0 })
+        end)
+
+        self.pv_trolling_se:action(T'Force Headlights On', {}, T'Force the headlights on', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { -693433553, 32, 0 })
+        end)
+
+        self.pv_trolling_se:action(T'Force Headlights Off', {}, T'Force the headlights off', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { -693433553, 32, 1 })
+        end)
+
+        self.pv_trolling_se:action(T'Force Neon Lights On', {}, T'Force the neon lights on', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 234399205, 1, 0 })
+        end)
+
+        self.pv_trolling_se:action(T'Force Neon Lights Off', {}, T'Force the neon lights off', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 234399205, 1, 1 })
+        end)
+
+        self.pv_trolling_se:action(T'Turn Off Radio', {}, T'Turn off the radio', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 516561068, 32, 0, 0, 6, 1 })
+        end)
+
+        self.pv_trolling_se:action(T'Change Radio Station', {}, T'Change the radio station to any random piece of shit', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 516561068, 32, 1, math.random(6, 22), 0, 1 })
+        end)
+
+        self.pv_trolling_se:action(T'Force Unlock All Doors', {}, T'', function()
+            local veh = self:get_pv_from_network_id(pid)
+            local obj_id = network.network_entity_get_object_id(veh)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 0, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 1, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 2, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 3, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 4, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 5, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 6, obj_id, 0, 1, 0, 1 })
+        end)
+
+        self.pv_trolling_se:action(T'Force Lock All Doors', {}, T'', function()
+            local veh = self:get_pv_from_network_id(pid)
+            local obj_id = network.network_entity_get_object_id(veh)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 0, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 1, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 2, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 3, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 4, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 5, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 6, obj_id, 0, 2, 0, 1 })
+        end)
+
+        self.pv_trolling_se:divider('')
+
+        self.pv_trolling_se:toggle_loop(T'Force Engine Off', {}, T'Force the engine off', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 1572141092, 1, 0, 0 })
+            util.yield(100)
+        end)
+
+        self.pv_trolling_se:toggle_loop(T'Force Headlights Off', {}, T'Force the headlights off', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { -693433553, 32, 1 })
+            util.yield(100)
+        end)
+
+        self.pv_trolling_se:toggle_loop(T'Force Neon Lights Off', {}, T'Force the neon lights off', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 234399205, 1, 1 })
+            util.yield(100)
+        end)
+
+        self.pv_trolling_se:toggle_loop(T'Turn Off Radio', {}, T'Turn off the radio', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 516561068, 32, 0, 0, 6, 1 })
+            util.yield(100)
+        end)
+
+        self.pv_trolling_se:toggle_loop(T'Change Radio Station', {}, T'Change the radio station', function()
+            self:ensure_vehicle_is_spoofed(pid)
+            util.trigger_script_event(1 << pid, { 516561068, 32, 1, math.random(6, 22), 0, 1 })
+            util.yield(300)
+        end)
+
+        self.pv_trolling_se:toggle_loop(T'Force Unlock/Lock All Doors', {}, T'', function()
+            local veh = self:get_pv_from_network_id(pid)
+            local obj_id = network.network_entity_get_object_id(veh)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 0, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 1, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 2, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 3, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 4, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 5, obj_id, 0, 1, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 6, obj_id, 0, 1, 0, 1 })
+
+            util.yield(100)
+
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 0, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 1, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 2, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 3, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 4, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 5, obj_id, 0, 2, 0, 1 })
+            util.yield(50)
+            util.trigger_script_event(1 << pid, { 1380319383, pid, 6, obj_id, 0, 2, 0, 1 })
+        end)
+
+        if not is_self then
+            self.organisation = self.root:list(T'Organisation', {}, '')
+            self.organisation:toggle_loop(T'Force Join', {}, T'Force join the player organisation, you will instantly rejoin if they kick you', function()
+                self:set_organisation_id(players.user(), self:get_organisation_id(pid))
+            end)
+
+            self.organisation:divider('')
+            self.organisation:action(T'Leave', {}, T'Leave the players organisation', function()
+                self:set_organisation_id(players.user(), -1)
+            end)
+
+            self.organisation:action(T'Invite', {}, T'Invite the player to your organisation', function()
+                local id = memory.read_int(self.g.OrganisationInviteID:g())
+                util.trigger_script_event(1 << pid, { -245642440, 0, players.user(), 10000, 0, 0, 0, 0, id, id })
+            end)
+        end
+
+        self.bounty = self.trolling:list(T'Bounty', {}, '', nil, nil, || -> self:update_bounty(pid))
+        self.bounty:readonly('', '') -- Active
+        self.bounty:readonly('', '') -- Amount
+        self.bounty:readonly('', '') -- Reward
+        self.bounty:readonly('', '') -- Modded
+        self.bounty:divider('')
+
+        local bounty_input_amount, bounty_reward_amount
+        bounty_input_amount = self.bounty:text_input(T'Bounty', {T'rpbountyinput'}, T'Set an anonymous undetectable bounty on the player', function(amount) 
+            players.set_bounty(pid, 0, true)
+            players.set_bounty(pid, tonumber(amount), true)
+        end, '10000')
+        bounty_reward_amount = self.bounty:text_input(T'Reward', {T'rpbountyreward'}, T'Set a reward for the player', function(amount) end, '10000')
+
+        self.bounty:divider('')
+        self.bounty:action(T'Max Bounty', {}, T'Set the maximum bounty on the player', function()
+            players.set_bounty(pid, 10000, true)
+        end)
+
+        self.bounty:action(T'Max Legit Bounty', {}, T'Set the maximum legit bounty on the player', function()
+            players.set_bounty(pid, 9000, true)
+        end)
+
+        self.bounty:action(T'Remove Bounty', {}, T'Remove the bounty on the player', function()
+            players.set_bounty(pid, 0, false)
+        end)
+        self.bounty:divider('')
+
+        self.bounty:toggle_loop(T'Loop Bounty', {}, T'Loop the bounty on the player', function()
+            players.set_bounty(pid, tonumber(bounty_input_amount.value), true)
+        end)
+
+        self.bounty:toggle_loop(T'Max Bounty', {}, T'Set the maximum bounty on the player', function()
+            players.set_bounty(pid, 10000, true)
+        end)
+
+        self.bounty:toggle_loop(T'Max Legit Bounty', {}, T'Set the maximum legit bounty on the player', function()
+            players.set_bounty(pid, 9000, true)
+        end)
+
+        self.bounty:toggle_loop(T'Set Reward', {}, T'Set the reward for the bounty', function()
+            players.set_bounty_reward(pid, tonumber(bounty_reward_amount.value))
+        end)
+
+        self.bounty:toggle_loop(T'Max Reward', {}, T'Set the maximum reward for the bounty', function()
+            players.set_bounty_reward(pid, 10000)
+        end)
+
+        self.bounty:toggle_loop(T'Remove Reward', {}, T'Remove the reward for the bounty', function()
+            players.set_bounty_reward(pid, 0)
+        end)
+
+        self.toxic = self.trolling:list(T'Toxic', {}, '')
+        self.toxic:action(T'Send Corrupt Apartment Invite', {}, T'Send a corrupted invite to the player, this will put them in an invite loading screen if accepted', function()
+            memory.write_int(self.g.Interior:g(), -1)
+            self.se:interior_invite(1 << pid)
+        end)
+
+        self.toxic:action(T'Send Corrupt Yacht Invite', {}, T'Send a corrupted invite to the player, this will put them in an invite loading screen if accepted', function()
+            memory.write_int(self.g.Interior:g(), -1)
+            self.se:interior_invite(1 << pid, 1)
+        end)
+
+        self.toxic:action(T'Send Corrupt Office Invite', {}, T'Send a corrupted invite to the player, this will put them in an invite loading screen if accepted', function()
+            memory.write_int(self.g.Interior:g(), -1)
+            self.se:interior_invite(1 << pid, 2)
+        end)
+
+        self.toxic:action(T'Send Corrupt Clubhouse Invite', {}, T'Send a corrupted invite to the player, this will put them in an invite loading screen if accepted', function()
+            memory.write_int(self.g.Interior:g(), -1)
+            self.se:interior_invite(1 << pid, 3)
+        end)
+
+        self.toxic:action(T'Send Corrupt Office Garage Invite', {}, T'Send a corrupted invite to the player, this will put them in an invite loading screen if accepted', function()
+            memory.write_int(self.g.Interior:g(), -1)
+            self.se:interior_invite(1 << pid, 4)
+        end)
+
+        self.toxic:action(T'Send Corrupt Auto Shop Invite', {}, T'Send a corrupted invite to the player, this will put them in an invite loading screen if accepted', function()
+            memory.write_int(self.g.Interior:g(), -1)
+            self.se:interior_invite(1 << pid, 5)
+        end)
+
+        self.wheels = self.trolling:list(T'Wheels', {}, '', nil, nil, || -> self:update_wheel_states(pid))
+        self.wheels:divider(T'Wheels')
+
+        if not self.wheel_labels[pid] then
+            self.wheel_labels[pid] = {}
+        end
+
+        self.wheel_labels[pid][1] = self.wheels:readonly(T'Wheel 1: ?', '') -- index 1
+        self.wheel_labels[pid][2] = self.wheels:readonly(T'Wheel 2: ?', '') -- index 2
+        self.wheel_labels[pid][3] = self.wheels:readonly(T'Wheel 3: ?', '') -- index 3
+        self.wheel_labels[pid][4] = self.wheels:readonly(T'Wheel 4: ?', '') -- index 4
+        self.wheel_labels[pid][5] = self.wheels:readonly(T'Wheel 5: ?', '') -- index 5
+        self.wheel_labels[pid][6] = self.wheels:readonly(T'Wheel 6: ?', '') -- index 6
+        self.wheel_labels[pid][7] = self.wheels:readonly(T'Wheel 7: ?', '') -- index 7
+        self.wheel_labels[pid][8] = self.wheels:readonly(T'Wheel 8: ?', '') -- index 8
+        self.wheels:divider('')
+
+        self.individual_wheels = self.wheels:list(T'Individual Wheels', {}, '')
+        self.wheels:action(T'Detach Wheels', {}, T'Detach wheels from the players vehicle', function()
+            local player_ped = player.get_player_ped(pid)
+            local veh = ped.get_vehicle_ped_is_in(player_ped, false)
+            if veh ~= 0 then
+                local ptr = entities.handle_to_pointer(veh)
+                if ptr ~= 0 then
+                    if entities.request_control(veh) then
+                        local state = memory.read_short(ptr + 0xA48)
+                        local wheel_count = memory.read_byte(ptr + 0xDA0)
+
+                        for i = 1, wheel_count do
+                            if not memory.bits:isset(state, 1 << (i - 1)) then
+                                entities.detach_wheel(ptr, i - 1)
+                            end
+                        end
+                    else
+                        self:control_failure()
+                    end
+                end
+            end
+        end)
+
+        for self.detachable_wheels as wheel do
+            self.individual_wheels:action(wheel.name, {}, T'Detach a wheel from the players vehicle', function()
+                local player_ped = player.get_player_ped(pid)
+                local veh = ped.get_vehicle_ped_is_in(player_ped, false)
+                if veh ~= 0 then
+                    local ptr = entities.handle_to_pointer(veh)
+                    if ptr ~= 0 then
+                        if entities.request_control(veh) then
+                            entities.detach_wheel(ptr, wheel.index)
+                        else
+                            self:control_failure()
+                        end
+                    end
+                end
+            end)
+        end
+
+        self.wheels:toggle_loop(T'Wheels Spam', {}, T'Spam the player with wheels by detaching and fixing their vehicle', function()
+            local player_ped = player.get_player_ped(pid)
+            local veh = ped.get_vehicle_ped_is_in(player_ped, false)
+            if veh ~= 0 then
+                local ptr = entities.handle_to_pointer(veh)
+                if ptr ~= 0 then
+                    if entities.request_control(veh) then
+                        for i = 0, 7 do
+                            entities.detach_wheel(ptr, i)
+                        end
+                        util.yield(50)
+                        vehicle.set_vehicle_fixed(veh)
+                    else
+                        self:control_failure()
+                    end
+                end
+            end
+        end)
+
+        self.dfa = self.trolling:list(T'Death From Above', {}, '')
+
+        self.dfa_vehicle_model = self.dfa:list_select(T'Vehicle Model', {}, T'The vehicle model to use', self.vehicles, 1, function(index) end)
+        self.dfa:action(T'Launch', {}, T'Launch a vehicle from the sky at the player', function()
+            local model = self.vehicles[self.dfa_vehicle_model.value]:lower()
+            self.utils:create_death_from_above_vehicle(pid, model:joaat(), true)
+        end)
+
+        self.remote_damage = self.trolling:list(T'Remote Damage', {}, T'Cause damage to the player without being near them')
+        local will_instant_kill = self.remote_damage:toggle(T'Instant Kill', {}, T'Instantly kill the player', function(state) end)
+        self.remote_damage:toggle(T'Spectate', {}, T'Spectate the player while damaging them', function(state) 
+            local spect = menu.ref_by_rel_path(root, 'Spectate>Nuts Method')
+            if spect:isValid() then
+                spect.value = state
+            end
+        end)
+        local remote_damage_damage = self.remote_damage:text_input(T'Damage', {T'rpremotedamage'}, T'The amount of damage to deal to the player', function(amount) end, '1')
+        self.remote_damage:divider('')
+
+        self.weapons_tbl = self.utils:sort_table(weapons:as_table(true))
+        local remote_damage_weapons = self.remote_damage:list_select(T'Weapons', {}, T'The weapon to use', self.weapons_tbl, 1, function(index) end)
+        self.remote_damage:action(T'Shoot', {}, T'Shoot the player with the selected weapon', function()
+            local player_ped = player.get_player_ped(pid)
+            local joaat = weapons:label_to_name(self.weapons_tbl[remote_damage_weapons.value])
+            local damage = tonumber(remote_damage_damage.value)
+            local veh = ped.get_vehicle_ped_is_in(player_ped, false)
+            self.utils:shoot_player(pid, damage, joaat:joaat(), will_instant_kill.value, veh ~= 0)
+        end)
+
+        self.fm_missions = self.trolling:list(T'Freemode Missions', {}, T'Force the player to start freemode missions, this is unlikely to work against modders')
+        do
+            local mission_ids = {
+                { name = 'Bail Office Bounty', id = 337 },
+                { name = 'Promote Nightclub', id = 250 },
+                { name = 'Get Annoyed By Dave', id = 249 },
+                { name = 'Bunker Weapon Parts', id = 296 },
+                { name = 'Clubhouse Bar Resupply', id = 291 },
+                { name = 'Acid Lab Setup', id = 304 },
+                { name = 'Acid Lab Source', id = 305 },
+                { name = 'Acid Lab Sell', id = 306 },
+                { name = 'Stash House', id = 308 },
+                { name = 'Taxi Driver Work', id = 309 },
+                { name = 'UFO Abduction', id = 314 },
+                { name = 'Pizza Delivery', id = 340 },
+                { name = 'Madrazo Daily Bounty', id = 338 },
+                { name = 'GB_BIKER_CONTRABAND_SELL', id = 190 },
+                { name = 'GB_BIKER_UNLOAD_WEAPONS', id = 180 },
+                { name = 'GB_BIKER_BAD_DEAL', id = 181 },
+                { name = 'GB_BIKER_RESCUE_CONTACT', id = 183 },
+                { name = 'GB_BIKER_CONTRABAND_DEFEND', id = 191 },
+                { name = 'GB_BIKER_FREE_PRISONER', id = 197 },
+                { name = 'GB_BIKER_SAFECRACKER', id = 198 },
+                { name = 'GB_INFILTRATION', id = 248 },
+                { name = 'fm_content_club_management', id = 299 },
+                { name = 'fm_content_gunrunning', id = 297 },
+                { name = 'fm_content_cargo', id = 294 },
+                { name = 'fm_content_clubhouse_contracts', id = 293 },
+                { name = 'fm_content_club_source', id = 301 },
+                { name = 'fm_content_drug_lab_work', id = 307 },
+                { name = 'fm_content_armoured_truck', id = 312 },
+                { name = 'fm_content_ghosthunt', id = 313 },
+                { name = 'fm_content_smuggler_ops', id = 317 },
+                { name = 'fm_content_bicycle_time_trial', id = 318 },
+                { name = 'fm_content_vehrob_police', id = 330 },
+                { name = 'fm_content_vehrob_disrupt', id = 328 },
+                { name = 'fm_content_vehrob_prep', id = 327 },
+                { name = 'fm_content_vehrob_task', id = 326 },
+                { name = 'fm_content_vehrob_scoping', id = 325 },
+                { name = 'fm_content_tow_truck_work', id = 324 },
+                { name = 'fm_content_xmas_truck', id = 323 },
+                { name = 'fm_content_chop_shop_delivery', id = 322 },
+                { name = 'Plowed', id = 214 },
+                { name = 'Fully Loaded Ruiner 2000', id = 215 },
+                { name = 'Amphibious Assault', id = 213 },
+                { name = 'Transporter', id = 217 },
+                { name = 'Fortified', id = 218 },
+                { name = 'Velocity', id = 219 },
+               { name = 'Ramped Up', id = 220 },
+                { name = 'Stockpiling', id = 221 },
+                { name = 'Headhunter', id = 166 },
+                { name = 'Airfreight', id = 170 },
+                { name = 'Haulage', id = 224 },
+                { name = 'Hostile Takeover', id = 159 },
+                { name = 'Asset Recovery', id = 157 },
+               { name = 'Executive Deathmatch', id = 227 },
+                { name = 'Executive Search', id = 228 },
+                { name = 'Sightseer', id = 142 },
+                { name = 'Piracy Prevention', id = 230 },
+                { name = 'Joust', id = 179 },
+                { name = 'Stand Your Ground', id = 201 },
+                { name = 'Casino Mission', id = 158 },
+                { name = 'Cashing Out', id = 171 },
+                { name = 'Salvage', id = 172 },
+                { name = 'Auto Buyout', id = 163 },
+                { name = 'Due Diligence', id = 160 },
+                { name = 'Most Wanted', id = 153 },
+                { name = 'Point To Point', id = 162 },
+                { name = 'Courier Service', id = 155 },
+                { name = 'Market Manipulation', id = 154 }
+            }
+
+            for mission_ids as mission do
+                self.fm_missions:action(mission.name, {mission.name}, '', function()
+                    self.se:start_freemode_mission(1 << pid, mission.id)
+                end)
+            end
+        end
+
+        self.trolling:divider('')
+        self.trolling:action(T'Owned Orbital Strike', {}, T'Launch an owned orbital strike on the player', function()
+            if self.utils:request_named_ptfx_asset('scr_xm_orbital') then
+                local player_ped = player.get_player_ped(pid)
+                local pos = players.get_position(pid)
+                self:set_orbital_cannon(true)
+
+                graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, false, false, false)
+                graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 20.0, false, false, false)
+                graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 30.0, false, false, false)
+
+                for i = 0, 5 do
+                    fire.add_owned_explosion(players.user_ped(), pos.x + (10 * i), pos.y + (10 * i), pos.z + (10 * i), 60, 100000.0, true, false, 1.0)
+                end
+
+                util.yield(1000)
+                self:set_orbital_cannon(false)
+            else
+                util.display_error(T'Failed to request the orbital strike asset')
+            end
+        end)
+
+        self.trolling:action(T'Orbital Strike', {}, T'Launch an orbital strike on the player', function()
+            if self.utils:request_named_ptfx_asset('scr_xm_orbital') then
+                local player_ped = player.get_player_ped(pid)
+                local pos = players.get_position(pid)
+
+                graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, false, false, false)
+                graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 20.0, false, false, false)
+                graphics.start_networked_particle_fx_non_looped_on_entity('scr_xm_orbital_blast', player_ped, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 30.0, false, false, false)
+
+                for i = 0, 5 do
+                    fire.add_explosion(pos.x + (10 * i), pos.y + (10 * i), pos.z + (10 * i), 60, 100000.0, true, false, 1.0)
+                end
+            end
+        end)
+
+        self.trolling:action(T'Send Mugger', {}, T'Send a mugger to mug the player', function()
+            self:send_attacker(pid, 'Mugger')
+        end)
+
+        self.trolling:action(T'Send Mercenaries', {}, T'Send mercenaries to kill the player', function()
+            self:send_attacker(pid, 'Mercenaries')
+        end)
+
+        self.trolling:action(T'Send Strike Team (Level 1)', {}, T'Send a strike team to kill the player', function()
+            self:send_attacker(pid, 'Strike Team', 1)
+        end)
+
+        self.trolling:action(T'Send Strike Team (Level 2)', {}, T'Send a strike team to kill the player', function()
+            self:send_attacker(pid, 'Strike Team', 2)
+        end)
+
+        self.trolling:action(T'Send Strike Team (Level 3)', {}, T'Send a strike team to kill the player', function()
+            self:send_attacker(pid, 'Strike Team', 3)
+        end)
+
+        self.trolling:action(T'Unghost', {}, T'Force the player to no longer be ghosted to you (or anyone)', function()
+            players.set_bounty(pid, 0, true)
+            util.yield(500)
+            players.set_bounty(pid, 0, false)
+        end)
+
+        self.trolling:action(T'Send Magnetic Khanjali', {}, T'Send a khanjali tank at the player, the tank will follow the player as if they\'ve got a magnet attached to them (spectate for best result)', function()
+            self.utils:send_magnetic_vehicle(pid, 'khanjali':joaat(), 1000)
+        end)
+
+        self.trolling:action(T'Phonebox Cage', {}, '', function()
+            self.utils:create_phonebox_cage(pid)
+        end)
+
+        self.trolling:action(T'Invisible Phonebox Cage', {}, '', function()
+            self.utils:create_phonebox_cage(pid, true)
+        end)
+
+        self.trolling:action(T'Snipe', {$'snipe'}, T'Snipe the player', function()
+            self.utils:damage_player(
+                pid, 'WEAPON_HEAVYSNIPER_MK2', 230.0,
+                damage_flags.DF_IsAccurate | damage_flags.DF_IgnoreRemoteDistCheck | damage_flags.DF_ForceInstantKill
+            )
+        end)
+
+        self.trolling:action(T'Force Mission To Quit', {$'quitmission'}, T'Force freemode missions to quit, works for CEO missions, heist setup missions etc', function()
+            self.se:force_quit_mission(1 << pid)
+        end)
+
+        self.trolling:action(T'Freeze Player', {}, T'Freeze the player in place', function()
+            self.se:freeze_player(1 << pid, true)
+        end)
+
+        self.trolling:action(T'Unfreeze Player', {}, T'Unfreeze the player', function()
+            self.se:freeze_player(1 << pid, false)
+        end)
+
+        self.trolling:action(T'Disable Player', {}, T'Disable the player making them unable to fight or do anything against you', function()
+            self.se:disable_player(1 << pid, true)
+        end)
+
+        self.trolling:action(T'Enable Player', {}, T'Reverse the effects of disable player', function()
+            self.se:disable_player(1 << pid, false)
+        end)
+
+        self.trolling:action(T'Vehicle Kick', {}, T'Force the player out of their vehicle NOTE: THIS WILL ONLY WORK IF THEY HAVE THE PAUSE MENU OPEN!', function()
+            self.se:pause_menu_vehicle_kick(1 << pid)
+        end)
+
+        self.trolling:action(T'Anti-Auto Shuffle', {}, T'Prevent the player from automatically shuffling into drivers seat when the driver of their vehicle gets out', function()
+            self.se:prevent_auto_shuffle(1 << pid)
+        end)
+
+        self.trolling:divider('')
+        self.trolling:toggle_loop(T'Block Passive Mode', {}, T'Prevent the player from going passive', function()
+            players.set_bounty(pid, 0, true)
+        end, function()
+            players.set_bounty(pid, 0, false)
+        end)
+
+        self.trolling:toggle_loop(T'Annoy', {}, T'Annoy the player with a constant stream of notifications', function()
+            local amount = math.random(math.min_int, math.max_int)
+            self.se:successfully_mugged(1 << pid, amount)
+            util.yield(100)
+        end)
+
+        self.trolling:toggle_loop(T'Spoof To Player Position', {}, T'Spoof your position to the coordinates of this player', function()
+            
+            if not self.stand_pos_spoof.value then
+                self.stand_pos_spoof:trigger()
+            end
+
+            local coords = players.get_position(pid)
+            coords.z -= 1000
+            self.stand_spoofed_pos:trigger($'{coords.x}, {coords.y}, {coords.z}')
+        end, function()
+            if self.stand_pos_spoof.value then
+                self.stand_pos_spoof.value = false
+            end
+        end)
+
+        self.trolling:toggle_loop(T'Instant Kill', {}, T'Allows you to instantly kill this player', function()
+            local player_ped = player.get_player_ped(pid)
+            if player_ped ~= 0 then
+                local ptr = entities.handle_to_pointer(player_ped)
+                if ptr ~= 0 then
+                    local player_info = entities.get_player_info(ptr)
+                    if player_info ~= 0 then
+                        memory.write_float(player_info + 0x0D70, math.max_int)
+                    end
+                end
+            end
+        end, function()
+            local player_ped = player.get_player_ped(pid)
+            if player_ped ~= 0 then
+                local ptr = entities.handle_to_pointer(player_ped)
+                if ptr ~= 0 then
+                    local player_info = entities.get_player_info(ptr)
+                    if player_info ~= 0 then
+                        memory.write_float(player_info + 0x0D70, 0.99607843160629)
+                    end
+                end
+            end
+        end)
+
+        self.trolling:toggle_loop(T'Anti-Mission', {$'antimission'}, T'Force any mission the players or participates in to quit', function()
+            local base = self.g.OrganisationBase:g(pid)
+            local mission_id = memory.read_int(base + org_flags.active_mission_id)
+            local script_id = memory.read_int(base + org_flags.script_id)
+
+            if mission_id ~= -1 and script_id ~= -1 then
+                self.se:force_quit_mission(1 << pid)
+            end
+        end)
+
+        self.friendly_bounty = self.friendly:list(T'Bounty', {}, T'Bounty')
+        self.friendly_bounty:toggle_loop(T'Anti-Bounty', {}, T'Prevent other players from placing a bounty on them', function()
+            if players.get_bounty(pid) ~= nil then
+                players.set_bounty(pid, 0, false)
+            end
+        end)
+
+        self.fr_recovery = self.friendly:list(T'Recovery', {}, T'Recovery', nil, nil, || -> self:update_recovery(pid))
+
+        self.fr_recovery:action(T'Give 25K', {$'givemoney'}, T'Give the player 25k (you can give the player upto 425k before hitting the transaction limit)', function()
+            util.trigger_script_event(1 << pid, { 968269233, 0, 5, 1, 0, 0, 0 })
+            util.yield_once()
+            util.trigger_script_event(1 << pid, { 968269233, 0, 5, 1, 1, 1, 1 })
+        end)
+
+        self.fr_recovery_give_rp = self.fr_recovery:action(T'Give 1K RP', {$'giverp1'}, T'Give the player 1K RP', function()
+            util.trigger_script_event(1 << pid, { 968269233, 0, 4, 1, 0, 0, 0 })
+            util.yield(300)
+            util.trigger_script_event(1 << pid, { 968269233, 0, 4, 1, 1, 1, 1 })
+        end)
+
+        self.fr_recovery:divider('')
+        local target_rank = 1
+        self.fr_recovery_rank = self.fr_recovery:slider(T'Rank', {T'rprank'}, T'Set the players rank', 1, 8000, 1, 1, function(rank) target_rank = tonumber(rank) end)
+        self.fr_recovery_set_rank = self.fr_recovery:action(T'Set Rank', {T'rsetrank'}, T'Set the players rank', function()
+            local current_rank = players.get_rank(pid)
+
+            if target_rank > current_rank then
+                while true do
+                    if players.get_rank(pid) >= target_rank then
+                        break
+                    end
+                    for i = 0, 4 do
+                        util.trigger_script_event(1 << pid, { 968269233, 0, 4, i, 0, 0, 0 })
+                    end
+                    util.yield(10)
+                    for i = 0, 4 do
+                        util.trigger_script_event(1 << pid, { 968269233, 0, 4, i, 1, 1, 1 })
+                    end
+                    util.yield(10)
+                end
+            else
+                util.toast(T:T('%s is already a higher rank than %s', name, target_rank))
+            end
+        end)
+
+        self.fr_recovery:divider('')
+        self.fr_recovery:toggle_loop(T'4K RP Loop', {$'giverp1loop'}, T'Give the player 4K RP constantly', function()
+            for i = 0, 4 do
+                util.trigger_script_event(1 << pid, { 968269233, 0, 4, i, 0, 0, 0 })
+            end
+            util.yield(10)
+            for i = 0, 4 do
+                util.trigger_script_event(1 << pid, { 968269233, 0, 4, i, 1, 1, 1 })
+            end
+            util.yield(10)
+        end)
+
+        self.friendly:divider('')
+        self.friendly:action(T'Remove Wanted Level', {}, T'Remove players wanted level', function()
+            util.trigger_script_event(1 << pid, { -1704545346, 1, memory.read_int(self.g.WantedLevelSEPID:g(pid)) })
+        end)
+
+        self.friendly_bounty:toggle_loop(T'Anti-Modded Bounty', {}, T'Prevent modders from placing a modded bounty on them', function()
+            local amount = players.get_bounty(pid)
+            if amount ~= nil and amount & 0xF ~= 0x8 then
+                players.set_bounty(pid, 0, false)
+            end
+        end)
+
+        if not is_self and self.utils:is_dev(players.user()) then
+            self.neutral:toggle_loop(T'Show Railgun Aim Prediction', {}, T'Show where to aim the railgun to hit players on mk2\'s and other vehicles', function()
+                local pcoords = players.get_position(players.user())
+                local pped = player.get_player_ped(pid)
+                if ped.is_ped_in_any_vehicle(pped) then
+                    local veh = ped.get_vehicle_ped_is_in(pped, false)
+                    if veh ~= 0 then
+                        local coords = entity.get_entity_coords(veh)
+                        local velocity = entity.get_entity_velocity(veh):mul(1.0)
+                        local dist = pcoords:distance(coords)
+                        local time = dist / 1000.0
+                        local prediction = v3(velocity.x * time, velocity.y * time, velocity.z * time):add(coords)
+
+                        if util.get_screen_coord_from_world_coord_no_adjustment(prediction.x, prediction.y, prediction.z, self.sx_ptr, self.sy_ptr) then
+                            local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
+                            directx.draw_circle(sx, sy, 0.003, 1, 0, 0, 0.5)
+                        end
+                    end
+                else
+                    local coords = entity.get_entity_coords(pped)
+                    local velocity = entity.get_entity_velocity(pped)
+                    local dist = pcoords:distance(coords)
+                    local time = dist / 1000.0
+                    local prediction = v3(velocity.x * time, velocity.y * time, velocity.z * time):add(coords)
+
+                    if util.get_screen_coord_from_world_coord_no_adjustment(prediction.x, prediction.y, prediction.z, self.sx_ptr, self.sy_ptr) then
+                        local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
+                        directx.draw_circle(sx, sy, 0.003, 1, 0, 0, 0.5)
+                    end
+                end
+            end)
+
+            self.neutral:toggle_loop(T'Show Up-Atomiser Aim Prediction', {}, T'Show where to aim the up-n-atomiser to hit players on mk2\'s and other vehicles', function()
+                local pcoords = players.get_position(players.user())
+                local pped = player.get_player_ped(pid)
+                if ped.is_ped_in_any_vehicle(pped) then
+                    local veh = ped.get_vehicle_ped_is_in(pped, false)
+                    if veh ~= 0 then
+                        local coords = entity.get_entity_coords(veh)
+                        local velocity = entity.get_entity_velocity(veh):mul(1.0)
+                        local dist = pcoords:distance(coords)
+                        local time = dist / 200.0
+                        local prediction = v3(velocity.x * time, velocity.y * time, velocity.z * time):add(coords)
+
+                        if util.get_screen_coord_from_world_coord_no_adjustment(prediction.x, prediction.y, prediction.z, self.sx_ptr, self.sy_ptr) then
+                            local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
+                            directx.draw_circle(sx, sy, 0.003, 1, 0, 0, 0.5)
+                        end
+                    end
+                else
+                    local coords = entity.get_entity_coords(pped)
+                    local velocity = entity.get_entity_velocity(pped)
+                    local dist = pcoords:distance(coords)
+                    local time = dist / 200.0
+                    local prediction = v3(velocity.x * time, velocity.y * time, velocity.z * time):add(coords)
+
+                    if util.get_screen_coord_from_world_coord_no_adjustment(prediction.x, prediction.y, prediction.z, self.sx_ptr, self.sy_ptr) then
+                        local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
+                        directx.draw_circle(sx, sy, 0.003, 1, 0, 0, 0.5)
+                    end
+                end
+            end)
+        end
+
+        if not is_self then
+            self.ghosted = self.root:list(T'Ghosted', {}, T'Ghosted', nil, nil, || -> self:update_ghosted(pid))
+            local times_killed = self.ghosted:readonly(T:T('Times Killed: %d', 0), '')
+            local is_ghosted = self.ghosted:readonly(T:T('Ghosted To: %s', T'No'), '')
+
+            self.ghosted:divider('')
+            self.ghosted:action(T'Become Ghosted', {}, T'Become ghosted to this player', function()
+                local ghosted_timer = self.g.GhostedTimer:g(pid)
+                local timer_active = ghosted_timer + 0x8
+
+                if memory.read_byte(timer_active) == 0 then
+                    memory.write_int(ghosted_timer, network.get_network_time())
+                    memory.write_byte(timer_active, 1)
+                    network.set_remote_player_as_ghost(pid, true)
+                    self.se:become_ghosted(1 << pid, players.user())
+                else
+                    util.display_error(T'You are already ghosted to this player')
+                end
+            end)
+
+            self.ghosted:action(T'Become Unghosted', {}, T'Unghost yourself to this player', function()
+                local ghosted_timer = self.g.GhostedTimer:g(pid)
+                local timer_active = ghosted_timer + 0x8
+
+                if memory.read_byte(timer_active) == 1 then
+                    memory.write_int(ghosted_timer, 0)
+                else
+                    util.display_error(T'You are not ghosted to this player')
+                end
+            end)
+
+            self.tut_session = self.root:list(T'Tutorial Session', {}, T'Tutorial Session', nil, nil, || -> self:update_tut_sessions(pid))
+            self.tut_session:readonly(T'Instance ID: ?', '')
+            self.tut_session:readonly(T'Team ID: ?', '')
+            self.tut_session:readonly(T'Can Join: ?', '')
+            self.tut_session:divider('')
+
+            self.tut_session:action(T'Join', {}, T'Join the players tutorial session', function()
+                local instance_id, team_id = self:get_instance_and_team_id(pid)
+                if instance_id == 64 then
+                    util.display_error(T'You cannot join this players tutorial session')
+                    return
+                end
+                if network.network_get_player_tutorial_session_instance(players.user()) ~= instance_id then
+                    network.network_allow_gang_to_join_tutorial_session(instance_id, team_id)
+                else
+                    util.display_error(T'You are already in this players tutorial session')
+                end
+            end)
+
+            self.tut_session:action(T'Leave', {}, T'Leave the players tutorial session', function()
+                network.network_end_tutorial_session()
+            end)
+        end
+
+        self.player_esp = self.root:list(T'ESP', {}, T'Player ESP')
+        self.player_esp:toggle_loop(T'Bone ESP', {}, T'Enable bone ESP for this player', function()
+            esp.draw_bone_esp(player.get_player_ped(pid), self.esp_bone)
+        end)
+
+        self.player_esp:toggle_loop(T'Box ESP', {}, T'Enable box ESP for this player', function()
+            esp.draw_box_esp(player.get_player_ped(pid), self.esp_box)
+        end)
+
+        self.player_esp:toggle_loop(T'Name ESP', {}, T'Enable name ESP for this player', function()
+            esp.draw_name_esp(player.get_player_ped(pid), players.get_name(pid), self.esp_name)
+        end)
+
+        self.player_esp:toggle_loop(T'Health / Armour Bar', {}, T'Enable health and armour bar ESP for this player', function()
+            esp.draw_health_esp(player.get_player_ped(pid))
+        end)
+        
+        self.player_esp:divider('')
+        self.player_esp:colour(T'Bone Colour', {}, T'The colour of the bones', colour.hex_to_float(self.esp_bone), false, function(c)
+            self.esp_bone = colour.float_to_hex(c.r, c.g, c.b, c.a)
+        end)
+
+        self.player_esp:colour(T'Box Colour', {}, T'The colour of the box', colour.hex_to_float(self.esp_box), false, function(c)
+            self.esp_box = colour.float_to_hex(c.r, c.g, c.b, c.a)
+        end)
+
+        self.player_esp:colour(T'Name Colour', {}, T'The colour of the name', colour.hex_to_float(self.esp_name), false, function(c)
+            self.esp_name = colour.float_to_hex(c.r, c.g, c.b, c.a)
+        end)
+
+        if is_self then
+            self.invites = self.root:list(T'Invites', {}, T'Invites')
+            local invite_nickname
+            self.invites:text_input(T'Nickname', {'rpinvitenick'}, T'Nickname for this player', function(nickname)
+                invite_nickname = nickname            
+            end)
+            self.invites:action(T'Add To Quick Invites', {}, T'Add this player to the list of players that you want to quickly invite to your session using commands', function()
+                local name = players.get_name(pid)
+                local path = $'{SCRIPT_ROOT}\\config\\quick_invites.json'
+                if not filesystem.exists(path) then
+                    local file <close> = assert(io.open(path, 'w'))
+                    file:write(soup.json.encode({
+                        [name] = { tostring(players.get_rockstar_id(pid)):hash(), invite_nickname }
+                    }, true))
+                else
+                    local file <close> = assert(io.open(path, 'r'))
+                    local data = file:read('*all')
+                    local invites = soup.json.decode(data)
+                    invites[name] = { tostring(players.get_rockstar_id(pid)):hash(), invite_nickname }
+                    local file <close> = assert(io.open(path, 'w'))
+                    file:write(soup.json.encode(invites, true))
+                end
+            end)
+
+            self.invites:action(T'Remove From Quick Invites', {}, T'Remove this player from the list of players that you want to quickly invite to your session using commands', function()
+                local name = players.get_name(pid)
+                local path = SCRIPT_ROOT .. '/config/quick_invites.json'
+                if filesystem.exists(path) then
+                    local file <close> = assert(io.open(path, 'r'))
+                    local data = file:read('*all')
+                    local invites = soup.json.decode(data)
+                    invites[name] = nil
+                    local file <close> = assert(io.open(path, 'w'))
+                    file:write(soup.json.encode(invites, true))
+                end
+            end)
+        end
+
+        if self.utils:is_dev(pid) then
+            self.root:divider('')
+            self.root:action(T'Copy CPed Address', {}, T'Copy the address of the players CPed', function()
+                util.copy_addr(entities.handle_to_pointer(player.get_player_ped(pid)), true)
+            end)
+
+            self.root:action(T'Copy CVehicle Address', {}, T'Copy the address of the players CVehicle', function()
+                local veh = ped.get_vehicle_ped_is_in(player.get_player_ped(pid), false)
+                if veh ~= 0 then
+                    util.copy_addr(entities.handle_to_pointer(veh), true)
+                end
+            end)
+
+            self.root:action(T'Copy CPlayerInfo Address', {}, T'Copy the address of the players CPlayerInfo', function()
+                local player_ped = player.get_player_ped(pid)
+                util.copy_addr(entities.get_player_info(entities.handle_to_pointer(player_ped)), true)
+            end)
+        end
+    end
+
+    function player_remove(pid, name)
+        self.utils:remove_player(pid)
+        self.utils:remove_friend(pid)
+
+        local ref = self.proot:refByRelPath(name)
+        if ref:isValid() then
+            ref:delete()
+        end
+    end
+
+    function update_player_info(pid)
+        if not self.update:isset(eUpdateFlags.UF_PLAYER_INFO) then
+            self.update:set(eUpdateFlags.UF_PLAYER_INFO)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if not self.pinfo:isValid() then goto continue end
+                if item.menu_name ~= self.pinfo.menu_name then
+                    self.update:clear(eUpdateFlags.UF_PLAYER_INFO)
+                    return false
+                end
+
+                local pped = player.get_player_ped(pid)
+                local veh = 0
+                local model = 'NULL'
+                if not ped.is_ped_in_any_vehicle(pped) then
+                    veh = 0
+                    model = 'NULL'
+                else
+                    veh = ped.get_vehicle_ped_is_in(pped, false)
+                    model = entity.get_entity_model(veh)
+                end
+
+                local children = item:getChildren()
+                local mental_state = self.g.MentalStateValue:g(pid)
+
+                local state = self.g.CasinoState:g(pid)
+                local casino_state = ''
+                if interior.get_interior_from_entity(player.get_player_ped(pid)) ~= 275201 then
+                    casino_state = T'None'
+                else
+                    local flags = memory.read_int(state)
+                    if memory.bits:isset(flags, casino_state_flags.blackjack) then
+                        casino_state = T'Blackjack'
+                    elseif memory.bits:isset(flags, casino_state_flags.poker) then
+                        casino_state = T'Poker'
+                    elseif memory.bits:isset(flags, casino_state_flags.roulette) then
+                        casino_state = T'Roulette'
+                    elseif memory.bits:isset(flags, casino_state_flags.lucky_wheel) then
+                        casino_state = T'Lucky Wheel'
+                    elseif memory.bits:isset(flags, casino_state_flags.slot_machines) then
+                        casino_state = T'Slot Machine'
+                    else
+                        casino_state = T'None'
+                    end
+                end
+
+                local ptr = entities.handle_to_pointer(pped)
+                local damage_bits = 0
+                if ptr ~= 0 then
+                    damage_bits = memory.read_int(ptr + 0x188)
+                end
+
+                local g_interior = self.g.Interior:g(pid)
+                local prop_id = memory.read_int(g_interior)
+                local interior_name = ''
+
+                if prop_id ~= -1 then
+                    for k, v in pairs(self.property_ids) do
+                        if v == prop_id then
+                            interior_name = k
+                            break
+                        end
+                    end
+                end
+
+                local shots_fired = self.g.StatShots:g(pid)
+                local shots_hit = self.g.StatHits:g(pid)
+                local accuracy = memory.read_int(shots_hit) / memory.read_int(shots_fired) * 100
+                local base = self.g.OrganisationBase:g(pid)
+                local mission_id = memory.read_int(base + org_flags.active_mission_id)
+                local script_name = script_ids[memory.read_int(base + org_flags.script_id)]
+                if mission_id == -1 then script_name = T'None' end
+
+                local crew_rank = self:get_active_crew_rank(pid)
+                if crew_rank == '' then crew_rank = T'None' end
+
+                local yacht_name = ''
+                if self:is_yacht_owned(pid) then
+                    yacht_name = self:get_yacht_name(pid)
+                else
+                    yacht_name = T'None'
+                end
+
+                local thr_data = players.get_data_for_tryhard_rating(pid)
+                local rating = self.utils:calculate_tryhard_rating(thr_data.kd, thr_data.level, thr_data.accuracy, thr_data.kills, thr_data.deaths)
+
+                children[1].menu_name = T:T('Script Developer: %s', self.utils:is_dev(pid) ? T'Yes' : T'No')
+                children[2].menu_name = T:T('Badsport: %s', self:is_bad_sport(pid) ? T'Yes' : T'No')
+                children[3].menu_name = T:T('Cheater: %s', self:is_cheater(pid) ? T'Yes' : T'No')
+                children[4].menu_name = T:T('Orbital Cannon: %s', self:is_using_orbital_cannon(pid) ? T'Yes' : T'No')
+                children[5].menu_name = T:T('Drone: %s', self:is_using_drone(pid) ? T'Yes' : T'No')
+                children[6].menu_name = T:T('Godmode: %s', players.is_godmode(pid) ? T'Yes' : T'No')
+                children[7].menu_name = T:T('Vehicle: %s', (veh ~= 0) ? util.get_label_text(util.reverse_joaat(model)) : T'None')
+                children[8].menu_name = T:T('Vehicle Health: %d', entity.get_entity_health(veh))
+                children[9].menu_name = T:T('Vehicle Owner: %s',(veh ~= 0) ? players.get_name(entities.get_owner(pid)) : T'None')
+                children[10].menu_name = T:T('Mental State: %f', memory.read_float(mental_state))
+                children[11].menu_name = T:T('Latency: %0.2f ms', network.network_get_average_latency(pid))
+                children[12].menu_name = T:T('Casino State: %s', casino_state)
+                children[13].menu_name = T:T('Interior ID: %s', interior.get_interior_from_entity(pped))
+                children[14].menu_name = T:T('Damage Bits: 0x%X', damage_bits)
+                children[15].menu_name = T:T('Interior Name: %s', interior_name == '' ? T'None' : interior_name)
+                children[16].menu_name = T:T('Property ID: %d', prop_id)
+                children[17].menu_name = T:T('Accuracy: %.2f', accuracy)
+                children[18].menu_name = T:T('Mission ID: %d', mission_id)
+                children[19].menu_name = T:T('Script ID: %s', script_name)
+                children[20].menu_name = T:T('Crew Rank: %s', crew_rank)
+                children[21].menu_name = T:T('Yacht Name: %s', yacht_name)
+                children[22].menu_name = T:T('Tryhard Rating: %f', rating)
+
+                ::continue::
+            end)
+        end
+    end
+
+    function update_personal_vehicle(pid)
+        if not self.update:isset(eUpdateFlags.UF_PERSONAL_VEHICLE) then
+            self.update:set(eUpdateFlags.UF_PERSONAL_VEHICLE)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.pv.menu_name then
+                    self.update:clear(eUpdateFlags.UF_PERSONAL_VEHICLE)
+                    return false
+                end
+
+                local children = item:getChildren()
+                local network_id = self:get_pv_network_id(pid)
+                local veh = network.net_to_veh(network_id)
+                local model = entity.get_entity_model(veh)
+
+                children[2].menu_name = T:T('Model: %s', util.get_label_text(util.reverse_joaat(model)))
+                children[3].menu_name = T:T('Health: %d', entity.get_entity_health(veh))
+                children[4].menu_name = T:T('Godmode: %s', entities.is_godmode(veh) ? T'Yes' : T'No')
+                children[5].menu_name = T:T('Frozen: %s', entities.is_frozen(veh) ? T'Yes' : T'No')
+                children[6].menu_name = T:T('Invisible: %s', entities.is_invisible(veh) ? T'Yes' : T'No')
+                children[7].menu_name = T:T('Can Migrate: %s', entities.get_can_migrate(veh) ? T'Yes' : T'No')
+                children[8].menu_name = T:T('Network ID: %d', network_id)
+                children[9].menu_name = T:T('Owner: %s', (veh ~= 0) ? players.get_name(entities.get_owner(pid)) : T'None')
+            end)
+        end
+    end
+
+    function update_ghosted(pid)
+        if not self.update:isset(eUpdateFlags.UF_GHOSTED) then
+            self.update:set(eUpdateFlags.UF_GHOSTED)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.ghosted.menu_name then
+                    self.update:clear(eUpdateFlags.UF_GHOSTED)
+                    return false
+                end
+
+                local children = item:getChildren()
+                local ghosted_timer = self.g.GhostedTimer:g(pid)
+                local timer_active = ghosted_timer + 0x8
+                local killed = self.g.GhostedKilledByPlayerCount:g(pid)
+
+                local times_killed = memory.read_int(killed)
+                children[1].menu_name = T:T('Times Killed: %d', times_killed)
+                children[2].menu_name = T:T('Ghosted To: %s', (memory.read_byte(timer_active) == 1) ? T'Yes' : T'No')
+            end)
+        end
+    end
+
+    function update_tut_sessions(pid)
+        if not self.update:isset(eUpdateFlags.UF_TUT_SESSIONS) then
+            self.update:set(eUpdateFlags.UF_TUT_SESSIONS)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.tut_session.menu_name then
+                    self.update:clear(eUpdateFlags.UF_TUT_SESSIONS)
+                    return false
+                end
+
+                local children = item:getChildren()
+                local instance_id, team_id = self:get_instance_and_team_id(pid)
+                local can_join = (instance_id == 64 or network.network_get_player_tutorial_session_instance(pid) == -1)
+
+                children[1].menu_name = T:T('Instance ID: %d', instance_id)
+                children[2].menu_name = T:T('Team ID: %d', team_id)
+                children[3].menu_name = T:T('Can Join: %s', can_join ? T'Yes' : T'No')
+            end)
+        end
+    end
+
+    function update_wheel_states(pid)
+        if not self.update:isset(eUpdateFlags.UF_WHEEL_STATES) then
+            self.update:set(eUpdateFlags.UF_WHEEL_STATES)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                local player_ped = player.get_player_ped(pid)
+                local veh = ped.get_vehicle_ped_is_using(player_ped)
+
+                if veh == 0 then
+                    goto continue
+                end
+
+                if item.menu_name ~= self.wheels.menu_name then
+                    self.update:clear(eUpdateFlags.UF_WHEEL_STATES)
+                    return false
+                end
+
+                if veh ~= 0 then
+                    local ptr = entities.handle_to_pointer(veh)
+                    if ptr ~= 0 then
+                        local state = memory.read_short(ptr + 0xA98)
+                        local wheel_count = memory.read_byte(ptr + 0xDA0)
+
+                        local player_labels = self.wheel_labels[pid]
+                        if type(player_labels) == 'table' then
+                            for i = 1, 8 do
+                                if player_labels[i]:isValid() then
+                                    player_labels[i].visible = i <= wheel_count
+                                    player_labels[i].menu_name = T:T('Wheel %d: %s', i, (memory.bits:isset(state, 1 << (i - 1))) ? T'Detached' : T'Attached')
+                                end
+                            end
+                        end
+                    end
+                end
+
+                ::continue::
+            end)
+        end
+    end
+
+    function update_bounty(pid)
+        if not self.update:isset(eUpdateFlags.UF_BOUNTY) then
+            self.update:set(eUpdateFlags.UF_BOUNTY)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.bounty.menu_name then
+                    self.update:clear(eUpdateFlags.UF_BOUNTY)
+                    return false
+                end
+
+                local children = item:getChildren()
+                local d_active, d_amount, d_reward, d_modded = children[1], children[2], children[3], children[4]
+                local bounty = players.get_bounty(pid)
+                local is_active = players.is_bounty_active(pid)
+
+                if d_active:isValid() then 
+                    d_active.menu_name = T:T('Active: %s', is_active ? T'Yes' : T'No') 
+                end
+
+                if d_amount:isValid() then 
+                    d_amount.menu_name = T:T('Amount: %s', is_active ? bounty : 0) 
+                end
+
+                if d_reward:isValid() then 
+                    d_reward.menu_name = T:T('Reward: %s', is_active ? players.get_bounty_reward(pid) : 0) 
+                end
+
+                if d_modded:isValid() then 
+                    d_modded.menu_name = T:T('Modded: %s', is_active ? (bounty & 0xF ~= 0x8) ? T'Yes' : T'No' : T'No') 
+                end
+            end)
+        end
+    end
+
+    function update_recovery(pid)
+        if not self.update:isset(eUpdateFlags.UF_RECOVERY) then
+            self.update:set(eUpdateFlags.UF_RECOVERY)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.fr_recovery.menu_name then
+                    self.update:clear(eUpdateFlags.UF_RECOVERY)
+                    return false
+                end
+
+                local focus = menu.list_get_focus(self.fr_recovery)
+                local children = item:getChildren()
+                if focus:isValid() then
+                    local menu_name = focus.menu_name
+                    if not (menu_name == children[4].menu_name or menu_name == children[5].menu_name) then
+                        children[4].value = players.get_rank(pid)
+                    end
+                end
+            end)
+        end
+    end
+
+    inline function out_of_range()
+        util.display_error(T'Player is out of range, spectate or get closer to them.')
+    end
+
+    function force_vehicle_respawn(pid)
+        local veh = new Vehicle(self:get_pv_from_network_id(pid))
+        if veh:valid() then
+            if not ped.is_ped_in_any_vehicle(player.get_player_ped(pid)) then
+                if veh:request_control() then
+                    self:soft_vehicle_spoof(pid, true)
+                    veh:decor_set_int('Previous_Owner', self.nethash)
+                    veh:decor_set_int('MPBitset', 0)
+                else
+                    self:control_failure()
+                end
+            else
+                util.display_error(T'Player is in a vehicle, please remove them first by kicking them.')
+            end
+        end
+    end
+
+    inline function soft_vehicle_spoof(pid, state)
+        self:set_pv_network_id(players.user(), state ? (self:get_pv_network_id(pid)) : -1)
+    end
+
+    function hard_vehicle_spoof(pid, state)
+        local veh = new Vehicle(self:get_pv_from_network_id(pid))
+        if veh:valid() then
+            if state then
+                self.pvm:request(0)
+                self:set_pv_network_id(players.user(), self:get_pv_network_id(pid))
+                veh:decor_set_int('Player_Vehicle', self.nethash)
+                veh:decor_set_int('Previous_Owner', self.nethash)
+            else
+                local nethash = network.network_hash_from_player_handle(pid)
+                veh:decor_set_int('Player_Vehicle', nethash)
+                veh:decor_set_int('Previous_Owner', nethash)
+            end
+            return true
+        end
+        return false
+    end
+
+    function is_vehicle_spoofed(pid)
+        local my_veh = self:get_pv_from_network_id(players.user())
+        local their_veh = self:get_pv_from_network_id(pid)
+
+        if my_veh ~= their_veh and pvm:get_active_slot() == -1 then
+            return false
+        else
+            return true
+        end
+        return false
+    end
+
+    function ensure_vehicle_is_spoofed(pid)
+        if not self:is_vehicle_spoofed(pid) then
+            self:hard_vehicle_spoof(pid, true)
+            repeat
+                util.yield_once()
+            until self:is_vehicle_spoofed(pid)
+        end
+    end
+
+    function takeover_kick(pid)
+        local veh = new Vehicle(self:get_pv_from_network_id(pid))
+        if veh:valid() then
+            self.pvm:return_active()
+            self:hard_vehicle_spoof(pid, true)
+            util.yield(1000)
+            util.trigger_script_event(1 << pid, {-306678306, 1, 0, 1, 0})
+
+            repeat
+                util.yield_once()
+            until not ped.is_ped_in_any_vehicle(player.get_player_ped(pid), false)
+            util.yield(200)
+            self:hard_vehicle_spoof(pid, false)
+            self:set_pv_network_id(players.user(), -1)
+        else
+            self:out_of_range()
+        end
+    end
+
+    function regular_kick(pid)
+        local veh = new Vehicle(self:get_pv_from_network_id(pid))
+        if veh:valid() then
+            local default_netid = self:get_pv_network_id(players.user())
+            self.pvm:return_active()
+            self:set_pv_network_id(players.user(), self:get_pv_network_id(pid))
+            util.yield(30)
+            self:set_pv_network_id(players.user(), -1)
+        else
+            self:out_of_range()
+        end
+    end
+end
+
+return Players

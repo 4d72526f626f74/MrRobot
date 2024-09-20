@@ -1,0 +1,37 @@
+pluto_use class
+
+pluto_class Emitter
+    function __construct(event_toggles)
+        self.events = {}
+        self.event_toggles = event_toggles
+    end
+
+    inline function on(event, callback)
+        if not self.events[event] then
+            self.events[event] = {}
+        end
+
+        table.insert(self.events[event], callback)
+    end
+
+    inline function once(event, callback)
+        local function wrapper(...)
+            callback(...)
+            self.off(event, wrapper)
+        end
+
+        self.on(event, wrapper)
+    end
+
+    inline function emit(event, ...)
+        if not self.events[event] then
+            return
+        end
+
+        for _, callback in ipairs(self.events[event]) do
+            callback(...)
+        end
+    end
+end
+
+return Emitter

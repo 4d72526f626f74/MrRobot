@@ -1,0 +1,21 @@
+return {
+    bandito = 0xD960,
+    tank = 0xD968,
+    moc = 0x1D88,
+    avenger = 0x1DC8,
+    acid_lab = 0x1DF8,
+    terrorbyte = 0x1DF0,
+    dinghy = 0x1ED8,
+    kosatka = 0x1E78,
+    sparrow = 0x108,
+    avisa = 0x110,
+    avenger_thruster = 0xF0,
+    rat_bike = 0xC8,
+    ballistic_armor = 0x1CA0,
+    ammo_drop = 0x1C50,
+    helicopter = 0x1C60,
+    delivery_bike = 0x1F88,
+    airstrike = 0x8CD8,
+    backup_heli = 0x8CD0,
+    bst = 0x1C90
+}

@@ -1,0 +1,291 @@
+pluto_use class, new
+
+class WeaponManager
+    function __construct()
+        self.double_tap = {}
+        self.fast_reload = {}
+        self.weapon_spread = {}
+        self.weapon_penetration = {}
+        self.weapon_damage = {}
+    end
+
+    inline function get_current_weapon()
+        local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
+        if weapon_manager ~= 0 then
+            local current = memory.read_long(weapon_manager + 0x20)
+            if current ~= 0 then
+                return current
+            end
+        end
+        return 0
+    end
+
+    inline function get_weapon_ammo_info()
+        return memory.read_long(self:get_current_weapon() + 0x60)
+    end
+
+    inline function get_weapon_hash()
+        local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
+        if weapon_manager ~= 0 then
+            return memory.read_int(weapon_manager + 0x18)
+        end
+        return 0
+    end
+
+    inline function get_weapon_range()
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            return memory.read_float(current + 0x28C)
+        end
+        return 500.0
+    end
+
+    inline function get_weapon_bullets_mult()
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            return memory.read_int(current + 0x120)
+        end
+        return 0
+    end
+
+    inline function get_weapon_damage()
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            return memory.read_float(current + 0xB0)
+        end
+        return 0.0
+    end
+
+    inline function get_weapon_real_damage()
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            local bullet_mult = self:get_weapon_bullets_mult()
+            local damage = self:get_weapon_damage()
+            return bullet_mult * damage
+        end
+        return 0.0
+    end
+
+    inline function get_weapon_penetration()
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            return memory.read_float(current + 0x110)
+        end
+        return 0.0
+    end
+
+    inline function get_weapon_spread()
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            return memory.read_float(current + 0x74)
+        end
+        return 0.0
+    end
+
+    inline function get_weapon_reload_speed_animation()
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            return memory.read_float(current + 0x134)
+        end
+        return 0.0
+    end
+
+    inline function get_weapon_vehicle_damage_modifier()
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            return memory.read_float(current + 0xD4)
+        end
+        return 0.0
+    end
+
+    inline function set_special_ammo_type(value)
+        if not util.can_continue() then return end
+        local ammo_info = self:get_weapon_ammo_info()
+        if ammo_info ~= 0 then
+            memory.write_int(ammo_info + 0x3C, value)
+        end
+    end
+
+    inline function get_special_ammo_type()
+        local ammo_info = self:get_weapon_ammo_info()
+        if ammo_info ~= 0 then
+            return memory.read_int(ammo_info + 0x3C)
+        end
+        return 0
+    end
+
+    inline function get_damage_type()
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            return memory.read_int(current + 0x20)
+        end
+    end
+
+    inline function set_damage_type(value)
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            memory.write_int(current + 0x20, value)
+        end
+    end
+
+    inline function set_weapon_bullet_mult(value)
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            local addr = current + 0x120
+            local current_value = memory.read_int(addr)
+            if not self.double_tap[current] then
+                self.double_tap[current] = {
+                    addr = addr,
+                    value = current_value
+                }
+            end
+            memory.write_int(addr, value)
+        end
+    end
+
+    inline function default_weapon_bullet_mult()
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            if self.double_tap[current] then
+                local data = self.double_tap[current]
+                memory.write_int(
+                    data.addr,
+                    data.value
+                )
+            end
+        end
+    end
+
+    inline function set_weapon_damage(value)
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            local addr = current + 0xB0
+            local current_value = memory.read_float(addr)
+            if not self.weapon_damage[current] then
+                self.weapon_damage[current] = {
+                    addr = addr,
+                    value = current_value
+                }
+            end
+            memory.write_float(addr, value)
+        end
+    end
+
+    inline function default_weapon_damage()
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            if self.weapon_damage[current] then
+                local data = self.weapon_damage[current]
+                memory.write_float(
+                    data.addr,
+                    data.value
+                )
+            end
+        end
+    end
+
+    inline function set_weapon_penetration(value)
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            local addr = current + 0x110
+            local current_value = memory.read_float(addr)
+            if not self.weapon_penetration[current] then
+                self.weapon_penetration[current] = {
+                    addr = addr,
+                    value = current_value
+                }
+            end
+            memory.write_float(addr, value)
+        end
+    end
+
+    inline function default_weapon_penetration()
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            if self.weapon_penetration[current] then
+                local data = self.weapon_penetration[current]
+                memory.write_float(
+                    data.addr,
+                    data.value
+                )
+            end
+        end
+    end
+
+    inline function set_weapon_spread(value)
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            local addr = current + 0x74
+            local current_value = memory.read_float(addr)
+            if not self.weapon_spread[current] then
+                self.weapon_spread[current] = {
+                    addr = addr,
+                    value = current_value
+                }
+            end
+            memory.write_float(addr, value)
+        end
+    end
+
+    inline function default_weapon_spread()
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            if self.weapon_spread[current] then
+                local data = self.weapon_spread[current]
+                memory.write_float(
+                    data.addr,
+                    data.value
+                )
+            end
+        end
+    end
+
+    inline function set_weapon_reload_speed_animation(value)
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            local addr = current + 0x134
+            local current_value = memory.read_float(addr)
+            if not self.fast_reload[current] then
+                self.fast_reload[current] = {
+                    addr = addr,
+                    value = current_value
+                }
+            end
+            memory.write_float(addr, value)
+        end
+    end
+
+    inline function default_weapon_reload_speed_animation()
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            if self.fast_reload[current] then
+                local data = self.fast_reload[current]
+                memory.write_float(
+                    data.addr,
+                    data.value
+                )
+            end
+        end
+    end
+
+    ineline function set_weapon_vehicle_damage_modifier(value)
+        if not util.can_continue() then return end
+        local current = self:get_current_weapon()
+        if current ~= 0 then
+            memory.write_float(current + 0xD4, value)
+        end
+    end
+end
+
+return new WeaponManager()

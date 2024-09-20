@@ -1,0 +1,2986 @@
+pluto_use class, new, parent
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+local bitwise = require('libs.bitwise')
+local esp = require('libs.esp')
+local colour = require('libs.colour')
+local offsets = require('offsets.request_services')
+local kosatka_stats = require('flags.kosatka_stats')
+local lester_locate = require('flags.lester_locate')
+local vehicles = require('data.vehicles')
+local money_offsets = require('offsets.money')
+local script_settings = require('flags.script_settings')
+local casino_cards = require('data.casino_cards')
+local casino_state_flags = require('flags.casino_state')
+local business_production_stats = require('offsets.business_production_stats')
+local stats_offsets = require('offsets.stats_spoofing')
+local street_dealer_offsets = require('offsets.street_dealer')
+local labels = require('utils.labels')
+local damage_flags = require('flags.damage_flags')
+local script_ids = require('data.script_ids')
+local org_flags = require('flags.organisation')
+
+local DEALER_DECK_OFFSET <constexpr> = 3
+local PLAYER_DECK_OFFSET <constexpr> = 53
+
+enum eUpdateFlags begin
+    UF_QUICK_INVITES = 1 << 0,
+    UF_BJ_DEALERCARDS = 1 << 1,
+    UF_HANGAR_CARGO = 1 << 2,
+    UF_STREET_DEALER = 1 << 3,
+    UF_CREW_0 = 1 << 4,
+    UF_CREW_1 = 1 << 5,
+    UF_CREW_2 = 1 << 6,
+    UF_CREW_3 = 1 << 7,
+    UF_ORGANISATION_GOONS = 1 << 8,
+end
+
+class Online extends Module
+    function __construct(root)
+        self.root = root
+        self.esp_bone = 0xFF0000FF
+        self.esp_box = 0xFF0000FF
+        self.esp_name = 0xFF0000FF
+
+        self.update = new bitwise.bitfield(0)
+
+        self.property_ids = require('data.property_ids')
+        self.properties = {}
+        for k, v in pairs(self.property_ids) do
+            self.properties[v] = k
+        end
+        self.properties_data = self.utils:sort_table(self.properties, |a, b| -> a < b)
+        self.properties = self.utils:sort_table_indexed(self.properties)
+
+        self.handler.ghosting_loop = self.utils:partial(self.ghosting_loop, self)
+        self.handler.ghosting_remove_player = self.utils:partial(self.ghosting_remove_player, self)
+        self.handler.blame_kill_add = self.utils:partial(self.blame_kill_add, self)
+        self.handler.blame_kill_remove = self.utils:partial(self.blame_kill_remove, self)
+
+        self.remove_players = menu.ref_by_path('Online>Session>Block Joins>Removed Players')
+
+        self.card_options = {
+            { 0, 'None' },
+            { 1, 'Black Ace of Clubs' },
+            { 2, 'Black Two of Clubs' },
+            { 3, 'Black Three of Clubs' },
+            { 4, 'Black Four of Clubs' },
+            { 5, 'Black Five of Clubs' },
+            { 6, 'Black Six of Clubs' },
+            { 7, 'Black Seven of Clubs' },
+            { 8, 'Black Eight of Clubs' },
+            { 9, 'Black Nine of Clubs' },
+            { 10, 'Black Ten of Clubs' },
+            { 11, 'Black Jack of Clubs' },
+            { 12, 'Black Queen of Clubs' },
+            { 13, 'Black King of Clubs' },
+            { 14, 'Red Ace of Diamonds' },
+            { 15, 'Red Two of Diamonds' },
+            { 16, 'Red Three of Diamonds' },
+            { 17, 'Red Four of Diamonds' },
+            { 18, 'Red Five of Diamonds' },
+            { 19, 'Red Six of Diamonds' },
+            { 20, 'Red Seven of Diamonds' },
+            { 21, 'Red Eight of Diamonds' },
+            { 22, 'Red Nine of Diamonds' },
+            { 23, 'Red Ten of Diamonds' },
+            { 24, 'Red Jack of Diamonds' },
+            { 25, 'Red Queen of Diamonds' },
+            { 26, 'Red King of Diamonds' },
+            { 27, 'Red Ace of Hearts' },
+            { 28, 'Red Two of Hearts' },
+            { 29, 'Red Three of Hearts' },
+            { 30, 'Red Four of Hearts' },
+            { 31, 'Red Five of Hearts' },
+            { 32, 'Red Six of Hearts' },
+            { 33, 'Red Seven of Hearts' },
+            { 34, 'Red Eight of Hearts' },
+            { 35, 'Red Nine of Hearts' },
+            { 36, 'Red Ten of Hearts' },
+            { 37, 'Red Jack of Hearts' },
+            { 38, 'Red Queen of Hearts' },
+            { 39, 'Red King of Hearts' },
+            { 40, 'Black Ace of Spades' },
+            { 41, 'Black Two of Spades' },
+            { 42, 'Black Three of Spades' },
+            { 43, 'Black Four of Spades' },
+            { 44, 'Black Five of Spades' },
+            { 45, 'Black Six of Spades' },
+            { 46, 'Black Seven of Spades' },
+            { 47, 'Black Eight of Spades' },
+            { 48, 'Black Nine of Spades' },
+            { 49, 'Black Ten of Spades' },
+            { 50, 'Black Jack of Spades' },
+            { 51, 'Black Queen of Spades' },
+            { 52, 'Black King of Spades' }
+        }
+
+        self.fake_notif = self.root:list(T'Fake Notifications', {T'rofakenotif'})
+        self.services = self.root:list(T'Services', {T'roservices'})
+        self.organisation = self.root:list(T'Organisation', {T'roorganisation'})
+        self.bounty = self.root:list(T'Bounty', {T'robounty'})
+        self.spoofing = self.root:list(T'Spoofing', {T'rospoofing'})
+        self.ghosting = self.root:list(T'Ghosting', {T'roghosting'})
+        self.casino = self.root:list(T'Casino', {T'rocasino'})
+        self.holdups = self.root:list(T'Store Holdups', {T'rostoreholdups'})
+        self.taxi = self.root:list(T'Taxi Service', {T'rotaxiservice'})
+        self.atm = self.root:list(T'ATM', {T'roatm'})
+        self.cargo = self.root:list(T'Cargo', {T'rocargo'})
+        self.risky = self.root:list(T'Risky', {T'rorisky'}, '', || -> self:check_access())
+        self.yeti = self.root:list(T'Yeti', {T'royeti'})
+        self.tut_sessions = self.root:list(T'Tutorial Sessions', {T'rotutsessions'})
+        self.blamekill = self.root:list(T'Blame Kill', {T'roblamekill'})
+        self.esp = self.root:list(T'ESP', {T'roesp'})
+        self.invites = self.root:list(T'Quick Invites', {T'roquickinvites'})
+        self.darts = self.root:list(T'Darts', {T'rodarts'})
+        self.teleports = self.root:list(T'Teleports', {T'roteleports'})
+        self.businesses = self.root:list(T'Businesses', {T'robusinesses'})
+        self.toxic = self.root:list(T'Toxic', {T'rotoxic'})
+        self.kd_edit = self.root:list(T'K/D Editor', {T'rokdedited'})
+        self.street_dealer = self.root:list(T'Street Dealer', {T'rostreetdealer'}, '', nil, nil, || -> self:update_street_dealer())
+        self.damage_tracker = self.root:list(T'Damage Tracker', {T'rodmgtracker'})
+        self.crew = self.root:list(T'Crew', {T'rocrew'})
+        self.fm_jobs = self.root:list(T'Freemode Jobs', {T'rofmjobs'})
+
+        do
+            self.fake_notif:divider(T'Settings')
+            self.fn_exclude_me = self.fake_notif:toggle(T'Exclude Self', {T'notifsexcludeself'}, T'Exclude self from the fake notifications', function() end, true)
+            self.fn_exclude_friends = self.fake_notif:toggle(T'Exclude Friends', {T'notifsexcludefriends'}, T'Exclude friends from the fake notifications', function() end, false)
+            self.fake_notif:divider('')
+
+            local mapping = {
+                { name = T'Register CEO', f = self.se.register_ceo, args = nil },
+                { name = T'Register MC', f = self.se.register_mc, args = nil },
+                { name = T'Register VIP', f = self.se.register_vip, args = nil },
+                { name = T'Off Radar', f = self.se.off_radar, args = nil },
+                { name = T'Ghost Organisation', f = self.se.ghost_org, args = nil },
+                { name = T'Successfully Mugged', f = self.se.successfully_mugged, args = { math.random(math.min_int, math.max_int) } },
+                { name = T'Mugger Killed', f = self.se.mugger_killed, args = nil },
+                { name = T'Jammer Activated', f = self.se.jammer_activated, args = nil },
+                { name = T'Quit Org', f = self.se.quit_org, args = { players.user() } },
+                { name = T'Joined Org', f = self.se.joined_org, args = { players.user() } },
+                { name = T'Marked For Death', f = self.se.marked_for_death, args = { players.user() } }
+            }
+
+            for mapping as data do
+                self.fake_notif:toggle_loop(data.name, {}, '', function()
+                    if data.args ~= nil then
+                        if data.name == T'Successfully Mugged' then
+                            self:send_event(data.f, self.se, table.unpack({ math.random(math.min_int, math.max_int) }))
+                        else
+                            self:send_event(data.f, self.se, table.unpack(data.args))
+                        end
+                    else
+                        self:send_event(data.f, self.se)
+                    end
+                    util.yield(100)
+                end)
+            end
+            self.fake_notif:divider('')
+            for mapping as data do
+                self.fake_notif:action(data.name, {}, '', function()
+                    if data.args ~= nil then
+                        if data.name == T'Successfully Mugged' then
+                            self:send_event(data.f, self.se, table.unpack({ math.random(math.min_int, math.max_int) }))
+                        else
+                            self:send_event(data.f, self.se, table.unpack(data.args))
+                        end
+                    else
+                        self:send_event(data.f, self.se)
+                    end
+                end)
+            end
+        end
+
+        do
+            self.request_base = self.g.RequestBase:g()
+            self.ampimenu_base = self.g.AmPiMenuBase:g()
+
+            for ({
+                { name = T'Request Nano Drone', f = self.request_service, args = { self, 'NanoDrone' } },
+                { name = T'Request RC Bandito', f = self.request_service, args = { self, 'RCBandito' } },
+                { name = T'Request RC Tank', f = self.request_service, args = { self, 'RCTank' } },
+                { name = T'Request MOC', f = self.request_service, args = { self, 'MOC' } },
+                { name = T'Request Avenger', f = self.request_service, args = { self, 'Avenger' } },
+                { name = T'Request Acid Lab', f = self.request_service, args = { self, 'AcidLab' } },
+                { name = T'Request Terrorbyte', f = self.request_service, args = { self, 'Terrorbyte' } },
+                { name = T'Request Dinghy', f = self.request_service, args = { self, 'Dinghy' } },
+                { name = T'Request Kosatka', f = self.request_service, args = { self, 'Kosatka' } },
+                { name = T'Request Sparrow', f = self.request_service, args = { self, 'Sparrow' } },
+                { name = T'Request Avisa', f = self.request_service, args = { self, 'Avisa' } },
+                { name = T'Request Ballistic Armor', f = self.request_service, args = { self, 'BallisticArmor' } },
+                { name = T'Request Ammo Drop', f = self.request_service, args = { self, 'AmmoDrop' } },
+                { name = T'Request Helicopter', f = self.request_service, args = { self, 'Helicopter' } },
+                { name = T'Request Delivery Bike', f = self.request_service, args = { self, 'DeliveryBike' } },
+                { name = T'Request Rat Bike', f = self.request_service, args = { self, 'RatBike' } },
+                { name = T'Request Avenger Thruster', f = self.request_service, args = { self, 'AvengerThruster' } },
+                { name = T'Request Airstrike', f = self.request_service, args = { self, 'Airstrike' } },
+                { name = T'Request Backup Heli', f = self.request_service, args = { self, 'BackupHeli' } },
+                { name = T'Request Bullshark Testosterone', f = self.request_service, args = { self, 'BST' } },
+                { name = T'Request Supplies', f = self.request_service, args = { self, 'Supplies' } },
+                { name = T'Source Motorcycle', f = self.request_service, args = { self, 'SourceMotorcycle' } },
+                { name = T'Request Company SUV', f = self.request_service, args = { self, 'CompanySUV' } }
+            }) as data do
+                local command = data.args[2]:lower():gsub('source', '')
+                self.services:action(data.name, {'req' .. command, 'request' .. command}, '', function()
+                    data.f(table.unpack(data.args))
+                end)
+            end
+
+            self.services:divider('')
+
+            self.services:action(T'Return Sparrow', {T'retsparrow'}, T'Return your sparrow', function()
+                local stats = self.g.KosatkaStatsBase:g()
+                local value = memory.read_byte(stats)
+                value = memory.bits:clear(value, kosatka_stats.return_sparrow)
+                memory.write_byte(stats, value)
+            end)
+
+            self.services:action(T'Return Avisa', {T'retavisa'}, T'Return your avisa', function()
+                local stats = self.g.KosatkaStatsBase:g()
+                local value = memory.read_byte(stats)
+                value = memory.bits:clear(value, kosatka_stats.return_avisa)
+                memory.write_byte(stats, value)
+            end)
+
+            self.services:action(T'Return Avenger (Hangar)', {T'retavengerh'}, T'Return your avenger to the hangar', function()
+                local stats = self.g.AvengerStatsBase:g()
+                local stats1 = stats - (4 << 3)
+                local value = memory.read_int(stats)
+                memory.write_int(stats, memory.bits:set(memory.read_int(stats), 1 << 20))
+                util.yield(10)
+                memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 20))
+                memory.write_int(stats1, memory.bits:clear(memory.read_int(stats1), 1 << 6))
+                memory.write_int(stats1, memory.bits:set(memory.read_int(stats1), 1 << 3))
+                memory.write_int(stats, memory.bits:set(memory.read_int(stats), 1 << 16))
+                util.yield(10)
+                memory.write_int(stats1, memory.bits:clear(memory.read_int(stats), 1 << 3))
+            end)
+
+            self.services:action(T'Return Avenger (Facility)', {T'retavengerf'}, T'Return your avenger to the facility', function()
+                local stats = self.g.AvengerStatsBase:g()
+                local stats1 = stats - (4 << 3)
+                local value = memory.read_int(stats)
+                memory.write_int(stats, memory.bits:set(memory.read_int(stats), 1 << 20))
+                util.yield(10)
+                memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 20))
+                memory.write_int(stats1, memory.bits:set(memory.read_int(stats1), 1 << 6))
+                memory.write_int(stats1, memory.bits:set(memory.read_int(stats1), 1 << 3))
+                memory.write_int(stats, memory.bits:set(memory.read_int(stats), 1 << 16))
+                util.yield(10)
+                memory.write_int(stats1, memory.bits:clear(memory.read_int(stats), 1 << 3))
+            end)
+
+            self.services:action(T'Return Avenger Thruster', {T'retthruster'}, T'Return avenger thruster', function()
+                local blip = hud.get_first_blip_info_id(597)
+                if blip ~= 0 then
+                    local entity = hud.get_blip_info_id_entity_index(blip)
+                    if entity ~= 0 then
+                        entities.delete_by_handle(entity)
+                    end
+                end
+            end)
+
+            self.services:action(T'Return Delivery Bike', {T'retdeliverybike'}, T'Return delivery bike', function()
+                local blip = hud.get_first_blip_info_id(348)
+                if blip ~= 0 then
+                    local entity = hud.get_blip_info_id_entity_index(blip)
+                    if entity ~= 0 then
+                        local stats = self.g.AcidLabStatsBase:g()
+                        memory.write_short(stats, memory.bits:clear(memory.read_short(stats), 1 << 6))
+                        memory.write_short(stats, memory.bits:set(memory.read_short(stats), 0x300))
+                        entities.delete_by_handle(entity)
+                    end
+                end
+            end)
+
+            self.services:action(T'Return Acid Lab', {T'retacidlab'}, T'Return acid lab', function()
+                local blip = hud.get_first_blip_info_id(840)
+                if blip ~= 0 then
+                    local entity = hud.get_blip_info_id_entity_index(blip)
+                    if entity ~= 0 then
+                        local stats = self.g.AcidLabStatsBase:g()
+                        local stats1 = stats - 0x8
+                        memory.write_int(stats1, memory.bits:set(memory.read_int(stats), 1 << 26))
+                        memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 0))
+                        memory.write_int(stats, memory.bits:set(memory.read_int(stats1), 0x100002))
+                        entities.delete_by_handle(entity)
+                    end
+                end
+            end)
+
+            self.services:action(T'Return Kosatka', {T'retkosatka'}, T'Return kosatka', function()
+                local kosatka = self.g.ReturnKosatka:g()
+                local kosatka1 = kosatka + 0x8
+                memory.write_byte(kosatka, 2)
+                memory.write_byte(kosatka1, 17)
+            end)
+
+            self.services:action(T'Return Terrorbyte', {T'retterrorbyte'}, T'Return terrorbyte', function()
+                local blip = hud.get_first_blip_info_id(632)
+                if blip ~= 0 then
+                    local entity = hud.get_blip_info_id_entity_index(blip)
+                    if entity ~= 0 then
+                        local stats = self.g.TerrorbyteStatsBase:g()
+                        memory.write_int(stats, memory.bits:set(memory.read_int(stats), 0x18000090))
+                        memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 11))
+                        entities.delete_by_handle(entity)
+                    end
+                end
+            end)
+
+            self.services:action(T'Return MOC', {T'retmoc'}, T'Return MOC', function()
+                -- credit to Acjoker for helping with figuring out how to return the MOC
+                local blip = hud.get_first_blip_info_id(564)
+                if blip ~= 0 then
+                    local entity = hud.get_blip_info_id_entity_index(blip)
+                    if entity ~= 0 then
+                        local stats = self.g.MOCStatsBase:g()
+                        local stats1 = stats + 0x8
+                        memory.write_int(stats, memory.bits:set(memory.read_int(stats), 0x100040))
+                        memory.write_int(stats, memory.bits:clear(memory.read_int(stats), 1 << 5))
+                        memory.write_int(stats1, memory.bits:clear(memory.read_int(stats), 0x2100001))
+                        memory.write_int(stats1, memory.bits:clear(memory.read_int(stats), 1 << 8))
+                    end
+                end
+            end)
+
+            self.services:action(T'Return Rat Bike', {T'retratbike'}, T'Return rat bike', function()
+                local  blip = hud.get_first_blip_info_id(348)
+                if blip ~= 0 then
+                    local entity = hud.get_blip_info_id_entity_index(blip)
+                    if entity ~= 0 then
+                        entities.delete_by_handle(entity)
+                    end
+                end
+            end)
+
+            self.services:divider('')
+
+            self.services:action(T'Locate Boat', {T'locateboat'}, T'Get lester the molester to locate a boat he has not molested', function()
+                self:lester_locate_vehicle(lester_locate.boat)
+            end)
+
+            self.services:action(T'Locate Plane', {T'locateplane'}, T'Get lester the molester to locate a plane he has not molested', function()
+                self:lester_locate_vehicle(lester_locate.plane)
+            end)
+
+            self.services:action(T'Locate Helicopter', {T'locateheli'}, T'Get lester the molester to locate a helicopter he has not molested', function()
+                self:lester_locate_vehicle(lester_locate.heli)
+            end)
+
+            self.services:action(T'Locate Car', {T'locatecar'}, T'Get lester the molester to locate a car he has not molested', function()
+                self:lester_locate_vehicle(lester_locate.car)
+            end)
+
+            self.services:divider('')
+
+            self.pegasus = self.services:list(T'Pegasus', {T'ropegasus'})
+            self.ceo = self.services:list(T'CEO', {T'roceo'})
+
+            self.pegasus_model = self.pegasus:list(T'Models', {T'ropegasusmodels'})
+            self.ceo_model = self.ceo:list(T'Models', {T'roceomodels'})
+
+            for vehicles as vehicle do
+                self.pegasus_model:action(tostring(vehicle), {}, '', function()
+                    self.utils:request_pegasus_vehicle(vehicle:joaat())
+                end)
+
+                self.ceo_model:action(tostring(vehicle), {}, '', function()
+                    self.utils:request_ceo_vehicle(vehicle:joaat())
+                end)
+            end
+
+            self.money_remover = self.services:list(T'Money Remover', {T'romoneyremover'}, T'Remove money')
+            self.money_remover_amount = self.money_remover:text_input(T'Amount', {T'romramount'}, T'Amount to remove', function(amount) end, '1')
+        
+            self.money_remover:action(T'Remove', {T'roremovemoney'}, T'Remove money', function()
+                self:remove_money(tonumber(self.money_remover_amount.value))
+            end)
+
+            self.money_remover:toggle_loop(T'Looped Remove', {T'roloopedremove'}, T'Looped money removal', function()
+                self:remove_money(tonumber(self.money_remover_amount.value))
+            end)
+
+            self.pegasus:divider('')
+            self.ceo:divider('')
+
+            self.pegasus:text_input(T'Model', {'ropegasusmodel'}, T'Enter the model name', function(value)
+                self.utils:request_pegasus_vehicle(value:joaat())
+            end)
+
+            self.ceo:text_input(T'Model', {'roceomodel'}, T'Enter the model name', function(value)
+                self.utils:request_ceo_vehicle(value:joaat())
+            end)
+
+            self.services:divider('')
+
+            self.services:text_input(T'Rename Acid Lab', {T'rorenameacidlab'}, T'Rename your Acid Lab, what else?', function(name)
+                self:rename_acid_lab(name)
+            end, self:get_acid_lab_name())
+        end
+
+        do
+            self.org_name = self.organisation:list(T'Name', {T'roorgname'}, T'Organisation name')
+            self.org_name:toggle_loop(T'Random Name', {T'rorandomname'}, T'Randomise your organisation name', function()
+                local name = self.utils:random_string(98)
+                self:set_organisation_name(name)
+                if self.rename_org:isValid() then
+                    self.rename_org.value = name
+                end
+            end)
+    
+            self.rename_org = self.org_name:text_input(T'Rename', {T'rorenameorg'}, T'', function(name)
+                self:set_organisation_name(name)
+            end, self:get_organisation_name())
+
+            self.org_name:divider('')
+            self.org_presets = self.org_name:list(T'Presets', {T'ropresets'})
+
+            self.org_presets:action(T'Preset 1', {}, T'Adolf Hitler was right all along', function()
+                self:set_organisation_name(T'Adolf Hitler was right all along')
+            end)
+
+            self.org_presets:action(T'Preset 2', {}, T'Nazi Germany', function()
+                self:set_organisation_name(T'Nazi German')
+            end)
+
+            self.org_presets:action(T'Preset 3', {}, T'Nein nein nein', function()
+                self:set_organisation_name(T'Nein nein nein')
+            end)
+
+            self.org_presets:action(T'Preset 4', {}, T'Africans do not deserve rights, freedom, equality or water because they are not human', function()
+                self:set_organisation_name(T'Africans do not deserve rights, freedom, equality or water because they are not human')
+            end)
+
+            self.org_presets:action(T'Preset 5', {}, T'Black people are not human and should be treated as such', function()
+                self:set_organisation_name(T'Black people are not human and should be treated as such')
+            end)
+
+            self.org_goons = self.organisation:list(T'Goons', {T'rogoons'}, T'Organisation goons', nil, nil, || -> self:update_organisation_goons())
+            self.org_goons:readonly('', '') -- total goons
+            for i = 0, 7 do
+                self.org_goons:readonly('', '') -- goon slot
+            end
+
+            self.org_goons:action(T'Spoof Goons', {T'rospoofgoons'}, T'Spoof all the goon slots bypassing restrictions for vip jobs', function()
+                for i = 0, 7 do
+                    local pid = self:get_organisation_goon_in_slot(i)
+                    if pid == -1 then
+                        self:spoof_organisation_goon_slot(i, 0)
+                    end
+                end
+            end)
+
+            self.org_goons_kick = self.org_goons:list(T'Goon Kicker', {T'rogoonkicker'}, T'Kick goons from your organisation')
+            for i = 0, 7 do
+                local goon_root = self.org_goons_kick:list(T'Goon ' .. i, {$'rokickgoon{i}'})
+                goon_root:action(T'Kick', {}, T'Kick the goon from your organisation', function()
+                    local goon_pid = self:get_organisation_goon_in_slot(i)
+                    if goon_pid ~= -1 then
+                        self.se:ceo_kick(1 << goon_pid)
+                    end
+                end)
+
+                goon_root:action(T'Terminate Kick', {}, T'Terminate kick the goon from your org (they will termination notification)', function()
+                    local goon_pid = self:get_organisation_goon_in_slot(i)
+                    if goon_pid ~= -1 then
+                        self.se:marked_for_death_ceo_kick(1 << goon_pid)
+                    end
+                end)
+            end
+
+            self.organisation:divider('')
+            self.organisation:toggle_loop(T'Show Active Organisation Script', {}, '', function()
+                local script_id = self:get_organisation_script_id()
+                local mission_id = self:get_organisation_mission_id()
+                if script_id ~= -1 and mission_id ~= -1 then
+                    local script_name = script_ids[script_id]
+                    util.draw_debug_text(T:T('Active Script: %s', script_name))
+                end
+            end)
+        end
+
+        do
+            self.bounty_amount = self.bounty:text_input(T'Bounty', {T'robountyamount'}, T'How much will someone get for killing the player?', function() end, '10000')
+            self.bounty_reward = self.bounty:text_input(T'Reward', {T'robountyreward'}, T'How much will the player get for killing someone? this will override the amount that the player will get (if you set a $1 bounty on someone and set the reward to $10000 they will get $10000 instead of $1)', function() end, '10000')
+            
+            self.bounty:divider('')
+            self.set_bounty = self.bounty:action(T'Set Bounty', {T'rosetbounty'}, T'Set a bounty on the player', function()
+                local amount = tonumber(self.bounty_amount.value)
+                if amount < 0 or amount > 10000 or amount == nil then return end
+
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        players.set_bounty(pid, amount, true)
+                    end
+                end
+            end)
+
+            self.bounty:action(T'Max Bounty', {T'romaxbounty'}, T'Set the bounty on the player to the maximum amount', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        players.set_bounty(pid, 10000, true)
+                    end
+                end
+            end)
+
+            self.bounty:action(T'Remove Bounty', {T'roremovebounty'}, T'Remove the bounty on the player', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        players.set_bounty(pid, -1, true)
+                    end
+                end
+            end)
+
+            self.bounty:divider('')
+
+            self.bounty:toggle_loop(T'Looped Bounty', {T'roloopedbounty'}, T'Looped bounty setting', function()
+                self.set_bounty:trigger()
+            end)
+
+            self.bounty:toggle_loop(T'Max Reward', {T'romaxreward'}, T'Set the reward for killing the player to the maximum amount', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        players.set_bounty_reward(pid, 10000)
+                    end
+                end
+            end)
+
+            self.bounty:toggle_loop(T'Remove Reward', {T'roremovereward'}, T'Remove the reward for killing the player', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        players.set_bounty_reward(pid, -1)
+                    end
+                end
+            end)
+
+            self.bounty:divider('')
+            self.bounty:toggle_loop(T'Display Bounties', {T'rodisplaybounties'}, T'Display all bounties on the player', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        local bounty = players.get_bounty(pid)
+                        if bounty ~= nil then
+                            util.draw_debug_text(T:T('%s: %d | %s', players.get_name(pid), bounty, (bounty & 0xF ~= 0x8) ? T'Modded' : T'Normal'))
+                        end
+                    end
+                end
+            end)
+        end
+
+        do
+            self.stats = self.spoofing:list(T'Stats Spoofing', {T'rostats'})
+            self.stat_total_money = self.stats:list(T'Total Money', {}, T'Spoof your total money')
+            self.stat_total_wallet = self.stats:list(T'Wallet Money', {}, T'Spoof your wallet money')
+            self.stat_rp = self.stats:list(T'RP', {}, T'Spoof your RP')
+            self.stat_rank = self.stats:list(T'Rank', {}, T'Spoof your rank')
+            self.stat_playerkills = self.stats:list(T'Player Kills', {}, T'Spoof your player kills')
+            self.stat_playerdeaths = self.stats:list(T'Player Deaths', {}, T'Spoof your player deaths')
+            self.stat_kd = self.stats:list(T'K/D', {}, T'Spoof your K/D')
+            self.stat_reports = self.stats:list(T'Reports', {}, T'Spoof your cheater and badsport status')
+            self.stat_spoof_job_points = self.stats:list(T'Job Points', {}, T'Spoof your job points')
+
+            self.total_money = self.stat_total_money:text_input(T'Total Money', {T'rosstotalmoney'}, T'Enter the total money you want to spoof', function() end, self:stats_get_total_money())
+            self.stat_total_money:toggle_loop(T'Enable', {}, T'Enable total money spoofing', || -> self:stats_set_total_money(tonumber(self.total_money.value)))
+
+            self.total_wallet = self.stat_total_wallet:text_input(T'Wallet Money', {T'rosstotalwallet'}, T'Enter the wallet money you want to spoof', function() end, self:stats_get_wallet())
+            self.stat_total_wallet:toggle_loop(T'Enable', {}, T'Enable wallet money spoofing', || -> self:stats_set_wallet(tonumber(self.total_wallet.value)))
+
+            self.rp = self.stat_rp:text_input(T'RP', {T'rossrp'}, T'Enter the RP you want to spoof', function() end, self:stats_get_rp())
+            self.stat_rp:toggle_loop(T'Enable', {}, T'Enable RP spoofing', || -> self:stats_set_rp(tonumber(self.rp.value)))
+    
+            self.rank = self.stat_rank:text_input(T'Rank', {T'rossrank'}, T'Enter the rank you want to spoof', function() end, self:stats_get_rank())
+            self.stat_rank:toggle_loop(T'Enable', {}, T'Enable rank spoofing', || -> self:stats_set_rank(tonumber(self.rank.value)))
+
+            self.playerkills = self.stat_playerkills:text_input(T'Player Kills', {T'rossplayerkills'}, T'Enter the player kills you want to spoof', function() end, self:stats_get_kills())
+            self.stat_playerkills:toggle_loop(T'Enable', {}, T'Enable player kills spoofing', || -> self:stats_set_kills(tonumber(self.playerkills.value)))
+            
+            self.playerdeaths = self.stat_playerdeaths:text_input(T'Player Deaths', {T'rossplayerdeaths'}, T'Enter the player deaths you want to spoof', function() end, self:stats_get_deaths())
+            self.stat_playerdeaths:toggle_loop(T'Enable', {}, T'Enable player deaths spoofing', || -> self:stats_set_deaths(tonumber(self.playerdeaths.value)))
+            
+            self.kd = self.stat_kd:text_input(T'K/D', {T'rosskd'}, T'Enter the K/D you want to spoof', function() end, self:stats_get_kd())
+            self.stat_kd:toggle_loop(T'Enable', {}, T'Enable K/D spoofing', || -> self:stats_set_kd(tonumber(self.kd.value)))
+
+            self.stat_reports:toggle_loop(T'Badsport', {}, T'Enable badsport status spoofing', || -> self:set_is_bad_sport(true), || -> self:set_is_bad_sport(false))
+            self.stat_reports:toggle_loop(T'Cheater', {}, T'Enable cheater status spoofing', || -> self:set_is_cheater(true), || -> self:set_is_cheater(false))
+
+            self.stat_spoof_job_points:text_input(T'Job Points', {T'rossjobpoints'}, T'Enter the job points you want to spoof', function(value) 
+                self:stats_set_job_points(tonumber(value))
+            end, self:stats_get_job_points())
+
+            self.interior_spoofing = self.spoofing:list(T'Interior Spoofing', {T'rointeriorspoofing'}, '', function()
+                if self.interior_choice:isValid() then
+                    local current_interior = self:get_interior()
+                    local interior_name = ''
+                    if current_interior ~= -1 then
+                        for k, v in pairs(self.property_ids) do
+                            if v == current_interior then
+                                interior_name = k
+                                break
+                            end
+                        end
+
+                        for k, v in pairs(self.properties) do
+                            if v[2] == interior_name then
+                                self.interior_choice.value = k
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+            self.interior_choice = self.interior_spoofing:list_select(T'Interior', {T'interiorchoice'}, T'The interior to spoof to', self.properties, 1, function(_) end)
+        
+            self.interior_spoofing:action(T'Spoof', {T'rospoofinterior'}, T'Spoof to the selected interior', function()
+                self:set_interior(self.property_ids[self.properties_data[self.interior_choice.value]])
+            end)
+    
+            self.interior_spoofing:toggle_loop(T'Spoof', {T'roloopinteriorspoofing'}, T'Spoof to the selected interior (looped)', function()
+                self:set_interior(self.property_ids[self.properties_data[self.interior_choice.value]])
+            end)
+
+            self.interior_spoofing:toggle_loop(T'Random Spoof', {T'roloopinteriorspoofingrand'}, T'Spoof to random interiors constantly', function()
+                local rand = math.random(1, #self.properties_data)
+                self:set_interior(self.property_ids[self.properties_data[rand]])
+                util.yield(1000)
+            end)
+
+            self.blip_spoofing = self.spoofing:list(T'Blip Spoofing', {T'roblipspoofing'})
+            self.blip_x = self.blip_spoofing:text_input(T'X', {T'roblipx'}, T'X coordinate of the blip', function() end, self:get_blip_x())
+            self.blip_y = self.blip_spoofing:text_input(T'Y', {T'roblipy'}, T'Y coordinate of the blip', function() end, self:get_blip_y())
+            self.blip_z = self.blip_spoofing:text_input(T'Z', {T'roblipz'}, T'Z coordinate of the blip', function() end, self:get_blip_z())
+            self.blip_spoofing:divider('')
+
+            self.blip_spoofing:toggle_loop(T'Spoof', {T'rospoofblip'}, T'Spoof the blip to the selected coordinates', function()
+                local x, y, z = tonumber(self.blip_x.value), tonumber(self.blip_y.value), tonumber(self.blip_z.value)
+                if x == nil or y == nil or z == nil then
+                    x, y, z = 0, 0, 0
+                end
+                self:set_blip_coords(x, y, z, true)
+            end, function()
+                self:set_blip_coords(0, 0, 0, false)
+            end)
+
+            self.blip_spoofing:toggle(T'Ballistic Armour Blip', {T'rospoofballisticblip'}, T'Spoof your blip as ballistic armour blip', function(state)
+                local x, y, z = tonumber(self.blip_x.value), tonumber(self.blip_y.value), tonumber(self.blip_z.value)
+                if x == nil or y == nil or z == nil then
+                    x, y, z = 0, 0, 0
+                end
+                
+                self:set_ballistic_armour_blip(state)
+            end)
+
+            self.blip_spoofing:toggle_loop(T'Bounty Blip', {T'rospoofbountyblip'}, T'Spoof your blip as bounty', function()
+                players.set_bounty(players.user(), -1, true)
+            end, function()
+                players.set_bounty(players.user(), 0, false)
+            end)
+
+            self.yacht_name_spoofing = self.spoofing:list(T'Yacht Name Spoofing', {T'royachtname'})
+            self.local_yacht_spoofing = self.yacht_name_spoofing:list(T'Local Yacht', {T'rolocalyacht'}, T'Spoof name of your own yacht')
+            self.yacht_name = self.local_yacht_spoofing:text_input(T'Name', {T'royachtnameinput'}, T'Enter the name you want to spoof', function() end, self:get_yacht_name())
+            self.local_yacht_spoofing:toggle_loop(T'Enable', {T'royachtnameenable'}, T'Enable yacht name spoofing (NOTE: YOU NEED TO DO THIS BEFORE JOINING A SESSION)', function()
+                self:set_yacht_name(self.yacht_name.value)
+            end)
+
+            self.remote_yacht_spoofing = self.yacht_name_spoofing:list(T'Remote Yacht', {T'roremoteyacht'}, T'Spoof name of everyone else yacht')
+            self.remote_yacht_name = self.remote_yacht_spoofing:text_input(T'Name', {T'roremoteyachtname'}, T'Enter the name you want to spoof', function() end, '')
+            self.remote_yacht_spoofing:toggle(T'Enable', {T'roremoteyachtenable'}, T'Enable yacht name spoofing (this applies to all new players that join the session, not players already in the session)', function(state)
+                self.utils.settings.spoof_yacht_names = state
+            end)
+
+            self.spoofing:divider('')
+            self.spoofing:toggle_loop(T'Hide From Player List', {T'rohidefromplayerlist'}, T'Hide yourself from the player list', function()
+                self:set_hidden_from_player_list(true)
+            end, function()
+                self:set_hidden_from_player_list(false)
+            end)
+        end
+
+        do
+            self.ghosting:toggle(T'All Players', {}, T'Ghost all players in the session', function(state)
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        network.set_remote_player_as_ghost(pid, state)
+                    end
+                end
+            end)
+            self.ghosting:divider('')
+        end
+
+        do
+            self.casino:action(T'Bypass Casino Win/Lose Limit', {}, T'Bypass the casino win/lose limit', function()
+                stats.stat_set_int(('MPPLY_CASINO_CHIPS_WON_GD'):joaat(), 0)
+            end)
+            self.casino:divider('')
+            self.blackjack = self.casino:list(T'Blackjack', {T'rblackjack'}, T'Blackjack')
+            self.three_card_poker = self.casino:list(T'Three Card Poker', {T'rthreecardpoker'}, T'Three Card Poker')
+
+            self.blackjack_cards = self.blackjack:list(T'Cards', {T'blackjackcards'}, T'Blackjack cards')
+            self.blackjack_dealer = self.blackjack_cards:list(T'Dealer', {T'blackjackdealercards'}, T'Dealer cards', nil, nil, function()
+                if not self.update:isset(eUpdateFlags.UF_BJ_DEALERCARDS) then
+                    self.update:set(eUpdateFlags.UF_BJ_DEALERCARDS)
+                    util.create_tick_handler(function()
+                        local item = menu.get_current_menu_list()
+                        if item.menu_name ~= self.blackjack_dealer.menu_name then
+                            self.update:clear(eUpdateFlags.UF_BJ_DEALERCARDS)
+                            return false
+                        end
+
+                        local casino_state = self.g.CasinoState:g()
+                        local value = memory.read_int(casino_state)
+                        local children = item:getChildren()
+
+                        try
+                            local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                            local deck = memory.script_local(self.BJS, 114 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+                            local dealer_cards_value = memory.script_local(table.unpack(self.g.BlackjackDealerCards))
+
+                            if memory.bits:isset(value, casino_state_flags.blackjack) then
+                                children[1].menu_name = T:T('Total: %d', memory.read_int(dealer_cards_value))
+                                children[2].menu_name = T:T('Card 1: %s', casino_cards[tostring(memory.read_int(deck))])
+                                children[3].menu_name = T:T('Card 2: %s', casino_cards[tostring(memory.read_int(deck + 8))])
+                                children[4].menu_name = T:T('Card 3: %s', casino_cards[tostring(memory.read_int(deck + 16))])
+                                children[5].menu_name = T:T('Card 4: %s', casino_cards[tostring(memory.read_int(deck + 24))])
+                                children[6].menu_name = T:T('Card 5: %s', casino_cards[tostring(memory.read_int(deck + 32))])
+                                children[7].menu_name = T:T('Card 6: %s', casino_cards[tostring(memory.read_int(deck + 40))])
+                                children[8].menu_name = T:T('Card 7: %s', casino_cards[tostring(memory.read_int(deck + 48))])
+                            else
+                                children[1].menu_name = T:T('Total: ?')
+                                for i = 1, 7 do children[i+1].menu_name = T:T('Card %d: ?', i+1) end
+                            end
+                        catch e then
+
+                        end
+                    end)
+                end
+            end)
+
+            self.blackjack_dealer:readonly(T'Total: ?', '')
+            self.blackjack_dealer:readonly(T'Card 1: ?', '')
+            self.blackjack_dealer:readonly(T'Card 2: ?', '')
+            self.blackjack_dealer:readonly(T'Card 3: ?', '')
+            self.blackjack_dealer:readonly(T'Card 4: ?', '')
+            self.blackjack_dealer:readonly(T'Card 5: ?', '')
+            self.blackjack_dealer:readonly(T'Card 6: ?', '')
+            self.blackjack_dealer:readonly(T'Card 7: ?', '')
+
+            self.blackjack_dealer:divider('')
+
+            self.blackjack_dealer:toggle_loop(T'Display Cards', {}, '', function()
+                local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                if bj_table ~= 0 then
+                    local deck = memory.script_local(self.BJS, 114 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+                    try
+                        util.draw_debug_text(T:T('Card 1: %s', casino_cards[tostring(memory.read_int(deck))]))
+                        util.draw_debug_text(T:T('Card 2: %s', casino_cards[tostring(memory.read_int(deck + 8))]))
+                        util.draw_debug_text(T:T('Card 3: %s', casino_cards[tostring(memory.read_int(deck + 16))]))
+                        util.draw_debug_text(T:T('Card 4: %s', casino_cards[tostring(memory.read_int(deck + 24))]))
+                        util.draw_debug_text(T:T('Card 5: %s', casino_cards[tostring(memory.read_int(deck + 32))]))
+                        util.draw_debug_text(T:T('Card 6: %s', casino_cards[tostring(memory.read_int(deck + 40))]))
+                        util.draw_debug_text(T:T('Card 7: %s', casino_cards[tostring(memory.read_int(deck + 48))]))
+                    catch e then end
+                end
+            end)
+
+            self.blackjack_dealer:toggle_loop(T'Force Bust', {}, T'Force the dealer to go bust', function()
+                util.spoof_script('blackjack', function()
+                    local dealer = memory.script_local(table.unpack(self.g.BlackjackDealerCards))
+                    local player = memory.script_local(table.unpack(self.g.BlackjackPlayerCards))
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 114 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+
+                    local dealer_cards = memory.read_byte(dealer)
+                    local player_cards = memory.read_byte(player)
+
+                    if player_cards < dealer_cards then
+                        memory.write_int(deck, 0)
+                        memory.write_int(deck + 8, 0)
+                        memory.write_int(deck + 16, 0)
+                        memory.write_int(deck + 24, 0)
+                        memory.write_int(deck + 32, 0)
+                        memory.write_int(deck + 40, 0)
+                        memory.write_int(deck + 48, 0)
+                        
+                        memory.write_int(deck, 13)
+                        memory.write_int(deck + 8, 13)
+                        memory.write_int(deck + 16, 13)
+                        memory.write_int(deck + 24, 13)
+                        memory.write_int(deck + 32, 13)
+                        memory.write_int(deck + 40, 13)
+                        memory.write_int(deck + 48, 13)
+                    end
+                end)
+            end)
+
+            self.blackjack_dealer:toggle_loop(T'Force Win', {}, T'Force the dealer to win', function()
+                util.spoof_script('blackjack', function()
+                    local dealer = memory.script_local(table.unpack(self.g.BlackjackDealerCards))
+                    local player = memory.script_local(table.unpack(self.g.BlackjackPlayerCards))
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+
+                    local dealer_cards = memory.read_byte(dealer)
+                    local player_cards = memory.read_byte(player)
+
+                    if memory.read_int(deck) ~= 13 and memory.read_int(deck + 8) ~= 1 then
+                        memory.write_int(deck, 0)
+                        memory.write_int(deck + 8, 0)
+                        memory.write_int(deck + 16, 0)
+                        memory.write_int(deck + 24, 0)
+                        memory.write_int(deck + 32, 0)
+                        memory.write_int(deck + 40, 0)
+                        memory.write_int(deck + 48, 0)
+                        
+                        memory.write_int(deck, 13)
+                        memory.write_int(deck + 8, 1)  
+                    end
+                end)
+            end)
+
+            self.blackjack_dealer:divider('')
+            self.blackjack_dealer:list_select(T'First Card', {}, '', self.card_options, 0, function(value)
+                util.spoof_script('blackjack', function()
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+                    memory.write_int(deck, 0)
+                    memory.write_int(deck, value)
+                end)
+            end)
+            
+            self.blackjack_dealer:list_select(T'Second Card', {}, '', self.card_options, 0, function(value)
+                util.spoof_script('blackjack', function()
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+                    memory.write_int(deck + 8, 0)
+                    memory.write_int(deck + 8, value)
+                end)
+            end)
+
+            self.blackjack_dealer:list_select(T'Third Card', {}, '', self.card_options, 0, function(value)
+                util.spoof_script('blackjack', function()
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+                    memory.write_int(deck + 16, 0)
+                    memory.write_int(deck + 16, value)
+                end)
+            end)
+
+            self.blackjack_dealer:list_select(T'Fourth Card', {}, '', self.card_options, 0, function(value)
+                util.spoof_script('blackjack', function()
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+                    memory.write_int(deck + 24, 0)
+                    memory.write_int(deck + 24, value)
+                end)
+            end)
+
+            self.blackjack_dealer:list_select(T'Fifth Card', {}, '', self.card_options, 0, function(value)
+                util.spoof_script('blackjack', function()
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+                    memory.write_int(deck + 32, 0)
+                    memory.write_int(deck + 32, value)
+                end)
+            end)
+
+            self.blackjack_dealer:list_select(T'Sixth Card', {}, '', self.card_options, 0, function(value)
+                util.spoof_script('blackjack', function()
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+                    memory.write_int(deck + 40, 0)
+                    memory.write_int(deck + 40, value)
+                end)
+            end)
+
+            self.blackjack_dealer:list_select(T'Seventh Card', {}, '', self.card_options, 0, function(value)
+                util.spoof_script('blackjack', function()
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + DEALER_DECK_OFFSET)
+                    memory.write_int(deck + 48, 0)
+                    memory.write_int(deck + 48, value)
+                end)
+            end)
+
+            self.blackjack_player = self.blackjack_cards:list(T'Player', {T'blackjackplayercards'}, T'Player cards')
+
+            self.blackjack_player:toggle_loop(T'Force Bust', {}, T'Force the player to go bust', function()
+                util.spoof_script('blackjack', function()
+                    local dealer = memory.script_local(table.unpack(self.g.BlackjackDealerCards))
+                    local player = memory.script_local(table.unpack(self.g.BlackjackPlayerCards))
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + 1 + PLAYER_DECK_OFFSET)
+
+                    local dealer_cards = memory.read_byte(dealer)
+                    local player_cards = memory.read_byte(player)
+
+                    memory.write_int(deck, 13)
+                    memory.write_int(deck + 8, 13)
+                    memory.write_int(deck + 16, 13)
+                    memory.write_int(deck + 24, 13)
+                    memory.write_int(deck + 32, 13)
+                    memory.write_int(deck + 40, 13)
+                    memory.write_int(deck + 48, 13)
+                end)
+            end)
+
+            self.bj_player_force_win = self.blackjack_player:toggle_loop(T'Force Win', {}, T'Force the player to win', function()
+                util.spoof_script('blackjack', function()
+                    local dealer = memory.script_local(table.unpack(self.g.BlackjackDealerCards))
+                    local player = memory.script_local(table.unpack(self.g.BlackjackPlayerCards))
+                    local bj_table = memory.script_local(table.unpack(self.g.BlackjackTable))
+                    local deck = memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + 1 + PLAYER_DECK_OFFSET)
+
+                    local dealer_cards = memory.read_byte(dealer)
+                    local player_cards = memory.read_byte(player)
+
+                    if memory.read_int(deck) ~= 13 and memory.read_int(deck + 8) ~= 1 then
+                        memory.write_int(deck, 13)
+                        memory.write_int(deck + 8, 1)
+                    end
+                end)
+            end)
+
+            self.blackjack:divider('')
+    
+            self.bet_amount = self.blackjack:text_input(T'Bet Amount', {T'blackjackbetamount'}, T'Set the bet amount', function(amount) end, '1000')
+            self.blackjack:toggle_loop(T'Set Bet', {T'blackjacksetbet'}, T'Set the bet amount', function()
+                util.spoof_script('blackjack', function()
+                    local bet = memory.script_local(table.unpack(self.g.BlackjackBet))
+                    local amount = tonumber(self.bet_amount.value)
+                    if amount < 0 then amount = 1000 end
+                    if amount > 1000000 then amount = 1000000 end
+                    memory.write_int(bet, amount)
+                end)
+            end)
+
+            self.blackjack:toggle_loop(T'Max Bet', {T'blackjackmaxbet'}, T'Set the bet amount to the maximum', function()
+                util.spoof_script('blackjack', function()
+                    local bet = memory.script_local(table.unpack(self.g.BlackjackBet))
+                    memory.write_int(bet, 1000000)
+                end)
+            end)
+
+            self.blackjack:toggle(T'Always Win', {}, T'Always win at blackjack', function(state)
+                self.bj_player_force_win.value = state
+            end)
+    
+            self.blackjack:toggle_loop(T'Display Current Bet', {T'blackjackdisplaybet'}, T'Display the current bet amount', function()
+                util.spoof_script('blackjack', function()
+                    local bet = memory.script_local(table.unpack(self.g.BlackjackBet))
+                    util.draw_debug_text('Blackjack Bet: ' .. memory.read_int(bet))
+                end)
+            end)
+
+            self.tcp_bet_amount = self.three_card_poker:text_input(T'Bet Amount', {T'threecardpokerbetamount'}, T'Set the bet amount', function(amount) end, '1000')
+            self.tcp_pair_plus_amount = self.three_card_poker:text_input(T'Pair Plus Bet Amount', {T'threecardpokerpairplusamount'}, T'Set the pair plus bet amount', function(amount) end, '1000')
+           
+            self.three_card_poker:divider('')
+            self.three_card_poker:toggle_loop(T'Set Bet', {T'threecardpokersetbet'}, T'Set the bet amount', function()
+                util.spoof_script('three_card_poker', function()
+                    local bet = memory.script_local(table.unpack(self.g.ThreeCardPokerAnte))
+                    local amount = tonumber(self.tcp_bet_amount.value)
+                    if amount < 0 then amount = 1000 end
+                    if amount > 500000 then amount = 500000 end
+                    memory.write_int(bet, amount)
+                end)
+            end)
+
+            self.three_card_poker:toggle_loop(T'Max Bet', {T'threecardpokermaxbet'}, T'Set the bet amount to the maximum', function()
+                util.spoof_script('three_card_poker', function()
+                    local bet = memory.script_local(table.unpack(self.g.ThreeCardPokerAnte))
+                    memory.write_int(bet, 500000)
+                end)
+            end)
+
+            self.three_card_poker:toggle_loop(T'Set Pair Plus Bet', {T'threecardpokersetpairplusbet'}, T'Set the pair plus bet amount', function()
+                util.spoof_script('three_card_poker', function()
+                    local bet = memory.script_local(table.unpack(self.g.ThreeCardPokerPairPlus))
+                    local amount = tonumber(self.tcp_pair_plus_amount.value)
+                    if amount < 0 then amount = 1000 end
+                    if amount > 1000000 then amount = 1000000 end
+                    memory.write_int(bet, amount)
+                end)
+            end)
+
+            self.three_card_poker:toggle_loop(T'Max Pair Plus Bet', {T'threecardpokermaxpairplusbet'}, T'Set the pair plus bet amount to the maximum', function()
+                util.spoof_script('three_card_poker', function()
+                    local bet = memory.script_local(table.unpack(self.g.ThreeCardPokerPairPlus))
+                    memory.write_int(bet, 1000000)
+                end)
+            end)
+            self.three_card_poker:divider('')
+            self.tcp_hand = self.three_card_poker:list_select(T'Hand', {T'threecardpokerhand'}, T'Set the hand', {
+                { 1, 'Straight Flush' },
+                { 2, 'Three Of A Kind' },
+                { 3, 'Straight' },
+                { 4, 'Flush' },
+                { 5, 'Pair' },
+                { 6, 'High Card' }
+            }, 1, function(value) end)
+
+            self.three_card_poker:toggle_loop(T'Set Hand', {T'threecardpokersethand'}, T'Set your desired hand', function()
+                util.spoof_script('three_card_poker', function()
+                    local first_card = memory.script_local(table.unpack(self.g.ThreeCardPokerFirstCard))
+                    local second_card = first_card + 8
+                    local third_card = second_card + 8
+
+                    local hand = tonumber(self.tcp_hand.value)
+                    if hand < 1 then hand = 1 end
+                    if hand > 6 then hand = 6 end
+
+                    if hand == 1 then
+                        memory.write_int(first_card, 1)
+                        memory.write_int(second_card, 2)
+                        memory.write_int(third_card, 3)
+                    elseif hand == 2 then
+                        memory.write_int(first_card, 1)
+                        memory.write_int(second_card, 1)
+                        memory.write_int(third_card, 1)
+                    elseif hand == 3 then
+                        memory.write_int(first_card, 2)
+                        memory.write_int(second_card, 29)
+                        memory.write_int(third_card, 30)
+                    elseif hand == 4 then
+                        memory.write_int(first_card, 14)
+                        memory.write_int(second_card, 25)
+                        memory.write_int(third_card, 22)
+                    elseif hand == 5 then
+                        memory.write_int(first_card, 39)
+                        memory.write_int(second_card, 26)
+                        memory.write_int(third_card, 7)
+                    elseif hand == 6 then
+                        memory.write_int(first_card, 1)
+                        memory.write_int(second_card, 20)
+                        memory.write_int(third_card, 16)
+                    end
+                end)
+            end)
+        end
+
+        do
+            self.force_robbery = self.holdups:action(T'Force Robbery', {}, T'Force a robbery when you are inside of a store', function()
+                local store = memory.script_local(table.unpack(self.g.HoldUpForceRobbery))
+                if store ~= 0 then
+                    memory.write_int(store, memory.bits:set(memory.read_int(store), self.masks.hold_up_force_robbery))
+                end
+            end)
+    
+            self.instant_finish_robbery = self.holdups:action(T'Instant Finish Robbery', {}, T'Instantly finish a robbery when you are inside of a store', function()
+                local store = memory.script_local(table.unpack(self.g.HoldUpForceRobbery))
+                local scene = memory.script_local(table.unpack(self.g.HoldUpRobberySceneId))
+                if store ~= 0 and scene ~= 0 then
+                    memory.write_int(store, memory.bits:set(memory.read_int(store), self.masks.hold_up_force_robbery))
+                    local scene_id = memory.read_int(scene)
+                    repeat
+                        util.yield_once()
+                        scene_id = memory.read_int(scene)
+                    until scene_id ~= -1
+                    repeat
+                        util.yield_once()
+                    until ped.is_synchronized_scene_running(scene_id)
+                    ped.set_synchronized_scene_phase(scene_id, 100.0)
+                end
+            end)
+        end
+
+        do
+            self.taxi:action(T'Instant Quit', {}, T'Instantly quit the taxi service', function()
+                local quit = memory.script_local(table.unpack(self.g.TaxiServiceInstantQuit))
+                if quit ~= 0 then
+                    memory.write_int(quit, 2)
+                end
+            end)
+    
+            self.taxi:text_input(T'Fare', {T'taxiservicefare'}, T'Set the fare for the taxi service', function(amount)
+                local fare = memory.script_local(table.unpack(self.g.TaxiServiceFare))
+                if fare ~= 0 then
+                    memory.write_int(fare, tonumber(amount))
+                end
+            end)
+    
+            self.taxi:text_input(T'Tip', {T'taxiservicetip'}, T'Set the tip for the taxi service', function(amount)
+                local tip = memory.script_local(table.unpack(self.g.TaxiServiceTip))
+                if tip ~= 0 then
+                    memory.write_int(tip, tonumber(amount))
+                end
+            end)
+    
+            self.taxi:toggle_loop(T'Disable Customer Salt', {}, T'Prevent the customer from getting mad at you and decreasing the tip, crashing will still cause the customer to get mad at you though!', function()
+                local salt = memory.script_local(table.unpack(self.g.TaxiServiceSaltTimerActive))
+                if salt ~= 0 then
+                    memory.write_int(salt, 0)
+                end
+            end)
+    
+            self.taxi:toggle_loop(T'Remove Fare', {}, T'Remove the fare', function()
+                local fare = memory.script_local(table.unpack(self.g.TaxiServiceFare))
+                if fare ~= 0 then
+                    memory.write_int(fare, 0)
+                end
+            end)
+    
+            self.taxi:toggle_loop(T'Remove Tip', {}, T'Remove the tip', function()
+                local tip = memory.script_local(table.unpack(self.g.TaxiServiceTip))
+                if tip ~= 0 then
+                    memory.write_int(tip, 0)
+                end
+            end)
+    
+            self.taxi:toggle_loop(T'Max Tip', {}, T'Set the tip to the maximum value', function()
+                local fare = memory.script_local(table.unpack(self.g.TaxiServiceFare))
+                local tip = memory.script_local(table.unpack(self.g.TaxiServiceTip))
+                if fare ~= 0 and tip ~= 0 then
+                    memory.write_int(fare, 0)
+                    memory.write_int(tip, 15000)
+                end
+            end)
+        end
+
+        do
+            self.atm:action(T'Deposit', {T'rodepall'}, T'Deposits all money into your bank', || -> self:transfer_to_bank(self:get_real_wallet()))
+            self.atm:divider('')
+            self.atm:toggle_loop(T'Auto Deposit', {T'roautodepall'}, T'Automatically deposit all money in your wallet to bank', || -> self:transfer_to_bank(self:get_real_wallet()))
+            self.atm:text_input(T'Deposit Amount', {T'rodepamount'}, T'Amount of money to deposit into your bank from wallet', |amount| -> self:transfer_to_bank(tonumber(amount)))
+            self.atm:text_input(T'Withdraw Amount', {T'rowithamount'}, T'Amount of money to withdraw from your bank to wallet', |amount| -> self:transfer_to_wallet(tonumber(amount)))
+        end
+
+        do
+            self.crates_amount = nil
+            local cargo_amount = 50
+            local crate_type = 0
+
+            self.hangar_cargo = self.cargo:list(T'Hangar Cargo', {T'rohangarcargo'}, '', || -> self:update_hangar_cargo())
+
+            self.hangar_cargo_display = self.hangar_cargo:readonly('', '')
+            self.hangar_cargo:divider('')
+
+            self.hangar_cargo:list_select(T'Crate Type', {T'rocargotype'}, T'The type of crate to source', {
+                {1, 'Animal Materials'},
+                {2, 'Art & Antiques'},
+                {3, 'Chemicals'},
+                {4, 'Counterfeit Goods'},
+                {5, 'Jewelry & Gemstones'},
+                {6, 'Medical Supplies'},
+                {7, 'Narcotics'},
+                {8, 'Tobacco & Alcohol'},
+                {9, 'Cargo'}
+            }, 1, function(index)
+                crate_type = index - 1
+            end)
+
+            self.hangar_cargo:text_input(T'Crates', {T'rocargoamount'}, T'Amount of cargo to source', function(amount) 
+                cargo_amount = amount
+            end, '50')
+            self.hangar_cargo:toggle_loop(T'Display Crates', {T'rodisplaycrates'}, T'Display the amount of crates in your hangar', function()
+                local total_crates = self.g.HangarTotalCargo:g()
+                util.draw_debug_text($'Crates: {memory.read_int(total_crates)}')
+            end)
+
+            self.hangar_cargo:toggle_loop(T'Remove Sell Cooldown', {T'roremovesellcooldown'}, T'Remove the cooldown for selling cargo', function()
+                local cooldown = self.g.HangarCargoSellCooldown:g()
+                if cooldown ~= 0 then
+                    memory.write_int(cooldown, 0)
+                end
+            end)
+            self.hangar_cargo:divider('')
+
+            self.hangar_cargo:action(T'Instant Source', {}, T'Instantly source cargo for air freight', function()
+                local source = self.g.InstantSourceHangarCargo:g()
+                local total_crates = self.g.HangarCratesToSource:g()
+                local cargo_type = self.g.HangarCrateType:g()
+                local total_cargo = self.g.HangarTotalCargo:g()
+
+                if (memory.read_int(total_cargo) < 50) then
+                    memory.write_int(total_crates, cargo_amount)
+                    memory.write_int(cargo_type, crate_type)
+                    memory.write_int(source, memory.bits:toggle(memory.read_int(source), 1 << 9))
+                    util.yield(800)
+                    memory.write_int(source, memory.bits:toggle(memory.read_int(source), 1 << 9))
+                else
+                    util.display_error('Your hangar is full, unable to source more cargo')
+                end
+            end)
+
+            self.hangar_cargo:action(T'Launch App', {T'roappsmugler'}, T'Remotely open air freight internt application', function()
+                self:register_as_boss('CEO')
+                self.utils:start_new_script(self.AS)
+            end)
+
+            self.hangar_cargo:action(T'Instant Finish Air Cargo', {}, T'Instantly finish air cargo sell missions', function()
+                local finish = memory.script_local(table.unpack(self.g.InstantFinishAirFreight))
+                if finish ~= 0 then
+                    memory.write_int(finish, 0)
+                end
+            end)
+        end
+
+        do
+            self.utils.risky:add(self.risky)
+            self.money = self.risky:list(T'Money', {T'romoney'})
+
+            local cayo = self.money:list(T'Cayo Perico', {}, T'Money from cayo perico heist')
+            local casino = self.money:list(T'Casino', {}, T'Money from casino heist')
+
+            cayo:action(T'Maximum (2.55M)', {}, T'Get the maximum amount of money that you can get from the heist', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_ISLAND_HEIST_FINALE'), 2550000)
+            end)
+
+            cayo:action(T'Legit (900K - 1.9M)', {}, T'Get a reasonable amount of money from the heist that seems more legit', function()
+                local choices = {900000, 1000000, 1100000, 1300000, 1900000}
+                local choice = choices[math.random(#choices)]
+                local amount = choice - (choice * 0.12000000000000001)
+                self:trigger_transaction(util.joaat('SERVICE_EARN_ISLAND_HEIST_FINALE'), amount)
+            end)
+
+            casino:action(T'Maximum (3.55M)', {}, T'Get the maximum amount of money that you can get from the heist', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_CASINO_HEIST_FINALE'), 3550000)
+            end)
+
+            casino:toggle_loop(T'Member Bonus Loop (5K Chips)', {}, '', function()
+                memory.write_byte(self.g.CasinoChipsMemBonus:g(), 1)
+                util.yield_once()    
+            end)
+
+            casino:toggle_loop(T'Casino Card Collection (5K Chips)', {}, '', function()
+                self:trigger_casino_card_collect()
+            end)
+
+            self.money:divider('')
+            self.money:action(T'Criminal Mastermind (10M)', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_JOB_BONUS_CRIMINAL_MASTERMIND'), 10000000)
+            end)
+
+            self.money:action(T'180K', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_JOBS'), 180000)
+            end)
+
+            self.money:action(T'200K', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_COLLECTABLE_COMPLETED_COLLECTION'), 200000)
+            end)
+
+            self.money:action(T'680K', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_BETTING'), 680000)
+            end)
+
+            self.money:action(T'25K', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_AMBIENT_JOB_SMUGGLER_PLANE'), 25000)
+            end)
+            
+            self.money:action(T'Salvage Yard (1.5M)', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_SALVAGE_YARD_SELL_VEH'), 1500000)
+            end)
+
+            self.money:action(T'50K (Sky Dives)', {}, T'', function()
+                util.trigger_script_event(1 << players.user(), { -1235428989, players.user(), 0, 0, 0, 0, 0, 0 })
+            end)
+
+            self.money:action(T'Bail Office High Bounty 127K', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_BAIL_OFFICE_HIGH_VALUE_PRISONER'), 127000)
+            end)
+
+            self.money:action(T'Taxi Driver', {}, T'', function()
+                self:trigger_transaction('SERVICE_EARN_TAXI_JOB':joaat(), 15000)
+            end)
+
+            self.money:action(T'Madrazo Bounty (30K with 540K limit)', {}, T'', function()
+                self.se:start_freemode_mission(1 << players.user(), 338)
+                util.yield(300)
+
+                local finish = memory.script_local(table.unpack(self.g.MadrazoBountyInstantFinish))
+                local finish1 = memory.script_local(table.unpack(self.g.MadrazoBountyInstantFinish1))
+
+                if finish ~= 0 then
+                    memory.write_int(finish1, 0x1F)
+                    memory.write_int(finish, 3)
+                end
+            end)
+
+            self.money:divider('')
+
+            self.money:toggle_loop(T'180K Loop', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_JOBS'), 180000)
+            end)
+
+            self.money:toggle_loop(T'200K Loop', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_COLLECTABLE_COMPLETED_COLLECTION'), 200000)
+            end)
+
+            self.money:toggle_loop(T'680K Loop', {}, T'', function()
+                self:trigger_transaction(util.joaat('SERVICE_EARN_BETTING'), 680000)
+            end)
+
+            self.money:toggle_loop(T'Madrazo Bounty Loop (30K with 540K limit)', {}, T'', function()
+                self.se:start_freemode_mission(1 << players.user(), 338)
+                util.yield(300)
+
+                local finish = memory.script_local(table.unpack(self.g.MadrazoBountyInstantFinish))
+                local finish1 = memory.script_local(table.unpack(self.g.MadrazoBountyInstantFinish1))
+
+                if finish ~= 0 then
+                    memory.write_int(finish1, 0x1F)
+                    memory.write_int(finish, 3)
+                end
+                util.yield(500)
+            end)
+        end
+
+        do
+            self.yeti:toggle(T'Event State', {}, T'Enable/disable yeti event', function(state)
+                memory.write_int(self.g.YetiEventEnable:g(), state ? 1 : 0)
+            end, memory.read_int(self.g.YetiEventEnable:g()) == 1)
+    
+            self.yeti:toggle(T'Big RP', {}, T'Increase RP so you get a total of 450,000 from investigate all clues button below', function(state)
+                memory.write_float(memory.script_global(GLOBAL_TUNABLE_BASE + 1), state ? 90 : 1)
+            end)
+    
+            self.yeti:toggle(T'Disable RP', {}, T'Disable RP so you don\'t get any from investigating all clues', function(state)
+                memory.write_float(memory.script_global(GLOBAL_TUNABLE_BASE + 1), state ? 0 : 1)
+            end)
+    
+            self.yeti:action(T'Investigate All Clues', {}, T'Investigate all the clues instantly', function()
+                local addr = memory.script_local(table.unpack(self.g.YetiCluesBitfield))
+                if addr ~= nil then
+                    local bitfield = pluto_new bitwise.bitfield(memory.read_int(addr), addr)
+                    memory.write_int(self.g.YetiEventEnable:g(), 1)
+                    memory.write_int(self.g.YetiClueReward:g(), 0)
+    
+                    bitfield:set(0x203)
+                    local timeout = os.time() + 2
+                    util.create_tick_handler(function()
+                        memory.write_int(memory.script_local(table.unpack(self.g.YetiCluesCollected)), 5)
+                        if os.time() > timeout then
+                            return false
+                        end
+                    end)
+    
+                    for i = 0, 5 do
+                        bitfield:set(1 << 2)
+                        util.yield(50)
+                        bitfield:clear(1 << 2)
+                        util.yield(200)
+                    end
+    
+                    memory.write_int(self.g.YetiClueReward:g(), 10000)
+                end
+            end)
+            self.yeti:divider('')
+    
+            self.yeti:action(T'Teleport To Bloodied Tent', {}, '', function()
+                local localplayer = players.localplayer()
+                localplayer:set_entity_coords_no_offset(-1562.69, 4699.04, 50.426, false, false, false)
+            end)
+    
+            self.yeti:action(T'Teleport To Torn Shirt', {}, '', function()
+                local localplayer = players.localplayer()
+                localplayer:set_entity_coords_no_offset(-1359.869, 4733.429, 46.919, false, false, false)
+            end)
+    
+            self.yeti:action(T'Teleport To Deer', {}, '', function()
+                local localplayer = players.localplayer()
+                localplayer:set_entity_coords_no_offset(-1715.398, 4501.203, 0.096, false, false, false)
+            end)
+    
+            self.yeti:action(T'Teleport To Body Parts', {}, '', function()
+                local localplayer = players.localplayer()
+                localplayer:set_entity_coords_no_offset(-1567.8599, 4478.6294, 20.928696, false, false, false)
+            end)
+    
+            self.yeti:action(T'Teleport To Chiliad Wilderness', {}, '', function()
+                local localplayer = players.localplayer()
+                localplayer:set_entity_coords_no_offset(-1345.828, 4838.062, 137.522, false, false, false)
+            end)
+        end
+
+        do
+            self.tut_sessions:toggle(T'Create Safe Session', {}, T'Create a tutorial session that other players cannot join giving you a safe space to go afk without being killed', function(state)
+                if not util.can_continue() then return end
+                if state then
+                    network.network_start_solo_tutorial_session()
+                else
+                    network.network_end_tutorial_session()
+                end
+            end, network.network_is_in_tutorial_session())
+        end
+
+        do
+            self.bk_list = { { 1, 'None' } }
+            self.killer = self.blamekill:list_select(T'Killer', {T'bkkiller'}, T'The player that will be blamed for the kill', self.bk_list, 1, function() end)
+            self.victim = self.blamekill:list_select(T'Victim', {T'bkvictim'}, T'The player that will be killed', self.bk_list, 1, function() end)
+            self.auto_spect = self.blamekill:toggle(T'Auto Spectate', {}, '', function(state) end, true)
+
+            self.blamekill:divider('')
+            self.blamekill:action(T'Vehicle Kill', {}, '', function()
+                local victim_data = self.bk_list[self.victim.value]
+                local killer_data = self.bk_list[self.killer.value]
+
+                local victim_name = (victim_data ~= nil) ? victim_data[2] : 'None'
+                local killer_name = (killer_data ~= nil) ? killer_data[2] : 'None'
+
+                if victim_name == 'None' or killer_name == 'None' then
+                    return util.toast(T'Invalid victim or killer')
+                end
+
+                local victim = players.get_pid_from_name(victim_name)
+                local killer = players.get_pid_from_name(killer_name)
+
+                if self.utils:player_exists(victim) and self.utils:player_exists(killer) then
+                    local victim_ped = player.get_player_ped(victim)
+                    local veh = ped.get_vehicle_ped_is_using(victim_ped)
+                    local spect = menu.player_root(victim):refByRelPath('Spectate>Nuts Method')
+
+                    if veh ~= 0 then
+                        return util.toast($'{players.get_name(victim)} is in a vehicle!')
+                    end
+
+                    if spect:isValid() then
+                        spect.value = self.auto_spect.value
+                    end
+
+                    self.utils:vehicle_blame_kill(victim, killer, ('khanjali'):joaat(), true, function()
+                        if spect:isValid() then
+                            spect.value = false
+                        end
+                    end)
+                end
+            end)
+
+            self.blamekill:action(T'Stop Spectating', {}, '', function()
+                local spectate = menu.player_root(players.user()):refByRelPath('Spectate>Nuts Method')
+                if spectate:isValid() then
+                    spectate.value = true
+                    spectate.value = false
+                end
+            end)
+
+            self.blamekill:action(T'Stop Blame Kill', {}, '', function()
+                self.utils.blamekill_flag = true
+            end)
+        end
+
+        do
+            self.esp_exclude_self = self.esp:toggle(T'Exclude Self', {}, T'Exclude yourself from the ESP', function(state) end)
+            self.esp_exclude_friends = self.esp:toggle(T'Exclude Friends', {}, T'Exclude friends from the ESP', function(state) end)
+            self.esp:divider('')
+
+            self.esp:toggle_loop(T'Bone ESP', {}, T'Enable bone ESP for all players', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        if self.esp_exclude_self.value and pid == players.user() then
+                            goto continue
+                        elseif self.esp_exclude_friends.value and self.utils:is_friend(pid) then
+                            goto continue
+                        end
+
+                        esp.draw_bone_esp(player.get_player_ped(pid), self.esp_bone)
+
+                        ::continue::
+                    end
+                end
+            end)
+
+            self.esp:toggle_loop(T'Box ESP', {}, T'Enable box ESP for all players', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        if self.esp_exclude_self.value and pid == players.user() then
+                            goto continue
+                        elseif self.esp_exclude_friends.value and self.utils:is_friend(pid) then
+                            goto continue
+                        end
+
+                        esp.draw_box_esp(player.get_player_ped(pid), self.esp_box)
+
+                        ::continue::
+                    end
+                end
+            end)
+
+            self.esp:toggle_loop(T'Name ESP', {}, T'Enable name ESP for all players', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        if self.esp_exclude_self.value and pid == players.user() then
+                            goto continue
+                        elseif self.esp_exclude_friends.value and self.utils:is_friend(pid) then
+                            goto continue
+                        end
+
+                        esp.draw_name_esp(player.get_player_ped(pid), players.get_name(pid), self.esp_name)
+
+                        ::continue::
+                    end
+                end
+            end)
+
+            self.esp:toggle_loop(T'Health / Armour ESP', {}, T'Enable health / armour ESP for all players', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) then
+                        if self.esp_exclude_self.value and pid == players.user() then
+                            goto continue
+                        elseif self.esp_exclude_friends.value and self.utils:is_friend(pid) then
+                            goto continue
+                        end
+
+                        esp.draw_health_esp(player.get_player_ped(pid), self.esp_health_armour)
+
+                        ::continue::
+                    end
+                end
+            end)
+
+            self.esp:divider('')
+
+            self.esp:colour(T'Bone Colour', {}, T'The colour of the bones', colour.hex_to_float(self.esp_bone), false, function(c)
+                self.esp_bone = colour.float_to_hex(c.r, c.g, c.b, c.a)
+            end)
+    
+            self.esp:colour(T'Box Colour', {}, T'The colour of the box', colour.hex_to_float(self.esp_box), false, function(c)
+                self.esp_box = colour.float_to_hex(c.r, c.g, c.b, c.a)
+            end)
+    
+            self.esp:colour(T'Name Colour', {}, T'The colour of the name', colour.hex_to_float(self.esp_name), false, function(c)
+                self.esp_name = colour.float_to_hex(c.r, c.g, c.b, c.a)
+            end)
+        end
+
+        do
+            self.darts_points = self.darts:text_input(T'Points', {T'rodartspoints'}, T'Set the amount of points to win', function(points)
+                local addr = memory.script_local(table.unpack(self.g.DartsPoints))
+                if addr ~= 0 then
+                    memory.write_int(addr, tonumber(points))
+                end
+            end, '301')
+
+            self.darts_sets = self.darts:text_input(T'Sets', {T'rodartssets'}, T'Set the amount of sets to win', function(sets)
+                local addr = memory.script_local(table.unpack(self.g.DartsSets))
+                if addr ~= 0 then
+                    memory.write_int(addr, tonumber(sets))
+                end
+            end, '1')
+
+            self.darts_legs = self.darts:text_input(T'Legs', {T'rodartslegs'}, T'Set the amount of legs to win', function(legs)
+                local addr = memory.script_local(table.unpack(self.g.DartsLegs))
+                if addr ~= 0 then
+                    memory.write_int(addr, tonumber(legs))
+                end
+            end, '1')
+
+            self.darts:divider('')
+
+            self.darts:toggle_loop(T'Set Points', {T'roautoset'}, T'Change your points to whatever you want', function()
+                local addr = memory.script_local(table.unpack(self.g.DartsPoints))
+                if addr ~= 0 then
+                    memory.write_int(addr, tonumber(self.darts_points.value))
+                end
+            end)
+
+            self.darts:toggle_loop(T'Set Sets', {T'roautoset'}, T'Change your sets to whatever you want', function()
+                local addr = memory.script_local(table.unpack(self.g.DartsSets))
+                if addr ~= 0 then
+                    memory.write_int(addr, tonumber(self.darts_sets.value))
+                end
+            end)
+
+            self.darts:toggle_loop(T'Set Legs', {T'roautoset'}, T'Change your legs to whatever you want', function()
+                local addr = memory.script_local(table.unpack(self.g.DartsLegs))
+                if addr ~= 0 then
+                    memory.write_int(addr, tonumber(self.darts_legs.value))
+                end
+            end)
+
+            self.darts:toggle_loop(T'Unlimited Turns', {}, '', function()
+                local addr = memory.script_local(table.unpack(self.g.DartsTurns))
+                if addr ~= 0 then
+                    memory.write_int(addr, 0)
+                end
+            end)
+
+            self.darts:toggle_loop(T'Always Win Leg', {}, '', function()
+                local addr = memory.script_local(table.unpack(self.g.DartsLegWinState))
+                if addr ~= 0 then
+                    memory.write_int(addr, 1)
+                end
+            end)
+
+            self.darts:divider('')
+            self.darts:action(T'Force Leg Win', {}, '', function()
+                local addr = memory.script_local(table.unpack(self.g.DartsLegWinState))
+                if addr ~= 0 then
+                    memory.write_int(addr, 1)
+                end
+            end)
+            
+            self.darts:action(T'Force Skip Turn', {}, '', function()
+                local addr = memory.script_local(table.unpack(self.g.DartsTurns))
+                if addr ~= 0 then
+                    memory.write_int(addr, 2)
+                end
+            end)
+
+            if self.utils:is_dev(players.user()) then
+                self.darts:divider('')
+                self.darts:action(T'Copy Address', {}, '', function()
+                    util.copy_addr(memory.script_local(table.unpack(self.g.DartsPoints)), true)
+                end)
+            end
+        end
+
+        do
+            local coords = {
+                { name = T'Lesters House', pos = v3(1274.9338, -1714.7256, 53.7715), command = $'tpmolesterhouse', heading = -1 },
+                { name = T'Torture Room', pos = v3(147.433, -2201.3704, 3.688), command = $'tptortureroom', heading = -1 },
+                { name = T'Kosatka Planning Board', pos = v3(1561.2369, 385.8831, -49.689915), command = $'tpkosatkaboard', heading = 175 },
+                { name = T'Richards Majestic', pos = v3(-1007.973, -487.1707, 38.9745), command = $'tprickardsmaj', heading = 299.96197509766 }
+            }
+            for coords as data do
+                self.teleports:action(data.name, {data.command}, '', function()
+                    local localplayer = players.localplayer()
+                    if data.heading ~= -1 then
+                        localplayer:set_entity_heading(data.heading)
+                    end
+                    localplayer:set_entity_coords_no_offset(data.pos.x, data.pos.y, data.pos.z, true, true, true)
+                end)
+            end
+
+            self.teleports:action(T'G-Cache', {T'tpgcache'}, '', function()
+                local localplayer = players.localplayer()
+                for entities.get_all_objects_as_pointers() as obj do
+                    local model = util.reverse_joaat(entities.get_model_hash(obj))
+                    if model == 'prop_mp_drug_pack_blue' then
+                        local pos = entities.get_position(obj)
+                        localplayer:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                    end
+                end
+            end)
+        end
+
+        do
+            local al_addr = 0
+            self.acid_lab = self.businesses:list(T'Acid Lab', {$'robal'}, '', function()
+                al_addr = self.sg:get_business_production_stats(6)
+                self.al_product.value = memory.read_int(al_addr + business_production_stats.product)
+                self.al_supplies.value = memory.read_int(al_addr + business_production_stats.supplies)
+            end)
+            self.al_product = self.acid_lab:text_input(T'Product', {$'robalproduct'}, '', function(amount)
+                if not util.can_continue() then return end
+                al_addr = self.sg:get_business_production_stats(6)
+                memory.write_int(al_addr + business_production_stats.product, tonumber(amount))
+            end)
+
+            self.al_supplies = self.acid_lab:text_input(T'Supplies', {$'robalsupplies'}, '', function(amount)
+                if not util.can_continue() then return end
+                al_addr = self.sg:get_business_production_stats(6)
+                memory.write_int(al_addr + business_production_stats.supplies, tonumber(amount))
+            end)
+
+            self.acid_lab:divider('')
+
+            self.acid_lab:action(T'Resupply', {$'robalresupply'}, '', function()
+                if not util.can_continue() then return end
+                local al_addr = self.g.SuppliesTimer:g(6)
+                memory.write_int(al_addr, -1)
+                self.al_supplies.value = memory.read_int(self.sg:get_business_production_stats(6) + business_production_stats.supplies)
+            end)
+
+            self.acid_lab:toggle_loop(T'Infinite Supplies', {$'robalinfsupplies'}, '', function()
+                if not util.can_continue() then return end
+                al_addr = self.sg:get_business_production_stats(6)
+                memory.write_int(al_addr + business_production_stats.supplies, 200)
+            end)
+
+            local bunk_addr = 0
+            self.bunker = self.businesses:list(T'Bunker', {$'robbunk'}, '', function()
+                bunk_addr = self.sg:get_business_production_stats(5)
+                self.bunk_product.value = memory.read_int(bunk_addr + business_production_stats.product)
+                self.bunk_supplies.value = memory.read_int(bunk_addr + business_production_stats.supplies)
+            end)
+            self.bunk_product = self.bunker:text_input(T'Product', {$'robbunkproduct'}, '', function(amount)
+                if not util.can_continue() then return end
+                bunk_addr = self.sg:get_business_production_stats(5)
+                memory.write_int(bunk_addr + business_production_stats.product, tonumber(amount))
+            end)
+
+            self.bunk_supplies = self.bunker:text_input(T'Supplies', {$'robbunksupplies'}, '', function(amount)
+                if not util.can_continue() then return end
+                bunk_addr = self.sg:get_business_production_stats(5)
+                memory.write_int(bunk_addr + business_production_stats.supplies, tonumber(amount))
+            end)
+
+            self.bunker:divider('')
+            self.bunker:action(T'Resupply', {$'robbunkresupply'}, '', function()
+                if not util.can_continue() then return end
+                local bunk_addr = self.g.SuppliesTimer:g(5)
+                memory.write_int(bunk_addr, -1)
+                self.bunk_supplies.value = memory.read_int(self.sg:get_business_production_stats(5) + business_production_stats.supplies)
+            end)
+
+            self.bunker:toggle_loop(T'Infinite Supplies', {$'robbunkinfsupplies'}, '', function()
+                if not util.can_continue() then return end
+                bunk_addr = self.sg:get_business_production_stats(5)
+                memory.write_int(bunk_addr + business_production_stats.supplies, 200)
+            end)
+
+            local coke_addr = 0
+            self.coke_lockup = self.businesses:list(T'Cocaine Lockup', {$'rocoke'}, '', function()
+                coke_addr = self.sg:get_business_production_stats(0)
+                self.coke_product.value = memory.read_int(coke_addr + business_production_stats.product)
+                self.coke_supplies.value = memory.read_int(coke_addr + business_production_stats.supplies)
+            end)
+
+            self.coke_product = self.coke_lockup:text_input(T'Product', {$'rocokeproduct'}, '', function(amount)
+                if not util.can_continue() then return end
+                coke_addr = self.sg:get_business_production_stats(0)
+                memory.write_int(coke_addr + business_production_stats.product, tonumber(amount))
+            end)
+
+            self.coke_supplies = self.coke_lockup:text_input(T'Supplies', {$'rocokeproduct'}, '', function(amount)
+                if not util.can_continue() then return end
+                coke_addr = self.sg:get_business_production_stats(0)
+                memory.write_int(coke_addr + business_production_stats.supplies, tonumber(amount))
+            end)
+            self.coke_lockup:divider('')
+
+            self.coke_lockup:action(T'Resupply', {}, '', function()
+                if not util.can_continue() then return end
+                local addr = self.g.SuppliesTimer:g(0)
+                memory.write_int(addr, -1)
+            end)
+
+            self.coke_lockup:toggle_loop(T'Infinite Supplies', {}, '', function()
+                if not util.can_continue() then return end
+                coke_addr = self.sg:get_business_production_stats(0)
+                memory.write_int(coke_addr + business_production_stats.supplies, 200)
+            end)
+
+            self.businesses:divider('')
+
+            self.bail_office = self.businesses:list(T'Bail Office', {T'robailoffice'})
+
+            self.bail_office:action(T'Open Management App', {}, '', function()
+                self.utils:start_new_script('appbailoffice')
+            end)
+
+            self.business_safes = self.businesses:list(T'Business Safes', {T'robusinesssafes'})
+
+            self.sal_yard = self.business_safes:list(T'Salvage Yard', {$'rosalyard'}, '')
+            self.sal_yard:action(T'Trigger Production', {}, '', function()
+                local char_slot = util.get_char_slot()
+                local prod_amount = self.g.SalvageYardProductionAmount:g()
+                memory.write_int(prod_amount, 250000)
+                stats.stat_set_int($'MP{char_slot}_SALVAGE_PAY_TIME_LEFT':joaat(), 1, true)
+            end)
+
+            self.sal_yard:action(T'Collect', {}, '', function()
+                local safe_value = self.g.SalvageYardSafe:g()
+                if memory.read_int(safe_value) > 0 then
+                    local l = memory.script_local(table.unpack(self.g.TriggerSalvageYardCollection))
+                    local l1 = memory.script_local(table.unpack(self.g.TriggerSalvageYardCollection1))
+
+                    if l ~= 0 and l1 ~= 0 then
+                        memory.write_int(l, 1)
+                        memory.write_int(l1, memory.read_int(l1) | (1 << 0))
+                    end
+                end
+            end)
+
+            self.sal_yard:action(T'Reset Safe', {}, T'Reset the safe back to 0', function()
+                local char_slot = util.get_char_slot()
+                local prod_local = memory.script_local(table.unpack(self.g.SalvageYardProductionAmountLocal))
+                local val_addr = self.g.SalvageYardSafe:g()
+                local safe_limit = self.g.SalvageYardSafeLimit:g()
+                local safe_value = 0
+
+                memory.write_int(safe_limit, memory.read_int(val_addr) + 1)
+
+                util.create_tick_handler(function()
+                    safe_value = memory.read_int(val_addr)
+                    if safe_value == 0 then
+                        memory.write_int(safe_limit, 250000)
+                        return false
+                    end
+
+                    memory.write_int(prod_local, safe_value * -1)
+                end)
+
+                if safe_value > 0 then
+                    stats.stat_set_int($'MP{char_slot}_SALVAGE_PAY_TIME_LEFT':joaat(), 1, true)
+                end
+            end)
+
+            self.sal_yard:divider('')
+            self.sal_yard:toggle_loop(T'Safe Value', {}, '', function()
+                local safe_value = self.g.SalvageYardSafe:g()
+                util.draw_debug_text($'Salvage Yard Safe: ${memory.read_int(safe_value)}')
+            end)
+
+            self.bail_office_safe = self.business_safes:list(T'Bail Office Safe', {$'robosafe'}, '')
+
+            self.bail_office_trigger_prod = self.bail_office_safe:action(T'Trigger Production', {}, '', function()
+                local char_slot = util.get_char_slot()
+                stats.set_packed_stat_bool_code(42270, true, char_slot)
+                --stats.set_packed_stat_bool_code(42271, true, char_slot)
+                stats.set_packed_stat_bool_code(42273, true, char_slot)
+            end)
+
+            self.bail_office_safe:action(T'Collect', {}, '', function()
+                local safe_value = self.g.BailOfficeSafe:g()
+                if memory.read_int(safe_value) > 0 then
+                    local l = memory.script_local(table.unpack(self.g.TriggerBailOfficeCollection))
+                    local l1 = memory.script_local(table.unpack(self.g.TriggerBailOfficeCollection1))
+
+                    if l ~= 0 and l1 ~= 0 then
+                        memory.write_int(l, 1)
+                        memory.write_int(l1, memory.read_int(l1) | (1 << 0))
+                    end
+                end
+            end)
+
+            self.bail_office_safe:action(T'Reset Safe', {}, T'Reset the safe back to 0', function()
+                local prod_local = memory.script_local(table.unpack(self.g.BailOfficeProductionAmount))
+                local val_addr = self.g.BailOfficeSafe:g()
+                local safe_limit = self.g.BailOfficeSafeLimit:g()
+                local safe_value = 0
+
+                memory.write_int(safe_limit, memory.read_int(val_addr) + 1)
+
+                util.create_tick_handler(function()
+                    safe_value = memory.read_int(val_addr)
+                    if safe_value == 0 then
+                        memory.write_int(safe_limit, 250000)
+                        return false
+                    end
+
+                    memory.write_int(prod_local, safe_value * -1)
+                end)
+
+                if safe_value > 0 then
+                    if self.bail_office_trigger_prod:isValid() then
+                        self.bail_office_trigger_prod:trigger()
+                    end
+                end
+            end)
+
+            self.bail_office_safe:divider('')
+
+            self.bail_office_safe:toggle_loop(T'Safe Value', {}, '', function()
+                local safe_value = self.g.BailOfficeSafe:g()
+                util.draw_debug_text($'Bail Office Safe: ${memory.read_int(safe_value)}')
+            end)
+        end
+
+        do
+            self.target_friends = self.toxic:toggle(T'Target Friends', {}, T'Should kicking/crashing target friends?', function(state) end)
+            self.toxic:divider('')
+
+            self.toxic:action(T'Crash All (Elegant)', {'crashall'}, T'Crash all players in the lobby', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        if not self.target_friends.value and self.utils:is_friend(pid) then
+                            goto continue
+                        end
+
+                        local ref = menu.player_root(pid):refByRelPath('Crash>Elegant')
+                        if ref:isValid() then
+                            ref:trigger()
+                        end
+
+                        ::continue::
+                    end
+                    util.yield(1000)
+                end
+            end)
+
+            self.toxic:action(T'Crash All (Steamroll)', {'steamrollall'}, T'Crash all players in the lobby', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        if not self.target_friends.value and self.utils:is_friend(pid) then
+                            goto continue
+                        end
+
+                        local ref = menu.player_root(pid):refByRelPath('Crash>Steamroller')
+                        if ref:isValid() then
+                            ref:trigger()
+                        end
+
+                        ::continue::
+                    end
+                    util.yield(1000)
+                end
+            end)
+
+            self.toxic:action(T'Kick All', {'kickall'}, T'Kick all players in the lobby', function()
+                if players.user() ~= players.get_host() then
+                    return util.display_error(T'You are not the host')
+                end
+
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() and pid ~= players.get_host() then
+                        if not self.target_friends.value and self.utils:is_friend(pid) then
+                            goto continue
+                        end
+
+                        local ref = menu.player_root(pid):refByRelPath('Kick>Smart')
+                        if ref:isValid() then
+                            ref:trigger()
+                        end
+
+                        ::continue::
+                    end
+                end
+            end)
+
+            self.toxic:action(T'Kick Godmode Players', {'rokickgodmode'}, T'Kick all players that are in godmode', function()
+                if players.get_host() ~= players.user() then
+                    return util.display_error(T'You are not the host')
+                end
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        if not self.target_friends.value and self.utils:is_friend(pid) then
+                            goto continue
+                        end
+
+                        if players.is_godmode(pid) then
+                            local ref = menu.player_root(pid):refByRelPath('Kick>Smart')
+                            if ref:isValid() then
+                                ref:trigger()
+                            end
+                        end
+
+                        ::continue::
+                    end
+                end
+            end)
+
+            self.toxic:action(T'Snipe All', {'snipeall'}, T'Snipe all players in the lobby', function()
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        if not self.target_friends.value and self.utils:is_friend(pid) then
+                            goto continue
+                        end
+
+                        self.utils:damage_player(
+                            pid, 'WEAPON_HEAVYSNIPER_MK2', 230.0,
+                            damage_flags.DF_IsAccurate | damage_flags.DF_IgnoreRemoteDistCheck | damage_flags.DF_ForceInstantKill
+                        )
+
+                        ::continue::
+                    end
+                end
+            end)
+        end
+
+        do
+            local player_kills, player_deaths = 0, 0
+
+            local stats_base = self.g.StatSpoofing:g()
+            local dm_kills = self.g.TotalDmKills:g()
+            local dm_deaths = self.g.TotalDmDeaths:g()
+
+            player_kills = self.kd_edit:text_input(T'Player Kills', {T'rokdplayerkills'}, '', function(amount)
+            end, memory.read_int(stats_base + stats_offsets.player_kills))
+
+            player_deaths = self.kd_edit:text_input(T'Player Deaths', {T'rokdplayerdeaths'}, '', function(amount) 
+            end, memory.read_int(stats_base + stats_offsets.player_deaths))
+
+            self.kd_edit:action(T'Set KD', {T'rokdkd'}, '', function()
+                local kills = tonumber(player_kills.value)
+                local deaths = tonumber(player_deaths.value)
+                local kd = deaths == 0 and kills or kills / deaths
+
+                memory.write_int(stats_base + stats_offsets.player_kills, kills)
+                stats.stat_set_int('MPPLY_KILLS_PLAYER':joaat(), kills, true)
+
+                memory.write_int(stats_base + stats_offsets.player_deaths, deaths)
+                stats.stat_set_int('MPPLY_DEATHS_PLAYER':joaat(), deaths, true)
+
+                memory.write_float(stats_base + stats_offsets.player_kd, kd)
+                stats.stat_set_float('MPPLY_KILL_DEATH_RATIO':joaat(), kd, true)
+
+                memory.write_int(dm_kills, kills)
+                stats.stat_set_int('MPPLY_DM_TOTAL_KILLS':joaat(), kills, true)
+
+                memory.write_int(dm_deaths, deaths)
+                stats.stat_set_int('MPPLY_DM_TOTAL_DEATHS':joaat(), deaths, true)
+
+                util.toast(T:T('Set KD to %s', kd))
+            end)
+        end
+
+        do
+            self.dealer_base_addr = memory.script_local(table.unpack(self.g.StreetDealerBase))
+            self.sd_cocaine_price = self.street_dealer:readonly(T:T('Cocaine Price: %d', 0))
+            self.sd_meth_price = self.street_dealer:readonly(T:T('Meth Price: %d', 0))
+            self.sd_weed_price = self.street_dealer:readonly(T:T('Weed Price: %d', 0))
+            self.sd_acid_price = self.street_dealer:readonly(T:T('Acid Price: %d', 0))
+            self.sd_cocaine_sells_left = self.street_dealer:readonly(T:T('Cocaine Sells Left: %d', 0))
+            self.sd_meth_sells_left = self.street_dealer:readonly(T:T('Meth Sells Left: %d', 0))
+            self.sd_weed_sells_left = self.street_dealer:readonly(T:T('Weed Sells Left: %d', 0))
+            self.sd_acid_sells_left = self.street_dealer:readonly(T:T('Acid Sells Left: %d', 0))
+        
+            self.street_dealer:divider('')
+
+            self.street_dealer:text_input(T'Cocaine Price', {T'rosdcokeprice'}, '', function(amount)
+                amount = tonumber(amount)
+                if amount < 0 then
+                    amount = 0
+                elseif amount > 80000 then
+                    amount = 80000
+                end
+
+                if self.dealer_base_addr == 0 then return end
+                memory.write_int(self.dealer_base_addr + street_dealer_offsets.cocaine_price, amount)
+            end, '0')
+
+            self.street_dealer:text_input(T'Meth Price', {T'rosdmethprice'}, '', function(amount)
+                amount = tonumber(amount)
+                if amount < 0 then
+                    amount = 0
+                elseif amount > 80000 then
+                    amount = 80000
+                end
+                
+                if self.dealer_base_addr == 0 then return end
+                memory.write_int(self.dealer_base_addr + street_dealer_offsets.meth_price, amount)
+            end, '0')
+
+            self.street_dealer:text_input(T'Weed Price', {T'rosdweedprice'}, '', function(amount)
+                amount = tonumber(amount)
+                if amount < 0 then
+                    amount = 0
+                elseif amount > 80000 then
+                    amount = 80000
+                end
+
+                if self.dealer_base_addr == 0 then return end
+                memory.write_int(self.dealer_base_addr + street_dealer_offsets.weed_price, amount)
+            end, '0')
+
+            self.street_dealer:text_input(T'Acid Price', {T'rosdacidprice'}, '', function(amount)
+                amount = tonumber(amount)
+                if amount < 0 then
+                    amount = 0
+                elseif amount > 80000 then
+                    amount = 80000
+                end
+
+                if self.dealer_base_addr == 0 then return end
+                memory.write_int(self.dealer_base_addr + street_dealer_offsets.acid_price, amount)
+            end, '0')
+
+            self.street_dealer:divider('')
+
+            self.street_dealer:toggle_loop(T'Infinite Cocaine Sells', {}, '', function()
+                util.spoof_script('fm_street_dealer', function()
+                    memory.write_int(self.dealer_base_addr + street_dealer_offsets.cocaine_sells_left, 1)
+                end)
+            end)
+
+            self.street_dealer:toggle_loop(T'Infinite Meth Sells', {}, '', function()
+                util.spoof_script('fm_street_dealer', function()
+                    memory.write_int(self.dealer_base_addr + street_dealer_offsets.meth_sells_left, 2)
+                end)
+            end)
+
+            self.street_dealer:toggle_loop(T'Infinite Weed Sells', {}, '', function()
+                util.spoof_script('fm_street_dealer', function()
+                    memory.write_int(self.dealer_base_addr + street_dealer_offsets.weed_sells_left, 10)
+                end)
+            end)
+
+            self.street_dealer:toggle_loop(T'Infinite Acid Sells', {}, '', function()
+                util.spoof_script('fm_street_dealer', function()
+                    memory.write_int(self.dealer_base_addr + street_dealer_offsets.acid_sells_left, 10)
+                end)
+            end)
+        end
+
+        do
+            self.dt_show_self = self.damage_tracker:toggle(T'Show Damage To Self', {}, T'Shows the damage that you take from other players', function(state) end, true)
+            self.dt_show_others = self.damage_tracker:toggle(T'Show Damage From Others', {}, T'Shows the damage that other players take from you', function(state) end, true)
+            self.dt_toast_damage = self.damage_tracker:toggle(T'Toast Damage', {}, T'Should the damage be shown in a toast or printed in the console?', function(state) end, true)
+            self.damage_tracker:divider('')
+
+            local s = 13
+            local event_data = memory.alloc(s * 8)
+
+            self.damage_tracker:toggle_loop(T'Damage Tracker', {}, T'Toasts the damage that you took from player x with weapon x', function()
+                for i = 0, script.get_number_of_events(1) do
+                    local event = script.get_event_at_index(1, i)
+                    if event == 186 then
+                        if script.get_event_data(1, i, event_data, s) then
+                            local victim = memory.read_int(event_data)
+                            local attacker = memory.read_int(event_data + (1 * 8))
+                            local damage = memory.read_float(event_data + (2 * 8))
+                            local is_fatal = memory.read_byte(event_data + (5 * 8))
+                            local weapon_hash = memory.read_int(event_data + (6 * 8))
+                            local entity_type = memory.read_int(event_data + (12 * 8))
+                            
+                            if entity_type == 0 and ped.is_ped_a_player(victim) and ped.is_ped_a_player(attacker) then
+                                local victim_pid = network.network_get_player_index_from_ped(victim)
+                                local attacker_pid = network.network_get_player_index_from_ped(attacker)
+
+                                if victim_pid == players.user() and self.dt_show_self.value then
+                                    if self.dt_toast_damage.value then
+                                        util.toast(T:T('%s dealt %d damage to you with a %s', players.get_name(attacker_pid), damage, labels:get(util.reverse_joaat(weapon_hash):upper())))
+                                    else
+                                        print(T:T('%s dealt %d damage to you with a %s', players.get_name(attacker_pid), damage, labels:get(util.reverse_joaat(weapon_hash):upper())))
+                                    end
+                                end
+
+                                if attacker_pid == players.user() and self.dt_show_others.value then
+                                    if self.dt_toast_damage.value then
+                                        util.toast(T:T('You dealt %d damage to %s with a %s', damage, players.get_name(victim_pid), labels:get(util.reverse_joaat(weapon_hash):upper())))
+                                    else
+                                        print(T:T('You dealt %d damage to %s with a %s', damage, players.get_name(victim_pid), labels:get(util.reverse_joaat(weapon_hash):upper())))
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+
+        do
+            self.crew_0 = self.crew:list(T'Crew 0', {T'rocrew0'}, '', nil, nil, || -> self:update_crew_0())
+            self.crew_1 = self.crew:list(T'Crew 1', {T'rocrew1'}, '', nil, nil, || -> self:update_crew_1())
+            self.crew_2 = self.crew:list(T'Crew 2', {T'rocrew2'}, '', nil, nil, || -> self:update_crew_2())
+            self.crew_3 = self.crew:list(T'Crew 3', {T'rocrew3'}, '', nil, nil, || -> self:update_crew_3())
+
+            self.crew_0_id = self.crew_0:readonly('', '')
+            self.crew_1_id = self.crew_1:readonly('', '')
+            self.crew_2_id = self.crew_2:readonly('', '')
+            self.crew_3_id = self.crew_3:readonly('', '')
+
+            self.crew_0_xp = self.crew_0:readonly('', '')
+            self.crew_1_xp = self.crew_1:readonly('', '')
+            self.crew_2_xp = self.crew_2:readonly('', '')
+            self.crew_3_xp = self.crew_3:readonly('', '')
+
+            self.crew_0_id.menu_name = T:T('Crew ID: %d', self.utils:get_stat_int('MPPLY_CREW_0_ID'))
+            self.crew_1_id.menu_name = T:T('Crew ID: %d', self.utils:get_stat_int('MPPLY_CREW_1_ID'))
+            self.crew_2_id.menu_name = T:T('Crew ID: %d', self.utils:get_stat_int('MPPLY_CREW_2_ID'))
+            self.crew_3_id.menu_name = T:T('Crew ID: %d', self.utils:get_stat_int('MPPLY_CREW_3_ID'))
+
+            self.crew_0_xp.menu_name = T:T('Crew XP: %d', self.utils:get_stat_int('MPPLY_CREW_LOCAL_XP_0'))
+            self.crew_1_xp.menu_name = T:T('Crew XP: %d', self.utils:get_stat_int('MPPLY_CREW_LOCAL_XP_1'))
+            self.crew_2_xp.menu_name = T:T('Crew XP: %d', self.utils:get_stat_int('MPPLY_CREW_LOCAL_XP_2'))
+            self.crew_3_xp.menu_name = T:T('Crew XP: %d', self.utils:get_stat_int('MPPLY_CREW_LOCAL_XP_3'))
+
+            self.crew_0:divider('')
+            self.crew_1:divider('')
+            self.crew_2:divider('')
+            self.crew_3:divider('')
+
+            for i = 0, 3 do
+                local root = self['crew_' .. i]
+                root:text_input(T'Set Crew XP', {$'rosetcrewxp{i}'}, '', function(amount)
+                    if not util.can_continue() then return end
+                    amount = tonumber(amount)
+                    if not stats.stat_set_int($'MPPLY_CREW_LOCAL_XP_{i}':joaat(), amount, true) then
+                        util.log(T'Failed to set crew rank')
+                    end
+                end, self.utils:get_stat_int($'MPPLY_CREW_LOCAL_XP_{i}'))
+
+                root:slider(T'Set Crew Rank', {$'rosetcrewrank{i}'}, '', 1, 8000, 1, 1, function(rank)
+                    if not util.can_continue() then return end
+                    rp = util.get_rp_required_for_rank(tonumber(rank))
+                    if not stats.stat_set_int($'MPPLY_CREW_LOCAL_XP_{i}':joaat(), rp, true) then
+                        util.log(T'Failed to set crew rank')
+                    end
+                end)
+            end
+        end
+
+        do
+            self.fm_jobs:action(T'Quit', {T'roquitjob'}, T'Quit the job/mission/challenge (does not work on all missions/jobs/challenges)', function()
+                self:quit_organisation_mission()
+            end)
+
+            self.fm_ceo_mc = self.fm_jobs:list(T'CEO/MC', {T'roceomcjobs'})
+            self.fm_if = self.fm_jobs:list(T'Instant Finishes', {T'roceomcifjobs'})
+            self.fm_if:action(T'Instant Finish Sightseer', {$'roifsightseer'}, '', function()
+                local finish = memory.script_local(table.unpack(self.g.SightseerInstantFinish))
+                if finish ~= 0 then
+                    memory.write_int(finish, 3)
+                    util.yield(1000)
+                    self:quit_organisation_mission()
+                end
+            end)
+
+            self.fm_if:action(T'Instant Finish Headhunter', {$'roifheadhunter'}, '', function()
+                local finish = memory.script_local(table.unpack(self.g.HeadhunterInstantFinish))
+                if finish ~= 0 then
+                    memory.write_int(finish, 0x7FFFFFFF)
+                    util.yield(1000)
+                    self:quit_organisation_mission()
+                end
+            end)
+
+            self.fm_if:action(T'Instant Finish Madrazo Bounty', {$'roifdailybounty'}, '', function()
+                local finish = memory.script_local(table.unpack(self.g.MadrazoBountyInstantFinish))
+                local finish1 = memory.script_local(table.unpack(self.g.MadrazoBountyInstantFinish1))
+                if finish ~= 0 then
+                    memory.write_int(finish1, 0x1F) -- 0x1F = completed with weapon choice, 0x11 = didn't complete with weapon choice
+                    memory.write_int(finish, 3)
+                    util.yield(1000)
+                    self:quit_organisation_mission()
+                end
+            end)
+
+            self.fm_if:action(T'Instant Finish Pizza Delivery', {$'roifpizzadel'}, '', function()
+                local finish = memory.script_local(table.unpack(self.g.PizzaDeliveryInstantFinish))
+                local earned = memory.script_local(table.unpack(self.g.PizzaDeliveryEarned))
+                if finish ~= 0 then
+                    memory.write_int(earned, 12000)
+                    memory.write_int(finish, 5)
+                    util.yield(1000)
+                    self:quit_organisation_mission()
+                end
+            end)
+
+            self.fm_ceo_mc:action(T'Cashing Out', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(171)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            self.fm_ceo_mc:action(T'Salvage', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(172)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            self.fm_ceo_mc:action(T'Auto Buyout', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(163)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            self.fm_ceo_mc:action(T'Due Diligence', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(160)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            self.fm_ceo_mc:action(T'Most Wanted', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(153)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            self.fm_ceo_mc:action(T'Point to Point', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(162)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            self.fm_ceo_mc:action(T'Courier Service', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(155)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            self.fm_ceo_mc:action(T'Market Manipulation', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(154)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            local ceo_mission_ids = {
+                { name = 'Plowed', id = 214 },
+                { name = 'Fully Loaded Ruiner 2000', id = 215 },
+                --[[{ name = 'Amphibious Assault', id = 213 },]]
+                { name = 'Transporter', id = 217 },
+                { name = 'Fortified', id = 218 },
+                { name = 'Velocity', id = 219 },
+                --[[{ name = 'Ramped Up', id = 220 },
+                { name = 'Stockpiling', id = 221 },]]
+                { name = 'Headhunter', id = 166 },
+                { name = 'Airfreight', id = 170 },
+                --[[{ name = 'Haulage', id = 224 },]]
+                { name = 'Hostile Takeover', id = 159 },
+                { name = 'Asset Recovery', id = 157 },
+                --[[{ name = 'Executive Deathmatch', id = 227 },
+                { name = 'Executive Search', id = 228 },]]
+                { name = 'Sightseer', id = 142 },
+                --[[{ name = 'Piracy Prevention', id = 230 }]]
+                { name = 'Joust', id = 179 },
+                { name = 'Stand Your Ground', id = 201 },
+            }
+
+            for i = 1, #ceo_mission_ids do
+                local mission = ceo_mission_ids[i]
+                self.fm_ceo_mc:action(mission.name, {}, '', function()
+                    local mission_id = self:get_organisation_mission_id()
+                    if mission_id == -1 then
+                        self:trigger_organisation_mission_with_id(
+                            mission.id, 
+                            function() 
+                                local script_id = self:get_organisation_script_id()
+                                local script_name = script_ids[script_id]
+
+                                util.toast(T:T('Successfully started %s', script_name))
+                            end, 
+                            function()
+                                util.toast(T'Mission failed to start')
+                            end
+                        )
+                    else
+                        util.toast(T'You already have a mission active')
+                    end
+                end)
+            end
+
+            self.fm_jobs:divider('')
+            self.fm_jobs:action(T'Bail Office Bounty', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(337)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            self.fm_jobs:action(T'Promote Nightclub', {}, '', function()
+                local mission_id = self:get_organisation_mission_id()
+                if mission_id == -1 then
+                    self:trigger_organisation_mission_with_id(250)
+                else
+                    util.toast(T'You already have a mission active')
+                end
+            end)
+
+            local mission_ids = {
+                { name = 'Bunker Weapon Parts', id = 296 },
+                { name = 'Clubhouse Bar Resupply', id = 291 },
+                { name = 'Acid Lab Setup', id = 304 },
+                { name = 'Acid Lab Source', id = 305 },
+                { name = 'Acid Lab Sell', id = 306 },
+                { name = 'Stash House', id = 308 },
+                { name = 'Taxi Driver Work', id = 309 },
+                { name = 'UFO Abduction', id = 314 },
+                { name = 'Pizza Delivery', id = 340 },
+                { name = 'Madrazo Daily Bounty', id = 338 },
+                { name = 'GB_BIKER_CONTRABAND_SELL', id = 190 },
+                { name = 'GB_BIKER_UNLOAD_WEAPONS', id = 180 },
+                { name = 'GB_BIKER_BAD_DEAL', id = 181 },
+                { name = 'GB_BIKER_RESCUE_CONTACT', id = 183 },
+                { name = 'GB_BIKER_CONTRABAND_DEFEND', id = 191 },
+                { name = 'GB_BIKER_FREE_PRISONER', id = 197 },
+                { name = 'GB_BIKER_SAFECRACKER', id = 198 },
+                { name = 'GB_INFILTRATION', id = 248 },
+                { name = 'fm_content_club_management', id = 299 },
+                { name = 'fm_content_gunrunning', id = 297 },
+                { name = 'fm_content_cargo', id = 294 },
+                { name = 'fm_content_clubhouse_contracts', id = 293 },
+                { name = 'fm_content_club_source', id = 301 },
+                { name = 'fm_content_drug_lab_work', id = 307 },
+                { name = 'fm_content_armoured_truck', id = 312 },
+                { name = 'fm_content_ghosthunt', id = 313 },
+                { name = 'fm_content_smuggler_ops', id = 317 },
+                { name = 'fm_content_bicycle_time_trial', id = 318 },
+                { name = 'fm_content_vehrob_police', id = 330 },
+                { name = 'fm_content_vehrob_disrupt', id = 328 },
+                { name = 'fm_content_vehrob_prep', id = 327 },
+                { name = 'fm_content_vehrob_task', id = 326 },
+                { name = 'fm_content_vehrob_scoping', id = 325 },
+                { name = 'fm_content_tow_truck_work', id = 324 },
+                { name = 'fm_content_xmas_truck', id = 323 },
+                { name = 'fm_content_chop_shop_delivery', id = 322 },
+            }
+
+            for i = 1, #mission_ids do
+                local mission = mission_ids[i]
+                self.fm_jobs:action(mission.name, {}, '', function()
+                    local mission_id = self:get_organisation_mission_id()
+                    if mission_id == -1 then
+                        self:trigger_organisation_mission_with_id(
+                            mission.id, 
+                            function() 
+                                local script_id = self:get_organisation_script_id()
+                                local script_name = script_ids[script_id]
+
+                                util.toast(T:T('Successfully started %s', script_name))
+                            end, 
+                            function()
+                                util.toast(T'Mission failed to start')
+                            end
+                        )
+                    else
+                        util.toast(T'You already have a mission active')
+                    end
+                end)
+            end
+        end
+
+        do
+            if not self.update:isset(eUpdateFlags.UF_QUICK_INVITES) then
+                self.invite_command = menu.ref_by_command_name('ridinvite')
+                self.update:set(eUpdateFlags.UF_QUICK_INVITES)
+                self:update_quick_invites()
+            end
+        end
+
+        self.root:divider('')
+        self.root:toggle_loop(T'Anti-Ghosted', {}, T'Prevent other players from becoming ghosted to you', function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= players.user() then
+                    if network.is_entity_a_ghost(player.get_player_ped(pid)) then
+                        players.set_bounty(pid, -1, true)
+                        util.yield_once()
+                        players.set_bounty(pid, -1, false)
+                    end
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Block Passive Mode', {}, T'Prevent players from going passive', function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= players.user() then
+                    players.set_bounty(pid, -1, true)
+                end
+            end
+        end, function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= players.user() then
+                    players.set_bounty(pid, -1, false)
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Display Players With BST', {}, T'Show all players that are using BST', function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= 40 then
+                    if self.utils:player_has_bst(pid) then
+                        util.draw_debug_text(T:T('%s is using BST', players.get_name(pid)))
+                    end
+                end
+            end
+        end)
+
+        local previous_value = 0
+        local min, max = -1, 1
+        self.fake_lag = self.root:toggle_loop(T'Fake Lag', {T'rofakelag'}, T'Create some artificial lag', function()
+            if self.stand_pos_spoof.value then
+                local base = self.g.PlayerBase:g()
+                local old_coords = v3.new(v3.get(base + 0x680))
+                local coords = players.get_position(players.user())
+                local rand = math.random() * (max - min) + min
+
+                local x_diff = coords.x - old_coords.x
+                local y_diff = coords.y - old_coords.y
+
+                if previous_value < 0 and rand < 0 then
+                    rand = (rand * -1) + 1
+                elseif previous_value > 0 and rand > 0 then
+                    rand = (rand * -1) - 1
+                elseif previous_value == rand then
+                    goto continue
+                end
+
+                coords.x = coords.x + rand + x_diff
+                coords.y = coords.y + rand + y_diff
+
+                previous_value = rand
+                self.stand_spoofed_pos:trigger($'{coords.x}, {coords.y}, {coords.z}')
+
+                ::continue::
+            else
+                self.stand_pos_spoof:trigger()
+            end
+        end, function()
+            self.stand_pos_spoof.value = false
+        end)
+
+        self.root:toggle_loop(T'Bypass Interaction Menu Restrictions', {}, T'Allows you to use almost everything in the interaction menu that is not locked', function()
+            local addr = self.g.InteractionMenuRestrictions:g()
+            memory.write_int(addr, 1)
+        end)
+
+        self.root:toggle_loop(T'Show All Active Missions', {}, T'Show all active missions that players are doing', function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) then
+                    local base = self.g.OrganisationBase:g(pid)
+                    local mission_id = memory.read_int(base + org_flags.active_mission_id)
+                    local script_id = memory.read_int(base + org_flags.script_id)
+
+                    if mission_id ~= -1 and script_id ~= -1 then
+                        util.draw_debug_text(T:T('%s is doing %s', players.get_name(pid), script_ids[script_id]))
+                    end
+                end
+            end
+        end)
+
+        self.auto_block_join = self.root:toggle_loop(T'Auto Block-Join', {}, T'Automatically block the joins of players that you kick from the session', function()
+            if self.remove_players:isValid() then
+                local children = self.remove_players:getChildren()
+                if #children > 0 then
+                    for children as child do
+                        local player_name = child.menu_name
+                        local block_join = menu.ref_by_path($'Online>Player History>{player_name}>Player Join Reactions>Block Join')
+                        if block_join.value ~= true then
+                            block_join.value = true
+                        end
+                    end
+                end
+            end
+        end)
+        self.auto_block_join.value = true
+
+        self.root:divider('')
+        self.root:action(T'Kick Godmode Bots', {}, T'This only applies to players who are not in an interior with godmode + attacking while invulnerable detection active', function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and players.user() ~= pid then
+                    if not players.is_in_interior(pid) and players.is_godmode(pid) then
+                        local proot = menu.player_root(pid)
+                        local detections = proot:getChildren()[2]
+
+                        if detections:isValid() then
+                            for detections:getChildren() as detection do
+                                if detection:isValid() then
+                                    if tostring(detection.menu_name) == '313649715' then
+                                        if players.get_host() == players.user() then
+                                            local kick = proot:refByRelPath('Kick>Smart')
+                                            if kick:isValid() then
+                                                kick:trigger()
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        if self.utils:is_dev(players.user()) then
+            self.root:action(T'Find Tryhards', {}, T'Find tryhards based on overall accuracy', function()
+                local highest_accuracy = {
+                    pid = -1,
+                    accuracy = 0
+                }
+
+                for pid = 0, players.max_players do
+                    if self.utils:player_exists(pid) and pid ~= players.user() then
+                        if self.utils:is_friend(pid) then goto continue end
+                        local shots = self.g.StatShots:g(pid)
+                        local hits = self.g.StatHits:g(pid)
+                        local accuracy = memory.read_int(hits) / memory.read_int(shots) * 100
+                        local rank = players.get_rank(pid)
+
+                        if accuracy > highest_accuracy.accuracy and rank >= 100 and accuracy > 30.0 then
+                            highest_accuracy.pid = pid
+                            highest_accuracy.accuracy = accuracy
+                        end
+                    end
+                    ::continue::
+                end
+
+                if highest_accuracy.pid ~= -1 then
+                    util.toast(T:T('Found a tryhard %s with %.2f%% accuracy', players.get_name(highest_accuracy.pid), highest_accuracy.accuracy))
+                else
+                    util.toast(T'No tryhards found, only bots')
+                end
+            end)
+        end
+    end
+
+    function ghosting_loop(pid, root)
+        local name = players.get_name(pid)
+        if pid ~= players.user() then
+            local ref = self.ghosting:refByRelPath(name)
+            if not ref:isValid() then
+                self.ghosting:toggle(name, {T'roghost' .. name}, T'Ghost a player', function(state)
+                    network.set_remote_player_as_ghost(pid, state)
+                end)
+            end
+        end
+    end
+
+    function ghosting_remove_player(pid, name)
+        if pid ~= players.user() then
+            local ref = self.ghosting:refByRelPath(name)
+            if ref:isValid() then
+                ref:delete()
+            end
+        end
+    end
+
+    inline function send_event(func, instance, ...)
+        for pid = 0, players.max_players do
+            if self.utils:player_exists(pid) then
+                if self.fn_exclude_me.value and pid == players.user() then
+                    goto continue
+                elseif self.fn_exclude_friends.value and players.is_friend(pid) then
+                    goto continue
+                end
+
+                func(instance, 1 << pid, ...)
+                ::continue::
+            end
+        end
+    end
+
+    function request_service(service)
+        switch service do
+            case 'NanoDrone':
+                do
+                    local drone = self.g.RequestNanoDrone:g()
+                    memory.write_int(drone, memory.read_int(drone) | self.masks.request_nano_drone)
+                end
+                break
+            case 'RCBandito':
+                memory.write_byte(self.request_base + offsets.bandito, 1)
+                break
+            case 'RCTank':
+                memory.write_byte(self.request_base + offsets.tank, 1)
+                util.yield(3500)
+                self.tune:trigger()
+                break
+            case 'MOC':
+                memory.write_byte(self.request_base + offsets.moc, 1)
+                break
+            case 'Avenger':
+                memory.write_byte(self.request_base + offsets.avenger, 1)
+                break
+            case 'AcidLab':
+                memory.write_byte(self.request_base + offsets.acid_lab, 1)
+                break
+            case 'Terrorbyte':
+                memory.write_byte(self.request_base + offsets.terrorbyte, 1)
+                break
+            case 'Dinghy':
+                memory.write_byte(self.request_base + offsets.dinghy, 1)
+                break
+            case 'Kosatka':
+                memory.write_byte(self.request_base + offsets.kosatka, 1)
+                break
+            case 'Sparrow':
+                memory.write_byte(self.ampimenu_base + offsets.sparrow, 1)
+                break
+            case 'Avisa':
+                memory.write_byte(self.ampimenu_base + offsets.avisa, 1)
+                break
+            case 'BallisticArmor':
+                memory.write_byte(self.request_base + offsets.ballistic_armor, 1)
+                break
+            case 'AmmoDrop':
+                memory.write_byte(self.request_base + offsets.ammo_drop, 1)
+                break
+            case 'Helicopter':
+                memory.write_byte(self.request_base + offsets.helicopter, 1)
+                break
+            case 'DeliveryBike':
+                memory.write_byte(self.request_base + offsets.delivery_bike, 1)
+                break
+            case 'RatBike':
+                memory.write_byte(self.ampimenu_base + offsets.rat_bike, 1)
+                break
+            case 'AvengerThruster':
+                memory.write_byte(self.ampimenu_base + offsets.avenger_thruster, 1)
+                break
+            case 'Airstrike':
+                stats.set_packed_stat_bool_code(8, true, util.get_char_slot())
+                memory.write_byte(self.request_base + offsets.airstrike, 1)
+                break
+            case 'BackupHeli':
+                stats.set_packed_stat_bool_code(11, true, util.get_char_slot())
+                memory.write_byte(self.request_base + offsets.backup_heli, 1)
+                break
+            case 'BST':
+                do
+                    local coords = entity.get_offset_from_entity_in_world_coords(players.user_ped(), 0.0, 3.5, 0.0)
+                    local spawn = self.g.BSTSpawnCoords:g()
+                    local collection_var = self.g.BSTShowCollectionMessage:g()
+                    memory.write_int(collection_var, math.max_int)
+                    v3.set(spawn, coords)
+                    memory.write_byte(self.request_base + offsets.bst, 1)
+                end
+                break
+            case 'Supplies':
+                do
+                    local supplies = self.g.RequestSupplies:g()
+                    local timer = self.g.RequestSuppliesTimer:g()
+                    memory.write_short(supplies, memory.read_short(supplies) | self.masks.RequestSupplies)
+                    util.yield(500)
+                    memory.write_int(timer, 0)
+                end
+                break
+            case 'SourceMotorcycle':
+                memory.write_byte(self.g.SourceMotorcycle:g(), 1)
+                break
+            case 'CompanySUV':
+                do
+                    local localplayer = players.localplayer()
+                    local timeout = os.time() + 1.5
+
+                    util.create_tick_handler(function()
+                        if os.time() > timeout then
+                            return false
+                        end
+                        local pos = localplayer:get_offset_from_entity_in_world_coords(0.0, 4.0, 0.0)
+                        v3.set(self.g.CompanySUVVectorStart:g(), pos.x, pos.y, pos.z)
+                    end)
+
+                    local addr = self.g.RequestCompanySUV:g()
+                    memory.write_byte(addr, memory.bits:set(memory.read_byte(addr), 1 << 1))
+                    util.yield(500)
+                    memory.write_int(addr + 0x10, 0)
+                end
+                break
+            end
+    end
+
+    inline function lester_locate_vehicle(bit)
+        local lester = self.g.LesterLocate:g()
+        memory.write_byte(lester, memory.bits:toggle(memory.read_byte(lester), bit))
+        util.yield_once()
+        memory.write_byte(lester, memory.bits:toggle(memory.read_byte(lester), bit))
+    end
+
+    inline function rename_acid_lab(name)
+        memory.write_string(self.g.AcidLabName:g(), name)
+    end
+    
+    inline function get_acid_lab_name()
+        return memory.read_string(self.g.AcidLabName:g(players.user()))
+    end
+
+    inline function transfer_to_bank(amount, slot)
+        amount = amount or nil
+        slot = slot or util.get_char_slot()
+
+        netshopping.net_gameserver_transfer_wallet_to_bank(slot, amount)
+    end
+
+    inline function transfer_to_wallet(amount, slot)
+        amount = amount or nil
+        slot = slot or util.get_char_slot()
+
+        netshopping.net_gameserver_transfer_bank_to_wallet(slot, amount)
+    end
+
+    inline function get_real_wallet()
+        return memory.read_int(GTA_BASE + money_offsets.wallet)
+    end
+
+    inline function get_real_bank()
+        return memory.read_int(GTA_BASE + money_offsets.bank)
+    end
+
+    inline function check_access()
+        if not self.utils.settings.show_risky_options then
+            self.fake_notif:focus()
+            util.display_error(T'You do not have access to this feature, enable risky options in settings')
+        end
+    end
+
+    function blame_kill_add(pid, root)
+        local name <const> = players.get_name(pid)
+        self.bk_list[#self.bk_list + 1] = { #self.bk_list + 1, name }
+        self.victim:setListActionOptions(self.bk_list)
+        self.killer:setListActionOptions(self.bk_list)
+    end
+
+    function blame_kill_remove(pid, name)
+        for i = 1, #self.bk_list do
+            local tbl = self.bk_list[i]
+            if type(tbl) == 'table' then
+                if tbl[2] == name then
+                    table.remove(self.bk_list, i)
+                end
+            end
+        end
+        self.victim:setListActionOptions(self.bk_list)
+        self.killer:setListActionOptions(self.bk_list)
+    end
+
+    function update_quick_invites()
+        util.create_tick_handler(function()
+            if filesystem.exists($'{SCRIPT_ROOT}\\config\\quick_invites.json') then
+                local file <close> = assert(io.open($'{SCRIPT_ROOT}\\config\\quick_invites.json', 'r'))
+                local data = file:read('*all')
+                file:close()
+                local invites = soup.json.decode(data)
+                if invites ~= nil then
+                    for k, v in pairs(invites) do
+                        local ref = self.invites:refByRelPath(k)
+                        if not ref:isValid() then
+                            self.invites:action(k, {$'inv{v[2]}'}, T'Invite your friend', function()
+                                if self.invite_command:isValid() then
+                                    for pid = 0, players.max_players do
+                                        if self.utils:player_exists(pid) then
+                                            if tostring(players.get_rockstar_id(pid)):hash() == v[1] then
+                                                util.display_error(T'They are already in the session you stupid cunt')
+                                                goto not_invite
+                                            end
+                                        end
+                                    end
+
+                                    self.invite_command:trigger(v[1])
+                                end
+
+                                ::not_invite::
+                            end)
+                        end
+                    end
+                end
+            end
+
+            util.yield(5000)
+        end)
+    end
+
+    function update_hangar_cargo()
+        if not self.update:isset(eUpdateFlags.UF_HANGAR_CARGO) then
+            self.update:set(eUpdateFlags.UF_HANGAR_CARGO)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.hangar_cargo.menu_name then
+                    self.update:clear(eUpdateFlags.UF_HANGAR_CARGO)
+                    return false
+                end
+
+                self.hangar_cargo_display.menu_name = T:T('Cargo: %d/50', memory.read_int(self.g.HangarTotalCargo:g()))
+            end)
+        end
+    end
+
+    function update_street_dealer()
+        if not self.update:isset(eUpdateFlags.UF_STREET_DEALER) then
+            self.update:set(eUpdateFlags.UF_STREET_DEALER)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.street_dealer.menu_name then
+                    self.update:clear(eUpdateFlags.UF_STREET_DEALER)
+                    return false
+                end
+
+                local addr = memory.script_local(table.unpack(self.g.StreetDealerBase))
+                if addr ~= 0 then
+                    self.dealer_base_addr = addr
+                    self.sd_cocaine_price.menu_name = T:T('Cocaine Price: %d', memory.read_int(addr + street_dealer_offsets.cocaine_price))
+                    self.sd_meth_price.menu_name = T:T('Meth Price: %d', memory.read_int(addr + street_dealer_offsets.meth_price))
+                    self.sd_weed_price.menu_name = T:T('Weed Price: %d', memory.read_int(addr + street_dealer_offsets.weed_price))
+                    self.sd_acid_price.menu_name = T:T('Acid Price: %d', memory.read_int(addr + street_dealer_offsets.acid_price))
+                    self.sd_cocaine_sells_left.menu_name = T:T('Cocaine Sells Left: %d', memory.read_int(addr + street_dealer_offsets.cocaine_sells_left))
+                    self.sd_meth_sells_left.menu_name = T:T('Meth Sells Left: %d', memory.read_int(addr + street_dealer_offsets.meth_sells_left))
+                    self.sd_weed_sells_left.menu_name = T:T('Weed Sells Left: %d', memory.read_int(addr + street_dealer_offsets.weed_sells_left))
+                    self.sd_acid_sells_left.menu_name = T:T('Acid Sells Left: %d', memory.read_int(addr + street_dealer_offsets.acid_sells_left))
+                end
+            end)
+        end
+    end
+
+    function update_crew_0()
+        if not self.update:isset(eUpdateFlags.UF_CREW_0) then
+            self.update:set(eUpdateFlags.UF_CREW_0)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.crew_0.menu_name then
+                    self.update:clear(eUpdateFlags.UF_CREW_0)
+                    return false
+                end
+
+                self.crew_0_xp.menu_name = T:T('Crew XP: %d', self.utils:get_stat_int('MPPLY_CREW_LOCAL_XP_0'))
+            end)
+        end
+    end
+
+    function update_crew_1()
+        if not self.update:isset(eUpdateFlags.UF_CREW_1) then
+            self.update:set(eUpdateFlags.UF_CREW_1)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.crew_1.menu_name then
+                    self.update:clear(eUpdateFlags.UF_CREW_1)
+                    return false
+                end
+
+                self.crew_1_xp.menu_name = T:T('Crew XP: %d', self.utils:get_stat_int('MPPLY_CREW_LOCAL_XP_1'))
+            end)
+        end
+    end
+
+    function update_crew_2()
+        if not self.update:isset(eUpdateFlags.UF_CREW_2) then
+            self.update:set(eUpdateFlags.UF_CREW_2)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.crew_2.menu_name then
+                    self.update:clear(eUpdateFlags.UF_CREW_2)
+                    return false
+                end
+
+                self.crew_2_xp.menu_name = T:T('Crew XP: %d', self.utils:get_stat_int('MPPLY_CREW_LOCAL_XP_2'))
+            end)
+        end
+    end
+
+    function update_crew_3()
+        if not self.update:isset(eUpdateFlags.UF_CREW_3) then
+            self.update:set(eUpdateFlags.UF_CREW_3)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.crew_3.menu_name then
+                    self.update:clear(eUpdateFlags.UF_CREW_3)
+                    return false
+                end
+
+                self.crew_3_xp.menu_name = T:T('Crew XP: %d', self.utils:get_stat_int('MPPLY_CREW_LOCAL_XP_3'))
+            end)
+        end
+    end
+
+    function update_organisation_goons()
+        if not self.update:isset(eUpdateFlags.UF_ORGANISATION_GOONS) then
+            self.update:set(eUpdateFlags.UF_ORGANISATION_GOONS)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.org_goons.menu_name then
+                    self.update:clear(eUpdateFlags.UF_ORGANISATION_GOONS)
+                    return false
+                end
+
+                local children = self.org_goons:getChildren()
+                local org_goons_count = children[1]
+                local pid = 0
+
+                for i = 0, 6 do
+                    pid = self:get_organisation_goon_in_slot(i)
+                    children[i + 2].menu_name = T:T('Goon %d: [%d] %s', i+1, pid, players.get_name(pid))
+                end
+
+                org_goons_count.menu_name = T:T('Organisation Goons: %d', self:get_total_organisation_goons())
+            end)
+        end
+    end
+end
+
+return Online

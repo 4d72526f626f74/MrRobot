@@ -1,0 +1,46 @@
+pluto_use class, try, catch
+
+class CmdRefHandler
+    _refs = {}
+
+    inline function add(name, ref)
+        if self._refs[name] == nil then
+            self._refs[name] = ref
+        else
+            error($'Reference {name} already exists!')
+        end
+    end
+
+    inline function get(name)
+        if self._refs[name] ~= nil then
+            return self._refs[name]
+        else
+            error($'Reference {name} does not exist!')
+        end
+    end
+
+    inline function remove(name)
+        if self._refs[name] ~= nil then
+            self._refs[name] = nil
+        else
+            error($'Reference {name} does not exist!')
+        end
+    end
+
+    inline function clear()
+        self._refs = {}
+    end
+
+    inline function trigger(name, ...)
+        if self._refs[name] ~= nil then
+            local ref = self._refs[name]
+            if ref:isValid() then
+                ref:trigger(...)
+            end
+        else
+            error($'Reference {name} does not exist!')
+        end
+    end
+end
+
+return CmdRefHandler

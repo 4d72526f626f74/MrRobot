@@ -1,0 +1,519 @@
+pluto_use class, new
+
+class SG
+    function __construct()
+        self.TS = 'fm_content_taxi_driver'
+        self.NCS = 'am_mp_nightclub'
+        self.ARS = 'am_mp_arcade'
+        self.AGS = 'am_mp_fixer_hq'
+        self.HUS = 'am_hold_up'
+        self.FMS = 'freemode'
+        self.BJS = 'blackjack'
+        self.FMMC20 = 'fm_mission_controller_2020'
+        self.IHS = 'heist_island_planning'
+        self.HTBS = 'am_hunt_the_beast'
+        self.GC = 'am_gang_call'
+        self.AS = 'appsmuggler'
+        self.TCP = 'three_card_poker'
+        self.DARTS = 'am_darts'
+        self.FMCSS = 'fm_content_smuggler_sell'
+        self.FMCIH = 'fm_content_island_heist'
+        self.GS = 'gb_smuggler'
+        self.SALYARD = 'am_mp_salvage_yard'
+        self.DEALER = 'fm_street_dealer'
+        self.BAIL = 'am_mp_bail_office'
+        self.SS = 'gb_sightseer'
+        self.HH = 'gb_headhunter'
+        self.GCS = 'gunclub_shop'
+        self.MB = 'fm_content_daily_bounty'
+        self.PIZZA = 'fm_content_pizza_delivery'
+
+        self.all = {
+            KosatkaUnlock = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_483',
+            BallisticEquipmentUnlock = 'Global_262145.f_21514',
+            NanoDroneUnlock = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_433.f_1',
+            CasinoPenthouseUnlock = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_409',
+            AutoshopUnlock = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_490',
+            ArenaWorkshopUnlock = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_377',
+            FacilityUnlock = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_304',
+            HangarUnlock = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_297',
+            PlayerBase = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/]',
+            TransactionErrorBanner = 'Global_4537456',
+            TransactionErrorNotification = 'Global_4537455',
+            UnlockArcades = 'Global_1964786.f_22',
+            GoodBoyTimer = 'Global_2750949.f_85[5]',
+            SinRemover = 'Global_2707357.f_36',
+            SinRemoverTimer = 'Global_2707357.f_40',
+            InsufficientFunds = 'Global_101585.f_1482',
+            DisableHeistAntiCheat = 'Global_262145.f_10612',
+            KosatkaMissileCooldown = 'Global_262145.f_29635',
+            KosatkaMissileDistance = 'Global_262145.f_29636',
+            CooldownBase = 'Global_2685444.f_4342.f_245.f_1[65 /*2*/]',
+            KosatkaRequestCooldown = 'Global_2685444.f_4342.f_245.f_1[65 /*2*/]',
+            KosatkaDinghyCooldown = 'Global_2685444.f_4342.f_245.f_1[66 /*2*/]',
+            MOCRequestCooldown = 'Global_2685444.f_4342.f_245.f_1[46 /*2*/]',
+            AvengerRequestCooldown = 'Global_2685444.f_4342.f_245.f_1[49 /*2*/]',
+            TerrorbyteRequestCooldown = 'Global_2685444.f_4342.f_245.f_1[52 /*2*/]',
+            PersonalVehicleRequestCooldown = 'Global_2685444.f_4342.f_245.f_1[7 /*2*/]',
+            CEOVehicleRequestCooldown = 'Global_1887305[PLAYER::PLAYER_ID() /*610*/].f_10.f_63',
+            BallisticArmorCooldown = 'Global_2685444.f_4342.f_245.f_1[47 /*2*/]',
+            TerrorbyteDroneCooldown = 'Global_262145.f_24875',
+            TerrorbyteDistance = 'Global_262145.f_24884',
+            TerrorbyteHeight = 'Global_262145.f_24883',
+            TerrorbyteShockCooldown = 'Global_262145.f_24876',
+            TerrorbyteBoostRechargeTime = 'Global_262145.f_24881',
+            TerrorbyteDetonateCountdown = 'Global_262145.f_24879',
+            TerrorbyteDroneDamagePlayers = 'Global_262145.f_24877',
+            TerrorbyteDroneDamagePeds = 'Global_262145.f_24878',
+            TerrorbyteDroneBoostTime = 'Global_262145.f_24880',
+            TerrorbyteDroneForwardSpeed = 'Global_262145.f_24885',
+            MoonpoolCooldown = 'Global_262145.f_30224',
+            Mk2Cooldown = 'Global_262145.f_27968',
+            StrikeTeamCooldown = 'Global_262145.f_23580',
+            AcidLabRequestCooldown = 'Global_262145.f_21573',
+            Oppressor2FlareCooldown = 'Global_262145.f_21652',
+            Oppressor2ChaffDuration = 'Global_262145.f_21653',
+            Oppressor2ChaffCooldown = 'Global_262145.f_21654',
+            InstantBST = 'Global_2672855.f_3733',
+            TeleportNearestHospital = 'Global_2635563.f_2981',
+            FastRespawn = 'Global_1574972',
+            RespawnState = 'Global_2672855.f_1728.f_756',
+            PlayerKiller = 'Global_2672855.f_1728.f_703.f_16',
+            EquipBallisticArmor = 'Global_2738934.f_917',
+            MentalState = 'Global_2738934.f_4714',
+            BribeAuthorities = 'Global_2738934.f_4676',
+            AbilitiesBitfield = 'Global_2738934.f_4682',
+            OtrGhostTimer = 'Global_2672855.f_58',
+            LegitOffTheRadar = 'Global_2657971[PLAYER::NETWORK_PLAYER_ID_TO_INT() /*465*/].f_211',
+            BountyLocal = 'Global_2738934.f_1908.f_17',
+            BountyTimer = 'Global_2359296[func_908() /*5570*/].f_5152.f_13',
+            OrbitalCannon = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_426',
+            RequestNanoDrone = 'Global_1956920',
+            RequestBase = 'Global_2738934',
+            AmPiMenuBase = 'Global_2710407', -- (2710407 + avisa offset = original global)
+            ForceCameraForward = 'Global_1683951.f_2',
+            BlockPassiveMode = 'Global_1669211.f_567', -- needs updated
+            CeoKickProtection = 'Global_1669211.f_568', -- needs updated
+            CeoKickProtection1 = 'Global_2738934.f_5249.f_50',
+            Bounty = 'Global_1669211.f_65', -- needs updated
+            BlockAllNotifications = 'Global_1683951',
+            OrganisationBase = 'Global_1887305[PLAYER::PLAYER_ID() /*610*/]',
+            OrganisationInvite = 'Global_1916617.f_9',
+            Interior = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_35',
+            InteriorID = 'Global_2657971[iVar0 /*465*/].f_246',
+            SpoofSpecialPropertyOwner = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_322.f_11',
+            StatSpoofing = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_206',
+            ActivePVSlot = 'Global_2359296[func_908() /*5570*/].f_681.f_2',
+            VehicleKickProtection = 'Global_1683951.f_54',
+            DisableBST = 'Global_2672855.f_3733',
+            StealthMode = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_322',
+            Invisibility = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_255',
+            SpoofInteriorState = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_879',
+            MentalStateValue = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_269',
+            BecomeInterior = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_33',
+            PauseMenuActive = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_193',
+            BypassOnCall = 'Global_1057409', -- needs updated
+            OutOfSight = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_458',
+            PVOwnershipBypass = 'Global_79389',
+            MissionState = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/]',
+            NightclubStatsBase = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_358',
+            RequestSupplies = 'Global_1943520.f_10',
+            RequestSuppliesTimer = 'Global_1975459',
+            SourceMotorcycle = 'Global_1975498.f_1',
+            KosatkaStatsBase = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_483',
+            AvengerStatsBase = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_322.f_6',
+            ReturnKosatka = 'Global_2672855.f_63.f_9',
+            LesterLocate = 'Global_2672855.f_3830',
+            PegasusRequest = 'Global_2672855.f_3830',
+            AcidLabName = 'Global_1906887[bParam0 /*304*/].f_288', -- Global_1914706[PLAYER::PLAYER_ID() /*299*/].f_283 (also contains acid lab name)
+            ActivePVHandle = 'Global_2738934.f_301',
+            MuggerEventProtection = 'Global_1684900.f_159',
+            StandNotificationSpamProtection = 'Global_1684900.f_42',
+            BlockCEOMCInviteProtection = 'Global_1683951.f_562',
+            BlockIslandHeistInviteProtection = 'Global_1683951.f_840',
+            BlockPropertyInviteProtection = 'Global_1683951.f_22',
+            BlockRemoveWantedLevelProtection = 'Global_1683951.f_510',
+            BlockRemoteOffTheRadarProtection = 'Global_1683951.f_512',
+            GunVanPositionVectorStart = 'Global_1949748',
+            GunVanProximity = 'Global_262145.f_33272',
+            BribeAuthoritiesTimer = 'Global_2738934.f_4679',
+            BlockCEOMoneyLoopProtection = 'Global_1683951.f_561',
+            CasinoChipsMemBonus = 'Global_1964419',
+            CasinoChips = 'Global_1964421',
+            StrikeTeamCooldown2 = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_181.f_1',
+            QuickBail = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/]',
+            NCSafeCapacity = 'Global_262145.f_23680',
+            NightclubSafeValue = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_358.f_5',
+            ArcadeSafeCapacity = 'Global_262145.f_28751',
+            ArcadeSafeValue = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_433.f_5',
+            AgencySafeValue = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_513.f_2',
+            AgencySafeCapacity = 'Global_262145.f_28761',
+            NCTroubleMakerScenario = 'Global_1975444',
+            PersonalVehicleRequestRestrictionsBase = 'Global_2635563.f_3220',
+            AcidLabStatsBase = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_322.f_6',
+            TerrorbyteStatsBase = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_322.f_3',
+            MOCStatsBase = 'Global_2657921[PLAYER::PLAYER_ID() /*463*/].f_322',
+            AcidLabName = 'Global_1906887[PLAYER::PLAYER_ID() /*304*/].f_288',
+            PassiveMode = 'Global_1887305[PLAYER::PLAYER_ID() /*610*/].f_8',
+            ArcadeStatsBase = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_433',
+            AgencyStatsBase = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_513',
+            GangCallAttacker = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/]',
+            InstantSourceHangarCargo = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_202',
+            HangarCratesToSource = 'Global_1882623.f_6',
+            HangarCrateType = 'Global_1882623.f_7',
+            HangarTotalCargo = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_297.f_3',
+            GunVanPositionIndex = 'Global_2652592.f_2671',
+            YetiEventEnable = 'Global_262145.f_34952',
+            YetiClueReward = 'Global_262145.f_35092',
+            SpoofInteriorState1 = 'Global_2657971[bParam0 /*465*/].f_74.f_6',
+            InteriorBlipX = 'Global_2657971[bParam0 /*465*/].f_74.f_7',
+            InteriorBlipY = 'Global_2657971[bParam0 /*465*/].f_74.f_8',
+            InteriorBlipZ = 'Global_2657971[bParam0 /*465*/].f_74.f_9',
+            BallisticArmorBlip = 'Global_1887305[iParam0 /*610*/].f_587',
+            JobPoints = 'Global_1845281[iVar0 /*883*/].f_9',
+            HangarCargoSellCooldown = 'Global_2709388.f_26',
+            CayoPrimaryTarget = 'Global_1973625[iParam0 /*53*/].f_5.f_9',
+            PersonalVehicleData = 'Global_1586521[func_1204() /*142*/]',
+            GhostedTimer = 'Global_1943015[bParam0 /*5*/].f_2',
+            IsPlayerGhosted = 'Global_1943015[bParam0 /*5*/].f_3',
+            GhostedKilledByPlayerCount = 'Global_1943015[bParam0 /*5*/].f_4',
+            DisableWastedEffect = 'Global_2672855.f_2554',
+            PlayerBounty = 'Global_1835505.f_4[PLAYER::PLAYER_ID() /*3*/]',
+            PlayerBountyReward = 'Global_1887305[PLAYER::PLAYER_ID() /*610*/].f_601',
+            PlayerBeast = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_200',
+            PlayerPVNetworkID = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_38',
+            PlayerUsingDrone = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_370',
+            CasinoState = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_322.f_4',
+            TriggerTransaction = 'Global_4537311',
+            RollerCoasterState = 'Global_1887305[PLAYER::PLAYER_ID() /*610*/].f_8',
+            InRCTank = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_433.f_2', -- bit 16
+            InRCBandito = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_370', -- bit 29
+            PassiveModeTimer = 'Global_2738934.f_4515',
+            PassiveModeTimerState = 'Global_2738934.f_4515.f_1',
+            DroneType = 'Global_1906887[PLAYER::PLAYER_ID() /*304*/].f_100',
+            DroneObject = 'Global_1906887[PLAYER::PLAYER_ID() /*304*/].f_67', -- Global_1906887[PLAYER::PLAYER_ID() /*304*/].f_67[Local_199.f_45]
+            SuppliesTimer = 'Global_1663174[iParam0]', -- 5 = bunker, 6 = acid lab (0-4 are mc businesses)
+            AcidSuppliesAmount = 'Global_1663201[6]', -- 6 = acid lab, not sure if any other businesses use this global for supplies
+            AcidLabProductionData = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_197[iVar0 /*13*/]',
+            SalvageYardSafe = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_498.f_6',
+            SalvageYardProductionAmount = 'Global_262145.f_35046', -- -810025989
+            TotalDmKills = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_127.f_1.f_2',
+            TotalDmDeaths = 'Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_127.f_1.f_3',
+            BlockCollectibles = 'Global_1683951.f_837',
+            ScriptEventsProtectionBase = 'Global_1683951',
+            BailOfficeSafe = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_525.f_3',
+            VehicleSpoofingProtection = 'Global_1683951.f_756',
+            VehicleSpoofingProtection1 = 'Global_1683951.f_510',
+            PassiveCooldownTimer = 'Global_2738934.f_4512',
+            PassiveCooldownTimerState = 'Global_2738934.f_4513',
+            PassiveDisableTimer = 'Global_2738934.f_4515',
+            PassiveDisableTimerState = 'Global_2738934.f_4516',
+            InteractionMenuRestrictions = 'Global_2710429',
+            MostWantedMoneyMultiplier = 'Global_262145.f_13124',
+            RemoveBallisticArmor = 'Global_2738934.f_918',
+            YachtName = 'Global_2657971[uParam0->f_8 /*465*/].f_301', -- 19 characters
+            YachtOwned = 'Global_2657971[uParam0->f_8 /*465*/].f_273',
+            StatShots = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_206.f_24',
+            StatHits = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_206.f_25',
+            WantedLevelSEPID = 'Global_1887305[PLAYER::PLAYER_ID() /*610*/].f_512',
+            OrganisationInviteID = 'Global_1916617.f_10',
+            NightclubSafeStatusBitfield = 'Global_1663308',
+            NightclubSafeState = 'Global_2707517',
+            SalvageYardSafeLimit = 'Global_262145.f_35059',
+            CasinoCardsChipsAmount = 'Global_2708057.f_308', -- uParam0->f_308 = iVar1;
+            LSTagsState = 'Global_2708057.f_559',
+            LSTagsTrigger = 'Global_2708057.f_557',
+            LSTagsFound = 'Global_2708057.f_547',
+            HallucinateBase = 'Global_2708057',
+            TriggerHallucination = 'Global_2708057.f_498',
+            TriggerHallucination1 = 'Global_2708057.f_224',
+            HallucinateAnimalID = 'Global_2708057.f_226',
+            TriggerGiveShocker = 'Global_2708057.f_227',
+            BSTSpawnCoords = 'Global_2738934.f_932.f_1',
+            BSTShowCollectionMessage = 'Global_1881953',
+            TunablesReset = 'Global_1845281[PLAYER::PLAYER_ID() /*883*/]',
+
+            SnacksInstantRestoreStart = 109,
+            SnacksInstantRestoreEnd = 115,
+            GunVanWeaponsStart = 33274,
+            GunVanWeaponsEnd = 33274 + 8,
+            GunVanThrowablesStart = 33296,
+            GunVanThrowablesEnd = 33296 + 2,
+            NCSafeIncomeStart = 23657,
+            NCSafeIncomeEnd = 23676,
+            ArcadeSafeIncomeStart = 28752,
+            ArcadeSafeIncomeEnd = 28752 + 7,
+            CayoPericoLivesStart = 29452,
+            CayoPericoLivesEnd = 29452 + 5,
+            CayoPericoMinVaultValue = 'Global_262145.f_29242', -- H4LOOT_MIN_SAFE_CASH_VALUE
+            CayoPericoMaxVaultValue = 'Global_262145.f_29243', -- H4LOOT_MAX_SAFE_CASH_VALUE
+            EnableSnow = 'Global_262145.f_4413', -- TURN_SNOW_ON_OFF
+            EnableMazeBankShootout = 'Global_262145.f_33475', -- ENABLE_MAZEBANKSHOOTOUT_DLC22022
+            EnableGangConvoy = 'Global_262145.f_33478', -- ENABLE_GANGCONVOY_DLC22022
+            EnableRandomEventArmouredTruck = 'Global_262145.f_34212', -- ENABLE_RANDOM_EVENT_ARMORED_TRUCK
+            EnableDailyBikeTimeTrial = 'Global_262145.f_34213', -- ENABLE_DAILY_BIKE_TIME_TRIAL
+            EnableCayoPericoAttritionMode = 'Global_262145.f_34220', -- ENABLE_CAYO_PERICO_ATTRITION_MODE
+            EnableHalloweenGhostHunt = 'Global_262145.f_34221', -- ENABLE_HALLOWEEN_GHOSTHUNT
+            EnableHalloweenPossessedAnimal = 'Global_262145.f_34222', -- ENABLE_HALLOWEEN_POSSESSED_ANIMAL
+            EnableXmasCannonGift = 'Global_262145.f_23267', -- ENABLE_XMAS_CANNON_GIFT
+            RequestCompanySUV = 'Global_1963021', -- set bit 1
+            CompanySUVNetworkID = 'Global_1963022',
+            CompanySUVVectorStart = 'Global_1963025',
+            CayoPericoAIHealth = 'Global_262145.f_156', -- AI_HEALTH
+            HeadhunterCashPerTarget = 'Global_262145.f_15432', -- EXEC_HEADHUNTER_CASH_PER_TARGET
+            BailOfficeSafeLimit = 'Global_262145.f_35532', -- -1736487760
+            CasinoChipsIncrease = 'Global_262145.f_26681', -- VC_CARDS_CHIP_REWARD_INCREASE
+            TaxiServiceDropOffDistance = 'Global_262145.f_33202', -- XM22_TAXI_DRIVER_DROP_OFF_DISTANCE_MIN_M
+
+            -- locals
+            RefreshPlannningBoard = { self.IHS, 1546 },
+            SkipHacking = { self.FMMC20, 1304 + 24348 }, -- Local_24880 (24880 + 742 + 30)
+            InstantHack = { self.FMMC20, 23669 }, -- ignore not used anyways
+            BlackjackDealerCards = { self.BJS, 3793 },
+            BlackjackPlayerCards = { self.BJS, 3794 },
+            BlackjackBetAmount = { self.BJS, 2275 },
+            InstantBSTLocal = { self.FMS, 8573 + 1 },
+            BSTTimer = { self.FMS, 8573 + 1 + 2 },
+            NCTriggerTrobleMaker = { self.NCS, 1800 + 5 },
+            NCTriggerYeetTroubleMaker = { self.NCS, 1251 + 3019 }, -- Local_1251.f_3019
+            PersonalVehicleRequestDelay = { self.FMS, 19139 + 176 },
+            HoldUpForceRobbery = { self.HUS, 165 + 1 + (players.user() * 10) }, -- Local_165[NETWORK::PARTICIPANT_ID_TO_INT() /*10*/].f_4
+            HoldUpRobberySceneId = { self.HUS, 552 }, -- (iLocal_552) > 0.44f)
+            TaxiServiceState = { self.TS, 119 },
+            TaxiServiceInstantQuit = { self.TS, 119 + 1 },
+            TaxiServiceFare = { self.TS, 119 + 19 },
+            TaxiServiceTip = { self.TS, 119 + 21 },
+            TaxiServiceSaltTimer = { self.TS, 119 + 25 },
+            TaxiServiceSaltTimerActive = { self.TS, 119 + 26 },
+            TaxiServiceCustomerBlip = { self.TS, 119 + 16 },
+            TaxiServiceDestinationBlip = { self.TS, 119 + 17 },
+            AttackerSender = { self.GC, 286 },
+            AttackerTarget = { self.GC, 287 },
+            DualKeycardSystemTimer = { self.FMMC20, 19883 }, -- iLocal_19883
+            YetiCluesBitfield = { self.FMS, 18362 }, -- iLocal_18362
+            YetiCluesCollected = { self.FMS, 18362 + 40 }, -- iParam0->f_40
+            TriggerNCSafeCollection = { self.NCS, 181 + 32 + 1 }, -- am_mp_nightclub.c done
+            TriggerArcadeSafeCollection = { self.ARS, 2918 + 1 }, -- am_mp_arcade.c done
+            TriggerArcadeSafeCollection1 = { self.ARS, 2918 + 69 }, -- am_mp_arcade.c done
+            TriggerAgencySafeCollection = { self.AGS, 527 + 469 }, -- am_mp_fixer_hq.c (bit 5) done
+            TriggerAgencySafeCollection1 = { self.AGS, 527 + 469 + 94 }, -- am_mp_fixer_hq.c done
+            BlackjackBet = { self.BJS, 1776 + 1 + (players.user() * 8) + 1 },
+            ThreeCardPokerAnte = { self.TCP, 749 + 1 + (players.user() * 9) + 4 }, -- three_card_poker.c Local_749[PLAYER::PLAYER_ID() /*9*/].f_3
+            ThreeCardPokerPairPlus = { self.TCP, 749 + 1 + (players.user() * 9) + 3 + 2 }, -- three_card_poker.c Local_749[PLAYER::PLAYER_ID() /*9*/].f_2
+            ThreeCardPokerState = { self.TCP, 749 + 1 + (players.user() * 9) }, -- three_card_poker.c Local_749[PLAYER::PLAYER_ID() /*9*/]
+            ThreeCardPokerFirstCard = { self.TCP, 116 + 410 + 1 + (players.user() * 5) + 1 + 1 }, -- three_card_poker.c Local_116.f_410[PLAYER::PLAYER_ID() /*5*/].f_1
+            BlackjackTable = { self.BJS, 1776 + 1 + (players.user() * 8) + 4 }, -- blackjack.c Local_116.f_846[Local_1776[PLAYER::PLAYER_ID() /*8*/].f_4 /*13*/].f_12
+            DartsPoints = { self.DARTS, 2852 }, -- am_darts.c not found within a decompiled script silly bot
+            DartsTurns = { self.DARTS, 2852 + 18 },
+            DartsSets = { self.DARTS, 2852 + 15 },
+            DartsLegs = { self.DARTS, 2852 + 10 },
+            DartsLegsToWin = { self.DARTS, 2852 + 16 },
+            DartsSetsToWin = { self.DARTS, 2852 + 17 },
+            DartsLegWinState = { self.DARTS, 2852 + 39 },
+            IslandHeistSignalHackingTimer = { self.FMCIH, 757 },
+            IslandHeistSignalHackingTarget = { self.FMCIH, 757 + 9 },
+            IslandHeistSignalHackingResult = { self.FMCIH, 757 + 10 },
+            InstantFinishAirFreight = { self.GS, 1934 + 1035 }, -- Local_1934.f_1035
+            TriggerSalvageYardCollection = { self.SALYARD, 231 + 1456 + 1 }, -- Local_231.f_1456 (uParam0->f_1) am_mp_salvage_yard.c
+            TriggerSalvageYardCollection1 = { self.SALYARD, 231 + 1456 + 68 }, -- Local_231.f_1456 (uParam0->f_68 bit 0) am_mp_salvage_yard.c
+            CayoPericoKicked = { self.FMCIH, 13311 + 1339 }, -- 13311.f_1339
+            CayoPericoAIHealthLocal = { self.FMMC20, 23155 }, -- fLocal_23155
+            StreetDealerBase = { self.DEALER, 233 + 5 }, -- Local_233.f_5 fm_street_dealer.c
+            TriggerBailOfficeCollection = { self.BAIL, 233 + 1569 + 1 }, -- Local_223.f_1579 (uParam0->f_1) am_mp_bail_office.c
+            TriggerBailOfficeCollection1 = { self.BAIL, 233 + 1569 + 68 }, -- Local_223.f_1579 (uParam0->f_68 bit 0) am_mp_bail_office.c
+            CayoPericoTake = { self.FMMC20, 55128 + 193929182 }, -- not found within a decompiled script silly bot
+            CayoHackingTimer = { self.FMMC20, 24880 + 736 }, -- Local_24880 (24880 + 736)
+            CayoHackingState = { self.FMMC20, 24880 + 742 + 2 }, -- Local_24880 (24880 + 742 + 2)
+            CayoBinkMovie = { self.FMMC20, 24880 + 5 }, -- Local_24880 (24880 + 5)
+            CayoCloneFailed = { self.FMMC20, 24880 + 742 + 12 }, -- Local_24880 (24880 + 742 + 15)
+            CayoCloneBitfield = { self.FMMC20, 24880 + 742 + 14 }, -- Local_24880 (24880 + 742 + 14)
+            CayoCurrentFingerprint = { self.FMMC20, 24880 + 742 + 17 }, -- Local_24880 (24880 + 742 + 17)
+            CayoFingerprintRGBA = { self.FMMC20, 24880 + 997 }, -- Local_24880 (24880 + 997)
+            CayoForceFail = { self.FMMC20, 50150 + 1 }, -- Local_50150 (50150 + 1)
+            CayoSecondaryTargets = { self.FMMC20, 62290 - 7162 }, -- 62290 - 7162
+            SightseerInstantFinish = { self.SS, 254 + 1 + players.user() * 6 + 5 }, -- Local_254[NETWORK::PARTICIPANT_ID_TO_INT() /*6*/].f_5
+            HeadhunterInstantFinish = { self.HH, 970 + 1 + players.user() * 14 + 6 }, -- Local_970[NETWORK::PARTICIPANT_ID_TO_INT() /*14*/].f_6 (/* GXT: You assassinated a target. */)
+            BypassAmmunationRestrictions = { self.GCS, 142 + 747 }, -- Local_142.f_747
+            AgencySafeProductionAmount = { self.FMS, 19951 + 3 }, -- uLocal_19951 + 3 (uParam0->f_3)
+            SalvageYardProductionAmountLocal = { self.FMS, 19957 + 3 },
+            NightclubProductionAmount = { self.FMS, 19938 + 2 },
+            ArcadeProductionAmount = { self.FMS, 19945 + 3 },
+            BailOfficeProductionAmount = { self.FMS, 19965 },
+            NightclubSafeTransactionState = { self.FMS, 19938 + 1 },
+            MadrazoBountyInstantFinish = { self.MB, 2533 + 330 }, -- Local_2533.f_330
+            MadrazoBountyInstantFinish1 = { self.MB, 2533 + 369 + 1 }, -- Local_2533.f_369 (reverse engineered)
+            PizzaDeliveryInstantFinish = { self.PIZZA, 119 + 17 }, -- Local_119.f_17
+            PizzaDeliveryEarned = { self.PIZZA, 119 + 13 }, -- Local_119.f_13
+            PizzaDeliveryTips = { self.PIZZA, 119 + 14 }, -- Local_119.f_14
+            PizzaDeliveryHotColdBonus = { self.PIZZA, 119 + 15 }, -- Local_119.f_15
+        }
+
+        self.all.RollerCoasterType = self.all.SpoofInteriorState -- this global is used by roller coaster / ferris wheel but uses a different bit to interior state spoofing
+    end
+
+    inline function tunable_by_hash(hash)
+        try
+            return $'Global_{GLOBAL_TUNABLE_BASE}.f_{memory.tunable_offset(util.joaat(hash))}'
+        catch e then
+            return $'Global_{GLOBAL_TUNABLE_BASE}.f_{memory.tunable_offset(util.joaat(hash))}'
+        end
+    end
+
+    ineline function get_blackjack_dealer_deck(bj_table)
+        -- Local_116.f_846[Local_1776[PLAYER::PLAYER_ID() /*8*/].f_4 /*13*/].f_12
+        return memory.script_local(self.BJS, 116 + 846 + 1 + (memory.read_int(bj_table) * 13) + 1)
+    end
+
+    inline function get_business_production_stats(index)
+        -- Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_197[iVar0 /*13*/]
+        return memory.script_global(1845281 + 1 + players.user() * 883 + 268 + 197 + 1 + index * 13)
+    end
+end
+
+-- -794.7697f, 327.52692f, 111.45433f = safe room
+
+-- Local_1774[PLAYER::PLAYER_ID() /*8*/].f_3 = seat index
+-- Local_1774[PLAYER::PLAYER_ID() /*8*/].f_7 = table index
+-- Local_114.f_1600 = seats state array
+--[[
+    index = 0 (penthouse)
+    seat index 0 = first seat
+    seat index 1 = second seat
+    seat index 2 = third seat
+    seat index 3 = fourth seat
+
+    index = 1 (casino high limit)
+    seat index 4 = first seat
+    seat index 5 = second seat
+    seat index 6 = third seat
+    seat index 7 = fourth seat
+
+    index = 2 (casino main floor)
+    seat index 8 = first seat
+    seat index 9 = second seat
+    seat index 10 = third seat
+    seat index 11 = fourth seat
+
+    fm_content_smuggler_sell = hangar cargo sell script
+    Global_1845263[PLAYER::PLAYER_ID() /*877*/].f_267.f_195[iVar0 /*13*/] = array with statistics for each business (acid lab, bunker, etc.)
+
+    Global_1845281[iVar0 /*883*/].f_268[iVar1] = array of property ids
+    Global_1312263[iVar3 /*1951*/].f_33 = how many cars you have in your garage
+    Global_1312263[iVar3 /*1951*/].f_16 = property name
+
+    Global_1887305[bParam0 /*610*/].f_10.f_33 = mission id (315 = air freight)
+    Global_1887305[bParam0 /*610*/].f_10.f_182 = mission type (0 = trailer, 1 = 5 deliveries, 2 = 10)
+    Global_1887305[PLAYER::PLAYER_ID() /*610*/].f_10.f_36 = id used in a switch statement that returns the name of a script (175 = fm_content_smuggler_sell)
+    Global_1887305[PLAYER::PLAYER_ID() /*610*/].f_10.f_36.f_16 = script instance id
+    Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_322.f_9 = player instance id
+
+    Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_498.f_6 = salvage yard safe amount
+    Local_7019.f_1319.f_1 = used in a switch statement fm_content_bounty_targets
+    Local_7019.f_1319.f_6 = bounty amount
+    Local_7019.f_1319.f_5 = the target
+
+    MISSION IDS
+    ------------
+    315 = air freight
+    337 = bail office bounty
+    250 = nightclub promotion work
+    190 = GB_BIKER_CONTRABAND_SELL
+    180 = GB_BIKER_UNLOAD_WEAPONS
+    181 = GB_BIKER_BAD_DEAL
+    183 = GB_BIKER_RESCUE_CONTACT
+    191 = GB_BIKER_CONTRABAND_DEFEND
+    197 = GB_BIKER_FREE_PRISONER
+    198 = GB_BIKER_SAFECRACKER
+    248 = GB_INFILTRATION
+    299 = fm_content_club_management
+    297 = fm_content_gunrunning
+    296 = fm_content_ammunation (bunker weapon parts)
+    294 = fm_content_cargo (special cargo)
+    293 = fm_content_clubhouse_contracts
+    291 = fm_content_bar_resupply (bar resupply for clubhouse)
+    301 = fm_content_club_source (nightclub source)
+    304 = fm_content_acid_lab_setup (acid lab setup)
+    305 = fm_content_acid_lab_source
+    306 = fm_content_acid_lab_sell
+    307 = fm_content_drug_lab_work
+    308 = fm_content_stash_house
+    309 = fm_content_taxi_driver
+    312 = fm_content_armoured_truck
+    313 = fm_content_ghosthunt
+    314 = fm_content_ufo_abduction
+    317 = fm_content_smuggler_ops
+    318 = fm_content_bicycle_time_trial
+    330 = fm_content_vehrob_police
+    328 = fm_content_vehrob_disrupt
+    327 = fm_content_vehrob_prep
+    326 = fm_content_vehrob_task
+    325 = fm_content_vehrob_scoping
+    324 = fm_content_tow_truck_work
+    323 = fm_content_xmas_truck
+    322 = fm_content_chop_shop_delivery
+    340 = fm_content_pizza_delivery
+    338 = fm_content_daily_bounty (madrazo daily bounty)
+    215 = fully loaded ruiner 2000
+    158 = scope out casino
+
+    -1396120036, 2
+    -1225769426, 2
+    {0: -307075051, 1: 0, 2: 2, 3: 0, 4: 5039}
+    { -1353750176, 0, NETWORK::NETWORK_HASH_FROM_PLAYER_HANDLE(pid), -1, 0, 0 }
+    { 1916113629, players.user(), 1, 2147483647, 2147483647, 1, 1, 1 } = skydiving give collectible
+
+    Local_256.f_296[0 /*6*/] = unknown (for script fm_content_pizza_delivery)
+    Global_2738934.f_6813.f_22 = dealer id (fm_street_dealer)
+    -- Global_1882632[PLAYER::NETWORK_PLAYER_ID_TO_INT() /*146*/].f_82 (set this to anything other than 0 and it caused scripts to die)
+    -- 1814376422, 0, 0, 0, 0, 34 = possible kick/crash script event
+
+    -- fm_content_golden_gun = cayo perico guard with key
+    
+    ALL ARE FROM fm_mission_controller_2020
+    -- Local_62290[iVar0 /*275*/].f_209
+    -- Local_62290[iVar0 /*275*/].f_214
+    -- Global_1887305[PLAYER::PLAYER_ID() /*610*/].f_10
+
+    -- freemode report data
+    -- struct is 49 bytes
+    -- native_invoker.begin_call()
+    -- native_invoker.push_arg_pointer(gamer_handle, report_data)
+    -- native_invoker.end_call_2(0x527803286A8B6C81)
+
+    -- 120 118 38 = darts?
+    BST script event { -1297129143, pid, 0, Global_1916617.f_9, Global_1916617.f_10 }
+
+    Global_1887305[Var0.f_3 /*610*/].f_10.f_465 = contraband type hash
+    acid hash = 1997092936
+    bullets and explosives = -1292453789 | -81613951
+
+    ---------------------------------------------------------
+    Cherax related stuff, could potentially be used for a cherax detection
+
+    -- {0: 949664396, 1: 1, 2: 1, 3: 1} = cherax block passive
+    -- {0: -1253241415, 1: 1, 2: 1, 3: 0, 4: 1, 5: 0, 6: 0} = cherax freeze
+    -- csb_abigail as driver of stockade with godmode = cherax kidnap
+    -- P9 crash = cherax crash
+
+    -- Global_1845281[PLAYER::PLAYER_ID() /*883*/].f_268.f_525.f_4[iParam0] = bounty id (0-4)
+    -- Global_2657971[PLAYER::PLAYER_ID() /*465*/].f_233 = transition state
+]]
+
+-- {0: 968269233, 1: 0, 2: 1, 3: collectible_id, 4: 1, 5: 1, 6: 1, 7: 1}
+--[[
+Movie Props = 0
+Hidden Caches = 1
+Treasure Chests = 2
+Radio Antennas = 3
+Media USBs = 4
+Shipwrecks = 5
+Buried Stashes = 6
+Jack O' Lanterns = 8
+LD Organics = 9
+Junk Energy Skydives = 10
+Snowmen = 16 (credited with 125k)
+G Cache = 17
+Los Santos Tags = 19
+]]
+
+return new SG()

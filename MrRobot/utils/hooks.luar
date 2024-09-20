@@ -1,0 +1,106 @@
+return function(self)
+    players.add_detection = (function(func)
+        return function(pid, detection, toast_flags, severity)
+            toast_flags = toast_flags or TOAST_DEFAULT
+            severity = severity or 100
+
+            if self:player_exists(pid) then
+                local player_root = menu.player_root(pid)
+                if player_root:isValid() then
+                    for menu.player_root(pid):getChildren() as child do
+                        if child:getType() == COMMAND_LIST_CUSTOM_SPECIAL_MEANING and not child:refByRelPath(detection):isValid() then
+                            func(pid, detection, toast_flags, severity)
+                        end
+                    end
+                end
+            end
+        end
+    end)(players.add_detection)
+
+    util.reverse_joaat = (function(func)
+        return function(hash)
+            local str = func(hash)
+            if str == '' then
+                if hash == ('GROUP_SNIPER'):joaat() or hash == -1212426201 then
+                    return 'GROUP_SNIPER'
+                elseif hash == ('GROUP_RIFLE'):joaat() then
+                    return 'GROUP_RIFLE'
+                elseif hash == ('GROUP_MG'):joaat() then
+                    return 'GROUP_MG'
+                elseif hash == ('GROUP_SHOTGUN'):joaat() then
+                    return 'GROUP_SHOTGUN'
+                elseif hash == ('GROUP_HEAVY'):joaat() then
+                    return 'GROUP_HEAVY'
+                elseif hash == ('GROUP_RUBBERGUN'):joaat() then
+                    return 'GROUP_RUBBERGUN'
+                elseif hash == 416676503 then
+                    return 'GROUP_PISTOL'
+                elseif hash == 1548507267 then
+                    return 'GROUP_THROWABLE'
+                elseif hash == -1609580060 then
+                    return 'GROUP_MELEE'
+                elseif hash == -957766203 then
+                    return 'GROUP_SMG'
+                else
+                    return ''
+                end
+            else
+                return str
+            end
+        end
+    end)(util.reverse_joaat)
+
+    util.joaat = (function(func)
+        local cache = {}
+        return function(key)
+            if not cache[key] then
+                cache[key] = func(key)
+            end
+            
+            return cache[key]
+        end
+    end)(util.joaat)
+    
+    string.joaat = util.joaat
+
+    util.get_label_text = (function(func)
+        return function(key)
+            if key:lower() == 'oppressor2' then
+                return 'Harry\'s Broomstick Mk II'
+            else
+                return func(key)
+            end
+        end
+    end)(util.get_label_text)
+
+    util.toast = (function(func)
+        return function(...)
+            if self.settings.show_alerts then
+                func(...)
+            else
+                util.log(...)
+            end
+        end
+    end)(util.toast)
+
+    memory.script_global = (function(func)
+        local cache = {}
+        return function(sg)
+            if not self.settings.cache_globals then
+                return func(sg)
+            end
+
+            if self.globals_cache.clear then
+                cache = {}
+                self.globals_cache.clear = false
+                self.globals_cache.last_clear = os.time() + self.globals_cache.clear_time
+            end
+
+            if not cache[sg] then
+                cache[sg] = func(sg)
+            end
+            
+            return cache[sg]
+        end
+    end)(memory.script_global)
+end

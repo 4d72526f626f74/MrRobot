@@ -1,0 +1,9 @@
+return {
+    {1, 'None'},
+    {2, 'Armor Piercing'},
+    {3, 'Explosive'},
+    {4, 'FMJ'},
+    {5, 'Hollow Point'},
+    {6, 'Incendiary'},
+    {7, 'Tracer'}
+}

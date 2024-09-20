@@ -1,0 +1,42 @@
+pluto_use class
+
+class Aimbot
+    eFOVTypes = {
+        Normal = 1,
+        Precision = 2
+    }
+
+    sx_ptr = memory.alloc(4)
+    sy_ptr = memory.alloc(4)
+    ent_ptr = memory.alloc(4)
+    utils = require('utils.utils')
+    handler = require('utils.handler')
+
+    aimbot_bones = {
+        56604, -- head (SKEL_Head)
+        39317, -- neck (SKEL_Neck_1)
+        0, -- root (SKEL_ROOT)
+        14201, -- left foot (SKEL_L_Foot)
+        51826, -- right leg (SKEL_R_Calf)
+        60309, -- left hand (SKEL_L_Hand)
+        57005, -- right hand (SKEL_R_Hand)
+        11816, -- pelvis (SKEL_Pelvis)
+        58271, -- left leg (SKEL_L_Calf)
+        63931, -- left knee (SKEL_L_Thigh)
+        61163, -- left arm (SKEL_L_UpperArm),
+    }
+
+    function shoot(from, to, weapon, damage, speed, entity_to_ignore)
+        self.utils:request_weapon_asset(weapon)
+        misc.shoot_single_bullet_between_coords_ignore_entity(
+            from.x, from.y, from.z, to.x, to.y, to.z, 
+            damage, true, weapon, players.user_ped(), 
+            true, false, speed, entity_to_ignore == 0 ? players.user_ped() : entity_to_ignore, 
+            true
+        )
+    end
+
+    
+end
+
+return Aimbot

@@ -1,0 +1,648 @@
+pluto_use class, new
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+local ls_customs = require('offsets.ls_customs')
+local bitwise = require('libs.bitwise')
+local pvm = require('utils.pvm')
+local vehicles = require('data.vehicles')
+local ls_customs_data = require('data.ls_customs')
+
+enum eUpdateFlags begin
+    UF_UPDATE = 1 << 0
+end
+
+enum eVehicleAccess begin
+    Everyone = 0,
+    Crew = 1,
+    Friends = 2,
+    CrewFriends = 3,
+    Nobody = 4
+end
+
+class Manager extends Module
+    function __construct(root)
+        self.root = root:list(T'Personal Vehicle Manager', {T'pvm'}, '', nil, nil, || -> self:handle_update())
+        self.max_slots = 515
+        self.update = new bitwise.bitfield(0)
+        self.pvslot = self.g.ActivePVSlot:g(0)
+        self.char_slot = util.get_char_slot()
+        self.vehicle_bitfield = require('flags.vehicle_bitfield')
+
+        self.active_display = self.root:readonly('', '')
+
+        self.root:divider('')
+        self.active_actions = self.root:list(T'Active Actions', {T'pvactiveactions'}, '')
+        
+        self.return_active = self.active_actions:action(T'Return', {T'pvreturn'}, T'Return your vehicle to storage', function()
+            pvm:return_active()
+        end)
+
+        self.claim_active = self.active_actions:action(T'Claim', {T'pvclaim'}, T'Claim your vehicle from storage', function()
+            local slot = pvm:get_active_slot()
+            if slot ~= -1 then
+                pvm:claim(slot)
+            end
+        end)
+
+        self.insure_action = self.active_actions:action(T'Insure', {T'pvinsure'}, T'Insure your vehicle, this is not permanent', function()
+            pvm:set_insure(pvm:get_active_slot(), true)
+        end)
+        
+        self.veh_access = self.root:list(T'Vehicle Access', {T'pvaccess'}, T'Vehicle Access')
+
+        local commands = {}
+        for ({
+            { args = { T'Everyone', commands, T'Allows everyone to access your vehicle' }, value = eVehicleAccess.Everyone },
+            { args = { T'Crew', commands, T'Allows your crew to access your vehicle' }, value = eVehicleAccess.Crew },
+            { args = { T'Friends', commands, T'Allows your friends to access your vehicle' }, value = eVehicleAccess.Friends },
+            { args = { T'Crew + Friends', commands, T'Allows your crew and friends to access your vehicle' }, value = eVehicleAccess.CrewFriends },
+            { args = { T'Nobody', commands, T'Allows nobody to access your vehicle' }, value = eVehicleAccess.Nobody }
+        }) as data do
+            local args = data.args
+            args[4] = function() 
+                stats.stat_set_int(($'MP{self.char_slot}_PERSONAL_VEHICLE_ACCESS'):joaat(), data.value, true)
+            end
+            self.veh_access:action(table.unpack(args))
+        end
+        commands = nil
+
+        self.unused_slots = self.root:list(T'Unused Slots', {T'pvunused'}, '')
+        self.cars = self.root:list(T'Personal Vehicles', {T'pvcars'}, '')
+        self.aircraft = self.root:list(T'Personal Aircraft', {T'pvaircraft'}, '')
+
+        self.root:divider('')
+        self.root:toggle(T'Remove Request Restrictions', {}, '', function(state)
+            local base = self.g.PersonalVehicleRequestRestrictionsBase:g()
+            memory.write_float(base + 8, state ? 0.0 : 10.0)
+            memory.write_float(base + 16, state ? 0.0 : 10.0)
+            memory.write_byte(base, state ? 1 : 0)
+        end)
+
+        self:populate()
+    end
+
+    function handle_update()
+        if not self.update:isset(eUpdateFlags.UF_UPDATE) then
+            self.update:set(eUpdateFlags.UF_UPDATE)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.root.menu_name then
+                    self.update:clear(eUpdateFlags.UF_UPDATE)
+                    return false
+                end
+
+                local slot = pvm:get_active_slot()
+                if slot ~= -1 then
+                    local data = self.g.PersonalVehicleData:g(slot)
+                    local model = util.get_label_text(util.reverse_joaat(memory.read_int(data + ls_customs.vehicle_model)))
+                    local plate = memory.read_string(data + ls_customs.license_plate)
+                
+                    self.active_display.menu_name = T:T('[%d] %s - %s', slot, model, plate)
+                    self.active_actions.help_text = T:T('The options within this list will only affect your %s', model)
+                    self.return_active.menu_name = T:T('Return %s', model)
+                    self.return_active.help_text = T:T('Return your %s to storage', model)
+                    self.claim_active.menu_name = T:T('Claim %s', model)
+                    self.claim_active.help_text = T:T('Claim your %s from mors mutual / impound', model)
+                    self.insure_action.menu_name = T:T('Insure %s', model)
+                    self.insure_action.help_text = T:T('Insure your %s, this is not permanent', model)
+                    self.active_actions.visible = true
+                else
+                    self.active_display.menu_name = T:T('[%d] %s - %s', slot, T'None', T'None')
+                    self.active_actions.visible = false
+                end
+            end)
+        end
+
+        for ({'unused_slots', 'cars', 'aircraft'}) as root do
+            if self[root] then
+                local root = self[root]
+                if type(root) == 'userdata' then
+                    for root:getChildren() as child do
+                        if child:isValid() then
+                            child:delete()
+                        end
+                    end
+                end
+            end
+        end
+        menu.collect_garbage()
+        self:populate()
+    end
+
+    function populate()
+        local cars, aircrafts = {}, {}
+        local unused_slots_children = #self.unused_slots:getChildren()
+        local cars_children = #self.cars:getChildren()
+        local aircraft_children = #self.aircraft:getChildren()
+
+        for slot = 0, self.max_slots do
+            local data = {}
+            data.data = self.g.PersonalVehicleData:g(slot)
+            data.hash = memory.read_int(data.data + ls_customs.vehicle_model)
+            data.model = util.get_label_text(util.reverse_joaat(data.hash))
+
+            if data.model == 'NULL' then
+                if unused_slots_children <= 0 then self:add_unused(slot, self.unused_slots, data) end
+            elseif vehicle.is_this_model_a_car(data.hash) or vehicle.is_this_model_a_bike(data.hash) or vehicle.is_this_model_a_boat(data.hash) 
+            or vehicle.is_this_model_a_jetski(data.hash) or vehicle.is_this_model_an_amphibious_car(data.hash) or vehicle.is_this_model_an_amphibious_quadbike(data.hash) then
+                table.insert(cars, { slot = slot, root = self.cars, data = data })
+            elseif vehicle.is_this_model_a_heli(data.hash) or vehicle.is_this_model_a_plane(data.hash) then
+                table.insert(aircrafts, { slot = slot, root = self.aircraft, data = data })
+            end
+        end
+
+        cars = self.utils:sort_table(cars, |a, b| -> a.data.model < b.data.model)
+        aircrafts = self.utils:sort_table(aircrafts, |a, b| -> a.data.model < b.data.model)
+
+        for cars as car do if cars_children <= 0 then self:add_vehicle(car.slot, car.root, car.data) end end
+        for aircrafts as aircraft do if aircraft_children <= 0 then self:add_vehicle(aircraft.slot, aircraft.root, aircraft.data) end end
+    end
+
+    function add_vehicle(slot, root, data)
+        local hash = data.hash
+        local model = data.model
+        local addr = data.data
+        local bitfield = new bitwise.bitfield(
+            memory.read_int(addr + ls_customs.vehicle_bitfield),
+            addr + ls_customs.vehicle_bitfield
+        )
+
+        local info_plate = nil
+        local info_active = nil
+        local info_destroyed = nil
+        local info_insured = nil
+        local info_impounded = nil
+        local info_delivered = nil
+        local info_address = nil
+        local info_bitfield = nil
+        local info_radio = nil
+        local info_has_explosive = nil
+
+        local pv 
+        pv = root:list(model, {$'pvm{slot}', $'pvm{model}{slot}'}, '', nil, nil, function()
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= pv.menu_name then
+                    item = nil
+                    return false
+                end
+                bitfield.address = addr + ls_customs.vehicle_bitfield
+                bitfield.bits = memory.read_int(addr + ls_customs.vehicle_bitfield)
+                local radio_name = memory.read_string(addr + ls_customs.vehicle_radio)
+
+                if type(info_plate) ~= 'userdata' or type(info_active) ~= 'userdata' or type(info_destroyed) ~= 'userdata' or type(info_insured) ~= 'userdata' or type(info_impounded) ~= 'userdata' or type(info_delivered) ~= 'userdata' or type(info_address) ~= 'userdata' or type(info_bitfield) ~= 'userdata' or type(info_radio) ~= 'userdata' then
+                    goto continue
+                end
+
+                info_plate.menu_name = T:T('Plate: %s', memory.read_string(addr + ls_customs.license_plate))
+                info_active.menu_name = T:T('Active: %s', (bitfield:isset(self.vehicle_bitfield.active)) ? 'Yes' : 'No')
+                info_destroyed.menu_name = T:T('Destroyed: %s', (bitfield:isset(self.vehicle_bitfield.destroyed)) ? 'Yes' : 'No')
+                info_insured.menu_name = T:T('Insured: %s', (bitfield:isset(self.vehicle_bitfield.insured)) ? 'Yes' : 'No')
+                info_impounded.menu_name = T:T('Impounded: %s', (bitfield:isset(self.vehicle_bitfield.impounded)) ? 'Yes' : 'No')
+                info_delivered.menu_name = T:T('Delivered: %s', (not bitfield:isset(self.vehicle_bitfield.delivered)) ? 'Yes' : 'No')
+                info_address.menu_name = T:T('Address: %s', string.format('0x%X', addr))
+                info_bitfield.menu_name = T:T('Bitfield: %s', string.format('0x%X', bitfield.bits & 0xFFFFFFFF))
+                info_radio.menu_name = T:T('Radio: %s', (radio_name:len() < 2) ? 'None' : radio_name)
+                info_has_explosive.menu_name = T:T('Remote Explosive: %s', (bitfield:isset(self.vehicle_bitfield.has_explosive)) ? 'Yes' : 'No')
+
+                ::continue::
+            end)
+        end)
+
+        info_plate = pv:readonly('', '')
+        info_active = pv:readonly('', '')
+        info_destroyed = pv:readonly('', '')
+        info_insured = pv:readonly('', '')
+        info_impounded = pv:readonly('', '')
+        info_delivered = pv:readonly('', '')
+        info_address = pv:readonly('', '')
+        info_bitfield = pv:readonly('', '')
+        info_radio = pv:readonly('', '')
+        info_has_explosive = pv:readonly('', '')
+
+        pv:divider('')
+
+        pv:action(T'Request', {$'pvm{slot}req', $'pvm{slot}request'}, T'Request your vehicle (happens instantly)', function()
+            local is_aircraft = vehicle.is_this_model_a_heli(hash) or vehicle.is_this_model_a_plane(hash)
+            pvm:return_active()
+
+            repeat
+                util.yield_once()
+            until self:get_pv_from_network_id(players.user()) == 0
+
+            util.yield(100)
+            pvm:claim(slot)
+            if is_aircraft then
+                pvm:native_request(slot, true)
+            else
+                pvm:request(slot)
+            end
+        end)
+
+        pv:action(T'Request Native', {$'pvm{slot}reqnative', $'pvm{slot}requestnative'}, T'Request your vehicle using the games native requesting functionality', function()
+            pvm:claim(slot)
+            pvm:native_request(slot, true)
+        end)
+
+        pv:action(T'Request As Pegasus', {$'pvm{slot}reqpegasus', $'pvm{slot}requestpegasus'}, T'Request your vehicle as a pegasus vehicle', function()
+            self.utils:request_pegasus_vehicle(hash)
+        end)
+
+        pv:action(T'Request As CEO', {$'pvm{slot}reqceo', $'pvm{slot}requestceo'}, T'Request your vehicle as a CEO vehicle', function()
+            self.utils:request_ceo_vehicle(hash)
+        end)
+
+        pv:action(T'Return', {$'pvm{slot}ret'}, T'Return your vehicle to storage', function()
+            pvm:return(slot)
+        end)
+
+        pv:action(T'Delete', {$'pvm{slot}del'}, T'Delete your vehicle from storage', function()
+            pvm:delete(slot)
+        end)
+
+        pv:action(T'Instant Claim', {$'pvm{slot}claim'}, T'Claim your vehicle from storage', function()
+            pvm:claim(slot)
+        end)
+
+        pv:action(T'Instant Insure', {$'pvm{slot}insure'}, T'Insure your vehicle, this is not permanent', function()
+            pvm:insure(slot)
+        end)
+
+        pv:action(T'Instant Deliver', {$'pvm{slot}deliver'}, T'Deliver your vehicle to your current location', function()
+            pvm:set_delivered(slot, true)
+        end)
+
+        pv:divider('')
+        local plate = pv:list(T'Plate', {$'pvm{slot}plate'}, T:T('Change plate of %s', model))
+
+        plate:text_input(T'License Plate', {$'pvm{slot}modplate'}, T'The new license plate to set', function(new_plate)
+            if not util.can_continue() then return end
+            memory.write_string(addr + ls_customs.license_plate, new_plate)
+        end, memory.read_string(addr + ls_customs.license_plate))
+
+        local model_spoofer = pv:list(T'Model Spoofer', {$'pvm{slot}spoofer'}, '')
+        model_spoofer:text_input(T'Model', {$'pvm{slot}modmodel'}, '', function(new_model)
+            if not util.can_continue() then return end
+            local hash = new_model:joaat()
+            if streaming.is_model_valid(hash) then
+                memory.write_int(addr + ls_customs.vehicle_model, hash)
+                pv.menu_name = util.get_label_text(new_model)
+            else
+                util.display_error(T'Invalid model')
+            end
+        end, util.reverse_joaat(hash))
+        local models = model_spoofer:list(T'Models', {}, '')
+        for vehicles as model do
+            models:action(model, {$'pvm{slot}modmodel{model}'}, '', function()
+                if not util.can_continue() then return end
+                local hash = model:lower():joaat()
+                if streaming.is_model_valid(hash) then
+                    memory.write_int(addr + ls_customs.vehicle_model, hash)
+                    pv.menu_name = util.get_label_text(util.reverse_joaat(hash))
+                else
+                    util.display_error(T'Invalid model')
+                end
+            end)
+        end
+
+        local lsc
+        lsc = pv:list(T'Los Santos Customs', {T'pvm' .. slot .. 'lsc'}, '', function()
+            if lsc:isValid() then
+                for lsc:getChildren() as child do
+                    if child:isValid() then
+                        child:delete()
+                    end
+                end
+            end
+
+            local bumpers = self.sroot:list(T'Bumpers', {T'pvm' .. slot .. 'lscbumpers'}, '')
+            local imani = self.sroot:list(T'Imani Tech', {T'pvm' .. slot .. 'lscimani'}, '')
+            local lights = self.sroot:list(T'Lights', {T'pvm' .. slot .. 'lsclights'}, '')
+            local license_plate = self.sroot:list(T'License Plate', {T'pvm' .. slot .. 'lsclp'}, '')
+            local respray = self.sroot:list(T'Respray', {T'pvm' .. slot .. 'lscrespray'}, '')
+            local wheels = self.sroot:list(T'Wheels', {T'pvm' .. slot .. 'lscwheels'}, '')
+
+            lsc:slider(T'Aerials', {}, '', 0, 4, memory.read_short(addr + ls_customs.vehicle_aerials), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_short(addr + ls_customs.vehicle_aerials, value)
+            end)
+
+            lsc:list_select(T'Armour', {}, '', ls_customs_data.armour, memory.read_int(addr + ls_customs.vehicle_armour) + 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_armour, value - 1)
+            end)
+
+            lsc:slider(T'Armour Plating / Primary Weapon', {}, '', 0, 1, memory.read_int(addr + ls_customs.vehicle_armour_plating_primary_weapon), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_armour_plating_primary_weapon, value)
+            end)
+
+            lsc:slider(T'Brakes', {}, '', 0, 3, memory.read_int(addr + ls_customs.vehicle_brakes), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_brakes, value)
+            end)
+
+            bumpers = lsc:attach(bumpers)
+
+            bumpers:slider(T'Front', {}, '', 0, 17, memory.read_int(addr + ls_customs.vehicle_front_bumper), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_front_bumper, value)
+            end)
+
+            bumpers:slider(T'Rear', {}, '', 0, 17, memory.read_int(addr + ls_customs.vehicle_rear_bumper), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_rear_bumper, value)
+            end)
+
+            lsc:list_select(T'Engine', {}, '', ls_customs_data.engine, memory.read_int(addr + ls_customs.vehicle_engine), function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_engine, value)
+            end)
+
+            print(table.inspect(ls_customs_data.engine))
+
+            lsc:slider(T'Canards', {}, '', 0, 3, memory.read_int(addr + ls_customs.vehicle_canards), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_canards, value)
+            end)
+
+            lsc:slider(T'Horn', {}, '', 0, 58, memory.read_int(addr + ls_customs.vehicle_horn), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_horn, value)
+            end)
+
+            imani = lsc:attach(imani)
+            local imani_current = memory.read_int(addr + ls_customs.vehicle_imani_tech)
+            if imani_current < 0 or imani_current > 2 then
+                imani_current = 1
+            end
+
+            imani:list_select(T'Imani', {}, '', ls_customs_data.imani_tech, imani_current + 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_imani_tech, value - 1)
+            end)
+
+            lights = lsc:attach(lights)
+
+            lights:list_select(T'Headlights', {}, '', ls_customs_data.headlights, memory.read_int(addr + ls_customs.vehicle_head_lights) + 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_head_lights, value - 1)
+            end)
+
+            lights:list_select(T'Neon Layout', {}, '', ls_customs_data.neon_layouts, self:get_neon_layout(slot) or 1, function(value)
+                if not util.can_continue() then return end
+                local layout = self.neon_layouts[1][value]
+                local bitfield = memory.read_int(addr + ls_customs.vehicle_neon_layout)
+                switch layout do
+                    case 'None':
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:clear(bitfield, self.masks.neon_layout_all))
+                        break
+                    case 'Front':
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:clear(bitfield, self.masks.neon_layout_all))
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:set(bitfield, self.masks.neon_layout_front))
+                        break
+                    case 'Back':
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:clear(bitfield, self.masks.neon_layout_all))
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:set(bitfield, self.masks.neon_layout_back))
+                        break
+                    case 'Sides':
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:clear(bitfield, self.masks.neon_layout_all))
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:set(bitfield, self.masks.neon_layout_sides))
+                        break
+                    case 'Front and Back':
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:clear(bitfield, self.masks.neon_layout_all))
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:set(bitfield, self.masks.neon_layout_front_and_back))
+                        break
+                    case 'Front and Sides':
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:clear(bitfield, self.masks.neon_layout_all))
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:set(bitfield, self.masks.neon_layout_front_and_sides))
+                        break
+                    case 'Back and Sides':
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:clear(bitfield, self.masks.neon_layout_all))
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:set(bitfield, self.masks.neon_layout_back_and_sides))
+                        break
+                    case 'All':
+                        memory.write_int(addr + ls_customs.vehicle_neon_layout, memory.bits:set(bitfield, self.masks.neon_layout_all))
+                        break
+                end
+            end)
+
+            local neon_custom = lights:colour(T'Neon Colour', {T'pvm' .. slot .. T'nlcolour'}, '', self:get_neon_colour(slot), false, function(colour)
+                if not util.can_continue() then return end
+                memory.write_byte(addr + ls_customs.vehicle_neon_colour_red, math.floor(colour.r * 255))
+                memory.write_byte(addr + ls_customs.vehicle_neon_colour_green, math.floor(colour.g * 255))
+                memory.write_byte(addr + ls_customs.vehicle_neon_colour_blue, math.floor(colour.b * 255))
+            end)
+
+            lsc:slider(T'Livery', {}, '', 0, 11, memory.read_int(addr + ls_customs.vehicle_livery), 1, function(value)
+                if util.can_continue() then
+                    memory.write_int(addr + ls_customs.vehicle_livery, value)
+                end
+            end)
+
+            lsc:slider(T'Mirrors', {}, '', 0, 3, memory.read_int(addr + ls_customs.vehicle_mirrors), 1, function(value)
+                if util.can_continue() then
+                    memory.write_int(addr + ls_customs.vehicle_mirrors, value)
+                end
+            end)
+
+            lsc:slider(T'Roof / Secondary Weapon', {}, '', 0, 4, memory.read_int(addr + ls_customs.vehicle_roof_secondary_weapon), 1, function(value)
+                if util.can_continue() then
+                    memory.write_int(addr + ls_customs.vehicle_roof_secondary_weapon, value)
+                end
+            end)
+
+            lsc:slider(T'Skirts', {}, '', 0, 12, memory.read_int(addr + ls_customs.vehicle_skirts), 1, function(value)
+                if util.can_continue() then
+                    memory.write_int(addr + ls_customs.vehicle_skirts, value)
+                end
+            end)
+
+            lsc:slider(T'Louvers', {}, '', 0, 10, memory.read_int(addr + ls_customs.vehicle_louvers), 1, function(value)
+                if util.can_continue() then
+                    memory.write_int(addr + ls_customs.vehicle_louvers, value)
+                end
+            end)
+
+            license_plate = lsc:attach(license_plate)
+
+            license_plate:slider(T'Type', {}, '', 0, 4, memory.read_int(addr + ls_customs.license_plate_type), 1, function(value)
+                if util.can_continue() then
+                    memory.write_int(addr + ls_customs.license_plate_type, value)
+                end
+            end)
+
+            respray = lsc:attach(respray)
+            local primary_colour = respray:list(T'Primary Colour', {}, '')
+            local secondary_colour = respray:list(T'Secondary Colour', {}, '')
+
+            primary_colour:colour(T'Custom Primary Colour', {T'pvm' .. slot .. T'custompc'}, '',
+            memory.read_int(addr + ls_customs.vehicle_primary_colour_red) / 255,
+            memory.read_int(addr + ls_customs.vehicle_primary_colour_green) / 255,
+            memory.read_int(addr + ls_customs.vehicle_primary_colour_blue) / 255,
+            1.0, false, function(colour)
+                if not util.can_continue() then return end
+                bitfield:set(ls_customs.vehicle_primary_colour_toggle)
+                memory.write_byte(addr + ls_customs.vehicle_primary_colour_red, math.floor(colour.r * 255))
+                memory.write_byte(addr + ls_customs.vehicle_primary_colour_green, math.floor(colour.g * 255))
+                memory.write_byte(addr + ls_customs.vehicle_primary_colour_blue, math.floor(colour.b * 255))
+            end)
+
+            primary_colour:slider(T'Primary Colour', {}, '', 0, 159, memory.read_int(addr + ls_customs.vehicle_primary_colour), 1, function(value)
+                if not util.can_continue() then return end
+                bitfield:clear(ls_customs.vehicle_primary_colour_toggle)
+                memory.write_int(addr + ls_customs.vehicle_primary_colour, value)
+            end)
+
+            secondary_colour:slider(T'Secondary Colour', {}, '', 0, 159, memory.read_int(addr + ls_customs.vehicle_secondary_colour), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_secondary_colour, value)
+            end)
+
+            local trim_colour = respray:slider(T'Trim Colour', {}, '', 0, 112, memory.read_int(addr + ls_customs.vehicle_trim_colour), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_trim_colour, value)
+            end)
+
+            local crew_emblem = respray:toggle(T'Crew Emblem', {}, '', function(state)
+                if not util.can_continue() then return end
+                bitfield:bool(ls_customs.vehicle_crew_emblem, state)
+            end, bitfield:isset(ls_customs.vehicle_crew_emblem))
+
+            lsc:slider(T'Sunstrips', {}, '', 0, 2, memory.read_int(addr + ls_customs.vehicle_sun_strips), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_sun_strips, value)
+            end)
+
+            lsc:slider(T'Spoiler', {}, '', 0, 9, memory.read_int(addr + ls_customs.vehicle_spoiler), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_spoiler, value)
+            end)
+
+            lsc:slider(T'Suspension', {}, '', 0, 4, memory.read_int(addr + ls_customs.vehicle_suspension), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_suspension, value)
+            end)
+
+            lsc:slider(T'Trunks', {}, '', 0, 2, memory.read_int(addr + ls_customs.vehicle_trunks), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_trunks, value)
+            end)
+
+            lsc:list_select(T'Transmission', {}, '', ls_customs_data.transmission, memory.read_int(addr + ls_customs.vehicle_transmission) + 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_transmission, value - 1)
+            end)
+
+            lsc:toggle(T'Turbo', {}, '', function(state)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_turbo, state and 1 or 0)
+            end, memory.read_int(addr + ls_customs.vehicle_turbo) ~= 0)
+
+            wheels = lsc:attach(wheels)
+
+            wheels:slider(T'Wheel Type', {}, '', 0, 30, memory.read_int(addr + ls_customs.vehicle_wheel_type), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_wheel_type, value)
+            end)
+
+            wheels:slider(T'Rim Type', {}, '', 0, 12, memory.read_int(addr + ls_customs.vehicle_rim_type), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_rim_type, value)
+            end)
+
+            wheels:slider(T'Wheel Colour', {}, '', 0, 160, memory.read_int(addr + ls_customs.vehicle_wheel_colour), 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_wheel_colour, value)
+            end)
+
+            local tires = wheels:list(T'Tires', {}, '')
+
+            tires:list_select(T'Design', {}, '', ls_customs_data.wheel_data.wheel_design, memory.read_int(addr + ls_customs.vehicle_tires_design) + 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_tires_design, value - 1)
+                memory.write_int(addr + ls_customs.vehicle_tires_design1, 1)
+            end)
+
+            tires:toggle(T'Bulletproof Tires', {}, '', function(state)
+                if not util.can_continue() then return end
+                bitfield:bool(ls_customs.vehicle_neon_layout, state)
+                memory.write_int(addr + ls_customs.vehicle_bullet_proof_tires_toggle, state and 1 or 0)
+            end, memory.read_int(addr + ls_customs.vehicle_bullet_proof_tires_toggle) ~= 0)
+
+            tires:colour(T'Smoke Colour', {}, '',
+            memory.read_int(addr + ls_customs.vehicle_tires_smoke_colour_red) / 255,
+            memory.read_int(addr + ls_customs.vehicle_tires_smoke_colour_green) / 255,
+            memory.read_int(addr + ls_customs.vehicle_tires_smoke_colour_blue) / 255,
+            1.0, false, function(colour)
+                if not util.can_continue() then return end
+                memory.write_byte(addr + ls_customs.vehicle_tires_smoke_colour_red, math.floor(colour.r * 255))
+                memory.write_byte(addr + ls_customs.vehicle_tires_smoke_colour_green, math.floor(colour.g * 255))
+                memory.write_byte(addr + ls_customs.vehicle_tires_smoke_colour_blue, math.floor(colour.b * 255))
+            end)
+
+            lsc:list_select(T'Windows', {}, '', ls_customs_data.window_tints, memory.read_int(addr + ls_customs.vehicle_windows) + 1, function(value)
+                if not util.can_continue() then return end
+                memory.write_int(addr + ls_customs.vehicle_windows, value - 1)
+            end)
+        end, function()
+            local force_cloud = menu.ref_by_command_name('forcecloudsave')
+            if force_cloud:isValid() then
+                force_cloud:trigger()
+            end
+        end)
+
+        if self.utils:is_dev(players.user()) then
+            local dev = pv:list(T'Debug', {}, '')
+            dev:action(T'Copy Address', {}, '', function()
+                util.copy_addr(addr)
+            end)
+        end
+    end
+
+    function add_unused(slot, root, data)
+        slot = tostring(slot)
+
+        local data = data.data
+        local veh_slot = root:list(slot, {}, T'Unused Slot')
+        local add_veh = veh_slot:list(T'Add / Gift Vehicle', {T'pvaddveh'}, T'Add a vehicle to this slot, works like gifting but you still need to request the vehicle and drive it into your garage to keep the vehicle forever')
+    
+        add_veh:text_input(T'Model', {T'pvmvmodel' .. slot}, T'The model to set in this slot', function(model)
+            if not util.can_continue() then return end
+            local hash = model:joaat()
+            if streaming.is_model_valid(hash) then
+                memory.write_int(data + ls_customs.vehicle_model, hash)
+                veh_slot.menu_name = slot .. ': ' .. util.get_label_text(model)
+            else
+                util.display_error(T'Invalid model')
+            end
+        end, 'adder')
+    end
+
+    function get_neon_layout(slot)
+        local addr = self.g.PersonalVehicleData:g(slot)
+        return ({
+            [0] = 1,
+            [0x10] = 2,
+            [0x20] = 3,
+            [0x1C] = 4,
+            [0x30] = 5,
+            [0xD0] = 6,
+            [0xE0] = 7,
+            [0xF0] = 8
+        })[memory.read_int(addr + ls_customs.vehicle_neon_layout + 1) >> 16] or 1
+    end
+
+    function get_neon_colour(slot)
+        local addr = self.g.PersonalVehicleData:g(slot)
+        return {
+            r = (memory.read_short(addr + ls_customs.vehicle_neon_colour_red) & 0xFF) / 0xFF,
+            g = (memory.read_short(addr + ls_customs.vehicle_neon_colour_green) & 0xFF) / 0xFF,
+            b = (memory.read_short(addr + ls_customs.vehicle_neon_colour_blue) & 0xFF) / 0xFF,
+            a = 1
+        }
+    end
+end
+
+return Manager

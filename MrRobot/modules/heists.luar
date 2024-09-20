@@ -1,0 +1,578 @@
+pluto_use class, new
+
+local Module, T = require('abstract_base_classes.module'), require('languages.trans')
+local door_manager = require('utils.door_manager')
+
+class Heists extends Module
+    function __construct(root)
+        self.root = root
+        self.cayo = self.root:list(T'Cayo Perico', {$'rhcayo'})
+        self.casino = self.root:list(T'Diamond Casino', {$'rhcasi'})
+        self.gate_ptr = memory.alloc_int()
+        self.door_manager = new door_manager()
+        self.guards = {'hc_gun', 'cartelguard'}
+        self.primary_targets = {
+            {1, 'Tequila'},
+            {2, 'Madrazo Files'},
+            {3, 'Pink Diamond'},
+            {4, 'Bearer Bonds'},
+            {5, 'Ruby Necklace'},
+            {6, 'Sapphire Panther'},
+            {7, 'Invalid'}
+        }
+        self.secondary_targets = {'gold', 'coke', 'painting', 'weed'}
+        self.mission_pickups = {'securitycard', 'keys_jail', 'cash'}
+        self.collisions = {'elevator', 'gate', 'door', 'chain_lock'}
+        self.doors = {'gate', 'door'}
+        self.guards_casino = {'s_m_y_westsec_02', 's_m_y_casino_01'}
+        self.cayo_fees = 0.12000000000000001
+
+        self.cayo:action(T'Give Guards Minigun', {}, T'Give all he guards a minigun', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                weapon.remove_all_ped_weapons(ent, true)
+                weapon.give_weapon_to_ped(ent, ('WEAPON_MINIGUN'):joaat(), 9999, true)
+                ped.set_ped_firing_pattern(ent, ('FIRING_PATTERN_FULL_AUTO'):joaat())
+                ped.set_ped_accuracy(ent, 100)
+            end
+        end)
+
+        self.cayo:action(T'Disarm Guards', {}, T'Remove all weapons from the guards', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                weapon.remove_all_ped_weapons(ent, true)
+            end
+        end)
+
+        self.cayo:action(T'Remove Drainage Pipe', {}, T'Remove drainage pipe', function()
+            local ents = self.door_manager:find_entities_by_model(entities.get_all_objects_as_pointers, 'prop_chem_grill')
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+
+        self.cayo:action(T'Remove All Cameras', {}, T'Deletes all the cameras', function()
+            local ents = self.door_manager:find_entities_by_model(entities.get_all_objects_as_pointers, 'cctv_cam')
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+
+        self.cayo:action(T'Remove All Guards', {}, T'Remove all the annoying guards', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards)
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+
+        self.cayo:action(T'Make Guards Useless', {}, T'Forcees the guards to fall over then binds their ankles preventing them from getting up', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards)
+            for ents as ent do
+                local ptr = ent
+                local ent = entities.pointer_to_handle(ent)
+                local pos = entity.get_entity_coords(ent)
+                local health = entity.get_entity_health(ent)
+
+                ped.set_ped_can_ragdoll(ent, true)
+                ped.set_ped_to_ragdoll(ent, 1, 1, 0, true, true, false)
+                ped.set_enable_bound_ankles(ent, true)
+                entity.apply_force_to_entity_center_of_mass(ent, 1, 0.0, pos.y - 2.0, 0.0, true, true, false, true)
+                entity.set_entity_health(ent, health)
+            end
+        end)
+
+        self.cayo:action(T'Ragdoll Guards', {}, T'Make all the guards fall over', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                local pos = entity.get_entity_coords(ent)
+                local health = entity.get_entity_health(ent)
+
+                ped.set_ped_can_ragdoll(ent, true)
+                ped.set_ped_to_ragdoll(ent, 1, 1, 0, true, true, false)
+                entity.apply_force_to_entity_center_of_mass(ent, 1, 0.0, pos.y - 2.0, 0.0, true, true, false, true)
+                entity.set_entity_health(ent, health)
+            end
+        end)
+
+        self.collect_primary_target = self.cayo:action(T'Collect Primary Target', {}, T'Collect the primary target instantly', function()
+            local iter = entities.get_all_objects_as_pointers
+            local glass, vault = self.door_manager:find_entity_by_model(iter, 'glass_disp'), self.door_manager:find_entity_by_model(iter, 'h4_safe')
+
+            if glass ~= nil then
+                entities.delete_by_pointer(glass)
+            end
+
+            if vault ~= nil then
+                entities.delete_by_pointer(vault)
+            end
+
+            local timeout = os.time() + 3
+            util.yield(500)
+
+            local blip = hud.get_first_blip_info_id(765)
+            repeat
+                util.yield_once()
+                blip = hud.get_next_blip_info_id(765)
+            until blip ~= 0 or os.time() > timeout
+
+            if blip ~= 0 then
+                local ent = hud.get_blip_info_id_entity_index(blip)
+                if ent ~= 0 then
+                    local pos = entity.get_entity_coords(players.user_ped())
+                    entity.set_entity_visible(ent, false)
+                    entity.set_entity_coords(ent, pos.x, pos.y, pos.z + 1.0)
+                    ped.set_ped_to_ragdoll(players.user_ped(), 10, 10, 0, true, true, false)
+                end
+            end
+
+            util.yield(500)
+        end)
+
+        self.cayo:action(T'TP Secondary Targets To Player', {}, T'Teleport secondary targets to you', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_objects_as_pointers, self.secondary_targets)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                local pos = entity.get_offset_from_entity_in_world_coords(players.user_ped(), 0.0, 1.0, 0.0)
+                entity.set_entity_coords(ent, pos.x, pos.y, pos.z)
+            end
+        end)
+
+        self.auto_solve_fps = self.cayo:action(T'Auto Solve Fingerprints', {}, T'Completes the hacking for you', function()
+            local fp = memory.script_local(table.unpack(self.g.SkipHacking))
+            if fp ~= 0 then
+                for i = 0, 3 do
+                    for j = 0, 7 do
+                        local k, l = 0xC8 * i, 0x18 * j
+                        while l ~= 0 do
+                            local c = k & l
+                            k, l = k ~ l, c << 1
+                        end
+
+                        memory.write_byte(fp + k, j & 7)
+                    end
+                end
+            end
+        end)
+
+        self.cayo:action(T'Force Clone Match', {}, T'Force the fingerprint to be a match even when it is not', function()
+            local bitfield = memory.script_local(table.unpack(self.g.CayoCloneBitfield))
+            local clone_fail = memory.script_local(table.unpack(self.g.CayoCloneFailed))
+
+            if bitfield ~= 0 then
+                memory.write_int(bitfield, 0x82)
+                util.yield(500)
+                memory.write_int(clone_fail, 0)
+                util.yield(1000)
+            end
+        end)
+
+        self.instant_clone = self.cayo:action(T'Instant Clone All', {}, T'Instantly clone all the fingerprints', function()
+            local bitfield = memory.script_local(table.unpack(self.g.CayoCloneBitfield))
+            local current_fp = memory.script_local(table.unpack(self.g.CayoCurrentFingerprint))
+            local clone_fail = memory.script_local(table.unpack(self.g.CayoCloneFailed))
+
+            if bitfield ~= 0 then
+                memory.write_int(current_fp, 5)
+                util.yield_once()
+                memory.write_int(bitfield, 0x82)
+                util.yield(500)
+                memory.write_int(clone_fail, 0)
+            end
+        end)
+
+        self.cayo:action(T'Refresh Planning Board', {}, T'Refreshes the planning board on your kosatka', function()
+            -- originally found by IceDoomfist but updated by me for latest GTA update
+            util.spoof_script(self.IHS, function()
+                local board = memory.script_local(table.unpack(self.g.RefreshPlannningBoard))
+                memory.write_byte(board, 2)
+            end)
+        end)
+
+        -- self.cayo:action(T'Set Max Take', {}, T'Set the take of the heist to ($2,850,000)', function()
+        --     if not util.can_continue() then return end
+        --     local take = memory.script_local(table.unpack(self.g.CayoPericoTake))
+        --     memory.write_int(take, 2850000)
+        -- end)
+
+        self.cayo:action(T'Increase Hacking Time', {}, T'Gives you more time to complete hacking if needed', function()
+            local hacking_timer = memory.script_local(table.unpack(self.g.CayoHackingTimer))
+            if hacking_timer ~= 0 then
+                memory.write_int(hacking_timer, math.max_int)
+                memory.write_int(hacking_timer + 0x8, math.max_int)
+            end
+        end)
+
+        self.cayo:action(T'Force Fail Mission', {}, T'Force the mission to fail', function()
+            local mission = memory.script_local(table.unpack(self.g.CayoForceFail))
+            if mission ~= 0 then
+                memory.write_int(mission, 0xFFFFFFFF)
+            end
+        end)
+
+        self.cayo:divider('')
+        self.cayo:toggle_loop(T'Skip Hacking', {}, T'Automatically solve the fingerprints', function()
+            local bink = memory.script_local(table.unpack(self.g.CayoBinkMovie))
+            if bink ~= 0 then
+                local movie = memory.read_int(bink)
+                graphics.set_bink_movie_time(movie, 100.0)
+                util.yield_once()
+
+                if self.auto_solve_fps:isValid() then
+                    self.auto_solve_fps:trigger()
+                end
+            end
+        end)
+
+        self.instant_complete_hacking = self.cayo:toggle_loop(T'Instant Complete Hacking', {}, T'Instantly complete the hacking', function()
+            local hacking_state = memory.script_local(table.unpack(self.g.CayoHackingState))
+            local bink = memory.script_local(table.unpack(self.g.CayoBinkMovie))
+
+            if bink ~= 0 then
+                local movie = memory.read_int(bink)
+                graphics.set_bink_movie_time(movie, 100.0)
+                memory.write_int(hacking_state, 7)
+                graphics.stop_bink_movie(movie)
+
+                repeat
+                    util.yield_once()
+                until memory.read_int(hacking_state) == 7
+    
+                if self.instant_clone:isValid() then
+                    self.instant_clone:trigger()
+                end
+
+                util.yield(100)
+            end
+        end)
+
+        self.cayo:toggle_loop(T'RGB Haxing', {}, T'Make the UI change colours', function()
+            local rgba = memory.script_local(table.unpack(self.g.CayoFingerprintRGBA))
+            if rgba ~= 0 then
+                local red = math.random(0, 255)
+                local green = math.random(0, 255)
+                local blue = math.random(0, 255)
+
+                memory.write_byte(rgba, red)
+                memory.write_byte(rgba + 8, green)
+                memory.write_byte(rgba + 16, blue)
+
+                util.yield(100)
+            end
+        end, function()
+            local rgba = memory.script_local(table.unpack(self.g.CayoFingerprintRGBA))
+            if rgba ~= 0 then
+                memory.write_byte(rgba, 41)
+                memory.write_byte(rgba + 8, 194)
+                memory.write_byte(rgba + 16, 82)
+                memory.write_byte(rgba + 24, 255)
+            end
+        end)
+
+        self.cayo:toggle_loop(T'RGBA Haxing', {}, T'Make the UI change colours (alpha also changes)', function()
+            local rgba = memory.script_local(table.unpack(self.g.CayoFingerprintRGBA))
+            if rgba ~= 0 then
+                local red = math.random(0, 255)
+                local green = math.random(0, 255)
+                local blue = math.random(0, 255)
+                local alpha = math.random(0, 255)
+
+                memory.write_byte(rgba, red)
+                memory.write_byte(rgba + 8, green)
+                memory.write_byte(rgba + 16, blue)
+                memory.write_byte(rgba + 24, alpha)
+
+                util.yield(100)
+            end
+        end, function()
+            local rgba = memory.script_local(table.unpack(self.g.CayoFingerprintRGBA))
+            if rgba ~= 0 then
+                memory.write_byte(rgba, 41)
+                memory.write_byte(rgba + 8, 194)
+                memory.write_byte(rgba + 16, 82)
+                memory.write_byte(rgba + 24, 255)
+            end
+        end)
+
+        self.cayo:toggle_loop(T'Immortal Guards', {}, T'Make all the guards immortal', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                entity.set_entity_invincible(ent, true)
+            end
+        end, function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                entity.set_entity_invincible(ent, false)
+            end
+        end)
+
+        self.cayo:toggle(T'Guards Insta Kill', {}, T'Guards instantly kill', function(state)
+            ped.set_ai_weapon_damage_modifier(state and math.max_int or 1.0)
+        end)
+
+        self.cayo:toggle_loop(T'Guards Explosive Ammo', {}, T'Give all the guards explosive ammo', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                if weapon.get_ped_last_weapon_impact_coord(ent, self.impact_coords) then
+                    entity.set_entity_proofs(ent, false, false, true, false, false, false, true, false)
+                    fire.add_owned_explosion(ent, self.impact_coords.x, self.impact_coords.y, self.impact_coords.z, 18, 1.0, true, false, 1.0)
+                end
+            end
+        end)
+
+        self.cayo:toggle_loop(T'Auto Collect Mission Pickups', {}, T'Auto collect mission pickups such as keycards, gate key and safe cash (if this is not enabled before you spawn you will have to manually collect ths safe cash)', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_pickups_as_pointers, self.mission_pickups)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                local pos = entity.get_offset_from_entity_in_world_coords(players.user_ped(), 0.0, 0.5, 0.0)
+                entity.set_entity_coords(ent, pos.x, pos.y, pos.z)
+            end
+        end)
+
+        self.cayo:toggle(T'Disable Collisions', {}, T'Disable collisions for certain objects such as doors, gates and elevators', function(state)
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_objects_as_pointers, self.collisions)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                entity.set_entity_collision(ent, not state, false)
+            end
+        end)
+
+        self.cayo:toggle(T'Poor Guard Accuracy', {}, T'Make the guards unlearn how to aim', function(state)
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards)
+            for ents as ent do
+                local ent = entities.pointer_to_handle(ent)
+                ped.set_ped_accuracy(ent, state and 0 or 100)
+            end
+        end)
+
+        self.cayo:toggle_loop(T'Unlock All Doors', {}, T'Unlock all doors and gates', function()
+            local doors = self.door_manager:find_all_doors()
+            for doors as door do
+                local pos = door.pos
+                local dist = pos:distance(players.get_position(players.user()))
+                if dist <= 3.0 then
+                    if not door.name:find('door_01a') then
+                        self.door_manager:unlock(door.hash)
+                    else
+                        self.door_manager:unlock(door.hash, 1.0)
+                    end
+                end
+            end
+        end)
+
+        self.cayo:toggle_loop(T'Lock All Doors', {}, T'Lock all doors and gates', function()
+            local doors = self.door_manager:find_all_doors()
+            for doors as door do
+                self.door_manager:lock(door.hash)
+            end
+        end)
+
+        self.cayo:toggle_loop(T'Break Dual Keycard System', {}, T'Break the dual keycard system so that secondary targets cannot be collected (it will always fail)', function()
+            util.spoof_script(self.FMMC20, function()
+                local timer = memory.script_local(table.unpack(self.g.DualKeycardSystemTimer))
+                memory.write_int(timer, network.get_network_time())
+                memory.write_int(timer + 0x8, 0)
+            end)
+        end)
+
+        self.cayo:toggle_loop(T'Infinite Team Lives', {}, T'Make sure to enable this before the start of the heist!', function()
+            for i = self.g.CayoPericoLivesStart, self.g.CayoPericoLivesEnd do
+                local g = memory.script_global(GLOBAL_TUNABLE_BASE + i)
+                memory.write_int(g, 10000000)
+            end
+        end)
+
+        self.cayo:toggle_loop(T'Decreased AI Health', {}, T'Decrease the health of the AI', function()
+            local g = self.g.CayoPericoAIHealth:g()
+            local l = memory.script_local(table.unpack(self.g.CayoPericoAIHealthLocal))
+            memory.write_float(g, -1.0)
+            if l ~= 0 then
+                memory.write_float(l, -1.0)
+            end
+        end)
+
+        self.cayo:divider('')
+        self.cayo:text_input(T'Vault Money', {T'cayovaultmoney'}, T'Set the amount of money in the vault', function(value)
+            value = tonumber(value)
+            memory.write_int(self.g.CayoPericoMinVaultValue:g(), value)
+            memory.write_int(self.g.CayoPericoMaxVaultValue:g(), value)
+        end, memory.read_int(self.g.CayoPericoMaxVaultValue:g()))
+
+        self.cayo:text_input(T'Secondary Targets Value', {T'cayosectargetsvalue'}, T'Set the value of secondary targets in the heist', function(value)
+            value = tonumber(value)
+            local stargets = memory.script_local(table.unpack(self.g.CayoSecondaryTargets))
+            memory.write_int(stargets, value)
+        end, '0')
+
+        self.cayo:divider('')
+        self.teleports = self.cayo:list(T'Teleports', {T'rhteleports'}, '')
+
+        self.compound_tp = self.teleports:list(T'Compound', {T'rhcompound'}, '')
+        self.island_tp = self.teleports:list(T'Island', {T'rhisland'}, '')
+        self.exits_tp = self.teleports:list(T'Exits', {T'rhexits'}, '')
+
+        self.compound_tp:action(T'Main Gate', {}, T'Teleport to the main gate', function()
+            self:teleport_to_blip(770)
+        end)
+
+        self.compound_tp:action(T'Keypad (Office)', {}, T'Teleport to the keypad', function()
+            entity.set_entity_coords(players.user_ped(), 5010.1064, -5750.2285, 28.845306)
+        end)
+
+        self.compound_tp:action(T'Keypad (Basement Gate 1)', {}, T'Teleport to the keypad', function()
+            entity.set_entity_coords(players.user_ped(), 4998.503, -5741.256, 14.840623)
+        end)
+
+        self.compound_tp:action(T'Keypad (Basement Gate 2)', {}, T'Teleport to the keypad', function()
+            entity.set_entity_coords(players.user_ped(), 5000.2285, -5742.254, 14.840579)
+        end)
+
+        self.compound_tp:action(T'Primary Target (Inside)', {}, T'Teleport to the primary target', function()
+            entity.set_entity_coords(players.user_ped(), 5006.965, -5756.058, 15.484438)
+        end)
+
+        self.compound_tp:action(T'Primary Target (Outside)', {}, T'Teleport to the primary target', function()
+            entity.set_entity_coords(players.user_ped(), 5008.653, -5752.9556, 15.484442)
+        end)
+
+        self.compound_tp:action(T'Secondary Target (Inside)', {}, T'Teleport to the secondary target', function()
+            entity.set_entity_coords(players.user_ped(), 5001.242, -5748.7764, 14.840479)
+        end)
+
+        self.compound_tp:action(T'Secondary Target (Outside)', {}, T'Teleport to the secondary target', function()
+            entity.set_entity_coords(players.user_ped(), 5003.048, -5745.5356, 14.840562)
+        end)
+
+        self.island_tp:action(T'Drainage Pipe 1st Checkpoint', {}, T'Teleport to the first checkpoint', function()
+            entity.set_entity_coords(players.user_ped(), 5043.1865, -5815.148, -10.635807)
+        end)
+
+        self.island_tp:action(T'Drainage Pipe 2nd Checkpoint', {}, T'Teleport to the second checkpoint', function()
+            entity.set_entity_coords(players.user_ped(), 5053.362, -5774.8247, -5.1060443)
+        end)
+
+        self.exits_tp:action(T'Teleport To Kosatka', {}, T'Teleport to the kosatka', function()
+            self:teleport_to_blip(760)
+        end)
+
+        self.primary_target = self.cayo:list(T'Primary Target', {T'rhprimary'}, '')
+        self.target_choice = self.primary_target:list_select(T'Target', {}, T'Target that will be set for everyone in the heist', self.primary_targets, 1, function(index) end)
+
+        self.primary_target:toggle_loop(T'Set Target', {}, T'Set the target for all players in the heist (changing the target mid-heist will change the take)', function()
+            local target = self.g.CayoPrimaryTarget:g()
+            memory.write_int(target, self.target_choice.value - 1)
+        end)
+
+        self.setup = self.cayo:list(T'Setup', {T'rhsetup'})
+        self.setup:action(T'Teleport To Signal Box', {}, '', function()
+            for entities.get_all_objects_as_pointers() as obj do
+                local model = util.reverse_joaat(entities.get_model_hash(obj))
+                if model == 'h4_prop_h4_elecbox_01a' then
+                    local pos = entities.get_position(obj)
+                    if pos:distance(v3(5270.7656, -5426.079, 65.59712)) < 50 then
+                        local ent = entities.pointer_to_handle(obj)
+                        local heading = entity.get_entity_heading(ent)
+                        entity.set_entity_coords(players.user_ped(), pos.x + 0.5, pos.y + 1, pos.z)
+                        entity.set_entity_heading(players.user_ped(), heading)
+                        break
+                    end
+                end
+            end
+        end)
+        self.setup:divider('')
+
+        self.setup:toggle_loop(T'Skip Signal Box Hacking', {}, '', function()
+            local target = memory.script_local(table.unpack(self.g.IslandHeistSignalHackingTarget))
+            local result = memory.script_local(table.unpack(self.g.IslandHeistSignalHackingResult))
+            if target ~= 0 and result ~= 0 then
+                memory.write_int(target, memory.read_int(result))
+            end
+        end)
+
+        self.setup:toggle_loop(T'Infinite Time', {}, '', function()
+            local timer = memory.script_local(table.unpack(self.g.IslandHeistSignalHackingTimer))
+            if timer ~= 0 then
+                memory.write_int(timer, 0)
+            end
+        end)
+
+        self.setup:toggle_loop(T'Anti-Kick', {}, T'Prevents you from being kicked from cayo perico when scoping out the island', function()
+            local kick_trigger = memory.script_local(table.unpack(self.g.CayoPericoKicked))
+            if kick_trigger ~= 0 then
+                memory.write_int(kick_trigger, 0)
+            end
+        end)
+
+        self.casino:action(T'Delete All Cameras', {}, T'Delete all of the cameras', function()
+            local ents = self.door_manager:find_entities_by_model(entities.get_all_objects_as_pointers, 'cctv_cam')
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+
+        self.casino:action(T'Delete All Guards', {}, T'Delete all the annoying guards', function()
+            local ents = self.door_manager:find_entities_by_models(entities.get_all_peds_as_pointers, self.guards_casino)
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+
+        self.casino:action(T'Delete Service Doors', {}, T'Delete service doors', function()
+            local ents = self.door_manager:find_entities_by_model(entities.get_all_objects_as_pointers, 'service_door')
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+
+        self.casino:action(T'Delete Gen Doors', {}, '', function()
+            local ents = self.door_manager:find_entities_by_model(entities.get_all_objects_as_pointers, 'gendoor')
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+
+        self.casino:action(T'Delete Mini Vault Door', {}, '', function()
+            local ents = self.door_manager:find_entities_by_model(entities.get_all_objects_as_pointers, 'ch_vault_d_door_01b')
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+
+        self.casino:action(T'Delete Elevator Door', {}, '', function()
+            local ents = self.door_manager:find_entities_by_model(entities.get_all_objects_as_pointers, 'garageliftdoor')
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+
+        self.casino:action(T'Delete Tunnel Door (map trap)', {}, '', function()
+            local ents = self.door_manager:find_entities_by_model(entities.get_all_objects_as_pointers, 'tunnel_door_01')
+            for ents as ent do
+                entities.delete_by_pointer(ent)
+            end
+        end)
+    end
+
+    inline function teleport_to_blip(blip_id)
+        local blip = hud.get_first_blip_info_id(blip_id)
+        local timeout = os.time() + 3
+        repeat
+            util.yield_once()
+            blip = hud.get_next_blip_info_id(blip_id)
+        until blip ~= 0 or os.time() > timeout
+
+        if blip ~= 0 then
+            local pos = hud.get_blip_info_id_coord(blip)
+            entity.set_entity_coords(players.user_ped(), pos.x, pos.y, pos.z)
+        else
+            util.display_error(T:T('Blip %d not found', blip_id))
+        end
+    end
+end
+
+return Heists

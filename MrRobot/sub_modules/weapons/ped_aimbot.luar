@@ -1,0 +1,214 @@
+pluto_use class, try, catch, new
+
+local Aimbot = require('abstract_base_classes.aimbot')
+local T = require('languages.trans')
+local bitwise = require('libs.bitwise')
+local cbitfield = require('libs.cbitfield')
+local weapon_manager = require('utils.weapon_manager')
+local esp = require('libs.esp')
+
+class PedAimbot extends Aimbot
+    function __construct(root)
+        self.root = root:list(T'Ped', {$'rwpedaimbot'})
+        self.settings = new cbitfield(0, {
+            { 1, 'ignore_vehicles', 1 },
+            { 2, 'use_fov', 1 },
+            { 3, 'show_target', 1 },
+            { 4, 'damage_override', 1 },
+            { 5, 'check_visible', 1 },
+            { 6, 'weapon_range_check', 1 },
+            { 7, 'auto_kill', 1 },
+            { 8, 'fov_type', 2 },
+            { 9, 'damage', 10 },
+            { 10, 'bone', 17 }
+        })
+
+        self.settings.ignore_vehicles = true
+        self.settings.use_fov = true
+        self.settings.show_target = true
+        self.settings.damage_override = false
+        self.settings.check_visible = true
+        self.settings.weapon_range_check = true
+        self.settings.fov_type = 1
+        self.settings.damage = 100
+        self.settings.bone = 31086
+
+        self.fov = 1 -- not using settings for this as it can be a float or an int, converting between the two is a pain (on binary level)
+
+        self.root:toggle_loop(T'Aimbot', {}, '', || -> self:aimbot_loop())
+        self.root:divider('')
+        self.root:toggle(T'Use FOV', {}, '', function(state) self.settings.use_fov = state end, self.settings.use_fov)
+        self.root:toggle(T'Ignore Vehicles', {}, '', function(state) self.settings.ignore_vehicles = state end, self.settings.ignore_vehicles)
+        self.root:toggle(T'Show Target', {}, '', function(state) self.settings.show_target = state end, self.settings.show_target)
+        self.root:toggle(T'Damage Override', {}, '', function(state) self.settings.damage_override = state end, self.damage_override)
+        self.root:toggle(T'Check Visible', {}, '', function(state) self.settings.check_visible = state end, self.settings.check_visible)
+        --self.root:toggle(T'Weapon Range Check', {}, '', function(state) self.settings.weapon_range_check = state end, self.settings.weapon_range_check)
+        self.root:toggle(T'Auto Kill', {}, '', function(state) self.settings.auto_kill = state end, self.settings.auto_kill)
+        self.root:toggle_loop(T'Display Range', {}, T'Tells you when you\'re too far away from your target', function()
+            local target = self:get_target()
+            if target ~= nil then
+                local player_coords = players.get_position(players.user())
+                local target_coords = entity.get_entity_coords(target)
+                local distance = player_coords:distance(target_coords)
+                local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
+                local current_weapon = memory.read_long(weapon_manager + 0x0020)
+                local max_distance = memory.read_float(current_weapon + 0x028C)
+                local in_range = (distance <= max_distance) ? 'In Range' : 'Out of Range'
+                util.draw_debug_text($'{distance} / {max_distance} ({in_range})')
+            end
+        end)
+        self.root:divider('')
+
+        self.root:list_select(T'Bone', {}, T'Bone to target', {
+            {1, 'Head'}, 
+            {2, 'Chest'}, 
+            {3, 'Stomach'}, 
+            {4, 'Left Foot'}, 
+            {5, 'Right Leg'}, 
+            {6, 'Left Hand'}, 
+            {7, 'Right Hand'}, 
+            {8, 'Pelvis'}, 
+            {9, 'Left Leg'}, 
+            {10, 'Left Knee'}, 
+            {11, 'Left Arm'}
+        }, 1, function(index)
+            local bone = self.aimbot_bones[index] or 31086
+            if bone == 55604 then
+                bone = 31086
+            end
+            self.settings.bone = bone
+        end)
+
+        self.root:list_select(T'FOV Type', {}, T'The type of FOV', {
+            { 1, 'Normal' },
+            { 2, 'Precision' }
+        }, self.settings.fov_type, function(index)
+            self.settings.fov_type = index
+            if index == 1 then
+                self.precise_fov.visible = false
+                self.normal_fov.visible = true
+                self.fov = self.normal_fov.value
+            elseif index == 2 then
+                self.precise_fov.visible = true
+                self.normal_fov.visible = false
+                self.fov = self.precise_fov.value / 100
+            end
+        end)
+
+        self.normal_fov = self.root:slider(T'FOV', {T'rwpedabfov'}, T'The FOV of the aimbot', 0, 180, self.fov, 1, function(value)
+            if self.settings.fov_type == 1 then
+                self.fov = value
+            end
+        end)
+
+        self.precise_fov = self.root:slider_float(T'Precision FOV', {T'rwpedabpfov'}, T'A more precise FOV for the aimbot', 0.0, 180.0 * 100, self.fov * 100, 1.0, function(value)
+            if self.settings.fov_type == 2 then
+                self.fov = value / 100
+            end
+        end)
+
+        if self.settings.fov_type == 1 then
+            self.precise_fov.visible = false
+            self.normal_fov.visible = true
+        elseif self.settings.fov_type == 2 then
+            self.precise_fov.visible = true
+            self.normal_fov.visible = false
+        end
+
+        self.root:slider(T'Damage', {T'rwpedabdamage'}, T'The damage of the aimbot', 0, (1 << 10) - 1, self.settings.damage, 1, function(value)
+            self.settings.damage = value
+        end)
+    end
+
+    function aimbot_loop()
+        local target = self:get_target()
+        if target ~= nil then
+            if self.settings.show_target then
+                esp.draw_bone_esp(target, entity.has_entity_clear_los_to_entity(players.user_ped(), target, 17) ? 0x00FF00FF : 0xFF0000FF) 
+            end
+
+            local localplayer = players.localplayer()
+            local weapon_hash = localplayer:get_selected_ped_weapon()
+            local damage = 0
+            
+            if self.settings.damage_override then
+                damage = self.settings.damage
+            else
+                local maximum = weapon.get_weapon_damage(weapon_hash, self.settings.bone)
+                maximum = maximum - (0.1 * maximum)
+                local minimum = 0.25 * maximum
+                maximum = math.floor(maximum)
+                minimum = math.floor(minimum)
+                damage = math.random(minimum, maximum)
+            end
+
+            local is_shooting = false
+            if self.settings.auto_kill then
+                is_shooting = true
+            else
+                is_shooting = localplayer:is_ped_shooting()
+            end
+
+            if is_shooting then
+                if not ped.is_ped_in_any_vehicle(target) then
+                    self:shoot_on_foot(target, weapon_hash, damage, 100.0)
+                else
+                    self:shoot_in_vehicle(target, weapon_hash, damage, 100.0)
+                end
+            end
+        end
+    end
+
+    function get_target()
+        local target = nil
+        local player_coords = players.get_position(players.user())
+        local weapon_manager = entities.get_weapon_manager(entities.handle_to_pointer(players.user_ped()))
+        local current_weapon = memory.read_long(weapon_manager + 0x0020)
+        local max_distance = memory.read_float(current_weapon + 0x028C)
+        for entities.get_all_peds_as_handles() as ent do
+            local coords = entity.get_entity_coords(ent)
+            if not ped.is_ped_a_player(ent) and not entity.is_entity_dead(ent) then
+                if player_coords:distance(coords) > max_distance then
+                    goto continue
+                elseif self.settings.check_visible and not entity.has_entity_clear_los_to_entity(players.user_ped(), ent, 17) then
+                    goto continue
+                elseif self.settings.ignore_vehicles and ped.is_ped_in_any_vehicle(ent, false) then
+                    goto continue
+                end
+
+                local fov = (self.settings.use_fov) ? self.fov : 180
+                if ped.is_ped_facing_ped(players.user_ped(), ent, fov) then
+                    target = ent
+                    break
+                end
+            end
+
+            ::continue::
+        end
+
+        return target
+    end
+
+    function shoot_on_foot(target, weapon_hash, damage, speed)
+        local from = ped.get_ped_bone_coords(target, 31086, 1.0, 0.0, 0.0)
+        local to = ped.get_ped_bone_coords(target, self.settings.bone, 0.0, 0.0, 0.0)
+        local distance = from:distance(to)
+        local velocity = entity.get_entity_velocity(target)
+        local time = distance / speed
+        local predicted_position = v3(velocity.x * time, velocity.y * time, velocity.z * time):add(to)
+        self:shoot(from, predicted_position, weapon_hash, damage, speed)
+    end
+
+    function shoot_in_vehicle(target, weapon_hash, damage, speed)
+        damage = 1000
+        local from = ped.get_ped_bone_coords(target, 39317, 0.0, 1.2, 0.1)
+        local to = ped.get_ped_bone_coords(target, self.settings.bone, 0.0, 0.0, 0.0)
+        local distance = from:distance(to)
+        local velocity = entity.get_entity_velocity(target)
+        local time = distance / speed
+        local predicted_position = v3(velocity.x * time, velocity.y * time, velocity.z * time):add(to)
+        self:shoot(from, predicted_position, weapon_hash, damage, speed)
+    end
+end
+
+return PedAimbot

@@ -1,0 +1,156 @@
+pluto_use class, try, catch, new
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+local cbitfield = require('libs.cbitfield')
+local weapon_manager = require('utils.weapon_manager')
+local weapons = require('data.weapons')
+local labels = require('utils.labels')
+local special_ammo_types = require('data.special_ammo_type')
+local damage_types = require('data.weapon_damage_types')
+local custom_loadout = require('data.custom_loadout')
+
+class Weapons extends Module 
+    function __construct(root)
+        self.root = root
+        self.update = new cbitfield(0, {
+            { 1, 'weapon_info', 1 }
+        })
+
+        self.weapons_tbl = weapons:as_table(true)
+        self.weapons_tbl = self.utils:sort_table(self.weapons_tbl, |a, b| -> a[1] < b[1])
+
+        self.thermal = self.root:list(T'Thermal', {$'rwthermal'})
+        self.aimbot = self.root:list(T'Aimbot', {$'rwaimbot'})
+        self.mods = self.root:list(T'Mods', {$'rwmods'}, '', nil, nil, || -> self:update_weapon_info())
+        self.weapon_loadouts = self.root:list(T'Weapon Loadouts', {$'rwloadouts'}, T'Modify your weapon loadouts without having to goto a gun locker')
+
+        do
+            self.thermal:toggle_loop(T'ESP Thermal', {}, T'Makes thermal more op than it already is', function()
+                if graphics.get_usingseethrough() then
+                    graphics.seethrough_set_max_thickness(graphics.seethrough_get_max_thickness())
+                    graphics.seethrough_set_noise_min(0.0)
+                    graphics.seethrough_set_noise_max(0.0)
+                    graphics.seethrough_set_fade_startdistance(0.0)
+                    graphics.seethrough_set_fade_enddistance(math.max_int + 0.0)
+                    graphics.seethrough_set_highlight_noise(0.0)
+                else
+                    graphics.seethrough_reset()
+                end
+            end, graphics.seethrough_reset)
+        end
+
+        do
+            do new (require('sub_modules.weapons.ped_aimbot'))(self.aimbot) end
+            do new (require('sub_modules.weapons.player_aimbot'))(self.aimbot) end
+        end
+
+        do
+            self.mods:divider(T'Weapon Info')
+            self.m_weapon_hash = self.mods:readonly(T:T('Weapon Hash: 0x%X', 0))
+            self.m_weapon_addr = self.mods:readonly(T:T('Weapon Address: 0x%X', 0))
+            self.m_ammo_info_addr = self.mods:readonly(T:T('Ammo Info Address: 0x%X', 0))
+            self.m_weapon_name = self.mods:readonly(T:T('Weapon Name: %s', ''))
+            self.m_bullets_mult = self.mods:readonly(T:T('Bullet Multiplier: %d', 0))
+            self.m_damage = self.mods:readonly(T:T('Damage: %d', 0))
+            self.m_real_damage = self.mods:readonly(T:T('Real Damage: %d', 0))
+            self.m_penetration = self.mods:readonly(T:T('Penetration: %d', 0))
+            self.m_range = self.mods:readonly(T:T('Range: %d', 0))
+            self.m_spread = self.mods:readonly(T:T('Spread: %d', 0))
+            self.m_reload_speed = self.mods:readonly(T:T('Reload Speed: %d', 0))
+            self.m_vehicle_damage_mod = self.mods:readonly(T:T('Vehicle Damage Modifier: %d', 0))
+            self.m_damage_type = self.mods:readonly(T:T('Damage Type: %s', ''))
+            self.m_special_ammo = self.mods:readonly(T:T('Special Ammo: %s', ''))
+        
+            self.mods:divider('')
+            self.damage_type = self.mods:list(T'Damage Type', {}, T'What type of damage to do (not all of these work on players)')
+            self.damage_type:list_select(T'Type', {}, T'Type of damage your weapon deals', damage_types, 1, function(index)
+                if not util.can_continue() then return end
+                weapon_manager:set_damage_type(index - 1)
+            end)
+    
+            self.special_ammo = self.mods:list(T'Special Ammo', {}, T'Equip special ammo on any gun (explosive will trigger explosive hits detection)')
+            self.special_ammo:list_select(T'Type', {}, T'Type of special ammo to equip', special_ammo_types, 1, function(index)
+                if not util.can_continue() then return end
+                weapon_manager:set_special_ammo_type(index - 1)
+            end)
+
+            self.mods:divider('')
+            self.mods:toggle_loop(T'Double Tap', {}, T'Shoot 2 bullets instead of 1', function()
+                weapon_manager:set_weapon_bullet_mult(2)
+            end, || -> weapon_manager:default_weapon_bullet_mult())
+
+            self.mods:toggle_loop(T'Instant Kill', {}, T'Kill anything with 1 bullet', function()
+                weapon_manager:set_weapon_damage(380 + 50)
+            end, || -> weapon_manager:default_weapon_damage())
+
+            self.mods:toggle_loop(T'Max Penetration', {}, T'Penetrate anything', function()
+                weapon_manager:set_weapon_penetration(100)
+            end, || -> weapon_manager:default_weapon_penetration())
+
+            self.mods:toggle_loop(T'No Spread', {}, T'No spread', function()
+                weapon_manager:set_weapon_spread(0)
+            end, || -> weapon_manager:default_weapon_spread())
+
+            self.mods:toggle_loop(T'Fast Reload', {}, T'Reload faster', function()
+                weapon_manager:set_weapon_reload_speed_animation(2.0)
+            end, || -> weapon_manager:default_weapon_reload_speed_animation())
+
+            self.mods:divider('')
+            self.mods:slider(T'Bullets Multiplier', {}, T'How many bullets to shoot per shot', 1, 1000, 1, 1, function(value)
+                weapon_manager:set_weapon_bullet_mult(value)
+            end)
+    
+            self.mods:slider_float(T'Vehicle Damage Modifier', {T'rwvehdamagemod'}, T'How much damage to do to vehicles', 0.0, 100000.0 * 100, 1.0 * 100, 1.0 * 10, function(value)
+                weapon_manager:set_weapon_vehicle_damage_modifier(value / 100)
+            end)
+        end
+
+        do
+            
+        end
+    end
+
+    function update_weapon_info()
+        if not self.update.weapon_info then
+            self.update.weapon_info = true
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.mods.menu_name then
+                    self.update.weapon_info = false
+                    return false
+                end
+
+                local hash = weapon_manager:get_weapon_hash()
+                local name = util.reverse_joaat(hash):upper()
+
+                if name == '' then
+                    name = weapons:hash_to_name(hash)
+                end
+
+                self.m_weapon_hash.menu_name = T:T('Weapon Hash: 0x%X', hash & 0xFFFFFFFF)
+                self.m_weapon_addr.menu_name = T:T('Weapon Address: 0x%X', weapon_manager:get_current_weapon())
+                self.m_ammo_info_addr.menu_name = T:T('Ammo Info Address: 0x%X', weapon_manager:get_weapon_ammo_info())
+                self.m_weapon_name.menu_name = T:T('Weapon Name: %s', labels:get(name))
+                self.m_bullets_mult.menu_name = T:T('Bullet Multiplier: %d', weapon_manager:get_weapon_bullets_mult())
+                self.m_damage.menu_name = T:T('Damage: %f', weapon_manager:get_weapon_damage())
+                self.m_real_damage.menu_name = T:T('Real Damage: %f', weapon_manager:get_weapon_real_damage())
+                self.m_penetration.menu_name = T:T('Penetration: %f', weapon_manager:get_weapon_penetration())
+                self.m_range.menu_name = T:T('Range: %f', weapon_manager:get_weapon_range())
+                self.m_spread.menu_name = T:T('Spread: %f', weapon_manager:get_weapon_spread())
+                self.m_reload_speed.menu_name = T:T('Reload Speed: %f', weapon_manager:get_weapon_reload_speed_animation())
+                self.m_vehicle_damage_mod.menu_name = T:T('Vehicle Damage Modifier: %f', weapon_manager:get_weapon_vehicle_damage_modifier())
+                
+                try
+                    self.m_damage_type.menu_name = T:T('Damage Type: %s', damage_types[weapon_manager:get_damage_type() - 1][2])
+                    self.m_special_ammo.menu_name = T:T('Special Ammo: %s', special_ammo_types[weapon_manager:get_special_ammo_type() + 1][2])
+                catch e then
+                    self.m_damage_type.menu_name = T:T('Damage Type: %s', 'Unknown')
+                    self.m_special_ammo.menu_name = T:T('Special Ammo: %s', 'Unknown')
+                end
+            end)
+        end
+    end
+end
+
+return Weapons

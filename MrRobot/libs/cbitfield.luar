@@ -1,0 +1,104 @@
+pluto_use class, try, catch
+
+class CBitfield
+    function __construct(bits, meanings, address=0)
+        self.__bits = bits
+        self.__meanings = {}
+        self.__address = (address == 0) ? nil : address
+
+        table.sort(meanings, function(a, b)
+            return a[1] < b[1]
+        end)
+
+        table.insert(self.__meanings, {
+            index = meanings[1][1],
+            name = meanings[1][2],
+            bits = meanings[1][3],
+            offset = 0
+        })
+
+        table.remove(meanings, 1)
+
+        for k, v in ipairs(meanings) do
+            local prev = self.__meanings[k]
+            local offset = prev.bits + prev.offset
+            table.insert(self.__meanings, {
+                index = v[1],
+                name = v[2],
+                bits = v[3],
+                offset = offset
+            })
+        end
+    end
+
+    function __call()
+        if self.__address ~= nil then
+            try
+                local bitlen = math.floor(math.log(self.__bits, 2)) + 1
+                
+                if bitlen > 32 then
+                    memory.write_long(self.__address, self.__bits)
+                elseif bitlen > 16 then
+                    memory.write_int(self.__address, self.__bits)
+                elseif bitlen > 8 then
+                    memory.write_short(self.__address, self.__bits)
+                else
+                    memory.write_byte(self.__address, self.__bits)
+                end
+            catch e then
+                util.log($'Failed to write bitfield: {e}')
+            end
+        end
+    end
+
+    function __index(key)
+        if key == '__construct' then
+            return rawget(CBitfield, key)
+        elseif key:find('__') then
+            return rawget(CBitfield, key)
+        end
+
+        for k, v in ipairs(self.__meanings) do
+            if v.name == key then
+                local value = (self.__bits >> v.offset) & ((1 << v.bits) - 1)
+                if v.bits == 1 then
+                    return (value == 1) ? true : false
+                else
+                    return value
+                end
+            end
+        end
+
+        error($'No such key: {key}')
+    end
+
+    function __newindex(key, value)
+        if key == '__construct' then
+            return rawset(CBitfield, key, value)
+        elseif key:find('__') then
+            return rawset(self, key, value)
+        end
+
+        for k, v in ipairs(self.__meanings) do
+            if v.name == key then
+                local v_type = type(value)
+                if v_type == 'number' then
+                    local bitlen = math.floor(math.log(value, 2)) + 1
+                    if bitlen > v.bits then
+                        value = (1 << v.bits) - 1
+                    end
+                    self.__bits = (self.__bits & ~(((1 << v.bits) - 1) << v.offset)) | ((value & ((1 << v.bits) - 1)) << v.offset)
+                elseif v_type == 'boolean' then
+                    self.__bits = (self.__bits & ~(((1 << v.bits) - 1) << v.offset)) | ((value ? 1 : 0) << v.offset)
+                end
+                self()
+
+                return
+            end
+        end
+
+        error($'No such key: {key}')
+    end
+end
+
+return CBitfield

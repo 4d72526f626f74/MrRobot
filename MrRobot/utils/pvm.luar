@@ -1,0 +1,190 @@
+pluto_use class, new
+
+class pvm
+    function __construct()
+        self.vehicle_bitfield = require('flags.vehicle_bitfield')
+        self.g = require('utils.script_globals').all
+        self.ls_customs = require('offsets.ls_customs')
+        self.pv_request = require('offsets.personal_vehicle_request')
+        self.pvslot = self.g.ActivePVSlot:g(0)
+    end
+
+    inline function set_slot(slot)
+        memory.write_short(self.pvslot, slot)
+    end
+
+    inline function get_slot()
+        return memory.read_short(self.pvslot)
+    end
+
+    inline function is_slot_empty(slot)
+        local data = self.g.PersonalVehicleData:g(slot)
+        local hash = memory.read_int(data + self.ls_customs.vehicle_model)
+        local name = util.get_label_text(util.reverse_joaat(hash))
+
+        return name == 'NULL'
+    end
+
+    inline function set_model_in_slot(slot, hash)
+        if not util.can_continue() then return end
+        local data = self.g.PersonalVehicleData:g(slot)
+        memory.write_int(data + self.ls_customs.vehicle_model, hash)
+    end
+
+    inline function request(slot)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        self:set_slot(slot)
+        memory.write_int(addr, memory.bits:set(bitfield, self.vehicle_bitfield.request))
+    end
+
+    inline function native_request(slot, instant_delivery=false)
+        if not util.can_continue() then return end
+        self:set_slot(slot)
+        local addr = self.g.RequestBase:g()
+        if memory.read_int(addr + self.pv_request.request_state) == -1 then
+            memory.write_int(addr + self.pv_request.request_slot, slot)
+            memory.write_byte(addr + self.pv_request.request_trigger, 1)
+
+            if instant_delivery then
+                local timeout = os.time() + 0.1
+                repeat
+                    memory.write_int(
+                        memory.script_local(table.unpack(self.g.PersonalVehicleRequestDelay)), 
+                        0
+                    )
+                    util.yield_once()
+                until timeout < os.time()
+            end
+        end
+    end
+
+    inline function return(slot)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_int(addr, memory.bits:clear(bitfield, self.vehicle_bitfield.request))
+    end
+
+    inline function set_destroyed(slot, state)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_int(addr, memory.bits:bool(bitfield, self.vehicle_bitfield.destroyed, state))
+    end
+
+    inline function set_insured(slot, state)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_int(addr, memory.bits:bool(bitfield, self.vehicle_bitfield.insured, state))
+    end
+
+    inline function set_impounded(slot, state)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_int(addr, memory.bits:bool(bitfield, self.vehicle_bitfield.impounded, state))
+    end
+
+    inline function set_crew_emblem(slot, state)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_int(addr, memory.bits:bool(bitfield, self.vehicle_bitfield.crew_emblem, state))
+    end
+
+    inline function set_delivered(slot, state)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_int(addr, memory.bits:bool(bitfield, self.vehicle_bitfield.delivered, not state))
+    end
+
+    inline function set_spawn_mors_mutual(slot, state)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_int(addr, memory.bits:bool(bitfield, self.vehicle_bitfield.spawn_mors_mutual, state))
+    end
+
+    inline function set_destroyed_by_police(slot, state)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_int(addr, memory.bits:bool(bitfield, self.vehicle_bitfield.destroyed_by_police, state))
+    end
+
+    inline function is_active(slot)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        return memory.bits:isset(bitfield, self.vehicle_bitfield.request)
+    end
+
+    inline function get_active_slot()
+        if not util.can_continue() then return end
+        for slot = 0, 515 do
+            local bitfield = memory.read_int(self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield)
+            if memory.bits:isset(bitfield, self.vehicle_bitfield.active) then
+                return slot
+            end
+        end
+        return -1
+    end
+
+    inline function return_active()
+        if not util.can_continue() then return end
+        local slot = self:get_active_slot()
+        if slot ~= -1 then
+            self:return(slot)
+        end
+    end
+
+    inline function is_destroyed(slot)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        return memory.bits:isset(bitfield, self.vehicle_bitfield.destroyed)
+    end
+
+    inline function is_impounded(slot)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        return memory.bits:isset(bitfield, self.vehicle_bitfield.impounded)
+    end
+
+    inline function is_insured(slot)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        return memory.bits:isset(bitfield, self.vehicle_bitfield.insured)
+    end
+
+    inline function claim(slot)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local mask = self.vehicle_bitfield.destroyed | self.vehicle_bitfield.impounded
+        local value = memory.read_int(addr)
+
+        value = memory.bits:clear(value, mask)
+        value = memory.bits:set(value, self.vehicle_bitfield.insured)
+
+        memory.write_int(addr, value)
+    end
+
+    inline function delete(slot)
+        if not util.can_continue() then return end
+        local addr = self.g.PersonalVehicleData:g(slot) + self.ls_customs.vehicle_bitfield
+        local bitfield = memory.read_int(addr)
+        memory.write_int(addr, memory.bits:set(bitfield, self.vehicle_bitfield.request))
+        util.yield_once()
+        memory.write_int(addr, memory.bits:clear(bitfield, 0xFFFFFFFF))
+        util.yield_once()
+        memory.write_int(addr, memory.bits:set(bitfield, self.vehicle_bitfield.impounded | self.vehicle_bitfield.destroyed_by_police))
+    end
+end
+
+return new pvm()

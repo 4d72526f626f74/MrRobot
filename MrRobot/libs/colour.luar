@@ -1,0 +1,57 @@
+pluto_use class
+
+class Colour
+    static function rgba_to_float(r, g, b, a)
+        return {
+            r = r / 255,
+            g = g / 255,
+            b = b / 255,
+            a = a / 255
+        }
+    end
+
+    static function hex_to_float(hex)
+        local r = hex >> 24 & 0xFF
+        local g = hex >> 16 & 0xFF
+        local b = hex >> 8 & 0xFF
+        local a = hex & 0xFF
+        return {
+            r = r / 255,
+            g = g / 255,
+            b = b / 255,
+            a = a / 255
+        }
+    end
+
+    static function hex_string_to_float(hex)
+        local r = tonumber(hex:sub(1, 2), 16)
+        local g = tonumber(hex:sub(3, 4), 16)
+        local b = tonumber(hex:sub(5, 6), 16)
+        local a = tonumber(hex:sub(7, 8), 16)
+        return {
+            r = r / 255,
+            g = g / 255,
+            b = b / 255,
+            a = a / 255
+        }
+    end
+
+    static function float_to_rgba(r, g, b, a)
+        return {
+            r = math.floor(r * 255),
+            g = math.floor(g * 255),
+            b = math.floor(b * 255),
+            a = math.floor(a * 255)
+        }
+    end
+
+    static function float_to_hex(r, g, b, a)
+        return math.floor(r * 255) << 24 | math.floor(g * 255) << 16 | math.floor(b * 255) << 8 | math.floor(a * 255)
+    end
+
+    static function float_to_hex_string(r, g, b, a)
+        return string.format("%02X%02X%02X%02X", r * 255, g * 255, b * 255, a * 255)
+    end
+end
+
+return Colour

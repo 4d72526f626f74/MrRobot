@@ -1,0 +1,134 @@
+pluto_use class
+
+class Bits
+    inline function length(bits: number): number
+        return math.floor(math.log(bits, 2)) + 1
+    end
+
+    inline function set(bits: number, bitmask: number): number
+        return bits | bitmask
+    end
+
+    inline function clear(bits: number, bitmask: number): number
+        return bits & ~bitmask
+    end
+
+    inline function toggle(bits: number, bitmask: number): number
+        return bits ~ bitmask
+    end
+
+    inline function get(bits: number, bitmask: number): number
+        return bits & bitmask
+    end
+
+    inline function isset(bits: number, bitmask: number): boolean
+        return bits & bitmask == bitmask
+    end
+
+    inline function test(bits: number, func: function): ?any
+        return func(bits)
+    end
+
+    inline function bool(bits: number, bitmask: number, bool: boolean): number
+        return bool ? (bits | bitmask) : (bits & ~bitmask)
+    end
+
+    inline function rotl(bits: number, shift: number, size: number): number
+        return (bits << shift) | (bits >> (size - shift))
+    end
+
+    inline function rotr(bits: number, shift: number, size: number): number
+        return (bits >> shift) | (bits << (size - shift))
+    end
+
+    inline function get_bits_at_offset(bits: number, offset: number, length: number): number
+        return (bits >> offset) & ((1 << length) - 1)
+    end
+
+    inline function set_bits_at_offset(bits: number, offset: number, length: number, value: number): number
+        return (bits & ~(((1 << length) - 1) << offset)) | (value << offset)
+    end
+end
+
+class Bitfield
+    function __construct(bits: number, address: number)
+        self.bits = bits or 0
+        self.address = address or nil
+    end
+
+    function __call()
+        if self.address ~= nil then
+            local bitlen = Bits:length(self.bits)
+            if bitlen > 32 then
+                memory.write_long(self.address, self.bits)
+            elseif bitlen > 16 then
+                memory.write_int(self.address, self.bits)
+            elseif bitlen > 8 then
+                memory.write_short(self.address, self.bits)
+            else
+                memory.write_byte(self.address, self.bits)
+            end
+        end
+    end
+
+    function __update()
+        if self.address ~= nil then
+            self.bits = memory.read_long(self.address)
+        end
+    end
+
+    inline function set(bitmask: number)
+        self:__update()
+        self.bits = self.bits | bitmask
+        self()
+    end
+
+    inline function clear(bitmask: number)
+        self:__update()
+        self.bits = self.bits & ~bitmask
+        self()
+    end
+
+    inline function toggle(bitmask: number)
+        self:__update()
+        self.bits = self.bits ~ bitmask
+        self()
+    end
+
+    inline function get(bitmask: number): boolean
+        return self.bits & bitmask == bitmask
+    end
+
+    inline function isset(bitmask: number): boolean
+        return self.bits & bitmask == bitmask
+    end
+
+    inline function test(func: function): ?any
+        return func(self.bits)
+    end
+
+    inline function bool(bitmask: number, bool: boolean)
+        self:__update()
+        self.bits = bool ? (self.bits | bitmask) : (self.bits & ~bitmask)
+        self()
+    end
+
+    inline function rotl(shift: number, size: number)
+        self.bits = (self.bits << shift) | (self.bits >> (size - shift))
+    end
+
+    inline function rotr(shift: number, size: number)
+        self.bits = (self.bits >> shift) | (self.bits << (size - shift))
+    end
+
+    inline function get_bits_at_offset(offset: number, length: number): number
+        return (self.bits >> offset) & ((1 << length) - 1)
+    end
+
+    inline function set_bits_at_offset(offset: number, length: number, value: number)
+        self.bits = (self.bits & ~(((1 << length) - 1) << offset)) | (value << offset)
+    end
+end
+
+export bits = Bits
+export bitfield = Bitfield

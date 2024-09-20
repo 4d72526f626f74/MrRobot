@@ -1,0 +1,754 @@
+pluto_use class, new, try, catch
+
+local T = require('languages.trans')
+local bitwise = require('libs.bitwise')
+local script_settings = require('flags.script_settings')
+local emitter = require('utils.emitter')
+local ceo_vehicle = require('offsets.ceo_vehicle')
+local g = require('utils.script_globals').all
+local pvm = require('utils.pvm')
+local ls_customs = require('offsets.ls_customs')
+local bits, bitfield = bitwise.bits, bitwise.bitfield
+local cbitfield = require('libs.cbitfield')
+local cmd_ref_handler = require('utils.cmd_ref_handler')
+
+class Utils
+    char_slot = 0
+    dev_hashes = {
+        0x521C2F20728C2AD3,
+        0xD41C1E4078BC2A71
+    }
+
+    globals_cache = {
+        clear = false,
+        clear_time = 600,
+        last_clear = os.time() + 600
+    }
+
+    emitter = new emitter({})
+    playerlist = new bitfield(0)
+    gamer_handle = memory.alloc(13*8)
+    stat_ptr = memory.alloc_int()
+    damage_function_addr = memory.scan('48 83 C4 ? E9 ? ? ? ? 48 85 C9 0F 84') + 9
+    char_stat_hashes = {
+        agency_safe = stats._get_stat_hash_for_character_stat(0, 10350, char_slot),
+        mental_state = stats._get_stat_hash_for_character_stat(0, 133, char_slot),
+        bail_office_bounty_amount_slot1 = stats._get_stat_hash_for_character_stat(0, 12248, char_slot),
+        bail_office_bounty_amount_slot2 = stats._get_stat_hash_for_character_stat(0, 12249, char_slot),
+        bail_office_bounty_amount_slot3 = stats._get_stat_hash_for_character_stat(0, 12250, char_slot), 
+        bail_office_bounty_amount_slot4 = stats._get_stat_hash_for_character_stat(0, 12251, char_slot),
+        super_light_armour = stats._get_stat_hash_for_character_stat(0, 1881, char_slot),
+        light_armour = stats._get_stat_hash_for_character_stat(0, 1882, char_slot),
+        medium_armour = stats._get_stat_hash_for_character_stat(0, 1883, char_slot),
+        heavy_armour = stats._get_stat_hash_for_character_stat(0, 1884, char_slot),
+        super_heavy_armour = stats._get_stat_hash_for_character_stat(0, 1885, char_slot),
+        ecola = stats._get_stat_hash_for_character_stat(0, 62, char_slot),
+        pisswasser = stats._get_stat_hash_for_character_stat(0, 63, char_slot),
+        ego_chaser = stats._get_stat_hash_for_character_stat(0, 1277, char_slot),
+        meteorite = stats._get_stat_hash_for_character_stat(0, 1278, char_slot),
+        smokes = stats._get_stat_hash_for_character_stat(0, 1098, char_slot),
+        sprunk = stats._get_stat_hash_for_character_stat(0, 10405, char_slot),
+        pqs = stats._get_stat_hash_for_character_stat(0, 1276, char_slot),
+        unknown = stats._get_stat_hash_for_character_stat(0, 12964, util.get_char_slot()), -- related to CEO, stores network.get_cloud_time_as_int() as result
+    }
+
+    risky = {
+        refs = {},
+        add = function(self, ref)
+            table.insert(self.refs, ref)
+        end
+    }
+    blamekill_flag = false
+
+    to_delete = setmetatable({
+        objects = {},
+        entities = {},
+        blips = {},
+        incidents = {},
+        add_object = function(self, obj)
+            table.insert(self.objects, obj)
+        end,
+        add_entity = function(self, entity)
+            table.insert(self.entities, entity)
+        end,
+        add_blip = function(self, blip)
+            table.insert(self.blips, blip)
+        end,
+        add_incident = function(self, incident)
+            table.insert(self.incidents, incident)
+        end,
+        delete_blips_with_sprite = function(self, sprite)
+            for self.blips as blip do
+                if sprite == hud.get_blip_sprite(blip) then
+                    util.remove_blip(blip)
+                end
+            end
+        end,
+        get_all_blips_with_sprite = function(self, sprite)
+            local blips = {}
+            for self.blips as blip do
+                if sprite == hud.get_blip_sprite(blip) then
+                    table.insert(blips, blip)
+                end
+            end
+            return blips
+        end,
+        delete_incidents = function(self)
+            for self.incidents as incident do
+                misc.delete_incident(incident.id)
+            end
+        end
+    }, {
+        __gc = function(self)
+            for self.objects as obj do
+                entities.delete(obj)
+            end
+
+            for self.entities as entity do
+                entities.delete(entity)
+            end
+
+            for self.blips as blip do
+                util.remove_blip(blip)
+            end
+
+            for self.incidents as incident do
+                misc.delete_incident(incident.id)
+            end
+        end
+    })
+
+    gamer_handles = {}
+    ref_handler = new cmd_ref_handler()
+
+    function __construct()
+        do (require('utils.hooks'))(self) end
+
+        self.settings = new cbitfield(0, {
+            { 1, 'show_alerts', 1 },
+            { 2, 'disable_transaction_error', 1 },
+            { 3, 'enable_player_overlay', 1 },
+            { 4, 'debug', 1 },
+            { 5, 'suppress_request_control_failures', 1 },
+            { 6, 'show_risky_options', 1 },
+            { 7, 'cache_globals', 1 },
+            { 8, 'seperate_players', 1 },
+            { 9, 'spoof_yacht_names', 1 },
+        })
+
+        self.settings.show_alerts = true
+        self.settings.disable_transaction_error = true
+        self.settings.cache_globals = true
+        self.settings.seperate_players = true
+
+        if self:is_dev(players.user()) then
+            --self.settings.seperate_players = false
+            self.settings.show_risky_options = true
+            self.settings.spoof_yacht_names = true
+        end
+
+        util.create_tick_handler(function()
+            for self.risky.refs as ref do
+                if ref:isValid() then
+                    ref.visible = self.settings.show_risky_options
+                end
+            end
+
+            if self.settings.cache_globals then
+                if self.globals_cache.last_clear - os.time() <= 0 then
+                    self.globals_cache.clear = true
+                    self.globals_cache.last_clear = os.time() + self.globals_cache.clear_time
+                end
+            end
+        end)
+
+        self.emitter:on('script_started', function(script_name)
+            util.log($'{script_name} started')
+        end)
+
+        self.emitter:on('script_stopped', function(script_name)
+            util.log($'{script_name} stopped')
+        end)
+    end
+
+    inline function is_dev(pid)
+        for _, hash in pairs(self.dev_hashes) do
+            if tostring(players.get_rockstar_id(pid)):hash() == hash then
+                return true
+            end
+        end
+        return false
+    end
+
+    inline function add_player(pid)
+        self.playerlist:set(1 << pid)
+    end
+
+    inline function remove_player(pid)
+        self.playerlist:clear(1 << pid)
+    end
+
+    inline function player_exists(pid)
+        return self.playerlist:isset(1 << pid)
+    end
+
+    inline function player_cnet_ready(pid)
+        local ts = memory.read_int(g.PlayerBase:g(pid))
+        local net_player = players.get_net_player(pid)
+
+        if net_player == 0 then
+            return false
+        else
+            if ts ~= 4 then
+                return false
+            else
+                return true
+            end
+        end
+    end
+
+    inline function add_friend(pid)
+        self.playerlist:set(1 << (pid + 32))        
+    end
+
+    inline function remove_friend(pid)
+        self.playerlist:clear(1 << (pid + 32))
+    end
+
+    inline function is_friend(pid)
+        return self.playerlist:isset(1 << (pid + 32))
+    end
+
+    inline function partial(func, ...)
+        local args = {...}
+        return function(...)
+            return func(table.unpack(args), table.unpack{...})
+        end
+    end
+
+    inline function has_updated()
+        if not util.is_session_started() then
+            return false
+        else
+            local l = memory.script_local('freemode', 3847)
+            if l ~= 0 then
+                return memory.read_int(l) ~= -1341933582
+            end
+        end
+        return false
+    end
+
+    function find_kernel_export(function_name)
+        local dos = memory.scan('KERNEL32.DLL', '') -- get the dos header address of kernel32.dll, the dos header is always at the start of the file
+        local nt = dos + memory.read_uint(dos + 0x3C) -- get the nt header address of kernel32.dll
+    
+        if not memory.read_short(dos) == 0x5A4D then return 0 end -- check if the dos header is valid (MZ)
+        if not memory.read_short(nt) == 0x4550 then return 0 end -- check if the nt header is valid
+    
+        local optional_header = nt + 0x18 -- get the optional header address
+        local data_directory = optional_header + 0x70 -- get the data directory address
+        local export_rva = memory.read_uint(data_directory) -- get the export rva (relative virtual address)
+        local export_size = memory.read_uint(data_directory + 0x4) -- get the export size
+        -- since the export table is the first data directory we don't need to calculate the offset within the data directory to get the export table address
+        
+        if export_rva ~= 0x99080 or export_size ~= 0xDF58 then return end -- check if the export rva and size match the export table of kernel32.dll
+    
+        local export_table = dos + export_rva -- get the export table address
+        local number_of_functions = memory.read_uint(export_table + 0x14) -- get the number of functions in the export table
+        local function_table = dos + memory.read_uint(export_table + 0x1C) -- get the function table address
+        local name_table = dos + memory.read_uint(export_table + 0x20) -- get the name table address
+        local ordinal_table = dos + memory.read_uint(export_table + 0x24) -- get the ordinal table address
+    
+        for i = 0, number_of_functions - 1 do -- iterate through the functions in the export table
+            local function_rva = memory.read_uint(function_table + i * 4) -- get the rva of the function
+            local function_name_rva = dos + memory.read_uint(name_table + i * 4) -- get the rva of the function name
+            local function_ordinal = memory.read_ushort(ordinal_table + i * 2) -- get the ordinal of the function
+    
+            local name = memory.read_string(function_name_rva) -- get the name of the function
+            if name == function_name then -- compare the name of the function with the name we are looking for
+                local function_address = dos + function_rva -- add the rva to the dos header to get the function address
+                return function_address -- return the function address
+            end
+        end
+    
+        return 0 -- return 0 if the function was not found
+    end
+
+    function start_new_script(script_name, stack_size)
+        script.request_script(script_name)
+        repeat
+            script.request_script(script_name)
+            util.yield_once()
+        until script.has_script_loaded(script_name)
+        system.start_new_script(script_name, stack_size or 5000)
+        script.set_script_as_no_longer_needed(script_name)
+    end
+
+    function start_new_script_with_args(script_name, stack_size, args_count, args)
+        script.request_script(script_name)
+        repeat
+            script.request_script(script_name)
+            util.yield_once()
+        until script.has_script_loaded(script_name)
+        system.start_new_script(script_name, args, args_count, stack_size or 5000)
+        script.set_script_as_no_longer_needed(script_name)
+    end
+    
+    inline function is_script_running(script_name)
+        return script.get_number_of_threads_running_the_script_with_this_hash(script_name:joaat()) > 0
+    end
+    
+    inline function apply_dir_force_to_entity(target, force)
+        local dir = entity.get_entity_forward_vector(target)
+        local force = dir:mul(force)
+        entity.apply_force_to_entity(target, 1, force.x, force.y, force.z, 0, 0, 0, 0, false, true, true, true, true)
+    end
+    
+    inline function apply_upwards_force_to_entity(target, force)
+        entity.apply_force_to_entity(target, 1, 0, 0, force, 0, 0, 0, 0, false, true, true, true, true)
+    end
+
+    inline function apply_downwards_force_to_entity(target, force)
+        entity.apply_force_to_entity(target, 1, 0, 0, -force, 0, 0, 0, 0, false, true, true, true, true)
+    end
+    
+    inline function apply_backwards_force_to_entity(target, force)
+        local dir = entity.get_entity_forward_vector(target)
+        local force = dir:mul(-force)
+        entity.apply_force_to_entity(target, 1, force.x, force.y, force.z, 0, 0, 0, 0, false, true, true, true, true)
+    end
+    
+    inline function unpack_ip(ip)
+        local result = ''
+        for i = 3, 0, -1 do
+            result = result .. tostring(ip >> (i << 3) & 0xFF)
+            if i > 0 then
+                result = result .. '.'
+            end
+        end
+        return result
+    end
+
+    inline function sort_table(t, sort_function)
+        local sorted_table = {}
+        for k, v in pairs(t) do
+            table.insert(sorted_table, v)
+        end
+        table.sort(sorted_table, sort_function)
+        return sorted_table
+    end
+    
+    inline function sort_table_indexed(t, sort_function)
+        local temp_sort_table = {}
+        local sorted_table = {}
+        for k, v in pairs(t) do
+            table.insert(temp_sort_table, v)
+        end
+        table.sort(temp_sort_table, sort_function)
+        for i, k in pairs(temp_sort_table) do
+            table.insert(sorted_table, { i, k })
+        end
+        return sorted_table
+    end
+
+    function format_number(number)
+        number = tostring(number)
+        local formatted = ''
+        local count = 0
+        for i = #number, 1, -1 do
+            count = count + 1
+            formatted = number[i] .. formatted
+            if count % 3 == 0 and i ~= 1 then
+                formatted = ',' .. formatted
+            end
+        end
+        return formatted
+    end
+
+    function create_death_from_above_vehicle(target, hash, owned=false)
+        local hash = hash or ('rcbandito'):joaat()
+        util.request_model(hash)
+        local pos = entity.get_offset_from_entity_in_world_coords(players.user_ped(), 0, 0, 0)
+        pos.z = pos.z + 300
+        local bandito = entities.create_vehicle(hash, pos, entity.get_entity_heading(players.user_ped()))
+        local distance = 0
+        local speed = 10000
+        local explode_distance = 1
+        local bandito_pos = 0
+        local pped = player.get_player_ped(target)
+        local bandito_ptr = entities.handle_to_pointer(bandito)
+        entities.set_can_migrate(bandito, false)
+        local timer = os.time() + 7
+    
+        if owned then
+            memory.write_long(bandito_ptr + 0xD18, entities.handle_to_pointer(players.user_ped()))
+        end
+    
+        while true do
+            if os.time() > timer then
+                entities.delete(bandito)
+                util.toast(T'Failed to reach target, probably got stuck somewhere or you were out of range of the target, try spectating first.')
+                break
+            end
+    
+            if not ped.is_ped_dead_or_dying(pped) then
+                bandito_pos = entity.get_entity_coords(bandito, true)
+                pos = players.get_position(target)
+                distance = pos:distance(bandito_pos)
+                if distance < explode_distance then
+                    network.network_explode_vehicle(bandito, true, false, players.user())
+                    entities.delete(bandito)
+                    break
+                end
+                local direction = pos:sub(bandito_pos)
+                direction = v3.div(direction, v3.length(direction))
+                direction = v3.mul(direction, speed)
+                entity.set_entity_velocity(bandito, direction.x, direction.y, direction.z)
+                entities.set_owner(bandito_ptr, 2)
+            else
+                entity.set_entity_velocity(bandito, 0, 0, 0)
+            end
+            util.yield_once()
+        end
+    end
+
+    function send_magnetic_vehicle(target, hash, speed)
+        util.request_model(hash)
+        local pped = player.get_player_ped(target)
+        local pos = entity.get_offset_from_entity_in_world_coords(pped, 2, 0, 0)
+        local vehicle = entities.create_vehicle(hash, pos, entity.get_entity_heading(pped))
+        local vehicle_pos = 0
+        local distance = 0
+        entities.set_can_migrate(vehicle, false)
+        entity.set_entity_invincible(vehicle, true)
+        entities.set_owner(entities.handle_to_pointer(vehicle), 2)
+        self.to_delete:add_entity(vehicle)
+    
+        while true do
+            vehicle_pos = entity.get_entity_coords(vehicle, true)
+            entity.set_entity_heading(vehicle, entity.get_entity_heading(pped))
+    
+            if not ped.is_ped_dead_or_dying(pped) then
+                pos = players.get_position(target)
+                local direction = pos:sub(vehicle_pos)
+                direction = v3.div(direction, v3.length(direction))
+                direction = v3.mul(direction, speed)
+                entity.set_entity_velocity(vehicle, direction.x, direction.y, direction.z)
+            else
+                entity.set_entity_velocity(vehicle, 0, 0, 0)
+            end
+            util.yield_once()
+        end
+    end
+
+    function request_named_ptfx_asset(asset)
+        local timeout = os.time() + 3
+        streaming.request_named_ptfx_asset(asset)
+        repeat
+            util.yield_once()
+            if os.time() > timeout then
+                return false
+            end
+        until streaming.has_named_ptfx_asset_loaded(asset)
+        graphics.use_particle_fx_asset(asset)
+        return true
+    end
+
+    function create_phonebox_cage(pid, invisible=false)
+        local hash = ('prop_phonebox_04'):joaat()
+        util.request_model(hash)
+        local pos = players.get_position(pid)
+        pos.z -= 0.9
+    
+        local heading = entity.get_entity_heading(player.get_player_ped(pid))
+        local inverted_heading = heading + 180
+        local fake_pos = v3(1000, 1000, 1000)
+    
+        local cage = object.create_object(hash, pos.x, pos.y, pos.z, true, true, true)
+        local cage1 = object.create_object(hash, pos.x, pos.y, pos.z, true, true, true)
+    
+        if invisible then
+            entity.set_entity_visible(cage, false)
+            entity.set_entity_visible(cage1, false)
+        end
+    
+        entity.set_entity_heading(cage, heading)
+        entity.set_entity_heading(cage1, inverted_heading)
+        entities.set_can_migrate(cage, false)
+        entities.set_can_migrate(cage1, false)
+        entity.set_entity_coords(cage, pos.x, pos.y, pos.z, true, true, true, true)
+        entity.set_entity_coords(cage1, pos.x, pos.y, pos.z, true, true, true, true)
+    
+        self.to_delete:add_object(cage)
+        self.to_delete:add_object(cage1)
+    end
+
+    inline function request_pegasus_vehicle(hash)
+        -- credit to acjoker for finding the globals that made this possible
+        if not streaming.is_model_valid(hash) then util.display_error(T'Invalid Model Hash') return end
+        local request = g.PegasusRequest:g()
+        local request1 = request + 0x8
+        memory.write_int(request1, hash)
+        memory.write_byte(request, memory.bits:toggle(memory.read_byte(request), 1 << 7))
+        util.yield_once()
+        memory.write_byte(request, memory.bits:toggle(memory.read_byte(request), 1 << 7))
+    end
+
+    inline function request_ceo_vehicle(hash)
+        if not streaming.is_model_valid(hash) then util.display_error(T'Invalid Model Hash') return end
+        local request = g.OrganisationBase:g() + 0x50
+        memory.write_int(request + ceo_vehicle.vehicle_hash, hash)
+        memory.write_byte(request + ceo_vehicle.request, 1)
+    end
+
+    inline function random_string(length=16)
+        local str = ''
+        for i = 1, length do
+            str = str .. string.char((i % math.random(1, length / 2) == 0) ? math.random(97, 122) : math.random(97, 122) ~ 0x20)
+        end
+        return str
+    end
+
+    function vehicle_blame_kill(victim, killer, hash, invisible=true, is_dead_callback=-1)
+        if players.is_godmode(victim) and not players.is_in_interior(victim) then return end
+    
+        repeat
+            util.yield_once()
+            streaming.request_model(hash)
+        until streaming.has_model_loaded(hash)
+    
+        local pos = players.get_position(victim) 
+        local victim_ped = player.get_player_ped(victim)
+        local killer_ped = player.get_player_ped(killer)
+        local min, max = entities.get_model_dimensions(victim_ped)
+        local size = max:sub(min)
+    
+        pos.z += size.y/1.8
+        local veh = entities.create_vehicle(hash, v3.new(0, 0, 0), 90)
+        entities.set_can_migrate(veh, false)
+        entity.freeze_entity_position(veh, true)
+        util.yield(500)
+    
+        if veh ~= 0 then
+            self.to_delete:add_entity(veh)
+            local ptr = entities.handle_to_pointer(veh)
+            entity.set_entity_visible(veh, not invisible)
+            entity.set_entity_coords_no_offset(veh, pos.x, pos.y, pos.z, true, true, true)
+            entity.freeze_entity_position(veh, false)
+            entity.set_entity_invincible(veh, true)
+            entity.set_entity_as_mission_entity(veh, true, true)
+    
+            if ptr ~= 0 then
+                memory.write_long(ptr + 0xD18, entities.handle_to_pointer(killer_ped))
+                self:apply_downwards_force_to_entity(veh, 1000)
+                util.yield(500)
+    
+                util.create_tick_handler(function()
+                    if entity.is_entity_dead(victim_ped) or self.blamekill_flag then
+                        entities.delete(veh)
+                        if type(is_dead_callback) == 'function' then
+                            is_dead_callback()
+                        end
+                        self.blamekill_flag = false
+                        return false
+                    end
+    
+                    self:apply_upwards_force_to_entity(veh, 100)
+                    util.yield(200)
+                    pos = players.get_position(victim)
+                    pos.z += size.y/1.8
+    
+                    entity.set_entity_coords_no_offset(veh, pos.x, pos.y, pos.z, true, true, true)
+                    self:apply_downwards_force_to_entity(veh, 1000)
+                end)
+            end
+        end
+    end
+
+    inline function request_weapon_asset(hash)
+        weapon.request_weapon_asset(hash, 31, 0)
+        while not weapon.has_weapon_asset_loaded(hash) do util.yield_once() end
+    end
+
+    function shoot_player(pid, damage, weapon_hash, instant_kill=false, is_flying=false)
+        local pped = player.get_player_ped(pid)
+        local pos = players.get_position(pid)
+        self:request_weapon_asset(weapon_hash)
+
+        try
+            local ptr = entities.handle_to_pointer(pped)
+            local player_info = entities.get_player_info(ptr)
+
+            if instant_kill then
+                if player_info ~= 0 then
+                    memory.write_float(player_info + 0x0D70, 2000)
+                end
+            end
+
+            if not is_flying then
+                misc.shoot_single_bullet_between_coords(
+                    pos.x, pos.y, pos.z + 3.0, pos.x, pos.y, pos.z - 2.0, 
+                    damage, true, weapon_hash, players.user_ped(), 
+                    true, false, 2500.0
+                )
+            else
+                -- still needs some work to make it hit moving oppressor bots
+                misc.shoot_single_bullet_between_coords(
+                    pos.x, pos.y, pos.z + 3.0, pos.x, pos.y, pos.z - 2.0, 
+                    damage, true, weapon_hash, players.user_ped(), 
+                    true, false, 2500.0
+                )
+            end
+            util.yield(100)
+
+            if instant_kill then
+                if player_info ~= 0 then
+                    memory.write_float(player_info + 0x0D70, 0.99607843160629)
+                end
+            end
+            return true
+        catch e then
+            util.log(e)
+            return false
+        end
+    end
+
+    function player_has_bst(pid)
+        try
+            local ped = player.get_player_ped(pid)
+            local ptr = entities.handle_to_pointer(ped)
+            if ptr ~= 0 then
+                local player_info = entities.get_player_info(ptr)
+                if player_info then
+                    local weapon_defense = memory.read_float(player_info + 0x0D70)
+                    if weapon_defense < 0.99 then
+                        return true
+                    end
+                end
+            end
+            return false
+        catch e then
+            util.log(e)
+            return false
+        end
+    end
+
+    function get_player_aiming_at_you()
+        for pid = 0, players.max_players do
+            if self:player_exists(pid) and pid ~= players.user() then
+                if player.is_player_free_aiming_at_entity(pid, players.user_ped()) then
+                    return pid
+                end
+            end
+        end
+
+        return -1
+    end
+
+    inline function request_streamed_texture_dict(texture_dict)
+        util.spoof_script('main_persistent', function()
+            graphics.request_streamed_texture_dict(texture_dict, false)
+        end)
+    end
+
+    inline function get_stat_int(stat_name)
+        if stats.stat_get_int(stat_name:joaat(), self.stat_ptr, 0) then
+            return memory.read_int(self.stat_ptr)
+        end
+        return -1
+    end
+
+    inline function get_stat_int_by_hash(stat_hash)
+        if stats.stat_get_int(stat_hash, self.stat_ptr, 0) then
+            return memory.read_int(self.stat_ptr)
+        end
+        return -1
+    end
+
+    inline function get_stat_float_by_hash(stat_hash)
+        if stats.stat_get_float(stat_hash, self.stat_ptr, 0) then
+            return memory.read_float(self.stat_ptr)
+        end
+        return -1
+    end
+
+    inline function get_stat_string_by_hash(stat_hash)
+        if stats.stat_get_string(stat_hash, self.stat_ptr, 0) then
+            return memory.read_string(self.stat_ptr)
+        end
+        return ''
+    end
+
+    function damage_player(pid, weapon, damage, flags)
+        if pid == -1 then return end
+        local pped = player.get_player_ped(pid)
+        local ped_ptr =  entities.handle_to_pointer(pped)
+	    local my_ped_ptr = entities.handle_to_pointer(players.user_ped())
+        flags = flags or 0
+        weapon = (type(weapon) == 'string') and weapon:joaat() or weapon
+
+        util.call_foreign_function(
+            self.damage_function_addr, my_ped_ptr, ped_ptr, ped_ptr + 0x90, 0, 1, 
+            weapon, damage + 0.0, 0, 0, flags, 0, 0, 0, 0, 0, 0, 0, 0.0
+        )
+    end
+
+    inline function set_global_byte(g, value)
+        memory.write_byte(g:g(), value)
+    end
+
+    inline function set_global_short(g, value)
+        memory.write_short(g:g(), value)
+    end
+
+    inline function set_global_int(g, value)
+        memory.write_int(g:g(), value)
+    end
+
+    inline function set_global_float(g, value)
+        memory.write_float(g:g(), value)
+    end
+
+    inline function get_global_byte(g)
+        return memory.read_byte(g:g())
+    end
+
+    inline function get_global_short(g)
+        return memory.read_short(g:g())
+    end
+
+    inline function get_global_int(g)
+        return memory.read_int(g:g())
+    end
+
+    inline function get_global_float(g)
+        return memory.read_float(g:g())
+    end
+
+    inline function calculate_tryhard_rating(kd_ratio, level, weapon_accuracy, kills, deaths)
+        local kd_weight = 0.5
+        local level_weight = 0.3
+        local weapon_accuracy_weight = 0.2
+        local kills_weight = 0.5
+        local deaths_weight = 0.5
+
+        if level > 1300 then
+            return (
+                (kd_ratio * kd_weight) +  
+                (weapon_accuracy * weapon_accuracy_weight) + 
+                (kills * kills_weight) - 
+                (deaths * deaths_weight)
+            )
+        else
+            return (
+                (kd_ratio * kd_weight) + 
+                (level * level_weight) + 
+                (weapon_accuracy * weapon_accuracy_weight) + 
+                (kills * kills_weight) - 
+                (deaths * deaths_weight)
+            )
+        end
+    end
+end
+
+return new Utils()

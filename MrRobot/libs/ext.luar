@@ -1,0 +1,459 @@
+pluto_use new
+
+local Classes = require('utils.native_classes')
+local stream_proof_ref <const> = menu.ref_by_path('Stand>Settings>Appearance>Stream-Proof Rendering')
+game = {}
+
+local SE_ARG_MAX <constexpr> = 40
+local SCRIPT_EVENT_ARGS = memory.alloc(8 * SE_ARG_MAX)
+
+util.hud_colours = {
+    pure_white = 0,
+    white = 1,
+    black = 2,
+    grey = 3,
+    grey_light = 4,
+    grey_dark = 5,
+    red = 6,
+    red_light = 7,
+    red_dark = 8,
+    blue = 9,
+    blue_light = 10,
+    blue_dark = 11,
+    yellow = 12,
+    yellow_light = 13,
+    yellow_dark = 14,
+    orange = 15,
+    orange_light = 16,
+    orange_dark = 17,
+    green = 18,
+    green_light = 19,
+    green_dark = 20,
+    purple = 21,
+    purple_light = 22,
+    purple_dark = 23,
+    pink = 24,
+    radar_health = 25,
+    radar_armour = 26,
+    radar_damage = 27,
+    bronze = 107,
+    silver = 108,
+    gold = 109,
+    platinum = 110,
+}
+
+function util.display_message(title, subject, msg, colour, dict, dict_name)
+    if stream_proof_ref.value then
+        util.log($'{msg}')
+        util.toast($'{msg}')
+        return
+    end
+
+    if not title or not subject or not msg then return end
+    if not util.is_session_started() then return end
+    local has_loaded = graphics.has_streamed_texture_dict_loaded('MrRobot')
+
+    colour = colour or util.hud_colours.black
+    dict = dict or 'CHAR_MP_FM_CONTACT'
+    dict_name = dict_name or 'CHAR_MP_FM_CONTACT'
+
+    if has_loaded and dict == 'CHAR_MP_FM_CONTACT' and dict_name == 'CHAR_MP_FM_CONTACT' then
+        dict = 'MrRobot'
+        dict_name = 'MrRobot'
+    end
+
+    if type(HUD == 'table') then
+        HUD.THEFEED_SET_BACKGROUND_COLOR_FOR_NEXT_POST(colour)
+        util.BEGIN_TEXT_COMMAND_THEFEED_POST(msg)
+        HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(dict, dict_name, true, 7, title, subject)
+        HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(false, false)
+    end
+end
+
+function util.display_error(msg, dict, dict_name)
+    dict = dict or 'Error'
+    dict_name = dict_name or 'Error'
+    util.display_message('Adolf Hitler', 'Error', msg, util.hud_colours.red_dark, dict, dict_name)
+end
+
+function util.display_info(msg)
+    dict = dict or nil
+    dict_name = dict_name or nil
+    util.display_message('Mr.Robot', 'Info', msg, util.hud_colours.black, dict, dict_name)
+end
+
+function util.display_warning(msg)
+    dict = dict or nil
+    dict_name = dict_name or nil
+    util.display_message('Mr.Robot', 'Warning', msg, util.hud_colours.yellow_dark, dict, dict_name)
+end
+
+function util.display_success(msg)
+    dict = dict or nil
+    dict_name = dict_name or nil
+    util.display_message('Mr.Robot', '', msg, util.hud_colours.green_dark, dict, dict_name)
+end
+
+local Entity = require('utils.entity')
+local Vehicle = require('utils.vehicle')
+local inspect = require('libs.inspect')
+local g = require('utils.script_globals').all
+local bitwise = require('libs.bitwise')
+
+memory.bits = bitwise.bits
+
+local min, max = v3(), v3()
+
+memory.write_byte = memory.write_ubyte
+memory.write_short = memory.write_ushort
+memory.write_int = memory.write_uint
+
+table.inspect = inspect
+math.max_int = (2 ^ 31) - 1
+math.min_int = -(2 ^ 31)
+math.max_float = math.max_int + 0.0
+math.min_float = math.min_int + 0.0
+players.max_players = 32
+
+function string.g(raw, index=-1)
+    if index == -1 then index = players.user() end
+    if not raw:find('Global') then return end
+    if not raw:find('%[.*%]') and not raw:find('/%*%d+%*/') then
+        local base = raw:match('%d+')
+        for offset in raw:gmatch('%.f_%d+') do base = base + tonumber(offset:sub(4)) end
+        return memory.script_global(base)
+    elseif raw:find('%[.*%]') and raw:find('/%*%d+%*/') and not raw:find('func_%d+') then
+        local base = raw:match('%d+')
+        local size = raw:match('/%*(%d+)%*/')
+        for offset in raw:gmatch('%.f_%d+') do base = base + tonumber(offset:sub(4)) end
+        local id = raw:match('%[(%d+)')
+        return memory.script_global(base + (id == nil ? (index * size) + 1 : id * size))
+    elseif raw:find('func_%d+') and raw:find('/*%d+*/') then
+        local base = raw:match('%d+')
+        local size = raw:match('/%*(%d+)%*/')
+        for offset in raw:gmatch('%.f_%d+') do base = base + tonumber(offset:sub(4)) end
+        return memory.script_global(base + 1 + (index * size))
+    else
+        local base = raw:match('%d+')
+        local id = raw:match('%[(%d+)%]')
+        if id ~= nil then
+            for offset in raw:gmatch('%.f_%d+') do base = base + tonumber(offset:sub(4)) end
+            return memory.script_global(base + tonumber(id) + 1)
+        else
+            id = index
+            for offset in raw:gmatch('%.f_%d+') do base = base + tonumber(offset:sub(4)) end
+            return memory.script_global(base + id + 1)
+        end
+    end
+end
+
+function string.hash(data, mask)
+    mask = mask or 0xFFFFFFFFFFFFFFFF
+    local final = 0
+    for i = 1, #data do
+        local char = data:byte(i)
+        final = final ~ ((final >> 13) | (final << (32 - 13))) + char
+    end
+    return final & mask
+end
+
+function util.log_error(filename, line, message)
+    try
+        local dir = $'{SCRIPT_ROOT}\\errors.txt'
+        if not filesystem.exists(dir) then
+            local file <close> = assert(io.open(dir, 'w'))
+            file:write('')
+            file:close()
+        end
+
+        local file <close> = assert(io.open(dir, 'a'))
+        file:write($'[{filename}:{line} | v{SCRIPT_VERSION}] {message}\n\n')
+        file:close()
+    catch e then end
+end
+
+function util.log(msg)
+    print($'[MrRobot] {msg}')
+end
+
+players.localplayer = (function(func)
+    local cached = nil
+    return function()
+        if cached ~= nil then
+            cached.entity = players.user_ped()
+            cached.ptr = entities.handle_to_pointer(cached.entity)
+            return cached
+        else
+            cached = func()
+            if cached.entity ~= players.user_ped() then
+                cached.entity = players.user_ped()
+                cached.ptr = entities.handle_to_pointer(cached.entity)
+            end
+            return cached
+        end
+    end
+end)(function()
+    return new Entity(players.user_ped())
+end)
+
+players.localplayer_vehicle = (function(func)
+    local cached = nil
+    return function()
+        local vehicle = ped.get_vehicle_ped_is_in(players.user_ped())
+        if cached ~= nil then
+            cached.entity = vehicle
+            cached.ptr = entities.handle_to_pointer(cached.entity)
+            return cached
+        else
+            cached = func(vehicle)
+            if cached.entity ~= vehicle then
+                cached.entity = vehicle
+                cached.ptr = entities.handle_to_pointer(cached.entity)
+            end
+            return cached
+        end
+    end
+end)(function(entity)
+    return new Vehicle(entity)
+end)
+
+function entities.get_model_dimensions(ent)
+    local hash = entity.get_entity_model(ent)
+    misc.get_model_dimensions(hash, min, max)
+    return min, max
+end
+
+function math.clamp(value, min, max)
+    return value < min and min or value > max and max or value
+end
+
+function math.lerp(a, b, t)
+    return a + (b - a) * t
+end
+
+function players.set_bounty(pid, amount, state)
+    local script_host = menu.ref_by_path('Online>Session>Become Script Host')
+    local timeout = os.time() + 3
+    if players.get_script_host() ~= players.user() then
+        repeat
+            script_host:trigger()
+            util.yield_once()
+        until players.get_script_host() == players.user() or os.time() > timeout
+    end
+    amount = math.clamp(amount, 0, 10000)
+
+    local toggle = g.PlayerBounty:g(pid)
+    memory.write_int(toggle + 8, amount)
+    memory.write_byte(toggle, state ? 1 : 0)
+end
+
+function players.set_bounty_reward(pid, amount)
+    local script_host = menu.ref_by_path('Online>Session>Become Script Host')
+    local timeout = os.time() + 3
+    if players.get_script_host() ~= players.user() then
+        repeat
+            script_host:trigger()
+            util.yield_once()
+        until players.get_script_host() == players.user() or os.time() > timeout
+    end
+    amount = math.clamp(amount, 0, 10000)
+    local reward = g.PlayerBountyReward:g(pid)
+    memory.write_int(reward, amount)
+end
+
+function players.get_bounty_reward(pid)
+    if not players.get_script_host() == players.user() then
+        util.request_script_host('freemode')
+    end
+    local reward = g.PlayerBountyReward:g(pid)
+    return memory.read_short(reward)
+end
+
+function players.is_bounty_active(pid)
+    local toggle = g.PlayerBounty:g(pid)
+    return memory.read_byte(toggle) == 1
+end
+
+function v3.length(self)
+    return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+end
+
+function entities.set_owner(ptr, pid)
+    if ptr ~= 0 then
+        local net_obj = memory.read_long(ptr + 0xD0)
+        if net_obj ~= 0 and players.exists(pid) then
+            memory.write_byte(net_obj + 0x49, pid)
+            memory.write_byte(net_obj + 0x4B, pid)
+        end
+    end
+end
+
+function util.copy_addr(address, reclass_compatible=false)
+    return util.copy_to_clipboard(string.format(reclass_compatible ? '%X' : '0x%X', address))
+end
+
+function entities.is_frozen(ent)
+    local ptr = entities.handle_to_pointer(ent)
+    if ptr ~= 0 then
+        return memory.read_long(ptr + 0x0028) & (1 << 49) ~= 0
+    end
+    return false
+end
+
+function entities.is_invisible(ent)
+    local ptr = entities.handle_to_pointer(ent)
+    local mask = 0x10000100000000
+    if ptr ~= 0 then
+        return memory.read_long(ptr + 0x0028) & mask == 0
+    end
+    return false
+end
+
+function players.get_pid_from_name(name)
+    for players.list() as pid do
+        if players.get_name(pid) == name then
+            return pid
+        end
+    end
+    return -1
+end
+
+function players.cped()
+    return Classes.CPed:new(entities.handle_to_pointer(players.user_ped()))
+end
+
+function entities.cped_from_ped(ped)
+    return Classes.CPed:new(entities.handle_to_pointer(ped))
+end
+
+function players.cvehicle()
+    local veh = entities.get_user_vehicle_as_pointer()
+    if veh ~= 0 then
+        return Classes.CVehicle:new(veh)
+    end
+    return 0
+end
+
+function game.set_byte(g, value) memory.write_byte(type(g) == 'string' ? (g:g()) : g, value) end
+function game.set_short(g, value) memory.write_short(type(g) == 'string' ? (g:g()) : g, value) end
+function game.set_int(g, value) memory.write_int(type(g) == 'string' ? (g:g()) : g, value) end
+function game.set_long(g, value) memory.write_long(type(g) == 'string' ? (g:g()) : g, value) end
+function game.set_float(g, value) memory.write_float(type(g) == 'string' ? (g:g()) : g, value) end
+function game.read_byte(g) return memory.read_byte(type(g) == 'string' ? (g:g()) : g) end
+function game.read_short(g) return memory.read_short(type(g) == 'string' ? (g:g()) : g) end
+function game.read_int(g) return memory.read_int(type(g) == 'string' ? (g:g()) : g) end
+function game.read_long(g) return memory.read_long(type(g) == 'string' ? (g:g()) : g) end
+function game.read_float(g) return memory.read_float(type(g) == 'string' ? (g:g()) : g) end
+
+function game.set_byte_local(tbl, value) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        memory.write_byte(l, value)
+    end
+end
+
+function game.set_short_local(tbl, value) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        memory.write_short(l, value)
+    end
+end
+
+function game.set_int_local(tbl, value) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        memory.write_int(l, value)
+    end
+end
+
+function game.set_long_local(tbl, value) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        memory.write_long(l, value)
+    end
+end
+
+function game.set_float_local(tbl, value) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        memory.write_float(l, value)
+    end
+end
+
+function game.read_byte_local(tbl) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        return memory.read_byte(l)
+    end
+    return 0
+end
+
+function game.read_short_local(tbl) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        return memory.read_short(l)
+    end
+    return 0
+end
+
+function game.read_int_local(tbl) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        return memory.read_int(l)
+    end
+    return 0
+end
+
+function game.read_long_local(tbl) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        return memory.read_long(l)
+    end
+    return 0
+end
+
+function game.read_float_local(tbl) 
+    local l = memory.script_local(table.unpack(tbl))
+    if l ~= 0 then
+        return memory.read_float(l)
+    end
+    return 0
+end
+
+function game.trigger_se(flags, args_tbl)
+    local arg_count = #args_tbl
+    
+    if arg_count > SE_ARG_MAX then
+        util.display_error('Too many arguments for script event')
+        return
+    end
+    
+    for i = 1, arg_count do
+        memory.write_long(SCRIPT_EVENT_ARGS + (i - 1) * 8, args_tbl[i])
+    end
+
+    script.trigger_script_event(1, SCRIPT_EVENT_ARGS, arg_count, flags)
+end
+
+function game.draw_bits(value, bits)
+    for i = 0, bits - 1 do
+        util.draw_debug_text($'Bit {i}: {value & (1 << i) ~= 0}')
+    end
+end
+
+function players.get_data_for_tryhard_rating(pid)
+    local data = {}
+    data.kd = players.get_kd(pid)
+    data.level = players.get_rank(pid)
+    data.kills = players.get_kills(pid)
+    data.deaths = players.get_deaths(pid)
+
+    local shots_fired = g.StatShots:g(pid)
+    local shots_hit = g.StatHits:g(pid)
+
+    data.accuracy = memory.read_int(shots_hit) / memory.read_int(shots_fired) * 100
+    return data
+end
+
+entities.is_godmode = entities.is_invulnerable
+util.loop = util.create_tick_handler

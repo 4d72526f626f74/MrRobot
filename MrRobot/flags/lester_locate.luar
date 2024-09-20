@@ -1,0 +1,6 @@
+return {
+    boat = 1 << 3,
+    heli = 1 << 4,
+    car = 1 << 5,
+    plane = 1 << 6
+}

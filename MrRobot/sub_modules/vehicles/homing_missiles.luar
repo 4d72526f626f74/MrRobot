@@ -1,0 +1,27 @@
+pluto_use class, new
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+local functions = require('sub_modules.vehicles.homing_missiles_functions')
+
+class HomingMissiles extends Module
+    function __construct(root)
+        if not self.utils:is_dev(players.user()) then return end
+
+        self.homing_ptr = memory.alloc_int()
+        self.root = root:list(T'Advanced Homing Missiles', {})
+        self.root:toggle_loop(T'Enable Homing Missiles', {}, T'Enable homing missiles for your vehicle', function()
+            functions.mainLoop(self.draw_meter.value)
+        end)
+        self.root:divider('')
+
+        self.root:slider(T'Targets' , {}, '', 1, 6, 1, 1, functions.SetMaxTargets)
+        self.draw_meter = self.root:toggle(T'Draw Charging Meter', {}, T'Draw a meter to show the charging progress', function(state) end)
+        self.whitelist = self.root:list(T'Whitelist', {}, T'Whitelist for homing missiles')
+        self.whitelist:toggle(T'Friends', {}, T'Missiles will not target friends', functions.SetIgnoreFriends, true)
+        self.whitelist:toggle(T'Organisation Members', {}, T'Missiles will not target org members', functions.SetIgnoreOrgMembers)
+        self.whitelist:toggle(T'Crew Members', {}, T'Missiles will not target crew members', functions.SetIgnoreCrewMembers)
+    end
+end
+
+return HomingMissiles

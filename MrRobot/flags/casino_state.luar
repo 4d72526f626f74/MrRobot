@@ -1,0 +1,7 @@
+return {
+    blackjack = 1 << 2,
+    poker = 1 << 3,
+    roulette = 1 << 5,
+    lucky_wheel = 1 << 6,
+    slot_machines = 1 << 7
+}

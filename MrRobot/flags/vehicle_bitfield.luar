@@ -1,0 +1,12 @@
+return {
+    active = 1 << 0,
+    request = 1 << 0,
+    destroyed = 1 << 1,
+    insured = 1 << 2,
+    has_explosive = 1 << 3,
+    impounded = 1 << 6,
+    crew_emblem = 1 << 8,
+    delivered = 1 << 10,
+    spawn_mors_mutual = 1 << 11,
+    destroyed_by_police = 1 << 16
+}

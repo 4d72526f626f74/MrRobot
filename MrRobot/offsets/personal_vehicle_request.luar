@@ -1,0 +1,5 @@
+return {
+    request_state = 0x968, -- 0x958 (old)
+    request_slot = 0x1F40, -- 0x1EC8 (old)
+    request_trigger = 0x1D78 -- 0x1D00 (old)
+}

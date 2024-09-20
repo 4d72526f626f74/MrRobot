@@ -1,0 +1,297 @@
+local ESP = {}
+local Colour = require('libs.colour')
+local screen_ptr = memory.alloc(8)
+local f = util.get_screen_coord_from_world_coord_no_adjustment
+
+function ESP.draw_box_esp(ent, colour)
+    local colour_type = type(colour)
+
+    if colour_type == 'number' then
+        colour = Colour.hex_to_float(colour)
+    elseif colour_type == 'string' then
+        colour = Colour.hex_string_to_float(colour)
+    elseif colour_type == 'table' then
+        colour = Colour.rgba_to_float(colour.r, colour.g, colour.b, colour.a)
+    end
+
+    local min, max = entities.get_model_dimensions(ent)
+
+    local front_top_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, max.z)
+    local front_top_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, max.z)
+    local front_bottom_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, min.y, max.z)
+    local front_bottom_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, min.y, max.z)
+
+    local back_top_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, max.y, min.z)
+    local back_top_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, max.y, min.z)
+    local back_bottom_left = entity.get_offset_from_entity_in_world_coords(ent, max.x, min.y, min.z)
+    local back_bottom_right = entity.get_offset_from_entity_in_world_coords(ent, min.x, min.y, min.z)
+
+    local front_top_left_sx, front_top_left_sy = 0, 0
+    local front_top_right_sx, front_top_right_sy = 0, 0
+    local front_bottom_left_sx, front_bottom_left_sy = 0, 0
+    local front_bottom_right_sx, front_bottom_right_sy = 0, 0
+
+    local back_top_left_sx, back_top_left_sy = 0, 0
+    local back_top_right_sx, back_top_right_sy = 0, 0
+    local back_bottom_left_sx, back_bottom_left_sy = 0, 0
+    local back_bottom_right_sx, back_bottom_right_sy = 0, 0
+
+    if f(front_top_left.x, front_top_left.y, front_top_left.z, screen_ptr, screen_ptr + 4) then
+        front_top_left_sx, front_top_left_sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+    else return end
+
+    if f(front_top_right.x, front_top_right.y, front_top_right.z, screen_ptr, screen_ptr + 4) then
+        front_top_right_sx, front_top_right_sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+    else return end
+
+    if f(front_bottom_left.x, front_bottom_left.y, front_bottom_left.z, screen_ptr, screen_ptr + 4) then
+        front_bottom_left_sx, front_bottom_left_sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+    else return end
+
+    if f(front_bottom_right.x, front_bottom_right.y, front_bottom_right.z, screen_ptr, screen_ptr + 4) then
+        front_bottom_right_sx, front_bottom_right_sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+    else return end
+
+    if f(back_top_left.x, back_top_left.y, back_top_left.z, screen_ptr, screen_ptr + 4) then
+        back_top_left_sx, back_top_left_sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+    else return end
+
+    if f(back_top_right.x, back_top_right.y, back_top_right.z, screen_ptr, screen_ptr + 4) then
+        back_top_right_sx, back_top_right_sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+    else return end
+
+    if f(back_bottom_left.x, back_bottom_left.y, back_bottom_left.z, screen_ptr, screen_ptr + 4) then
+        back_bottom_left_sx, back_bottom_left_sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+    else return end
+
+    if f(back_bottom_right.x, back_bottom_right.y, back_bottom_right.z, screen_ptr, screen_ptr + 4) then
+        back_bottom_right_sx, back_bottom_right_sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+    else return end
+
+    directx.draw_line(front_top_left_sx, front_top_left_sy, front_top_right_sx, front_top_right_sy, colour)
+    directx.draw_line(front_top_right_sx, front_top_right_sy, front_bottom_right_sx, front_bottom_right_sy, colour)
+    directx.draw_line(front_bottom_right_sx, front_bottom_right_sy, front_bottom_left_sx, front_bottom_left_sy, colour)
+    directx.draw_line(front_bottom_left_sx, front_bottom_left_sy, front_top_left_sx, front_top_left_sy, colour)
+
+    directx.draw_line(back_top_left_sx, back_top_left_sy, back_top_right_sx, back_top_right_sy, colour)
+    directx.draw_line(back_top_right_sx, back_top_right_sy, back_bottom_right_sx, back_bottom_right_sy, colour)
+    directx.draw_line(back_bottom_right_sx, back_bottom_right_sy, back_bottom_left_sx, back_bottom_left_sy, colour)
+    directx.draw_line(back_bottom_left_sx, back_bottom_left_sy, back_top_left_sx, back_top_left_sy, colour)
+
+    directx.draw_line(front_top_left_sx, front_top_left_sy, back_top_left_sx, back_top_left_sy, colour)
+    directx.draw_line(front_top_right_sx, front_top_right_sy, back_top_right_sx, back_top_right_sy, colour)
+    directx.draw_line(front_bottom_left_sx, front_bottom_left_sy, back_bottom_left_sx, back_bottom_left_sy, colour)
+    directx.draw_line(front_bottom_right_sx, front_bottom_right_sy, back_bottom_right_sx, back_bottom_right_sy, colour)
+end
+
+function ESP.draw_bone_esp(ent, colour)
+    local colour_type = type(colour)
+
+    if colour_type == 'number' then
+        colour = Colour.hex_to_float(colour)
+    elseif colour_type == 'string' then
+        colour = Colour.hex_string_to_float(colour)
+    elseif colour_type == 'table' then
+        colour = Colour.rgba_to_float(colour.r, colour.g, colour.b, colour.a)
+    end
+
+    local sxptr, syptr = screen_ptr, screen_ptr + 4
+
+    local bones = {
+        pos = {
+            head = ped.get_ped_bone_coords(ent, 0x796e, 0, 0, 0),
+            neck = ped.get_ped_bone_coords(ent, 0x9995, 0, 0, 0),
+            right_upper_arm = ped.get_ped_bone_coords(ent, 0x9d4d, 0, 0, 0),
+            right_lower_arm = ped.get_ped_bone_coords(ent, 0x6e5c, 0, 0, 0),
+            right_hand = ped.get_ped_bone_coords(ent, 0xdead, 0, 0, 0),
+            right_hand_finger1 = ped.get_ped_bone_coords(ent, 0xe5f2, 0, 0, 0),
+            right_hand_finger2 = ped.get_ped_bone_coords(ent, 0xe5f3, 0, 0, 0),
+            right_hand_finger3 = ped.get_ped_bone_coords(ent, 0xe5f4, 0, 0, 0),
+            right_hand_finger4 = ped.get_ped_bone_coords(ent, 0xe5f5, 0, 0, 0),
+            right_hand_finger5 = ped.get_ped_bone_coords(ent, 0xe5f6, 0, 0, 0),
+            left_upper_arm = ped.get_ped_bone_coords(ent, 0xb1c5, 0, 0, 0),
+            left_lower_arm = ped.get_ped_bone_coords(ent, 0xeeeb, 0, 0, 0),
+            left_hand = ped.get_ped_bone_coords(ent, 0x49d9, 0, 0, 0),
+            left_hand_finger1 = ped.get_ped_bone_coords(ent, 0x67f2, 0, 0, 0),
+            left_hand_finger2 = ped.get_ped_bone_coords(ent, 0x67f3, 0, 0, 0),
+            left_hand_finger3 = ped.get_ped_bone_coords(ent, 0x67f4, 0, 0, 0),
+            left_hand_finger4 = ped.get_ped_bone_coords(ent, 0x67f5, 0, 0, 0),
+            left_hand_finger5 = ped.get_ped_bone_coords(ent, 0x67f6, 0, 0, 0),
+            pelvis = ped.get_ped_bone_coords(ent, 0x2e28, 0, 0, 0),
+            right_upper_leg = ped.get_ped_bone_coords(ent, 0xca72, 0, 0, 0),
+            right_lower_leg = ped.get_ped_bone_coords(ent, 0x9000, 0, 0, 0),
+            right_foot = ped.get_ped_bone_coords(ent, 0xcc4d, 0, 0, 0),
+            right_toe = ped.get_ped_bone_coords(ent, 0x512d, 0, 0, 0),
+            left_upper_leg = ped.get_ped_bone_coords(ent, 0xe39f, 0, 0, 0),
+            left_lower_leg = ped.get_ped_bone_coords(ent, 0xf9bb, 0, 0, 0),
+            left_foot = ped.get_ped_bone_coords(ent, 0x3779, 0, 0, 0),
+            left_toe = ped.get_ped_bone_coords(ent, 0x83c, 0, 0, 0)
+        },
+        screen_coords = {
+            head = {x=0, y=0},
+            neck = {x=0, y=0},
+            right_upper_arm = {x=0, y=0},
+            right_lower_arm = {x=0, y=0},
+            right_hand = {x=0, y=0},
+            right_hand_finger1 = {x=0, y=0},
+            right_hand_finger2 = {x=0, y=0},
+            right_hand_finger3 = {x=0, y=0},
+            right_hand_finger4 = {x=0, y=0},
+            right_hand_finger5 = {x=0, y=0},
+            left_upper_arm = {x=0, y=0},
+            left_lower_arm = {x=0, y=0},
+            left_hand = {x=0, y=0},
+            left_hand_finger1 = {x=0, y=0},
+            left_hand_finger2 = {x=0, y=0},
+            left_hand_finger3 = {x=0, y=0},
+            left_hand_finger4 = {x=0, y=0},
+            left_hand_finger5 = {x=0, y=0},
+            pelvis = {x=0, y=0},
+            right_upper_leg = {x=0, y=0},
+            right_lower_leg = {x=0, y=0},
+            right_foot = {x=0, y=0},
+            right_toe = {x=0, y=0},
+            left_upper_leg = {x=0, y=0},
+            left_lower_leg = {x=0, y=0},
+            left_foot = {x=0, y=0},
+            left_toe = {x=0, y=0}
+        }
+    }
+
+    for bone, pos in pairs(bones.pos) do
+        if f(pos.x, pos.y, pos.z, sxptr, syptr) then
+            bones.screen_coords[bone].x, bones.screen_coords[bone].y = memory.read_float(sxptr), memory.read_float(syptr)
+        else
+            return
+        end
+    end
+
+    directx.draw_line(bones.screen_coords.head.x, bones.screen_coords.head.y, bones.screen_coords.neck.x, bones.screen_coords.neck.y, colour)
+    directx.draw_line(bones.screen_coords.neck.x, bones.screen_coords.neck.y, bones.screen_coords.right_upper_arm.x, bones.screen_coords.right_upper_arm.y, colour)
+    directx.draw_line(bones.screen_coords.right_upper_arm.x, bones.screen_coords.right_upper_arm.y, bones.screen_coords.right_lower_arm.x, bones.screen_coords.right_lower_arm.y, colour)
+    directx.draw_line(bones.screen_coords.right_lower_arm.x, bones.screen_coords.right_lower_arm.y, bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, colour)
+    directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger1.x, bones.screen_coords.right_hand_finger1.y, colour)
+    directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger2.x, bones.screen_coords.right_hand_finger2.y, colour)
+    directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger3.x, bones.screen_coords.right_hand_finger3.y, colour)
+    directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger4.x, bones.screen_coords.right_hand_finger4.y, colour)
+    directx.draw_line(bones.screen_coords.right_hand.x, bones.screen_coords.right_hand.y, bones.screen_coords.right_hand_finger5.x, bones.screen_coords.right_hand_finger5.y, colour)
+    directx.draw_line(bones.screen_coords.neck.x, bones.screen_coords.neck.y, bones.screen_coords.left_upper_arm.x, bones.screen_coords.left_upper_arm.y, colour)
+    directx.draw_line(bones.screen_coords.left_upper_arm.x, bones.screen_coords.left_upper_arm.y, bones.screen_coords.left_lower_arm.x, bones.screen_coords.left_lower_arm.y, colour)
+    directx.draw_line(bones.screen_coords.left_lower_arm.x, bones.screen_coords.left_lower_arm.y, bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, colour)
+    directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger1.x, bones.screen_coords.left_hand_finger1.y, colour)
+    directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger2.x, bones.screen_coords.left_hand_finger2.y, colour)
+    directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger3.x, bones.screen_coords.left_hand_finger3.y, colour)
+    directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger4.x, bones.screen_coords.left_hand_finger4.y, colour)
+    directx.draw_line(bones.screen_coords.left_hand.x, bones.screen_coords.left_hand.y, bones.screen_coords.left_hand_finger5.x, bones.screen_coords.left_hand_finger5.y, colour)
+    directx.draw_line(bones.screen_coords.neck.x, bones.screen_coords.neck.y, bones.screen_coords.pelvis.x, bones.screen_coords.pelvis.y, colour)
+    directx.draw_line(bones.screen_coords.pelvis.x, bones.screen_coords.pelvis.y, bones.screen_coords.right_upper_leg.x, bones.screen_coords.right_upper_leg.y, colour)
+    directx.draw_line(bones.screen_coords.right_upper_leg.x, bones.screen_coords.right_upper_leg.y, bones.screen_coords.right_lower_leg.x, bones.screen_coords.right_lower_leg.y, colour)
+    directx.draw_line(bones.screen_coords.right_lower_leg.x, bones.screen_coords.right_lower_leg.y, bones.screen_coords.right_foot.x, bones.screen_coords.right_foot.y, colour)
+    directx.draw_line(bones.screen_coords.right_foot.x, bones.screen_coords.right_foot.y, bones.screen_coords.right_toe.x, bones.screen_coords.right_toe.y, colour)
+    directx.draw_line(bones.screen_coords.pelvis.x, bones.screen_coords.pelvis.y, bones.screen_coords.left_upper_leg.x, bones.screen_coords.left_upper_leg.y, colour)
+    directx.draw_line(bones.screen_coords.left_upper_leg.x, bones.screen_coords.left_upper_leg.y, bones.screen_coords.left_lower_leg.x, bones.screen_coords.left_lower_leg.y, colour)
+    directx.draw_line(bones.screen_coords.left_lower_leg.x, bones.screen_coords.left_lower_leg.y, bones.screen_coords.left_foot.x, bones.screen_coords.left_foot.y, colour)
+    directx.draw_line(bones.screen_coords.left_foot.x, bones.screen_coords.left_foot.y, bones.screen_coords.left_toe.x, bones.screen_coords.left_toe.y, colour)
+end
+
+function ESP.draw_name_esp(ent, name, colour)
+    local colour_type = type(colour)
+
+    if colour_type == 'number' then
+        colour = Colour.hex_to_float(colour)
+    elseif colour_type == 'string' then
+        colour = Colour.hex_string_to_float(colour)
+    elseif colour_type == 'table' then
+        colour = Colour.rgba_to_float(colour.r, colour.g, colour.b, colour.a)
+    end
+
+    local min, max = entities.get_model_dimensions(ent)
+    local head = ped.get_ped_bone_coords(ent, 0x796e, max.x + 0.1, 0, 0)
+
+    local sx, sy = 0, 0
+    if f(head.x, head.y, head.z, screen_ptr, screen_ptr + 4) then
+        sx, sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+    end
+    directx.draw_text(sx, sy, name, ALIGN_CENTRE, 0.3, colour)
+end
+
+function ESP.draw_health_esp(ent, width, height)
+    width, height = width or 0.033, height or 0.007
+    do 
+        local health = entity.get_entity_health(ent) - 100
+        local max_health = entity.get_entity_max_health(ent) - 100
+    
+        local health_percentage = health / max_health
+        local health_width = math.clamp(width * health_percentage, 0, width)
+    
+        local head = ped.get_ped_bone_coords(ent, 0x796e, 0.5, 0, 0)
+        local sx, sy = 0, 0
+
+        if f(head.x, head.y, head.z, screen_ptr, screen_ptr + 4) then
+            sx, sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+        end
+
+        if sx == 0 or sy == 0 then
+            return
+        end
+
+        local colour = { r=57/255, g=152/255, b=57/255, a=1 }
+        if health_percentage < 0.75 then
+            colour = { r=1, g=1, b=0, a=1 }
+        end
+
+        if health_percentage < 0.5 then
+            colour = { r=1, g=0.5, b=0, a=1 }
+        end
+
+        if health_percentage < 0.25 then
+            colour = { r=1, g=0, b=0, a=1 }
+        end
+
+        sx = sx - width / 2
+        sy = sy - height / 2
+
+        directx.draw_rect(sx, sy, width, height, { r=0, g=0, b=0, a=200/255 })
+        directx.draw_rect(sx, sy, health_width, height, colour)
+    end
+
+    do
+        local armour = ped.get_ped_armour(ent)
+        local max_armour = 50
+    
+        local armour_percentage = armour / max_armour
+        local armour_width = math.clamp(width * armour_percentage, 0, width)
+    
+        local head = ped.get_ped_bone_coords(ent, 0x796e, 0.5, 0, 0)
+        local sx, sy = 0, 0
+
+        if f(head.x, head.y, head.z, screen_ptr, screen_ptr + 4) then
+            sx, sy = memory.read_float(screen_ptr), memory.read_float(screen_ptr + 4)
+        end
+
+        if sx == 0 or sy == 0 then
+            return
+        end
+
+        local colour = { r=62/255, g=118/255, b=147/255, a=1 }
+        if armour_percentage < 0.75 then
+            colour = { r=1, g=1, b=0, a=1 }
+        end
+
+        if armour_percentage < 0.5 then
+            colour = { r=1, g=0.5, b=0, a=1 }
+        end
+
+        if armour_percentage < 0.25 then
+            colour = { r=1, g=0, b=0, a=1 }
+        end
+
+        sx = sx - width / 2
+        sy = sy + height / 2
+
+        directx.draw_rect(sx, sy, width, height, { r=0, g=0, b=0, a=200/255 })
+        directx.draw_rect(sx, sy, armour_width, height, colour)
+    end
+end
+
+return ESP

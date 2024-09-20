@@ -1,0 +1,715 @@
+pluto_use class, new
+
+local T = require('languages.trans')
+local stats_spoofing = require('offsets.stats_spoofing')
+local script_settings = require('flags.script_settings')
+local sg = require('utils.script_globals')
+local org_flags = require('flags.organisation')
+
+enum eOutOfSightFlags begin
+    OutOfSightEnabled = 1 << 0,
+    OutOfSightActive = 1 << 1,
+    OutOfSightHelpDisplayed = 1 << 2,
+    DamagedPlayerOutsideOrganisation = 1 << 3,
+end
+
+class Module
+    mroot = menu.my_root()
+    sroot = menu.shadow_root()
+    sg = sg
+    g = sg.all
+    utils = require('utils.utils')
+    handler = require('utils.handler')
+    se = require('utils.se')
+    ent = memory.alloc_int()
+    impact_coords = v3()
+    ent_buffer = memory.alloc_int()
+    weapon_buffer = memory.alloc_int()
+    gamer_handle = memory.alloc(13*8)
+    sx_ptr = memory.alloc_int()
+    sy_ptr = memory.alloc_int()
+    money_ptr = memory.alloc_int()
+    stand_pos_spoof = menu.ref_by_command_name('spoofpos')
+    stand_spoofed_pos = menu.ref_by_command_name('spoofedposition')
+    invisibility = menu.ref_by_command_name('invisibility')
+    tune = menu.ref_by_path('Vehicle>Los Santos Customs>Upgrade')
+    stand_lock_time = menu.ref_by_path('World>Atmosphere>Clock>Lock Time')
+    stand_time_midnight = menu.ref_by_path('World>Atmosphere>Clock>Midnight')
+    stand_smooth_transition = menu.ref_by_path('World>Atmosphere>Clock>Smooth Transition')
+    speed_up_dialing = menu.ref_by_path('Online>Enhancements>Speed Up Dialing')
+    call_pv = menu.ref_by_path('Vehicle>Current Personal Vehicle>Teleport To Me & Drive')
+
+    masks = {
+        unlock_arcades = 0x14E,
+        request_nano_drone = 0x1C00000,
+        request_supplies = 0x1000, -- 1 << 12
+        vehicle_gifting = 0x1000008,
+        hold_up_force_robbery = 0x6,
+        is_bad_sport = 0x2, -- 1 << 1
+        is_cheater = 0x8, -- 1 << 3
+        vehicle_clear_all_bits = 0x7FFFFFFF,
+        destory_vehicle_bits = 0x10041,
+        beast = 0x20000000, -- 1 << 29
+        neon_layout_all = 0x1F0000000,
+        neon_layout_front = 0x10000000, -- 1 << 28
+        neon_layout_back = 0x20000000, -- 1 << 29
+        neon_layout_sides = 0x1C0000000,
+        neon_layout_front_and_back = 0x30000000,
+        neon_layout_front_and_sides = 0x1D0000000,
+        neon_layout_back_and_sides = 0x1E0000000,
+        using_drone = 0x4000000, -- 1 << 26
+        using_orbital_cannon = 0x1, -- 1 << 0,
+        clear_unlocked_arcade = 0x1E,
+        arcade_wonderama = 0x2, -- 1 << 1
+        arcade_eight_bit = 0x4, -- 1 << 2
+        arcade_garage_unlock = 0x1, -- 1 << 0
+        arcade_mct_unlock = 0x10000018, -- 1 << 3 | 1 << 4 | 1 << 28
+        arcade_weapon_workshop_unlock = 0x800, -- 1 << 11
+        arcade_unlock_nano_drone_station = 0x8000000, -- 1 << 27
+        arcade_setup = 0x1000004,
+        nightclub_cleared = 0x2, -- 1 << 1
+        nightclub_office_lights = 0x20000, -- 1 << 17
+        nightclub_dry_ice = 0x800000, -- 1 << 23
+        nightclub_max_upgrades = 0x7FFEFFFD,
+        agency_trigger_collection = 0x20, -- 1 << 5
+        agency_clear_art = 0x7, -- 1 << 0 | 1 << 1 | 1 << 2
+        gunshop_bypass_restrictions = 0x184,
+    }
+
+    TS = 'fm_content_taxi_driver'
+    NCS = 'am_mp_nightclub'
+    ARS = 'am_mp_arcade'
+    AGS = 'am_mp_fixer_hq'
+    HUS = 'am_hold_up'
+    FMS = 'freemode'
+    BJS = 'blackjack'
+    FMMC20 = 'fm_mission_controller_2020'
+    IHS = 'heist_island_planning'
+    HTBS = 'am_hunt_the_beast'
+    GC = 'am_gang_call'
+    AS = 'appsmuggler'
+    FMCSS = 'fm_content_smuggler_sell'
+
+    block_entities = {
+        util.joaat('prop_ld_ferris_wheel'),
+        util.joaat('p_spinning_anus_s'),
+        util.joaat('prop_windmill_01'),
+        util.joaat('prop_staticmixer_01'),
+        util.joaat('prop_towercrane_02a'),
+        util.joaat('des_scaffolding_root'),
+        util.joaat('stt_prop_stunt_bowling_ball'),
+        util.joaat('stt_prop_stunt_soccer_ball'),
+        util.joaat('prop_juicestand'),
+        util.joaat('stt_prop_stunt_jump_l')
+    }
+
+    ent_proofs = memory.alloc(8)
+
+    function __construct()
+
+    end
+
+    inline function control_failure()
+        if self.utils.settings.suppress_request_control_failures then return end
+        util.display_error(T'Failed to get control of entity')
+    end
+
+    inline function get_bounty(pid)
+        return players.get_bounty(pid) or 0
+    end
+
+    inline function get_bounty_reward(pid)
+        return memory.read_int(self.g.PlayerBountyReward:g(pid))
+    end
+
+    inline function set_bounty(pid, amount, state)
+        local bounty = self.g.PlayerBounty:g(pid)
+        memory.write_byte(bounty, state ? 1 : 0)
+        memory.write_int(bounty + 8, amount)
+    end
+
+    inline function set_bounty_reward(pid, amount)
+        memory.write_int(self.g.PlayerBountyReward:g(pid), amount)
+    end
+
+    inline function collect_bounty()
+        memory.write_int(self.g.BountyTimer:g(), 2880000)
+        memory.write_byte(self.g.BountyLocal:g(), -1)
+    end
+
+    inline function trigger_instant_bst()
+        local bst_local = memory.script_local(table.unpack(self.g.InstantBSTLocal))
+        local bst = self.g.InstantBST:g()
+
+        if bst_local ~= 0 then
+            memory.write_byte(bst, 1)
+            memory.write_int(bst_local, 0)
+        else
+            memory.write_byte(bst, 1)
+        end
+    end
+
+    inline function set_stealth_mode(state)
+        local addr = self.g.StealthMode:g()
+        memory.write_short(
+            addr, 
+            memory.bits:bool(memory.read_short(addr), 0xA, state)
+        )
+    end
+
+    inline function set_invisibility(state)
+        memory.write_byte(self.g.Invisibility:g(), state ? 1 : 0)
+    end
+
+    inline function set_interior_state(state)
+        local addr = self.g.SpoofInteriorState:g()
+        memory.write_short(
+            addr, 
+            memory.bits:bool(memory.read_short(addr), 1 << 12, state)
+        )
+    end
+
+    inline function set_interior_state_1(state)
+        memory.write_byte(self.g.SpoofInteriorState1:g(), state ? 1 : -1)
+    end
+
+    inline function set_blip_coords(x, y, z, state)
+        local addr = self.g.InteriorBlipX:g()
+        v3.set(addr, x, y, z)
+        self:set_interior_state_1(state)
+    end
+
+    inline function get_blip_x()
+        return memory.read_float(self.g.InteriorBlipX:g())
+    end
+
+    inline function get_blip_y()
+        return memory.read_float(self.g.InteriorBlipY:g())
+    end
+
+    inline function get_blip_z()
+        return memory.read_float(self.g.InteriorBlipZ:g())
+    end
+
+    inline function set_bribe_authorities(state)
+        local addr = self.g.BribeAuthorities:g()
+        memory.write_byte(
+            addr,
+            memory.bits:bool(memory.read_byte(addr), 0x51, state)
+        )
+    end
+
+    inline function set_off_the_radar_timer(time)
+        time = time or network.get_network_time()
+        memory.write_int(self.g.OtrGhostTimer:g(), time)
+    end
+
+    inline function set_is_in_interior(state)
+        memory.write_byte(self.g.BecomeInterior:g(), state ? 1 : 0)
+    end
+
+    inline function set_pause_menu(state)
+        memory.write_byte(self.g.PauseMenuActive:g(), state ? 1 : 0)
+    end
+
+    inline function set_out_of_sight(state)
+        local bf = self.g.OutOfSight:g()
+        local localplayer = players.localplayer()
+        local coords = localplayer:get_offset_from_entity_in_world_coords(0, 0, 0)
+        local value = memory.read_byte(bf)
+
+        v3.set(bf + 8, coords.x, coords.y, coords.z)
+
+        if state then
+            memory.write_byte(bf, value | (eOutOfSightFlags.OutOfSightEnabled | eOutOfSightFlags.OutOfSightActive))
+        else
+            memory.write_byte(bf, 0)
+        end
+    end
+
+    inline function disable_bst()
+        local bst = self.g.DisableBST:g()
+        if memory.read_byte(bst) ~= 0 then
+            memory.write_byte(bst, memory.bits:set(memory.read_byte(bst), 0b00000111))
+        end
+    end
+
+    inline function set_off_the_radar(state, ghost)
+        local toggle = self.g.LegitOffTheRadar:g()
+        local timer = self.g.OtrGhostTimer:g()
+        local force = self.g.AbilitiesBitfield:g()
+
+        memory.write_int(timer, network.get_network_time())
+        memory.write_byte(toggle, state ? 1 : 0)
+        memory.write_byte(
+            force,
+            memory.bits:bool(memory.read_byte(force), 0x6, ghost)
+        )
+    end
+
+    inline function is_bad_sport(pid)
+        local stats = self.g.StatSpoofing:g(pid) + stats_spoofing.player_reports
+        return memory.bits:isset(memory.read_byte(stats), self.masks.is_bad_sport)
+    end
+
+    inline function is_cheater(pid)
+        local stats = self.g.StatSpoofing:g(pid) + stats_spoofing.player_reports
+        return memory.bits:isset(memory.read_byte(stats), self.masks.is_cheater)
+    end
+
+    inline function set_is_bad_sport(state)
+        local stats = self.g.StatSpoofing:g() + stats_spoofing.player_reports
+        memory.write_byte(
+            stats,
+            memory.bits:bool(memory.read_byte(stats), 0x2, state)
+        )
+    end
+
+    inline function set_is_cheater(state)
+        local stats = self.g.StatSpoofing:g() + stats_spoofing.player_reports
+        memory.write_byte(
+            stats,
+            memory.bits:bool(memory.read_byte(stats), 0x8, state)
+        )
+    end
+
+    inline function is_using_orbital_cannon(pid)
+        return memory.bits:isset(
+            memory.read_int(self.g.OrbitalCannon:g(pid)),
+            self.masks.using_orbital_cannon
+        )
+    end
+
+    inline function set_orbital_cannon(state)
+        memory.write_byte(self.g.OrbitalCannon:g(), state ? 1 : 0)
+    end
+
+    inline function is_using_drone(pid)
+        return memory.bits:isset(
+            memory.read_int(self.g.PlayerUsingDrone:g(pid)),
+            self.masks.using_drone
+         )
+    end
+
+    inline function get_pv_network_id(pid)
+        return memory.read_int(self.g.PlayerPVNetworkID:g(pid))
+    end
+
+    inline function set_pv_network_id(pid, network_id)
+        memory.write_int(self.g.PlayerPVNetworkID:g(pid), network_id)
+    end
+
+    inline function get_pv_from_network_id(pid)
+        return network.net_to_veh(self:get_pv_network_id(pid))
+    end
+
+    inline function get_organisation_id(pid)
+        return memory.read_int(self.g.OrganisationBase:g(pid) + org_flags.boss_id)
+    end
+
+    inline function set_organisation_id(pid, id)
+        memory.write_int(self.g.OrganisationBase:g(pid) + org_flags.boss_id, id)
+    end
+
+    inline function get_total_organisation_goons()
+        return memory.read_int(self.g.OrganisationBase:g() + org_flags.total_goons)
+    end
+
+    inline function spoof_organisation_goon_slot(slot, pid)
+        if slot < 0 or slot > 7 then return end
+        memory.write_int(self.g.OrganisationBase:g() + org_flags.goon_slots_begin + (slot * 8), pid)
+    end
+
+    inline function get_organisation_goon_in_slot(slot)
+        if slot < 0 or slot > 7 then return end
+        return memory.read_int(self.g.OrganisationBase:g() + org_flags.goon_slots_begin + (slot * 8))
+    end
+
+    inline function trigger_organisation_mission_with_id(mission_id, success_callback, failure_callback)
+        success_callback = success_callback or function() end
+        failure_callback = failure_callback or function() end
+        local base = self.g.OrganisationBase:g()
+        
+        memory.write_int(
+            base + org_flags.mission_id_trigger,
+            mission_id
+        )
+
+        local timeout = os.time() + 8
+        repeat
+            if os.time() > timeout then
+                if type(failure_callback) == 'function' then
+                    failure_callback()
+                end
+                return
+            end
+            util.yield_once()
+        until memory.read_int(base + org_flags.script_id) ~= -1 and memory.read_int(base + org_flags.unk_state2) == 0
+
+        if type(success_callback) == 'function' then
+            success_callback()
+        end
+    end
+
+    inline function quit_organisation_mission()
+        local base = self.g.OrganisationBase:g()
+        memory.write_int(base + org_flags.mission_id_trigger, 0xFFFFFFFF)
+        memory.write_int(base + org_flags.active_mission_id, 0xFFFFFFFF)
+        memory.write_int(base + org_flags.unk_state, 0xFFFFFFFF)
+        memory.write_int(base + org_flags.unk_state2, 0xFFFFFFFF)
+        memory.write_int(base + org_flags.script_id, 0xFFFFFFFF)
+    end
+
+    inline function get_organisation_mission_id()
+        return memory.read_int(self.g.OrganisationBase:g() + org_flags.active_mission_id)
+    end
+
+    inline function get_organisation_mission_type()
+        return memory.read_int(self.g.OrganisationBase:g() + org_flags.mission_type)
+    end
+
+    inline function get_organisation_script_id()
+        return memory.read_int(self.g.OrganisationBase:g() + org_flags.script_id)
+    end
+
+    inline function get_organisation_instance_id()
+        return memory.read_int(self.g.OrganisationBase:g() + org_flags.instance_id)
+    end
+
+    inline function send_attacker(pid, attacker, level=0)
+        local atk = self.g.GangCallAttacker:g(players.user())
+        if self.utils:is_script_running(self.GC) then
+            util.display_error(T:T('%s is already active', attacker))
+            return
+        end
+
+        switch attacker do
+            case 'Mugger':
+                memory.write_int(atk + 0x468, memory.bits:set(memory.read_byte(atk + 0x468), 1 << 0))
+                memory.write_int(atk + 0x470, pid)
+                break
+            case 'Mercenaries':
+                memory.write_int(atk + 0x468, memory.bits:set(memory.read_byte(atk + 0x468), 1 << 1))
+                memory.write_int(atk + 0x470, pid)
+                break
+            case 'Strike Team':
+                memory.write_int(atk + 0x5A8, pid)
+                memory.write_int(atk + 0x470, pid)
+                memory.write_int(atk + 0x5C8, level)
+                memory.write_int(atk + 0x5B0, network.get_network_time())
+                memory.write_int(atk + 0x5B8, 1)
+                memory.write_int(atk + 0x468, memory.bits:set(memory.read_byte(atk + 0x468), 1 << 1))
+                break
+        end
+    end
+
+    inline function get_instance_and_team_id(pid)
+        local pped = entities.handle_to_pointer(player.get_player_ped(pid))
+        if pped ~= 0 then
+            local net_obj = memory.read_long(pped + 0xD0)
+            if net_obj ~= 0 then
+                return memory.read_byte(net_obj + 0x46A), memory.read_byte(net_obj + 0x46B)
+            end
+        end
+    end
+
+    inline function set_instance_and_team_id(pid, instance, team)
+        local pped = entities.handle_to_pointer(player.get_player_ped(pid))
+        if pped ~= 0 then
+            local net_obj = memory.read_long(pped + 0xD0)
+            if net_obj ~= 0 then
+                memory.write_byte(net_obj + 0x46A, instance)
+                memory.write_byte(net_obj + 0x46B, team)
+            end
+        end
+    end
+
+    inline function remove_money(amount)
+        amount = amount or 0
+        memory.write_int(self.g.SinRemoverTimer:g(), 0)
+        memory.write_int(self.g.SinRemover:g(), amount)
+    end
+
+    inline function set_organisation_name(name)
+        local org = self.g.OrganisationBase:g()
+        memory.write_string(org + 0x398, name)
+    end
+
+    inline function get_organisation_name()
+        return memory.read_string(self.g.OrganisationBase:g() + 0x398)
+    end
+
+    inline function get_interior()
+        return memory.read_byte(self.g.Interior:g())
+    end
+
+    inline function set_interior(interior_id)
+        local interior = self.g.Interior:g()
+        if memory.read_int(interior) == interior_id then return end
+        memory.write_int(interior, 0)
+        util.yield(50)
+        memory.write_byte(interior, interior_id)
+    end
+
+    inline function set_hidden_from_player_list(state)
+        if not util.can_continue() then return end
+        try
+            local stats = self.g.StatSpoofing:g()
+            memory.write_int(stats + stats_spoofing.hide_from_player_list, state ? 8 : 9)
+        catch e then
+            -- do nothing, this is just to prevent memory error when changing sessions
+        end
+    end
+
+    inline function get_active_crew_rank(pid)
+        pid = pid or players.user()
+        return memory.read_string(self.g.StatSpoofing:g(pid) + stats_spoofing.crew_rank_string)
+    end
+
+    inline function stats_set_total_money(amount)
+        if not util.can_continue() then return end
+        local stats = self.g.StatSpoofing:g()
+        memory.write_int(stats + stats_spoofing.total_money, amount)
+    end
+
+    inline function stats_get_total_money(amount)
+        if not util.can_continue() then return end
+        return memory.read_int(self.g.StatSpoofing:g() + stats_spoofing.total_money)
+    end
+
+    inline function stats_set_wallet(amount)
+        if not util.can_continue() then return end
+        local stats = self.g.StatSpoofing:g()
+        memory.write_int(stats + stats_spoofing.wallet, amount)
+    end
+
+    inline function stats_get_wallet()
+        if not util.can_continue() then return end
+        return memory.read_int(self.g.StatSpoofing:g() + stats_spoofing.wallet)
+    end
+
+    inline function stats_set_rp(amount)
+        if not util.can_continue() then return end
+        local stats = self.g.StatSpoofing:g()
+        memory.write_int(stats + stats_spoofing.rp, amount)
+    end
+
+    inline function stats_get_rp()
+        if not util.can_continue() then return end
+        return memory.read_int(self.g.StatSpoofing:g() + stats_spoofing.rp)
+    end
+
+    inline function stats_set_rank(rank)
+        if not util.can_continue() then return end
+        local stats = self.g.StatSpoofing:g()
+        local rp = util.get_rp_required_for_rank(rank)
+        memory.write_int(stats + stats_spoofing.rp, rp)
+        memory.write_int(stats + stats_spoofing.rank, rank)
+    end
+
+    inline function stats_get_rank()
+        if not util.can_continue() then return end
+        return memory.read_int(self.g.StatSpoofing:g() + stats_spoofing.rank)
+    end
+
+    inline function stats_set_kills(amount)
+        if not util.can_continue() then return end
+        local stats = self.g.StatSpoofing:g()
+        memory.write_int(stats + stats_spoofing.player_kills, amount)
+    end
+
+    inline function stats_get_kills()
+        if not util.can_continue() then return end
+        return memory.read_int(self.g.StatSpoofing:g() + stats_spoofing.player_kills)
+    end
+
+    inline function stats_set_deaths(amount)
+        if not util.can_continue() then return end
+        local stats = self.g.StatSpoofing:g()
+        memory.write_int(stats + stats_spoofing.player_deaths, amount)
+    end
+
+    inline function stats_get_deaths()
+        if not util.can_continue() then return end
+        return memory.read_int(self.g.StatSpoofing:g() + stats_spoofing.player_deaths)
+    end
+
+    inline function stats_set_kd(amount)
+        if not util.can_continue() then return end
+        local stats = self.g.StatSpoofing:g()
+        memory.write_float(stats + stats_spoofing.player_kd, amount)
+    end
+
+    inline function stats_get_kd()
+        if not util.can_continue() then return end
+        return memory.read_float(self.g.StatSpoofing:g() + stats_spoofing.player_kd)
+    end
+
+    inline function stats_set_job_points(amount)
+        if not util.can_continue() then return end
+        local jp = self.g.JobPoints:g()
+        memory.write_int(jp, amount)
+    end
+
+    inline function stats_get_job_points()
+        if not util.can_continue() then return end
+        return memory.read_int(self.g.JobPoints:g())
+    end
+
+    inline function set_ballistic_armour_blip(state)
+        local blip = self.g.BallisticArmorBlip:g()
+        memory.write_int(blip, state ? (('WEAPON_MINIGUN'):joaat()) : 0)
+    end
+
+    inline function trigger_transaction(hash, amount, category)
+        local base = self.g.TriggerTransaction:g()
+        category = category or util.joaat('CATEGORY_SERVICE_WITH_THRESHOLD')
+        memory.write_int(base + 0x8, math.max_int - 1)
+        memory.write_int(base + 0x10, amount)
+        memory.write_int(base + 0x18, hash)
+        memory.write_int(base + 0x28, category)
+        memory.write_int(base + 0x30, 0)
+        memory.write_int(base + 0x38, math.max_int)
+        memory.write_byte(base, 1)
+        util.yield_once()
+        memory.write_byte(base, 0)
+    end
+
+    inline function new_session_msg()
+        util.display_info(T'Join a new session to apply changes')
+    end
+
+    inline function gift_spawned_vehicle(pid)
+        local ref = menu.player_root(pid):refByRelPath('Friendly>Gift Spawned Vehicle')
+        if ref:isValid() then
+            ref:trigger()
+            return true
+        end
+        return false
+    end
+
+    inline function register_as_boss(boss_type)
+        local org = self.g.OrganisationBase:g() + 0x50
+        local org_type = org + 0xD68
+
+        if memory.read_int(org) == -1 then
+            memory.write_int(org, players.user())
+            if boss_type == 'CEO' then
+                memory.write_int(org_type, 0)
+            elseif boss_type == 'MC' then
+                memory.write_int(org_type, 1)
+            end
+        else
+            memory.write_int(org, -1)
+            self:register_as_boss(boss_type)
+        end
+    end
+
+    function get_entity_proofs(ent)
+        entity.get_entity_proofs(
+            ent, 
+            self.ent_proofs,
+            self.ent_proofs + 1,
+            self.ent_proofs + 2,
+            self.ent_proofs + 3,
+            self.ent_proofs + 4,
+            self.ent_proofs + 5,
+            self.ent_proofs + 6,
+            self.ent_proofs + 7
+        )
+
+        local proofs = {
+            bulletproof = false,
+            fireproof = false,
+            explosionproof = false,
+            collisionproof = false,
+            meleeproof = false,
+            steamproof = false,
+            unknownproof = false,
+            waterproof = false
+        }
+
+        proofs['bulletproof'] = memory.read_byte(self.ent_proofs) == 1
+        proofs['fireproof'] = memory.read_byte(self.ent_proofs + 1) == 1
+        proofs['explosionproof'] = memory.read_byte(self.ent_proofs + 2) == 1
+        proofs['collisionproof'] = memory.read_byte(self.ent_proofs + 3) == 1
+        proofs['meleeproof'] = memory.read_byte(self.ent_proofs + 4) == 1
+        proofs['steamproof'] = memory.read_byte(self.ent_proofs + 5) == 1
+        proofs['unknownproof'] = memory.read_byte(self.ent_proofs + 6) == 1
+        proofs['waterproof'] = memory.read_byte(self.ent_proofs + 7) == 1
+
+        return proofs
+    end
+
+    function set_entity_proofs(ent, proofs)
+        entity.set_entity_proofs(
+            ent,
+            proofs['bulletproof'] and true or false,
+            proofs['fireproof'] and true or false,
+            proofs['explosionproof'] and true or false,
+            proofs['collisionproof'] and true or false,
+            proofs['meleeproof'] and true or false,
+            proofs['steamproof'] and true or false,
+            proofs['unknownproof'] and true or false,
+            proofs['waterproof'] and true or false
+        )
+    end
+
+    inline function orbital_force_lose_target()
+        local addr = self.g.PauseMenuActive:g()
+        memory.write_byte(addr, 1)
+        util.yield(50)
+        memory.write_byte(addr, 0)
+    end
+
+    inline function is_yacht_owned(pid)
+        return memory.read_byte(self.g.YachtOwned:g(pid)) == 1
+    end
+
+    inline function get_yacht_name(pid)
+        return memory.read_string(self.g.YachtName:g(pid))
+    end
+
+    inline function set_yacht_name(name, pid)
+        pid = pid or players.user()
+        memory.write_string(self.g.YachtName:g(pid), name)
+    end
+
+    inline function add_money_to_nc_safe(amount, ignore_limits=false)
+        amount = amount or 0
+        local amount_local = memory.script_local(table.unpack(self.g.NightclubProductionAmount))
+        local transaction_state = memory.script_local(table.unpack(self.g.NightclubSafeTransactionState))
+        local status_bitfield = self.g.NightclubSafeStatusBitfield:g()
+        local safe_state = self.g.NightclubSafeState:g()
+        local safe_value = memory.read_int(self.g.NightclubSafeValue:g())
+
+        if not ignore_limits then
+            if safe_value > 300000 then
+                amount = math.max_int - safe_value + 2
+            elseif safe_value + amount > 300000 then
+                return
+            elseif safe_value == math.min_int then
+                amount = math.max_int
+            elseif safe_value < 0 then
+                amount = safe_value * -1
+            end
+        end
+
+        memory.write_int(amount_local, amount)
+        memory.write_int(amount_local + 8, -amount)
+        memory.write_int(status_bitfield, 0)
+        memory.write_int(transaction_state, 2)
+        memory.write_int(safe_state, 2)
+        util.yield(3000)
+    end
+
+    inline function trigger_casino_card_collect(amount=5000)
+        if amount < 0 or amount > 5000 then amount = 5000 end
+        local chips = self.g.CasinoCardsChipsAmount:g()
+        memory.write_int(self.g.CasinoChipsIncrease:g(), 100)
+        memory.write_int(chips, amount)
+        memory.write_byte(chips + 8, 1)
+    end
+end
+
+return Module

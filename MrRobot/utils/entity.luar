@@ -1,0 +1,74 @@
+pluto_use class
+
+class Entity
+    function __construct(e)
+        self.entity = e
+        self.ptr = entities.handle_to_pointer(self.entity)
+        self.max_health = (entity.does_entity_exist(e)) ? self.get_entity_max_health() : 0
+        self.impact_coords = v3()
+        self.cped = entities.cped_from_ped(self.entity)
+    end
+
+    function __index(key)
+        local original_key = key
+        if key:startswith('__') then
+            return rawget(Entity, key)
+        else
+            if not key:match('^[A-Z_]+_[A-Z_]+_[A-Z_]+$') then
+                if key:match('^[a-z_]+') then
+                    key = key:upper()
+                end
+            end
+
+            local func = ENTITY[key] or PED[key] or WEAPON[key] or FIRE[key] or TASK[key] or NETWORK[key] or nil
+            local func_type = type(func)
+
+            if func ~= nil and func_type == 'function' then
+                if self.entity ~= 0 then
+                    return function(...)
+                        local args = {...}
+                        table.remove(args, 1)
+
+                        try
+                            if #args == 0 then
+                                return func(self.entity)
+                            else
+                                return func(self.entity, table.unpack(args))
+                            end
+                        catch e then
+                            util.log($'Error calling {key} with {#args} arguments ({table.concat(args, ', ')}): {e}')
+                        end
+                    end
+                end
+            else
+                local func = rawget(Entity, original_key)
+                if type(func) == 'function' then
+                    return func
+                else
+                    return function(...) return 0 end
+                end
+            end
+        end
+    end
+
+    function __gc()
+        self.entity = nil
+        self.ptr = nil
+    end
+
+    inline function get_health_percent()
+        local max_health = self:get_entity_max_health() - 100
+        local health = self:get_entity_health() - 100
+        return (health / max_health) * 100
+    end
+
+    inline function valid()
+        return self.entity ~= 0 and entity.does_entity_exist(self.entity)
+    end
+
+    inline function request_control()
+        return entities.request_control(self.entity)
+    end
+end
+
+return Entity

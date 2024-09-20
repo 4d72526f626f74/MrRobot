@@ -1,0 +1,12 @@
+return {
+    hide_from_player_list = 0x0,
+    rp = 0x8,
+    rank = 0x30,
+    wallet = 0x18,
+    total_money = 0x1C0,
+    player_kd = 0xD0,
+    player_kills = 0xE0,
+    player_deaths = 0xE8,
+    player_reports = 0x198,
+    crew_rank_string = 0x38,
+}

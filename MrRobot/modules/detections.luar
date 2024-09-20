@@ -1,0 +1,425 @@
+pluto_use class
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+local labels = require('utils.labels')
+
+class Detections extends Module
+    function __construct(root)
+        self.root = root
+        self.entropy_threshold = 2.4
+
+        self.plate_detection = self.root:list(T'Modded License Plate', {}, '')
+        self.show_entropy = self.plate_detection:toggle(T'Show Entropy', {}, T'Show the entropy of license plates', function(state) end, true)
+        self.entropy_detection = self.plate_detection:toggle(T'Entropy Detection', {}, T'Will entropy be used in the detection?', function(state) end, true)
+
+        self.plate_detection:divider('')
+        self.plate_detection:toggle_loop(T'Modded License Plate', {}, T'Detects players that have a modded license plate', function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) then
+                    local player_ped = player.get_player_ped(pid)
+                    local veh = ped.get_vehicle_ped_is_using(player_ped, false)
+                    local should_detect = true
+
+                    if veh ~= 0 then
+                        local plate = vehicle.get_vehicle_number_plate_text(veh)
+                        local bitset = decorator.decor_get_int(veh, 'MPBitset')
+                        for ({0x8, 0xC00, 0x2800, 0x2C00, 0x100000, 0x1000000}) as mask do if bitset & mask == mask then should_detect = false end end
+                        if decorator.decor_get_bool(veh, 'CreatedByPegasus') then should_detect = false end
+
+                        local entropy = self:calculate_entropy(plate)
+                        local diff = (entropy - self.entropy_threshold) * 100
+
+                        if self.show_entropy.value then
+                            util.draw_debug_text($'{players.get_name(pid)}: {entropy} | {diff}% ({plate} | {self:check_plate(plate)})')
+                        end
+
+                        if should_detect then
+                            if not self:is_plate_valid(plate) then
+                                players.add_detection(pid, T'Modded Plate')
+                            else
+                                if self.entropy_detection.value then
+                                    if diff >= 100 then
+                                        players.add_detection(pid, T'Modded Plate (Very High Entropy)', TOAST_DEFAULT, 80)
+                                    elseif diff >= 75 then
+                                        players.add_detection(pid, T'Modded Plate (High Entropy)', TOAST_DEFAULT, 50)
+                                    elseif diff >= 50 then
+                                        players.add_detection(pid, T'Modded Plate (Moderate Entropy)', TOAST_DEFAULT, 0)
+                                    end
+                                end
+
+                                if not self:check_plate(plate) then
+                                    players.add_detection(pid, T'Modded Plate (Consecutive/Duplicates)', TOAST_DEFAULT, 50)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.plate_detection:slider_float(T'Entropy Threshold', {}, T'The entropy threshold for a license plate to be considered modded', 0.0, 1000, self.entropy_threshold * 100, 10, function(value)
+            self.entropy_threshold = value / 100
+        end)
+
+        self.anti_detections = self.root:list(T'Anti-Detections', {$'rdantidetections'})
+        self.silent_aimbot = self.root:list(T'[BETA] Silent Aim', {$'silent_aimbot'})
+        
+        self.modded_repair = self.anti_detections:toggle_loop(T'Modded Repair/Upgrade', {}, T'Prevent modded vehicle repairs and upgrade detections from detecting you', function()
+            local interior = self.g.InteriorID:g()
+            local veh = players.localplayer_vehicle()
+            if veh:valid() then
+                memory.write_byte(interior, 1)
+            end
+        end)
+
+        self.spawned_vehicle = self.anti_detections:toggle_loop(T'Spawned Vehicle', {}, T'Prevent spawned vehicle detections from detecting you', function()
+            local veh = players.localplayer_vehicle()
+            if veh:valid() then
+                decorator.decor_set_bool(veh.entity, 'CreatedByPegasus', true)
+            end
+        end)
+
+        self.root:divider('')
+
+        self.root:toggle_loop(T'Vehicle Spoofing', {}, T'Detects when a player is spoofing your personal vehicle', function()
+            local player_id = players.user()
+            local network_id = self:get_pv_network_id(player_id)
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= player_id then
+                    if self:get_pv_network_id(pid) == network_id then
+                        players.add_detection(pid, T'Vehicle Spoofing')
+                    end
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Position Spoofing', {}, T'Detects when a player is spoofing their position (detection is not 100% accurate)', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= player_id then
+                    local base = self.g.PlayerBase:g(pid)
+                    local pos = v3(memory.read_float(base + 0x678), memory.read_float(base + 0x680), memory.read_float(base + 0x684))
+                    local current_pos = players.get_position(pid)
+
+                    if pos:distance(current_pos) > 1000.0 then
+                        players.add_detection(pid, T'Position Spoofing')
+                    end
+                end
+            end
+
+            util.yield(2000)
+        end)
+
+        self.bst_detection = self.root:toggle(T'BST', {}, T'Detect players using BST', function(state)
+            local size = 5
+            local event_data = memory.alloc(size * 8)
+
+            util.create_tick_handler(function()
+                if not self.bst_detection.value then
+                    return false
+                end
+
+                for i = 0, script.get_number_of_events(1) do
+                    local event = script.get_event_at_index(1, i)
+                    if event == 174 and script.get_event_data(1, i, event_data, size) then
+                        local event_hash = memory.read_int(event_data)
+                        local pid = memory.read_int(event_data + (1 * 8))
+            
+                        if event_hash == -584633745 then
+                            local args = {}
+                            for i = 1, size do
+                                args[i] = memory.read_int(event_data + (i * 8))
+                            end
+
+                            util.toast(T:T('%s has activated BST', players.get_name(pid)), TOAST_DEFAULT, 50)
+                            print(table.concat(args, ', '))
+                        end
+                    end
+                end
+            end)
+        end)
+
+        self.ballisitc_armor_blip_spoofing = self.root:toggle_loop(T'Ballistic Armor Blip Spoofing', {}, T'Detects when a player is spoofing their ballistic armor blip', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= player_id then
+                    local current_weapon = weapon.get_current_ped_weapon(player.get_player_ped(pid), self.weapon_buffer, true)
+                    local blip = self.g.BallisticArmorBlip:g(pid)
+                    if memory.read_int(blip) == 0x42BF8A85 and current_weapon ~= 0x42BF8A85 then
+                        players.add_detection(pid, T'Ballistic Armor Blip Spoofing')
+                    end
+                end
+            end
+        end)
+
+        self.blip_pos_spoofing = self.root:toggle_loop(T'Blip Position Spoofing', {}, T'Detects when a player is spoofing their blip position', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= player_id then
+                    local interior_state = self.g.SpoofInteriorState1:g(pid)
+                    local blip_pos = self.g.InteriorBlipX:g(pid)
+                    local base = self.g.PlayerBase:g(pid)
+                    local real_pos = players.get_position(pid)
+                    local pos = v3.new(v3.get(blip_pos))
+                    
+                    if memory.read_byte(interior_state) == 1 then
+                        if pos:distance(real_pos) ~= 0.0 then
+                            players.add_detection(pid, T'Blip Position Spoofing')
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.spoofing_as_interior = self.root:toggle_loop(T'Spoofing As Interior', {}, T'Detects when a player is spoofing as an interior', function()
+            local player_id = players.user()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= player_id then
+                    local is_interior = self.g.BecomeInterior:g(pid)
+                    if not players.is_in_interior(pid) and memory.bits:isset(memory.read_byte(is_interior), 1 << 0) then
+                        players.add_detection(pid, T'Spoofing As Interior')
+                    end
+                end
+            end
+        end)
+
+        self.modded_rank = self.root:toggle_loop(T'Modded Rank', {}, T'Detects when a player has a modded rank', function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) then
+                    local rank = players.get_rank(pid)
+                    if rank > 1500 then
+                        players.add_detection(pid, T'Modded Rank')
+                    end
+                end
+            end
+        end)
+
+        self.dev = self.root:toggle_loop(T'MrRobot', {}, T'Detects if the player is the script developer', function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= players.user() then
+                    if self.utils:is_dev(pid) then
+                        local name = players.get_name(pid)
+                        if name == 'UndiscoveredPlayer' then continue end
+                        players.add_detection(pid, T'MrRobot Developer')
+                    end
+                end
+            end
+        end)
+        self.dev.value = true
+
+        self.root:toggle_loop(T'Modded Anti-Lock On', {}, T'Detects if a players vehicle has anti-lock on capabilities without imani missile lock-on jammer', function()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) then
+                    local player_ped = player.get_player_ped(pid)
+                    local veh = ped.get_vehicle_ped_is_using(player_ped, false)
+                    if veh ~= 0 then
+                        local ptr = entities.handle_to_pointer(veh)
+                        local driver_ped = vehicle.get_ped_in_vehicle_seat(veh, -1)
+                        local driver = network.network_get_player_index_from_ped(driver_ped)
+                        local value = memory.read_long(ptr + 0xAE8)
+                        if vehicle.get_vehicle_mod(veh, 44) ~= 1 and not memory.bits:isset(value, 1 << 48) then
+                            players.add_detection(driver, T'Modded Anti-Lock On')
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Glitch Player/Forcefield', {}, T'Detects players using JinxScript glitch player feature', function()
+            for entities.get_all_objects_as_pointers() as ptr do
+                local model = entities.get_model_hash(ptr)
+                for self.block_entities as hash do
+                    if model == hash then
+                        if memory.read_long(ptr + 0x28) & 0x10000100000000 == 0 then
+                            local owner = entities.get_owner(ptr)
+                            if self.utils:player_exists(owner) and owner ~= players.user() then
+                                players.add_detection(owner, T'Stand User (Glitch Player/Forcefield)')
+                                entities.delete(ptr)
+                            end
+                        end
+                        break
+                    end
+                end
+            end
+            util.yield(100)
+        end)
+
+        self.root:toggle_loop(T'Orbital Cannon', {}, T'Detects players using the orbital cannon', function()
+            local my_cam_pos = players.get_cam_pos(players.user())
+            
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= players.user() then
+                    if self:is_using_orbital_cannon(pid) then
+                        local cam_pos = players.get_cam_pos(pid)
+
+                        my_cam_pos.z = 0
+                        cam_pos.z = 0
+
+                        if my_cam_pos:distance(cam_pos) < 100.0 then
+                            util.toast(T:T('%s is targetting you with orbital cannon', players.get_name(pid)), TOAST_DEFAULT, 50)
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.toast_detection = self.silent_aimbot:toggle(T'Toast Detection', {}, T'When ever a player is detected using it, it will be toasted as well as added as a modder detection', function(state) end)
+        self.auto_heal = self.silent_aimbot:toggle(T'Auto Heal', {}, T'Should you be automatically healed when the damage taken is from silent aimbot?', function(state) end)
+        self.aimbot_range = self.silent_aimbot:slider_float(T'Aimbot Range', {}, T'The range in which the detection will work, do not set this too high as it will affect the accuracy significantly (adjust based on how visible a player is to you at range)', 0.0, 1000.0 * 100, 220.0 * 100, 10.0, function(value) end)
+        self.silent_aimbot:divider('')
+        
+        local s = 13
+        local event_data = memory.alloc(s * 8)
+
+        self.silent_aimbot_detection = self.silent_aimbot:toggle_loop(T'Silent Aim', {}, T'Determines if a player is using silent aimbot against you (might not be 100% accurate)', function()
+            local localplayer = players.localplayer()
+            
+            for i = 0, script.get_number_of_events(1) do
+                local event = script.get_event_at_index(1, i)
+                if event == 186 then
+                    if script.get_event_data(1, i, event_data, s) then
+                        local aiming_at_you = self.utils:get_player_aiming_at_you()
+                        local victim = memory.read_int(event_data)
+                        local attacker = memory.read_int(event_data + (1 * 8))
+                        local damage = memory.read_float(event_data + (2 * 8))
+                        local is_fatal = memory.read_byte(event_data + (5 * 8))
+                        local weapon_hash = memory.read_int(event_data + (6 * 8))
+                        local entity_type = memory.read_int(event_data + (12 * 8))
+                        
+                        if entity_type == 0 and ped.is_ped_a_player(victim) and ped.is_ped_a_player(attacker) then
+                            local victim_pid = network.network_get_player_index_from_ped(victim)
+                            local attacker_pid = network.network_get_player_index_from_ped(attacker)
+                            local attacker_has_bst = self.utils:player_has_bst(attacker_pid)
+                            local veh = ped.get_vehicle_ped_is_using(victim, false)
+                            local hash = entity.get_entity_model(veh)
+                            local is_aircraft = vehicle.is_this_model_a_heli(hash) or vehicle.is_this_model_a_plane(hash)
+                            
+                            if victim_pid == players.user() then
+                                if veh ~= 0 and is_aircraft then goto continue end
+                                -- ignore aircraft due to the fact that bullet drop is a thing so it will
+                                -- always inaccurately detect the player as using silent aim whether they are or aren't
+
+                                local weapon_name = labels:get(util.reverse_joaat(weapon_hash):upper())
+                                local weapon_group = util.reverse_joaat(weapon.get_weapontype_group(weapon_hash))
+
+                                if weapon_group == 'GROUP_HEAVY' or weapon_group == 'GROUP_THROWABLE' or weapon_group == 'GROUP_MELEE' then
+                                    goto continue
+                                end
+
+                                local dist = players.get_position(attacker_pid):distance(players.get_position(victim_pid))
+                                if dist > self.aimbot_range.value / 100 then goto continue end
+                                
+                                if aiming_at_you ~= attacker_pid then
+                                    if is_fatal == 0 and self.auto_heal.value then
+                                        local health = localplayer:get_entity_health()
+                                        local max_health = localplayer:get_entity_max_health()
+                                        local heal_amount = health + damage
+                                        local heal_armour_amount = 0
+
+                                        if heal_amount > max_health then
+                                            heal_armour_amount = heal_amount - max_health
+                                            if heal_armour_amount > 50 then
+                                                heal_armour_amount = 50
+                                            end
+                                        end
+
+                                        localplayer:set_entity_health(heal_amount)
+                                        localplayer:set_ped_armour(heal_armour_amount)
+                                    end
+
+                                    players.add_detection(attacker_pid, T'Aimbot')
+                                    if self.toast_detection.value then 
+                                        util.toast(T:T('%s is using silent aimbot against you', players.get_name(attacker_pid)), TOAST_DEFAULT, 50)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+
+                ::continue::
+            end
+        end)
+
+        self.silent_aimbot_detection.value = false
+
+        self.silent_aimbot:toggle_loop(T'Display Player Distances', {}, T'Shows you the distance between you and everyone else close to you (helps with configuring distance for silent aimbot detection)', function()
+            local player_id = players.user()
+            local player_pos = players.get_position(player_id)
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= player_id then
+                    local pos = players.get_position(pid)
+                    local dist = player_pos:distance(pos)
+                    if dist > 500.0 then goto continue end
+                    util.draw_debug_text($'{players.get_name(pid)}: {dist}')
+                end
+
+                ::continue::
+            end
+        end)
+    end
+
+    function calculate_entropy(str)
+        --[[
+            This function calculates the entropy of a string using an algorithm known as Shannon Entropy.
+            Formula: H(X) = -Σ p(x) * log2(p(x))
+            Where:
+                H(X) = Entropy
+                p(x) = Probability of character x
+        ]]
+
+        local entropy = 0
+        local len = #str
+        local chars = {}
+    
+        for i = 1, len do
+            local char = str:sub(i, i)
+            if not chars[char] then
+                chars[char] = 1
+            else
+                chars[char] += 1
+            end
+        end
+    
+        for _, count in pairs(chars) do
+            local p = count / len
+            entropy -= p * math.log(p, 2)
+        end
+    
+        return entropy
+
+    end
+
+    inline function is_plate_valid(plate)
+        return plate:match('^%d%d%a%a%a%d%d%d$') ~= nil
+    end
+
+    inline function check_plate(plate)
+        local len = #plate
+        local chars = {}
+        local consecutive = 0
+        local duplicates = 0
+
+        for i = 1, len do
+            local char = plate:sub(i, i)
+            if not chars[char] then
+                chars[char] = 1
+            else
+                chars[char] += 1
+                duplicates += 1
+            end
+
+            if i > 1 then
+                local prev = plate:sub(i - 1, i - 1)
+                if char == prev then
+                    consecutive += 1
+                end
+            end
+        end
+
+        return duplicates <= 2 and consecutive <= 2
+    end
+end
+
+return Detections

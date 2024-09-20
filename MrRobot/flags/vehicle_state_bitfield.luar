@@ -1,0 +1,5 @@
+return {
+    using_weapon = 1 << 4,
+    in_vehicle = 1 << 6,
+    using_horn = 1 << 7
+}

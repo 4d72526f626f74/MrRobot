@@ -1,0 +1,4 @@
+return {
+    vehicle_hash = 0x1F0,
+    request = 0x1E0
+}

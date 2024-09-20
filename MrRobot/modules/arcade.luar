@@ -1,0 +1,216 @@
+pluto_use class
+
+local Module, T = require('abstract_base_classes.module'), require('languages.trans')
+
+class Arcade extends Module
+    arcade_setups = {
+        28192,
+        28155,
+        27227,
+        28156,
+        28157
+    }
+
+    function __construct(root)
+        self.root = root
+
+        self.arcade = self.root:list(T'Arcade Safe', {}, T'Arcade Safe related options')
+        self.arcade:action(T'Trigger Production', {}, T'Trigger production for arcade safe', function()
+            self:trigger_production()
+        end)
+
+        self.arcade:action(T'Collect', {T'rarsafe'}, T'Collect money from the safe remotely without having to open it or even be near it', function()
+            self:collect_money()
+        end)
+
+        self.arcade:action(T'Reset Safe', {}, T'Reset the safe back to 0', function()
+            local char_slot = util.get_char_slot()
+            local prod_local = memory.script_local(table.unpack(self.g.ArcadeProductionAmount))
+            local val_addr = self.g.ArcadeSafeValue:g()
+            local safe_limit = self.g.ArcadeSafeCapacity:g()
+            local safe_value = 0
+
+            memory.write_int(safe_limit, memory.read_int(val_addr) + 1)
+
+            util.create_tick_handler(function()
+                safe_value = memory.read_int(val_addr)
+                if safe_value == 0 then
+                    memory.write_int(safe_limit, 200000)
+                    return false
+                end
+
+                memory.write_int(prod_local, safe_value * -1)
+            end)
+
+            if safe_value > 0 then
+                stats.stat_set_int($'MP{char_slot}_ARCADE_PAY_TIME_LEFT':joaat(), 1, true)
+            end
+        end)
+
+        self.arcade:divider('')
+
+        self.auto_collect = self.arcade:toggle_loop(T'Auto Collect', {}, T'Auto collect money from the safe when entering your arcade', function()
+            if memory.read_int(self.g.ArcadeSafeValue:g()) ~= 0 then
+                self:collect_money()
+                util.yield(500)
+            end
+        end)
+
+        local is_running = false
+        self.afk_loop = self.arcade:toggle_loop(T'AFK Loop', {}, T'AFK Loop you only need to be in your arcade for this', function()
+            util.spoof_script(self.ARS, function() is_running = true end)
+            if not is_running then return end
+            self:trigger_production()
+            repeat
+                util.yield_once()
+            until memory.read_int(self.g.ArcadeSafeValue:g()) ~= 0
+            self:collect_money()
+            repeat
+                util.yield_once()
+            until memory.read_int(self.g.ArcadeSafeValue:g()) == 0
+            is_running = false
+        end)
+
+        self.display_money = self.arcade:toggle_loop(T'Safe Value', {}, T'Shows how much money you have in your safe', function()
+            local money = memory.read_int(self.g.ArcadeSafeValue:g())
+            util.draw_debug_text($'Arcade Safe: ${money}')
+        end)
+
+        self.root:divider('')
+
+        self.root:action(T'Bypass Setup', {}, T'Bypass arcade setup missions', function()
+            if util.can_continue() then
+                self:bypass_arcade_setup()
+            end
+        end)
+
+        self.root:action(T'Unlock Arcades', {T'raunlockarcades'}, T'Unlocks arcades on mazebank without going to Lester', function()
+            local addr = self.g.UnlockArcades:g()
+            memory.write_int(addr, memory.bits:set(memory.read_int(addr), self.masks.unlock_arcades))
+        end)
+
+        self.root:toggle(T'Wonderama', {}, T'Unlock Wonderama arcade', function(state)
+            if util.can_continue() then
+                self:unlock_arcade(1, state)
+            end
+        end, self:is_wonderama_arcade_unlocked())
+
+        self.root:toggle(T'Eight Bit', {}, T'Unlock Eight Bit arcade', function(state)
+            if util.can_continue() then
+                self:unlock_arcade(2, state)
+            end
+        end, self:is_eight_bit_arcade_unlocked())
+
+        self.root:toggle(T'Garage', {}, T'Unlock garage without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_arcade_garage(state)
+            end
+        end, self:is_arcade_garage_unlocked())
+
+        self.root:toggle(T'Master Control Terminal', {}, T'Unlock master control terminal without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_arcade_master_control_terminal(state)
+            end
+        end, self:is_arcade_master_control_terminal_unlocked())
+
+        self.root:toggle(T'Weapon Workshop', {}, T'Unlock weapon workshop without having to buy it', function(state)
+            if util.can_continue() then
+                self:unlock_arcade_weapon_workshop(state)
+            end
+        end, self:is_arcade_weapon_workshop_unlocked())
+
+        self.root:toggle(T'Nano Drone Station', {}, T'Unlock nano drone station without having to buy it', function(state)
+            if util.can_continue() then
+                self:arcade_unlock_nano_drone_station(state)
+            end
+        end, self:is_arcade_nano_drone_station_unlocked())
+    end
+
+    inline function is_arcade_setup()
+        local bypass = self.g.ArcadeStatsBase:g() + 0x8
+        return memory.bits:isset(memory.read_int(bypass), self.masks.arcade_setup)
+    end
+
+    inline function unlock_arcade(index, state)
+        local unlock = self.g.ArcadeStatsBase:g()
+        memory.write_byte(unlock, memory.bits:clear(memory.read_byte(unlock), self.masks.clear_unlocked_arcade))
+        memory.write_byte(unlock, memory.bits:set(memory.read_byte(unlock), 1 << index))
+    end
+
+    inline function is_wonderama_arcade_unlocked()
+        local unlock = self.g.ArcadeStatsBase:g()
+        return memory.bits:isset(memory.read_byte(unlock), self.masks.arcade_wonderama)
+    end
+
+    inline function is_eight_bit_arcade_unlocked()
+        local unlock = self.g.ArcadeStatsBase:g()
+        return memory.bits:isset(memory.read_byte(unlock), self.masks.arcade_eight_bit)
+    end
+
+    inline function bypass_arcade_setup()
+        local char_slot = util.get_char_slot()
+        for self.arcade_setups as setup do stats.set_packed_stat_bool_code(setup, true, char_slot) end
+        self:new_session_msg()
+    end
+
+    inline function unlock_arcade_garage(state)
+        local unlock = self.g.ArcadeStatsBase:g() + 0x8
+        memory.write_byte(unlock, memory.bits:bool(memory.read_byte(unlock), self.masks.arcade_garage_unlock, state))
+    end
+
+    inline function is_arcade_garage_unlocked()
+        local unlock = self.g.ArcadeStatsBase:g() + 0x8
+        return memory.bits:isset(memory.read_byte(unlock), self.masks.arcade_garage_unlock)
+    end
+
+    inline function unlock_arcade_master_control_terminal(state)
+        local unlock = self.g.ArcadeStatsBase:g() + 0x8
+        memory.write_int(unlock, memory.bits:bool(memory.read_int(unlock), self.masks.arcade_mct_unlock, state))
+    end
+
+    inline function is_arcade_master_control_terminal_unlocked()
+        local unlock = self.g.ArcadeStatsBase:g() + 0x8
+        return memory.bits:isset(memory.read_int(unlock), self.masks.arcade_mct_unlock)
+    end
+
+    inline function unlock_arcade_weapon_workshop(state)
+        local unlock = self.g.ArcadeStatsBase:g() + 0x8
+        memory.write_short(unlock, memory.bits:bool(memory.read_short(unlock), self.masks.arcade_weapon_workshop_unlock, state))
+    end
+
+    inline function is_arcade_weapon_workshop_unlocked()
+        local unlock = self.g.ArcadeStatsBase:g() + 0x8
+        return memory.bits:isset(memory.read_short(unlock), self.masks.arcade_weapon_workshop_unlock)
+    end
+
+    inline function arcade_unlock_nano_drone_station(state)
+        local unlock = self.g.ArcadeStatsBase:g() + 0x8
+        memory.write_int(unlock, memory.bits:bool(memory.read_int(unlock), self.masks.arcade_unlock_nano_drone_station, state))
+    end
+
+    inline function is_arcade_nano_drone_station_unlocked()
+        local unlock = self.g.ArcadeStatsBase:g() + 0x8
+        return memory.bits:isset(memory.read_int(unlock), self.masks.arcade_unlock_nano_drone_station)
+    end
+
+    inline function trigger_production()
+        local char_slot = util.get_char_slot()
+        for i = self.g.ArcadeSafeIncomeStart, self.g.ArcadeSafeIncomeEnd do
+            memory.write_int(memory.script_global(GLOBAL_TUNABLE_BASE + i), 200000)
+        end
+        memory.write_int(self.g.ArcadeSafeCapacity:g(), 200000)
+        stats.stat_set_int(($'MP{char_slot}_ARCADE_PAY_TIME_LEFT'):joaat(), 1, true)
+    end
+
+    inline function collect_money()
+        local trigger = memory.script_local(table.unpack(self.g.TriggerArcadeSafeCollection))
+        local trigger1 = memory.script_local(table.unpack(self.g.TriggerArcadeSafeCollection1))
+
+        if trigger ~= 0 and trigger1 ~= 0 then
+            memory.write_byte(trigger, 1)
+            memory.write_int(trigger1, 15)
+        end
+    end
+end
+
+return Arcade

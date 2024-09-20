@@ -1,0 +1,91 @@
+pluto_use class, try, catch
+
+local Module, T = require('abstract_base_classes.module'), require('languages.trans')
+
+class Agency extends Module
+    function __construct(root)
+        self.root = root
+
+        self.safe = self.root:list(T'Agency Safe', {}, T'Agency Safe related options')
+        self.safe:action(T'Trigger Production', {}, T'Trigger production for agency safe', function()
+            self:trigger_production()
+        end)
+
+        self.safe:action(T'Collect', {T'ragsafe'}, T'Collect money from the safe remotely without having to open it or even be near it', function()
+            self:collect_money()
+        end)
+
+        self.safe:action(T'Reset Safe', {}, T'Reset the safe back to 0', function()
+            local char_slot = util.get_char_slot()
+            local prod_local = memory.script_local(table.unpack(self.g.AgencySafeProductionAmount))
+            local val_addr = self.g.AgencySafeValue:g()
+            local safe_limit = self.g.AgencySafeCapacity:g()
+            local safe_value = 0
+
+            memory.write_int(safe_limit, memory.read_int(val_addr) + 1)
+
+            util.create_tick_handler(function()
+                safe_value = memory.read_int(val_addr)
+                if safe_value == 0 then
+                    memory.write_int(safe_limit, 250000)
+                    return false
+                end
+
+                memory.write_int(prod_local, safe_value * -1)
+            end)
+
+            if safe_value > 0 then
+                stats.stat_set_int($'MP{char_slot}_FIXER_PASSIVE_PAY_TIME_LEFT':joaat(), 1, true)
+            end
+        end)
+
+        self.safe:divider('')
+
+        self.afk_loop = self.safe:toggle_loop(T'AFK Loop (slow)', {}, T'AFK Loop you only need to be in your agency for this', function()
+            try
+                self:trigger_production()
+                repeat
+                    util.yield_once()
+                until memory.read_int(self.g.AgencySafeValue:g()) ~= 0
+                self:collect_money()
+                repeat
+                    util.yield_once()
+                until memory.read_int(self.g.AgencySafeValue:g()) == 0
+            catch e then
+                self.afk_loop.value = false
+                util.toast(T'You are not in your agency')
+            end
+        end)
+
+        self.display_money = self.safe:toggle_loop(T'Safe Value', {}, T'Shows how much money you have in your safe', function()
+            local money = self.utils:get_stat_int_by_hash(self.utils.char_stat_hashes.agency_safe)
+            util.draw_debug_text($'Agency Safe: ${money}')
+        end)
+    end
+
+    inline function trigger_production()
+        local char_slot = util.get_char_slot()
+        local prod_amount = memory.script_local(table.unpack(self.g.AgencySafeProductionAmount))
+        local timeout = os.time() + 8
+        util.create_tick_handler(function()
+            if timeout < os.time() then
+                return false
+            end
+            memory.write_int(prod_amount, 250000)
+        end)
+        stats.stat_set_int(($'MP{char_slot}_FIXER_PASSIVE_PAY_TIME_LEFT'):joaat(), 1, true)
+    end
+
+    inline function collect_money()
+        try
+            local trigger = memory.script_local(table.unpack(self.g.TriggerAgencySafeCollection))
+            local trigger1 = memory.script_local(table.unpack(self.g.TriggerAgencySafeCollection1))
+            memory.write_int(trigger, memory.bits:set(memory.read_int(trigger), self.masks.agency_trigger_collection))
+            memory.write_byte(trigger1, 1)
+        catch e then
+            util.toast(T'You are not in your agency')
+        end
+    end
+end
+
+return Agency

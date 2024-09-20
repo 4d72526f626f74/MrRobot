@@ -1,0 +1,58 @@
+pluto_use class
+
+class Vehicle
+    function __construct(e)
+        self.entity = e
+        self.ptr = entities.handle_to_pointer(self.entity)
+    end
+
+    function __index(key)
+        local original_key = key
+        if key:startswith('__') then
+            return rawget(Vehicle, key)
+        else
+            if not key:match('^[A-Z_]+_[A-Z_]+_[A-Z_]+$') then
+                local snake_case_pattern = '^[a-z_]+'
+
+                if key:match(snake_case_pattern) then
+                    key = key:upper()
+                end
+            end
+
+            local func = VEHICLE[key] or ENTITY[key] or TASK[key] or DECORATOR[key] or nil
+            local func_type = type(func)
+
+            if func ~= nil and func_type == 'function' then
+                if self.entity ~= 0 then
+                    return function(...)
+                        local args = {...}
+                        table.remove(args, 1)
+
+                        if #args > 0 then
+                            return func(self.entity, table.unpack(args))
+                        else
+                            return func(self.entity)
+                        end
+                    end
+                end
+            else
+                local func = rawget(Vehicle, original_key)
+                if type(func) == 'function' then
+                    return func
+                else
+                    return function(...) return 0 end
+                end
+            end
+        end
+    end
+
+    inline function valid()
+        return self.entity ~= 0 and entity.does_entity_exist(self.entity)
+    end
+
+    inline function request_control()
+        return entities.request_control(self.entity)
+    end
+end
+
+return Vehicle

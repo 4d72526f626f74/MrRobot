@@ -1,0 +1,208 @@
+pluto_use class
+
+local Module, T = require('abstract_base_classes.module'), require('languages.trans')
+
+class Nightclub extends Module
+    nightclub_setup_bools = {
+        15534,
+        22106,
+        18161,
+        22068,
+        22080,
+        22174,
+        22067,
+        22081,
+    }
+
+    function __construct(root)
+        self.root = root
+
+        self.nightclub = self.root:list(T'Nightclub Safe', {}, T'Nightclub Safe related options')
+        self.root:divider('')
+        self.nightclub:action(T'Trigger Production', {}, T'Trigger production for nightclub safe', function()
+            self:trigger_production()
+        end)
+
+        self.nightclub:action(T'Collect', {T'rncsafe'}, T'Collect money from the safe remotely without having to open it or even be near it', function()
+            self:collect_money()
+        end)
+
+        self.nightclub:action(T'Reset Safe', {}, T'Reset your safe back to 0 but only when you safe is above the maximum value', function()
+            local val_addr = self.g.NightclubSafeValue:g()
+            local safe_value = memory.read_int(val_addr)
+
+            if safe_value > 0 and safe_value < 300000 then
+                return util.toast(T'Your safe is fine, no need to reset it')
+            end
+
+            repeat
+                safe_value = memory.read_int(val_addr)
+
+                if safe_value > 300000 then
+                    self:add_money_to_nc_safe(math.max_int - safe_value)
+                elseif safe_value < 0 then
+                    self:add_money_to_nc_safe(safe_value * -1)
+                end
+                util.yield_once()
+            until safe_value == 0
+        end)
+
+        self.nightclub:divider('')
+
+        local is_running = false
+        self.afk_loop = self.nightclub:toggle_loop(T'AFK Loop', {}, T'AFK Loop you only need to be in your nightclub for this', function()
+            util.spoof_script(self.NCS, function() is_running = true end)
+            if not is_running then return end
+
+            self:trigger_production()
+            repeat
+                util.yield_once()
+            until memory.read_int(self.g.NightclubSafeValue:g()) ~= 0
+            self:collect_money()
+            repeat
+                util.yield_once()
+            until memory.read_int(self.g.NightclubSafeValue:g()) == 0
+            is_running = false
+        end)
+
+        self.auto_collect = self.nightclub:toggle_loop(T'Auto Collect', {}, T'Auto collect money from the safe when entering your nightclub', function()
+            util.spoof_script(self.NCS, function() is_running = true end)
+            if not is_running then return end
+
+            if memory.read_int(self.g.NightclubSafeValue:g()) ~= 0 then
+                self:collect_money()
+                util.yield(1000)
+            end
+            is_running = false
+        end)
+
+        self.display_money = self.nightclub:toggle_loop(T'Safe Value', {}, T'Shows how much money you have in your safe', function()
+            local money = memory.read_int(self.g.NightclubSafeValue:g())
+            util.draw_debug_text($'Nightclub Safe: ${money}')
+        end)
+
+        self.root:toggle(T'Clear Nightclub', {}, T'Empty your nightclub', function(state)
+            if util.can_continue() then
+                self:clear_nightclub(state)
+            end
+        end, self:is_nightclub_cleared())
+
+        self.root:toggle(T'Turn Off Office Lights', {}, T'Turn off the lights in your office', function(state)
+            if util.can_continue() then
+                self:disable_nightclub_office_lights(state)
+            end
+        end, self:are_nightclub_office_lights_disabled())
+
+        self.root:toggle(T'Dry Ice', {}, T'Enable dry ice in your nightclub', function(state)
+            if util.can_continue() then
+                self:unlock_nightclub_dry_ice(state)
+            end
+        end, self:is_nightclub_dry_ice_unlocked())
+
+        self.root:action(T'Upgrade Everything', {}, T'Unlock all upgrades in your nightclub', function()
+            if util.can_continue() then
+                self:unlock_nightclub_upgrades()
+            end
+        end)
+
+        self.root:action(T'Bypass Setup', {}, T'Bypass setup missions in your nightclub', function()
+            if util.can_continue() then
+                --self:BypassNightclubSetup() seems to be a weird bug where the function is nil but defined
+                local char_slot = util.get_char_slot()
+                for self.nightclub_setups as setup do stats.set_packed_stat_bool_code(setup, true, char_slot) end
+                self:new_session_msg()
+            end
+        end)
+
+        self.root:action(T'Spawn Troublemaker', {}, T'Spawn a troublemaker in your nightclub', function()
+            if util.can_continue() then
+                self:spawn_trouble_maker()
+            end
+        end)
+
+        self.root:action(T'Yeet Troublemaker', {}, T'Yeet the troublemaker out of your nightclub', function()
+            if util.can_continue() then
+                self:yeet_trouble_maker()
+            end
+        end)
+    end
+
+    inline function clear_nightclub(state)
+        local clear = self.g.NightclubStatsBase:g() + 0x10
+        memory.write_byte(clear, memory.bits:bool(memory.read_byte(clear), self.masks.nightclub_cleared, state))
+    end
+
+    inline function is_nightclub_cleared()
+        local clear = self.g.NightclubStatsBase:g() + 0x10
+        return memory.bits:isset(memory.read_byte(clear), self.masks.nightclub_cleared)
+    end
+
+    inline function disable_nightclub_office_lights(state)
+        local lights = self.g.NightclubStatsBase:g() + 0x10
+        memory.write_int(lights, memory.bits:bool(memory.read_int(lights), self.masks.nightclub_office_lights, state))
+    end
+
+    inline function are_nightclub_office_lights_disabled()
+        local lights = self.g.NightclubStatsBase:g() + 0x10
+        return memory.bits:isset(memory.read_int(lights), self.masks.nightclub_office_lights)
+    end
+
+    inline function unlock_nightclub_dry_ice(state)
+        local ice = self.g.NightclubStatsBase:g() + 0x10
+        memory.write_int(ice, memory.bits:bool(memory.read_int(ice), self.masks.nightclub_dry_ice, state))
+    end
+
+    inline function is_nightclub_dry_ice_unlocked()
+        local ice = self.g.NightclubStatsBase:g() + 0x10
+        return memory.bits:isset(memory.read_int(ice), self.masks.nightclub_dry_ice)
+    end
+
+    inline function unlock_nightclub_upgrades()
+        local upgrades = self.g.NightclubStatsBase:g() + 0x8
+        memory.write_int(upgrades, self.masks.nightclub_max_upgrades)
+        self:unlock_nightclub_dry_ice(true)
+    end
+
+    inline function bypass_nightclub_setups()
+        local char_slot = util.get_char_slot()
+        for self.nightclub_setup_bools as setup do stats.set_packed_stat_bool_code(setup, true, char_slot) end
+        self:new_session_msg()
+    end
+
+    inline function spawn_trouble_maker()
+        util.spoof_script(self.NCS, function()
+            memory.write_int(self.g.NCTroubleMakerScenario:g(), 2)
+            memory.write_int(memory.script_local(table.unpack(self.g.NCTriggerTrobleMaker)), 0)
+        end)
+    end
+
+    inline function yeet_trouble_maker()
+        util.spoof_script(self.NCS, function()
+            memory.write_int(memory.script_local(table.unpack(self.g.NCTriggerYeetTroubleMaker)), 0)
+        end)
+    end
+
+    inline function trigger_production()
+        local char_slot = util.get_char_slot()
+        for i = self.g.NCSafeIncomeStart, self.g.NCSafeIncomeEnd do
+            memory.write_int(memory.script_global(GLOBAL_TUNABLE_BASE + i), 300000)
+        end
+        memory.write_int(self.g.NCSafeCapacity:g(), 300000)
+        stats.stat_set_int(($'MP{char_slot}_CLUB_PAY_TIME_LEFT'):joaat(), 1, true)
+    end
+
+    inline function collect_money()
+        if not self.utils:is_script_running('am_mp_nightclub') then
+            util.toast('You need to be in your nightclub to collect money from the safe')
+        else
+            local trigger = memory.script_local(table.unpack(self.g.TriggerNCSafeCollection))
+        
+            if trigger ~= 0 then
+                memory.write_byte(trigger, 1)
+                util.yield(500)
+            end
+        end
+    end
+end
+
+return Nightclub

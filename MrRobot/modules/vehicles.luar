@@ -1,0 +1,1098 @@
+pluto_use class, new
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+local handling_data = require('data.vehicle_handling')
+local bitwise = require('libs.bitwise')
+local ls_customs = require('offsets.ls_customs')
+
+local anti_lock_on_ref = menu.ref_by_path("Vehicle>Can't Be Locked On")
+
+enum eDecorType begin
+    Float = 1,
+    Bool = 2,
+    Int = 3,
+    Unk = 4,
+    Time = 5,
+end
+
+enum eUpdateFlags begin
+    UF_DECORS = 1 << 0
+end
+
+class Vehicles extends Module
+    ai_handling = {
+        'AVERAGE',
+        'TRUCK',
+        'CRAP',
+        'SPORTS_CAR'
+    }
+
+    function __construct(root)
+        self.root = root
+        self.max_slots = 517
+        self.update = new bitwise.bitfield(0)
+        self.pvm = require('utils.pvm')
+        self.decor_names = {
+            PlayerVehicle = { name = 'Player_Vehicle', type = eDecorType.Int },
+            PVSlot = { name = 'PV_Slot', type = eDecorType.Int },
+            PreviousOwner = { name = 'Previous_Owner', type = eDecorType.Int },
+            SprayedVehicleDecorator = { name = 'Sprayed_Vehicle_Decorator', type = eDecorType.Bool },
+            VehicleReward = { name = 'Vehicle_Reward', type = eDecorType.Int },
+            VehicleRewardTeams = { name = 'Vehicle_Reward_Teams', type = eDecorType.Int },
+            SkillBlocker = { name = 'Skill_Blocker', type = eDecorType.Bool },
+            TargetPlayerForTeam = { name = 'TargetPlayerForTeam', type = eDecorType.Int },
+            XPBlocker = { name = 'XP_Blocker', type = eDecorType.Bool },
+            CrowdControlSetUp = { name = 'CrowdControlSetUp', type = eDecorType.Int },
+            BoughtDrugs = { name = 'Bought_Drugs', type = eDecorType.Bool },
+            HeroinInPossession = { name = 'HeroinInPossession', type = eDecorType.Float },
+            CokeInPossession = { name = 'CokeInPossession', type = eDecorType.Float },
+            WeedInPossession = { name = 'WeedInPossession', type = eDecorType.Float },
+            MethInPossession = { name = 'MethInPossession', type = eDecorType.Float },
+            bombdec = { name = 'bombdec', type = eDecorType.Int },
+            bombdec1 = { name = 'bombdec1', type = eDecorType.Int },
+            bombowner = { name = 'bombowner', type = eDecorType.Int },
+            noPlateScan = { name = 'noPlateScan', type = eDecorType.Bool },
+            prisonBreakBoss = { name = 'prisonBreakBoss', type = eDecorType.Bool },
+            cashondeadbody = { name = 'cashondeadbody', type = eDecorType.Int },
+            MissionType = { name = 'MissionType', type = eDecorType.Int },
+            MatchId = { name = 'MatchId', type = eDecorType.Int },
+            TeamId = { name = 'TeamId', type = eDecorType.Int },
+            NotAllowAsSavedVeh = { name = 'Not_Allow_As_Saved_Veh', type = eDecorType.Int },
+            VehModdedByPlayer = { name = 'Veh_Modded_By_Player', type = eDecorType.Int },
+            MPBitset = { name = 'MPBitset', type = eDecorType.Int },
+            MC_EntityID = { name = 'MC_EntityID', type = eDecorType.Int },
+            MC_ChasePedID = { name = 'MC_ChasePedID', type = eDecorType.Int },
+            MC_TrainID = { name = 'MC_TrainID', type = eDecorType.Int },
+            MC_Team0_VehDeliveredRules = { name = 'MC_Team0_VehDeliveredRules', type = eDecorType.Int },
+            MC_Team1_VehDeliveredRules = { name = 'MC_Team1_VehDeliveredRules', type = eDecorType.Int },
+            MC_Team2_VehDeliveredRules = { name = 'MC_Team2_VehDeliveredRules', type = eDecorType.Int },
+            MC_Team3_VehDeliveredRules = { name = 'MC_Team3_VehDeliveredRules', type = eDecorType.Int },
+            FMMC_ClonedPedPart = { name = 'FMMC_ClonedPedPart', type = eDecorType.Int },
+            AttributeDamage = { name = 'AttributeDamage', type = eDecorType.Int },
+            GangBackup = { name = 'GangBackup', type = eDecorType.Int },
+            CreatedByPegasus = { name = 'CreatedByPegasus', type = eDecorType.Bool },
+            BeforeCorona = { name = 'BeforeCorona', type = eDecorType.Int },
+            Heist_Veh_ID = { name = 'Heist_Veh_ID', type = eDecorType.Int },
+            CC_iState = { name = 'CC_iState', type = eDecorType.Int },
+            CC_iStatePrev = { name = 'CC_iStatePrev', type = eDecorType.Int },
+            CC_iBitSet = { name = 'CC_iBitSet', type = eDecorType.Int },
+            CC_fInfluenceDirectThreat = { name = 'CC_fInfluenceDirectThreat', type = eDecorType.Float },
+            CC_fInfluenceShouting = { name = 'CC_fInfluenceShouting', type = eDecorType.Float },
+            CC_iBeatdownHitsRemaining = { name = 'CC_iBeatdownHitsRemaining', type = eDecorType.Int },
+            CC_iBeatdownRounds = { name = 'CC_iBeatdownRounds', type = eDecorType.Int },
+            LUXE_MINIGAME_ACT_PROPS = { name = 'LUXE_MINIGAME_ACT_PROPS', type = eDecorType.Int },
+            LUXE_VEH_INSTANCE_ID = { name = 'LUXE_VEH_INSTANCE_ID', type = eDecorType.Int },
+            UsingForTimeTrial = { name = 'UsingForTimeTrial', type = eDecorType.Bool },
+            EnableVehLuxeActs = { name = 'EnableVehLuxeActs', type = eDecorType.Int },
+            Player_Goon = { name = 'Player_Goon', type = eDecorType.Int },
+            Player_Boss = { name = 'Player_Boss', type = eDecorType.Int },
+            Previous_Boss = { name = 'Previous_Boss', type = eDecorType.Int },
+            PYV_Owner = { name = 'PYV_Owner', type = eDecorType.Int },
+            PYV_Vehicle = { name = 'PYV_Vehicle', type = eDecorType.Int },
+            PYV_Yacht = { name = 'PYV_Yacht', type = eDecorType.Int },
+            PYV_WarpFrom = { name = 'PYV_WarpFrom', type = eDecorType.Int },
+            ContrabandOwner = { name = 'ContrabandOwner', type = eDecorType.Int },
+            HeliTaxi = { name = 'HeliTaxi', type = eDecorType.Bool },
+            ContrabandDeliveryType = { name = 'ContrabandDeliveryType', type = eDecorType.Int },
+            RandomID = { name = 'RandomID', type = eDecorType.Int },
+            ExportVehicle = { name = 'ExportVehicle', type = eDecorType.Int },
+            RespawnVeh = { name = 'RespawnVeh', type = eDecorType.Int },
+            Player_Truck = { name = 'Player_Truck', type = eDecorType.Int },
+            Creator_Trailer = { name = 'Creator_Trailer', type = eDecorType.Int },
+            FMDeliverableID = { name = 'FMDeliverableID', type = eDecorType.Int },
+            Player_Avenger = { name = 'Player_Avenger', type = eDecorType.Int },
+            Player_Acid_Lab = { name = 'Player_Acid_Lab', type = eDecorType.Int },
+            Player_Support_Bike_Vehicle = { name = 'Player_Support_Bike_Vehicle', type = eDecorType.Int },
+            Player_Hacker_Truck = { name = 'Player_Hacker_Truck', type = eDecorType.Int },
+            BBCarrier = { name = 'BBCarrier', type = eDecorType.Bool },
+            GBMissionFire = { name = 'GBMissionFire', type = eDecorType.Int },
+            GBCVehicle = { name = 'GBCVehicle', type = eDecorType.Bool },
+            CSHVehicle = { name = 'CSHVehicle', type = eDecorType.Bool },
+            AllowModSprayRepair = { name = 'AllowModSprayRepair', type = eDecorType.Bool },
+            FMCVehicle = { name = 'FMCVehicle', type = eDecorType.Bool },
+            Player_Submarine = { name = 'Player_Submarine', type = eDecorType.Int },
+            Player_Submarine_Dinghy = { name = 'Player_Submarine_Dinghy', type = eDecorType.Int },
+            Player_Moon_Pool = { name = 'Player_Moon_Pool', type = eDecorType.Int },
+            VehicleList = { name = 'VehicleList', type = eDecorType.Bool },
+            Company_SUV = { name = 'Company_SUV', type = eDecorType.Int },
+            TestDrive = { name = 'TestDrive', type = eDecorType.Bool },
+            Player_Thruster = { name = 'Player_Thruster', type = eDecorType.Int },
+            Player_Owned_Veh = { name = 'Player_Owned_Veh', type = eDecorType.Int },
+            PHOTO_TAKEN = { name = 'PHOTO_TAKEN', type = eDecorType.Bool },
+            doe_elk = { name = 'doe_elk', type = eDecorType.Bool },
+            hunt_score = { name = 'hunt_score', type = eDecorType.Int },
+            hunt_weapon = { name = 'hunt_weapon', type = eDecorType.Int },
+            hunt_undetected = { name = 'hunt_undetected', type = eDecorType.Bool },
+            hunt_nocall = { name = 'hunt_nocall', type = eDecorType.Bool },
+            hunt_chal_weapon = { name = 'hunt_chal_weapon', type = eDecorType.Int },
+            hunt_kill_time = { name = 'hunt_kill_time', type = eDecorType.Int },
+            DismissedBy = { name = 'DismissedBy', type = eDecorType.Int },
+            Darts_name = { name = 'Darts_name', type = eDecorType.Int },
+            Getaway_Winched = { name = 'Getaway_Winched', type = eDecorType.Bool },
+            MapGauntlet = { name = 'MapGauntlet', type = eDecorType.Int },
+            IgnoredByQuickSave = { name = 'IgnoredByQuickSave', type = eDecorType.Bool },
+            GetawayVehicleValid = { name = 'GetawayVehicleValid', type = eDecorType.Bool },
+            RampageCarExploded = { name = 'RampageCarExploded', type = eDecorType.Bool },
+            Carwash_Vehicle_Decorator = { name = 'Carwash_Vehicle_Decorator', type = eDecorType.Bool },
+            Casino_Game_Info_Decorator = { name = 'Casino_Game_Info_Decorator', type = eDecorType.Int },
+        }
+        self.decor_names = self.utils:sort_table(self.decor_names, |a, b| -> a.name < b.name)
+
+        self._manager = new (require('sub_modules.vehicles.personal_vehicle_manager'))(self.root)
+        self.gifting = self.root:list(T'Gifting', {T'rvgifting'})
+        self.mors = self.root:list(T'Mors', {T'rvmors'})
+        self.cm = self.root:list(T'Countermeasures', {T'rvcm'})
+        self.tunables = self.root:list(T'Tunables', {T'rvtunables'})
+        self.handling = nil
+        self.proximity_concealment = self.root:list(T'Proximity Concealment', {T'rvproxyconceal'})
+        self.horn_boost = self.root:list(T'Horn Boost', {T'rvhornboost'})
+        self.torque = self.root:list(T'Torque', {T'rvtorque'})
+        self.decor = self.root:list(T'Decors', {T'rvdecors'}, '', nil, nil, || -> self:update_decor_info())
+        self.decor_editor = self.decor:list(T'Decors Editor', {T'rvdecorseditor'})
+        self.network_id = self.root:list(T'Network ID', {T'rvnetworkid'})
+        self.homing_missiles = new (require('sub_modules.vehicles.homing_missiles'))(self.root)
+
+        do
+            self.gifting:action(T'Gift Vehicle', {T'rvgiftself'}, T'Alternative method of the now patched vehicle gifting, in order to use this method make sure that you have a garage THAT IS COMPLETELY FULL!', function()
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if not localplayer:is_ped_in_any_vehicle() then
+                    return util.display_error(T'You must be in the vehicle you want to gift yourself you stupid spastic')
+                end
+
+                for slot = 0, self.max_slots do
+                    if self.pvm:is_slot_empty(slot) then
+                        local model = veh:get_entity_model()
+                        self.pvm:set_model_in_slot(slot, model)
+
+                        self.pvm:request(slot)
+                        entities.delete(veh.entity)
+                        util.yield(200)
+                        self.call_pv:trigger()
+                        veh = players.localplayer_vehicle()
+                        if veh:valid() then
+                            veh:decor_set_int('PV_Slot', slot)
+                        end
+                        break
+                    end
+                end
+            end)
+        end
+
+        do
+            self.mors:divider('Settings')
+            self.mors_respawn = self.mors:toggle(T'Respawn', {}, T'Should your vehicle respawn right next to you?', function(state) end)
+            self.mors:divider('')
+
+            self.mors_claim_all = self.mors:action(T'Claim All', {}, T'Reclaim all personal vehicles from mors mutual', function()
+                for slot = 0, self.max_slots do
+                    self.pvm:claim(slot)
+                end
+            end)
+
+            self.mors_claim_current = self.mors:action(T'Claim Current', {}, T'Reclaim your current personal vehicle from mors mutual', function()
+                local slot = self.pvm:get_slot()
+                if self.pvm:is_destroyed(slot) then
+                    self.pvm:claim(slot)
+                    if self.mors_respawn.value then
+                        self.pvm:request(slot)
+                    end
+                end
+            end)
+
+            self.mors:action(T'Insure Current', {}, T'Insure your current personal vehicle', function()
+                local slot = self.pvm:get_slot()
+                self.pvm:set_insured(slot, true)
+            end)
+
+            self.mors:divider('')
+            self.mors:toggle_loop(T'Auto Claim All', {}, T'Automatically claim all vehicles', function()
+                if self.mors_claim_all:isValid() then
+                    self.mors_claim_all:trigger()
+                end
+            end)
+
+            self.mors:toggle_loop(T'Auto Claim Current', {}, T'Automatically claim your current vehicle', function()
+                if self.mors_claim_current:isValid() then
+                    self.mors_claim_current:trigger()
+                end
+            end)
+        end
+
+        do
+            self.flares_cm_offsets = {0, 0, 0}
+            self.cm:action(T'Fire Flares', {}, T'Fire flare countermeasure (works on all vehicles)', function()
+                local veh = players.localplayer_vehicle()
+                if not veh:valid() then
+                    return util.toast(T'You are not in a vehicle')
+                end
+                local coords = veh:get_entity_coords()
+                local heading = veh:get_entity_heading()
+                local model = veh:get_entity_model()
+
+                if ('oppressor2'):joaat() == model then
+                    self.flares_cm_offsets.x = 1
+                    self.flares_cm_offsets.y = 4
+                    self.flares_cm_offsets.z = 0.2
+                else
+                    self.flares_cm_offsets.x = 3
+                    self.flares_cm_offsets.y = 4
+                    self.flares_cm_offsets.z = 0.2
+                end
+                
+                local spawn_pos = object.get_offset_from_coord_and_heading_in_world_coords(coords.x, coords.y, coords.z, heading, -self.flares_cm_offsets.x, self.flares_cm_offsets.y, self.flares_cm_offsets.z)
+                misc.shoot_single_bullet_between_coords_ignore_entity_new(spawn_pos.x, spawn_pos.y, spawn_pos.z, coords.x, coords.y, coords.z, 0, true, ('WEAPON_FLAREGUN'):joaat(), players.user(), true, false, -1, 0, false, true, 0, true, 1, 0, 0)
+                spawn_pos = object.get_offset_from_coord_and_heading_in_world_coords(coords.x, coords.y, coords.z, heading, self.flares_cm_offsets.x, self.flares_cm_offsets.y, self.flares_cm_offsets.z)
+                misc.shoot_single_bullet_between_coords_ignore_entity_new(spawn_pos.x, spawn_pos.y, spawn_pos.z, coords.x, coords.y, coords.z, 0, true, ('WEAPON_FLAREGUN'):joaat(), players.user(), true, false, -1, 0, false, true, 0, true, 1, 0, 0)
+                audio.play_sound_from_entity(-1, 'flares_released', veh.entity, 'DLC_SM_Countermeasures_Sounds', true, 0)
+            end)
+
+            self.cm:action(T'Fire Chaff', {}, T'Fire chaff countermeasure (works on all vehicles)', function()
+                local veh = players.localplayer_vehicle()
+                if veh:valid() then
+                    self.utils:request_named_ptfx_asset('scr_sm_counter')
+                    local timeout = os.time() + 15
+                    graphics.start_networked_particle_fx_non_looped_on_entity('scr_sm_counter_chaff', veh.entity, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, false, false, false)
+                    veh:set_vehicle_allow_homing_missle_lockon_synced(false)
+
+                    util.create_tick_handler(function()
+                        if os.time() > timeout then
+                            veh:set_vehicle_allow_homing_missle_lockon_synced(true)
+                            return false
+                        end
+                    end)
+                else
+                    util.toast(T'You are not in a vehicle')
+                end
+            end)
+
+            self.cm:action(T'Refill Counter Measures', {}, T'Refill vehicle countermeasures for more countering', function()
+                local veh = players.localplayer_vehicle()
+                if veh.entity then
+                    veh:set_vehicle_countermeasure_ammo(math.max_int)
+                end
+            end)
+
+            self.cm:action(T'Delete All Flares', {}, T'Delete flares', function()
+                for entities.get_all_objects_as_pointers() as ent do
+                    local model = util.reverse_joaat(entities.get_model_hash(ent))
+                    if model:find('flare') then
+                        entities.delete_by_pointer(ent)
+                    end
+                end
+            end)
+        end
+
+        do
+            local base = memory.script_global(GLOBAL_TUNABLE_BASE)
+
+            self.tunables:action(T'Remove Vehicle Sell Timer', {}, T'Remove the sell timer so you can sell as many vehicles as you want', function()
+                stats.stat_set_int(('MPPLY_VHEICLE_SELL_TIMER'):joaat(), 0, true)
+            end)
+
+            self.tunables:toggle(T'Remove Sell Limitations', {}, T'Remove sell limitations so that you can sell any vehicle regardless of the value', function()
+                memory.write_int(base + 0x528, state ? math.max_int : 50000)
+                memory.write_int(base + 0xDF80, state ? math.max_int : 1000000)
+                memory.write_int(base + 0xDF78, state ? math.max_int : 1000000)
+                memory.write_int(base + 0xDF70, state ? math.max_int : 1000000)
+                memory.write_int(base + 0x10D60, state ? 1 : 0)
+            end).visible = false
+        end
+
+        do
+            self.handling = self.sroot:list(T'Handling', {T'rvhandling'}, '', function()
+                local children = self.handling:getChildren()
+                if #children > 0 then
+                    for children as child do
+                        if child:isValid() then
+                            child:delete()
+                        end
+                    end
+                end
+                menu.collect_garbage()
+    
+                local localplayer = players.localplayer()
+    
+                if not localplayer:is_ped_in_any_vehicle() then
+                    return util.toast(T'You are not in a vehicle')
+                end
+    
+                local model_flags = self.handling:list(T'Model Flags', {}, T'Model flags')
+                local handling_flags = self.handling:list(T'Handling Flags', {}, T'Handling flags')
+                local damage_flags = self.handling:list(T'Damage Flags', {}, T'Damage flags')
+                local advanced_flags = self.handling:list(T'Advanced Flags', {}, T'Advanced flags')
+                local car_handling = self.handling:list(T'Car Handling', {}, T'Car handling')
+                local bike_handling = self.handling:list(T'Bike Handling', {}, T'Bike handling')
+                local flying_handling = self.handling:list(T'Flying Handling', {}, T'Flying handling')
+                local boat_handling = self.handling:list(T'Boat Handling', {}, T'Boat handling')
+                local sea_plane_handling = self.handling:list(T'Sea Plane Handling', {}, T'Sea plane handling')
+                local submarine_handling = self.handling:list(T'Submarine Handling', {}, T'Submarine handling')
+                local trailer_handling = self.handling:list(T'Trailer Handling', {}, T'Trailer handling')
+    
+                local veh = entities.get_user_vehicle_as_pointer()
+                local CHandlingData = entities.vehicle_get_handling(veh)
+                local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
+                local CFlyingHandlingData = entities.handling_get_subhandling(CHandlingData, 1)
+                local CBoatHandlingData = entities.handling_get_subhandling(CHandlingData, 3)
+                local CSeaPlaneHandlingData = entities.handling_get_subhandling(CHandlingData, 4)
+                local CSubmarineHandlingData = entities.handling_get_subhandling(CHandlingData, 5)
+                local CTrailerHandlingData = entities.handling_get_subhandling(CHandlingData, 7)
+                local CCarHandlingData = entities.handling_get_subhandling(CHandlingData, 8)
+    
+                advanced_flags.visible = CCarHandlingData & 0xFFFF ~= 0
+                bike_handling.visible = CBikeHandlingData & 0xFFFF ~= 0
+                flying_handling.visible = CFlyingHandlingData & 0xFFFF ~= 0
+                boat_handling.visible = CBoatHandlingData & 0xFFFF ~= 0
+                sea_plane_handling.visible = CSeaPlaneHandlingData & 0xFFFF ~= 0
+                submarine_handling.visible = CSubmarineHandlingData & 0xFFFF ~= 0
+                trailer_handling.visible = CTrailerHandlingData & 0xFFFF ~= 0
+    
+                local mapped = {
+                    { name = 'model', offset = handling_data.MF_OFFSET, root = model_flags },
+                    { name = 'handling', offset = handling_data.HF_OFFSET, root = handling_flags },
+                    { name = 'damage', offset = handling_data.DF_OFFSET, root = damage_flags },
+                    { name = 'advanced', offset = handling_data.CF_OFFSET, root = advanced_flags }
+                }
+    
+                for mapped as data do
+                    if data.root:isValid() then
+                        if data.root.visible then
+                            for index, flag in pairs(handling_data[data.name]) do
+                                if not util.can_continue() then return end
+                                local addr = CHandlingData + data.offset
+                                data.root:toggle(flag.name, {}, flag.desc, function(state)
+                                    if not util.can_continue() then return end
+                                    memory.write_int(addr, memory.bits:bool(memory.read_int(addr), flag.bit, state))
+                                end, memory.read_int(CHandlingData + data.offset) & flag.bit == flag.bit)
+                            end
+                        end
+                    end
+                end
+    
+                mapped = {
+                    { name = 'bike', root = bike_handling, base = CBikeHandlingData },
+                    { name = 'flying', root = flying_handling, base = CFlyingHandlingData },
+                    { name = 'boat', root = boat_handling, base = CBoatHandlingData },
+                    { name = 'sea_plane', root = sea_plane_handling, base = CSeaPlaneHandlingData },
+                    { name = 'submarine', root = submarine_handling, base = CSubmarineHandlingData },
+                    { name = 'trailer', root = trailer_handling, base = CTrailerHandlingData },
+                }
+    
+                for mapped as data do
+                    if data.root:isValid() then
+                        if data.root.visible then
+                            for index = 1, #handling_data[data.name] do
+                                local handling_data = handling_data[data.name][index]
+                                local name, offset = handling_data[1], handling_data[2]
+                                data.root:slider_float(T(name), {T(name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(memory.read_float(data.base + offset) * 100), 1.0, function(value)
+                                    if not util.can_continue() then return end
+                                    memory.write_float(data.base + offset, value / 100)
+                                end)
+                            end
+                        end
+                    end
+                end
+    
+                if car_handling.visible then
+                    local state, err = pcall(function()
+                        for index = 1, #handling_data.ccarsub do
+                            local handling_data = handling_data.ccarsub[index]
+                            local name, offset = handling_data[1], handling_data[2]
+                            car_handling:slider_float(T(name), {T(name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(memory.read_float(CHandlingData + offset) * 100), 1.0, function(value)
+                                if not util.can_continue() then return end
+                                memory.write_float(CHandlingData + offset, value / 100)
+                            end)
+                        end
+        
+                        for index = 1, #handling_data.ccar do
+                            local handling_data = handling_data.ccar[index]
+                            local name, offset = handling_data[1], handling_data[2]
+                            if not name:find('nInitialDriveGears') then
+                                car_handling:slider_float(T(name), {T(name)}, '', -10000.0 * 100, 10000.0 * 100, math.floor(memory.read_float(CCarHandlingData + offset) * 100), 1.0, function(value)
+                                    if not util.can_continue() then return end
+                                    memory.write_float(CCarHandlingData + offset, value / 100)
+                                end)
+                            else
+                                car_handling:slider(T(name), {T(name)}, '', 1, 10, memory.read_int(CCarHandlingData + offset), 1, function(value)
+                                    if not util.can_continue() then return end
+                                    memory.write_int(CCarHandlingData + offset, value)
+                                end)
+                            end
+                        end
+                    end)
+                end
+    
+                mapped = nil
+            end)
+            self.handling = self.tunables:attachAfter(self.handling)
+        end
+
+        do
+            self.last_veh_coords = v3.new()
+
+            self.proximity_concealment:toggle_loop(T'Proximity Concealment', {}, T'Proximity based denetworking of the vehicle that you are in, this will prevent the vehicle being synced with other players when you are outside of a certain proximity to your vehicle', function()
+                local veh = players.localplayer_vehicle()
+                local proximity = self.proximity.value / 100
+
+                if veh:valid() then
+                    local coords = veh:get_entity_coords()
+                    local player_coords = players.get_position(players.user())
+                    local dist = coords:distance(player_coords)
+
+                    if dist >= proximity then
+                        if not network.network_is_entity_concealed(veh.entity) then
+                            network.network_conceal_entity(veh.entity, true)
+                            self.veh_last_coords = coords
+                        end
+                    end
+
+                    if network.network_is_entity_concealed(veh.entity) then
+                        if coords:distance(self.veh_last_coords) <= proximity then
+                            network.network_conceal_entity(veh.entity, false)
+                        end
+                    end
+                end
+            end)
+
+            self.proximity = self.proximity_concealment:slider_float(T'Proximity', {T'rvproximity'}, T'Set the proximity for the concealment (set this value to 2 if you want the vehicle to appear only when you are right next to it)', 0.0, math.max_float, 50.0 * 100, 1.0 * 100, function(value) end)
+        end
+
+        do
+            self.horn_boost:divider(T'Settings')
+            self.horn_boost_speed = self.horn_boost:slider(T'Horn Boost Speed', {T'rvhornboostspeed'}, T'Set the speed of the Horn Boost', 0, math.max_int, 100, 1, function(value) end)
+            self.horn_boost_speed_rel = self.horn_boost:toggle(T'Horn Boost Speed Relative', {T'rvhornboostrelspeed'}, T'Make the horn boost speed be added relative to your current speed', function() end)
+
+            self.horn_boost:divider('')
+            self.horn_boost_toggle = self.horn_boost:toggle_loop(T'Horn Boost', {T'rvhornboost'}, T'Boost your vehicle with the horn', function(state)
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if localplayer:is_ped_in_any_vehicle() then
+                    local speed = self.horn_boost_speed
+                    local speed_rel = self.horn_boost_speed_rel
+                    if player.is_player_pressing_horn(players.user()) then
+                        if not speed_rel.value then
+                            veh:set_vehicle_forward_speed(speed.value)
+                        else
+                            veh:set_vehicle_forward_speed(veh:get_entity_speed() + speed.value)
+                        end
+                    end
+                end
+            end)
+        end
+
+        do
+            self.torque:toggle_loop(T'Set Torque Multiplier', {T'rvsettorque'}, T'Set the torque multiplier of your vehicle', function()
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if localplayer:is_ped_in_any_vehicle() then
+                    local torque = self.torque_multiplier
+                    veh:set_vehicle_cheat_power_increase(torque.value / 100)
+                end
+                util.yield(120)
+            end)
+    
+            self.torque_multiplier = self.torque:slider_float(T'Torque Multiplier', {T'rvtorquemultiplier'}, T'Set the torque multiplier of the vehicle', 0.0, math.max_float, 1.0 * 100, 1.0 * 100, function(value) end)
+        end
+
+        do
+            local localplayer = players.localplayer()
+            local veh = players.localplayer_vehicle()
+            for self.decor_names as data do
+                local decor_menu = self.decor_editor:list(tostring(data.name), {T'rvdecor' .. tostring(data.name)}, T'Decor')
+                if data.name == 'bombowner' then
+                    decor_menu:text_input(T'Value', {T'rvdecoredit' .. tostring(data.name)}, '', function(value)
+                        veh = players.localplayer_vehicle()
+                        if localplayer:is_ped_in_any_vehicle() then
+                            decorator.decor_set_int(veh.entity, data.name, value:joaat())
+                        end
+                    end, players.get_name(players.user()))
+                else
+                    if data.type == eDecorType.Bool then
+                        decor_menu:toggle(T'Value', {}, 'Boolean', function(state)
+                            veh = players.localplayer_vehicle()
+                            if localplayer:is_ped_in_any_vehicle() then
+                                decorator.decor_set_bool(veh.entity, data.name, state)
+                            end
+                        end, decorator.decor_get_bool(veh.entity, data.name))
+                    elseif data.type == eDecorType.Int then
+                        decor_menu:slider(T'Value', {T'rvdecoredit' .. tostring(data.name)}, 'Integer', 0, math.max_int, 0, 1, function(value)
+                            veh = players.localplayer_vehicle()
+                            if localplayer:is_ped_in_any_vehicle() then
+                                decorator.decor_set_int(veh.entity, data.name, value)
+                            end
+                        end, decorator.decor_get_int(veh.entity, data.name))
+                    elseif data.type == eDecorType.Float then
+                        decor_menu:slider_float(T'Value', {T'rvdecoredit' .. tostring(data.name)}, 'Float', 0.0, math.max_float, 0.0, 1.0, function(value)
+                            veh = players.localplayer_vehicle()
+                            if localplayer:is_ped_in_any_vehicle() then
+                                decorator.decor_set_float(veh.entity, data.name, value)
+                            end
+                        end, decorator.decor_get_float(veh.entity, data.name))
+                    end
+                end
+            end
+
+            self.decor:divider('')
+
+            self.decor_player_vehicle = self.decor:readonly(T'Player Vehicle: ', '')
+            self.decor_pv_slot = self.decor:readonly(T'PV Slot: ', '')
+            self.decor_previous_owner = self.decor:readonly(T'Previous Owner: ', '')
+            self.decor_sprayed_vehicle = self.decor:readonly(T'Sprayed Vehicle: ', '')
+            self.decor_vehicle_reward = self.decor:readonly(T'Vehicle Reward: ', '')
+            self.decor_vehicle_reward_teams = self.decor:readonly(T'Vehicle Reward Teams: ', '')
+            self.decor_skill_blocker = self.decor:readonly(T'Skill Blocker: ', '')
+            self.decor_target_player_for_team = self.decor:readonly(T'Target Player For Team: ', '')
+            self.decor_xp_blocker = self.decor:readonly(T'XP Blocker: ', '')
+            self.decor_crowd_control_setup = self.decor:readonly(T'Crowd Control Setup: ', '')
+            self.decor_bought_drugs = self.decor:readonly(T'Bought Drugs: ', '')
+            self.decor_heroin_in_possession = self.decor:readonly(T'Heroin In Possession: ', '')
+            self.decor_coke_in_possession = self.decor:readonly(T'Coke In Possession: ', '')
+            self.decor_weed_in_possession = self.decor:readonly(T'Weed In Possession: ', '')
+            self.decor_meth_in_possession = self.decor:readonly(T'Meth In Possession: ', '')
+            self.decor_bombdec = self.decor:readonly(T'Bombdec: ', '')
+            self.decor_bombdec1 = self.decor:readonly(T'Bombdec1: ', '')
+            self.decor_bombowner = self.decor:readonly(T'Bombowner: ', '')
+            self.decor_no_plate_scan = self.decor:readonly(T'No Plate Scan: ', '')
+            self.decor_prison_break_boss = self.decor:readonly(T'Prison Break Boss: ', '')
+            self.decor_cashondeadbody = self.decor:readonly(T'Cashondeadbody: ', '')
+            self.decor_mission_type = self.decor:readonly(T'Mission Type: ', '')
+            self.decor_match_id = self.decor:readonly(T'Match Id: ', '')
+            self.decor_team_id = self.decor:readonly(T'Team Id: ', '')
+            self.decor_not_allow_as_saved_veh = self.decor:readonly(T'Not Allow As Saved Veh: ', '')
+            self.decor_veh_modded_by_player = self.decor:readonly(T'Veh Modded By Player: ', '')
+            self.decor_mp_bitset = self.decor:readonly(T'MP Bitset: ', '')
+            self.decor_mc_entity_id = self.decor:readonly(T'MC Entity ID: ', '')
+            self.decor_mc_chase_ped_id = self.decor:readonly(T'MC Chase Ped ID: ', '')
+            self.decor_mc_train_id = self.decor:readonly(T'MC Train ID: ', '')
+            self.decor_mc_team0_veh_delivered_rules = self.decor:readonly(T'MC Team0 Veh Delivered Rules: ', '')
+            self.decor_mc_team1_veh_delivered_rules = self.decor:readonly(T'MC Team1 Veh Delivered Rules: ', '')
+            self.decor_mc_team2_veh_delivered_rules = self.decor:readonly(T'MC Team2 Veh Delivered Rules: ', '')
+            self.decor_mc_team3_veh_delivered_rules = self.decor:readonly(T'MC Team3 Veh Delivered Rules: ', '')
+            self.decor_fm_cloned_ped_part = self.decor:readonly(T'FM Cloned Ped Part: ', '')
+            self.decor_attribute_damage = self.decor:readonly(T'Attribute Damage: ', '')
+            self.decor_gang_backup = self.decor:readonly(T'Gang Backup: ', '')
+            self.decor_created_by_pegasus = self.decor:readonly(T'Created By Pegasus: ', '')
+            self.decor_before_corona = self.decor:readonly(T'Before Corona: ', '')
+            self.decor_heist_veh_id = self.decor:readonly(T'Heist Veh ID: ', '')
+            self.decor_cc_istate = self.decor:readonly(T'CC IState: ', '')
+            self.decor_cc_istate_prev = self.decor:readonly(T'CC IState Prev: ', '')
+            self.decor_cc_ibitset = self.decor:readonly(T'CC IBitSet: ', '')
+            self.decor_cc_finfluence_direct_threat = self.decor:readonly(T'CC FInfluence Direct Threat: ', '')
+            self.decor_cc_finfluence_shouting = self.decor:readonly(T'CC FInfluence Shouting: ', '')
+            self.decor_cc_ibeatdown_hits_remaining = self.decor:readonly(T'CC IBeatdown Hits Remaining: ', '')
+            self.decor_cc_ibeatdown_rounds = self.decor:readonly(T'CC IBeatdown Rounds: ', '')
+            self.decor_luxe_minigame_act_props = self.decor:readonly(T'Luxe Minigame Act Props: ', '')
+            self.decor_luxe_veh_instance_id = self.decor:readonly(T'Luxe Veh Instance ID: ', '')
+            self.decor_using_for_time_trial = self.decor:readonly(T'Using For Time Trial: ', '')
+            self.decor_enable_veh_luxe_acts = self.decor:readonly(T'Enable Veh Luxe Acts: ', '')
+            self.decor_player_goon = self.decor:readonly(T'Player Goon: ', '')
+            self.decor_player_boss = self.decor:readonly(T'Player Boss: ', '')
+            self.decor_previous_boss = self.decor:readonly(T'Previous Boss: ', '')
+            self.decor_pyv_owner = self.decor:readonly(T'PYV Owner: ', '')
+            self.decor_pyv_vehicle = self.decor:readonly(T'PYV Vehicle: ', '')
+            self.decor_pyv_yacht = self.decor:readonly(T'PYV Yacht: ', '')
+            self.decor_pyv_warp_from = self.decor:readonly(T'PYV Warp From: ', '')
+            self.decor_contraband_owner = self.decor:readonly(T'Contraband Owner: ', '')
+            self.decor_heli_taxi = self.decor:readonly(T'Heli Taxi: ', '')
+            self.decor_contraband_delivery_type = self.decor:readonly(T'Contraband Delivery Type: ', '')
+            self.decor_random_id = self.decor:readonly(T'Random ID: ', '')
+            self.decor_export_vehicle = self.decor:readonly(T'Export Vehicle: ', '')
+            self.decor_respawn_veh = self.decor:readonly(T'Respawn Veh: ', '')
+            self.decor_player_truck = self.decor:readonly(T'Player Truck: ', '')
+            self.decor_creator_trailer = self.decor:readonly(T'Creator Trailer: ', '')
+            self.decor_fmdeliverable_id = self.decor:readonly(T'FMDeliverable ID: ', '')
+            self.decor_player_avenger = self.decor:readonly(T'Player Avenger: ', '')
+            self.decor_player_acid_lab = self.decor:readonly(T'Player Acid Lab: ', '')
+            self.decor_player_support_bike_vehicle = self.decor:readonly(T'Player Support Bike Vehicle: ', '')
+            self.decor_player_hacker_truck = self.decor:readonly(T'Player Hacker Truck: ', '')
+            self.decor_bb_carrier = self.decor:readonly(T'BB Carrier: ', '')
+            self.decor_gb_mission_fire = self.decor:readonly(T'GB Mission Fire: ', '')
+            self.decor_gbc_vehicle = self.decor:readonly(T'GBC Vehicle: ', '')
+            self.decor_csh_vehicle = self.decor:readonly(T'CSH Vehicle: ', '')
+            self.decor_allow_mod_spray_repair = self.decor:readonly(T'Allow Mod Spray Repair: ', '')
+            self.decor_fmc_vehicle = self.decor:readonly(T'FMC Vehicle: ', '')
+            self.decor_player_submarine = self.decor:readonly(T'Player Submarine: ', '')
+            self.decor_player_submarine_dinghy = self.decor:readonly(T'Player Submarine Dinghy: ', '')
+            self.decor_player_moon_pool = self.decor:readonly(T'Player Moon Pool: ', '')
+            self.decor_vehicle_list = self.decor:readonly(T'Vehicle List: ', '')
+            self.decor_company_suv = self.decor:readonly(T'Company SUV: ', '')
+            self.decor_test_drive = self.decor:readonly(T'Test Drive: ', '')
+            self.decor_player_thruster = self.decor:readonly(T'Player Thruster: ', '')
+            self.decor_player_owned_veh = self.decor:readonly(T'Player Owned Veh: ', '')
+            self.decor_photo_taken = self.decor:readonly(T'Photo Taken: ', '')
+            self.decor_doe_elk = self.decor:readonly(T'Doe Elk: ', '')
+            self.decor_hunt_score = self.decor:readonly(T'Hunt Score: ', '')
+            self.decor_hunt_weapon = self.decor:readonly(T'Hunt Weapon: ', '')
+            self.decor_hunt_undetected = self.decor:readonly(T'Hunt Undetected: ', '')
+            self.decor_hunt_nocall = self.decor:readonly(T'Hunt Nocall: ', '')
+            self.decor_hunt_chal_weapon = self.decor:readonly(T'Hunt Chal Weapon: ', '')
+            self.decor_hunt_kill_time = self.decor:readonly(T'Hunt Kill Time: ', '')
+            self.decor_dismissed_by = self.decor:readonly(T'Dismissed By: ', '')
+            self.decor_darts_name = self.decor:readonly(T'Darts Name: ', '')
+            self.decor_getaway_winched = self.decor:readonly(T'Getaway Winched: ', '')
+            self.decor_map_gauntlet = self.decor:readonly(T'Map Gauntlet: ', '')
+            self.decor_ignored_by_quick_save = self.decor:readonly(T'Ignored By Quick Save: ', '')
+            self.decor_getaway_vehicle_valid = self.decor:readonly(T'Getaway Vehicle Valid: ', '')
+            self.decor_rampage_car_exploded = self.decor:readonly(T'Rampage Car Exploded: ', '')
+            self.decor_carwash_vehicle_decorator = self.decor:readonly(T'Carwash Vehicle Decorator: ', '')
+            self.decor_casino_game_info_decorator = self.decor:readonly(T'Casino Game Info Decorator: ', '')
+        end
+
+        do
+            self.network_id:text_input(T'Network ID', {T'rvnetworkidinput'}, T'Change your personal vehicles network id', function(value)
+                local net_id = tonumber(value)
+                if network.network_does_network_id_exist(net_id) then
+                    self:set_pv_network_id(players.user(), net_id)
+                end
+            end, self:get_pv_network_id(players.user()))
+    
+            self.network_id:action(T'Assign Random Vehicle Network ID', {T'rvnetworkidrandom'}, T'Assign a random vehicles network id to your personal vehicle', function()
+                local veh_ptr = entities.get_all_vehicles_as_pointers()[1]
+                local veh = entities.pointer_to_handle(veh_ptr)
+    
+                if veh ~= 0 then
+                    local net_id = network.network_get_network_id_from_entity(veh)
+                    local veh_model = util.get_label_text(util.reverse_joaat(entity.get_entity_model(veh)))
+                    
+                    if network.network_does_network_id_exist(net_id) then
+                        self:set_pv_network_id(players.user(), net_id)
+                    else
+                        entity.set_entity_as_mission_entity(veh, true, true)
+                        self:set_pv_network_id(players.user(), net_id)
+                    end
+    
+                    util.toast($'Spoofing as {veh_model} with network id {net_id}')
+                end
+            end)
+        end
+
+        do
+            self.root:divider('')
+            self.improved_wheelie = self.root:toggle(T'Improved Wheelie', {T'rvimprovedwheelie'}, T'Improves the wheelie handling of bikes, allowing you to wheelie at high speeds and lean back pretty far', function(state)
+                if state then
+                    util.create_tick_handler(function()
+                        local localplayer = players.localplayer()
+                        local veh = players.localplayer_vehicle()
+                        if localplayer:is_ped_in_any_vehicle() then
+                            local ptr = veh.ptr
+                            if ptr ~= 0 then
+                                local CHandlingData = entities.vehicle_get_handling(ptr)
+                                local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
+    
+                                if CBikeHandlingData ~= 0 then
+                                    memory.write_float(CBikeHandlingData + 0x14, self.improved_wheelie.value ? 25.0 : 13.0)
+                                    memory.write_float(CBikeHandlingData + 0x3C, self.improved_wheelie.value ? -60.0 : -1.0)
+                                    memory.write_float(CBikeHandlingData + 0x40, self.improved_wheelie.value ? 70.0 : 60.0)
+                                    
+                                    if not self.improved_wheelie.value then
+                                        return false
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                end
+            end)
+
+            self.bmx_superjump = self.root:toggle(T'BMX Super Jump', {T'rvbmxsuperjump'}, T'Allows you to jump higher on a bmx', function(state)
+                if state then
+                    util.create_tick_handler(function()
+                        local localplayer = players.localplayer()
+                        local veh = players.localplayer_vehicle()
+                        if localplayer:is_ped_in_any_vehicle() then
+                            local ptr = veh.ptr
+                            if ptr ~= 0 then
+                                local CHandlingData = entities.vehicle_get_handling(ptr)
+                                local CBikeHandlingData = entities.handling_get_subhandling(CHandlingData, 0)
+    
+                                if CBikeHandlingData ~= 0 then
+                                    memory.write_float(CBikeHandlingData + 0x58, self.bmx_superjump.value ? 20.0 : 5.0)
+                                    
+                                    if not self.bmx_superjump.value then
+                                        return false
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                end
+            end)
+    
+            self.enable_kers = self.root:toggle(T'Enable Kers', {}, T'Enable kers boost for your vehicle', function(state)
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if localplayer:is_ped_in_any_vehicle() then
+                    local ptr = veh.ptr
+                    local CHandlingData = entities.vehicle_get_handling(ptr)
+                    local addr = CHandlingData + 0x128
+                    memory.write_byte(addr, memory.bits:bool(memory.read_byte(addr), 1 << 2, state))
+                    veh:set_vehicle_kers_allowed(true)
+                end
+            end)
+
+            self.root:toggle_loop(T'Infinite Kers', {}, T'Set max kers boost possible', function()
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if veh:valid() then
+                    if localplayer:is_ped_in_any_vehicle() then
+                        local ptr = veh.ptr
+                        memory.write_float(ptr + 0x930, memory.read_float(ptr + 0x92C))
+                    end
+                end
+            end)
+
+            self.root:toggle_loop(T'Drift', {}, T'Hold shift to drift', function()
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if localplayer:is_ped_in_any_vehicle() then
+                    if util.is_key_down(0xA0) then
+                        veh:set_drift_tyres(true)
+                    else
+                        veh:set_drift_tyres(false)
+                    end
+                end
+                veh:set_drift_tyres(false)
+            end, function()
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if localplayer:is_ped_in_any_vehicle() then
+                    veh:set_drift_tyres(false)
+                end
+            end)
+
+            self.root:toggle(T'Interior Light', {}, T'Enables the dashboard light within your vehicle', function(state)
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if localplayer:is_ped_in_any_vehicle() then
+                    veh:set_vehicle_interiorlight(state)
+                    veh:set_vehicle_force_interiorlight(state)
+                end
+            end)
+
+            self.root:toggle_loop(T'Demi God', {}, T'Make your car very very durable, not durable against missiles if your car has no armour like the virtue', function()
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if veh:valid() then
+                    try
+                        veh:set_vehicle_strong(true)
+                        veh:set_vehicle_has_strong_axles(true)
+                        veh:set_vehicle_explodes_on_high_explosion_damage(false)
+
+                        memory.write_float(veh.ptr + 0x0284, math.max_float/2) -- max health
+                        memory.write_float(veh.ptr + 0x280, math.max_float/2) -- health
+                        memory.write_float(veh.ptr + 0x08E8, math.max_float/2) -- engine health
+                        memory.write_float(veh.ptr + 0x0824, math.max_float/2) -- petrol tank health
+                        memory.write_short(
+                            veh.ptr + 0x188, 
+                            memory.bits:bool(memory.read_short(veh.ptr + 0x188), 1 << 10, true)
+                        )
+                    catch e then
+                        
+                    end
+                end
+            end, function()
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                if veh:valid() then
+                    try
+                        veh:set_vehicle_strong(false)
+                        veh:set_vehicle_has_strong_axles(false)
+                        veh:set_vehicle_explodes_on_high_explosion_damage(true)
+
+                        memory.write_float(veh.ptr + 0x0284, 1000.0) -- max health
+                        memory.write_float(veh.ptr + 0x280, 1000.0) -- health
+                        memory.write_float(veh.ptr + 0x08E8, 1000.0) -- engine health
+                        memory.write_float(veh.ptr + 0x0824, 1000.0) -- petrol tank health
+                        memory.write_short(
+                            veh.ptr + 0x188, 
+                            memory.bits:bool(memory.read_short(veh.ptr + 0x188), 1 << 10, false)
+                        )
+                    catch e then
+                        
+                    end
+                end
+            end)
+
+            self.root:toggle_loop(T'Homing Missile Locked Alert', {}, T'Tells you when a player is locking onto you, the game doesn\'t always play the sound, it also tells you if the player is using mods to lock-onto you (locking onto vehicles with the missile lock jammer equipped)', function()
+                local veh = players.localplayer_vehicle()
+                if veh:valid() then
+                    local v1 = memory.read_long(veh.ptr + 0xAE8)
+                    local v2 = memory.read_long(veh.ptr + 0xA48)
+                    local has_jammer = veh:get_vehicle_mod(44) == 1
+                    local is_locked = v2 & (1 << 33) == 1 << 33
+                    local can_be_locked = v1 & (1 << 48) == 1 << 48
+                    local hash = veh:get_entity_model()
+                    local is_aircraft = vehicle.is_this_model_a_heli(hash) or vehicle.is_this_model_a_plane(hash)
+                    local has_chaff = is_aircraft ? (veh:get_vehicle_mod(1) == 0) : false
+
+                    if is_locked then
+                        if not has_jammer then
+                            util.toast(T'Lock on detected')
+                        else
+                            util.toast(T'Modded lock on detected')
+                        end
+
+                        if has_chaff then
+                            util.toast(T'Potential modded lock on detected, chaff is equipped')
+                        end
+
+                        if not can_be_locked then
+                            util.toast(T'Modded lock on detected')
+                        end
+                    end
+                end
+            end)
+
+            self.root:toggle_loop(T'Anti-Dirt', {}, T'Keeps your vehicle clean', function()
+                local veh = players.localplayer_vehicle()
+                if veh:valid() then
+                    veh:set_vehicle_dirt_level(0.0)
+                end
+            end)
+
+            self.root:divider('')
+            self.root:text_input(T'Change License Plate', {T'rvmodlicenseplate'}, T'Change the license plate of your vehicle (works on personal vehicles too)', function(text)
+                if not util.can_continue() then return end
+                local localplayer = players.localplayer()
+                local veh = players.localplayer_vehicle()
+                local personal = self:get_pv_from_network_id(players.user())
+                if veh.entity ~= personal then
+                    if veh:valid() then
+                        veh:set_vehicle_number_plate_text(text)
+                    end
+                else
+                    local slot = memory.read_short(self.g.ActivePVSlot:g(0))
+                    local data = self.g.PersonalVehicleData:g(slot)
+                    local addr = data + ls_customs.license_plate
+                    memory.write_string(addr, text)
+                end
+            end, '12ABC345')
+
+            self.root:list_select(T'AIHandling', {}, T'Change the handling meta for your vehicle', self.ai_handling, 1, function(index)
+                if not util.can_continue() then return end
+                local value = self.ai_handling[index]
+                local veh = players.localplayer_vehicle()
+                if veh:valid() then
+                    veh:set_vehicle_handling_override(value)
+                end
+            end)
+
+            local commands = {}
+            local mapped = {
+                { args = { T'Detach Windscreen', commands, T'Detach the windscreen of your vehicle' }, func = 'pop_out_vehicle_windscreen', func_args = nil },
+                { args = { T'Pop Off Roof', commands, T'Pops off the roof, does not work for all vehicles (which is most of them)' }, func = 'pop_off_vehicle_roof_with_impulse', func_args = { 0.0, 0.0, 0.0 } },
+                { args = { T'Fix Vehicle', commands, T'Fixes the vehicle, what else?' }, func = 'set_vehicle_fixed', func_args = nil },
+                { args = { T'Fix Deformation', commands, T'Fixes deformation but doesn\'t restore the vehicles health' }, func = 'set_vehicle_deformation_fixed', func_args = nil },
+                { args = { T'Roll Down Windows', commands, T'Roll down all the windows of your vehicle' }, func = 'roll_down_windows', func_args = nil },
+            }
+
+            for mapped as data do
+                data.args[4] = function()
+                    local veh = players.localplayer_vehicle()
+                    if veh.entity ~= 0 then
+                        local args = data.func_args
+                        if args ~= nil then
+                            veh[data.func](veh, table.unpack(args))
+                        else
+                            veh[data.func](veh)
+                        end
+                    end
+                end
+                self.root:action(table.unpack(data.args))
+            end
+            mapped = nil
+            commands = nil
+
+            self.root:action(T'Subtle Vehicle Fix', {'rvvehfix'}, T'Fixes the vehicle, but all deformations and visual damage will remain', function()
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    local health_addr = veh.ptr + 0x280
+                    local max_health_addr = veh.ptr + 0x0284
+                    local engine_health_addr = veh.ptr + 0x08E8
+                    local petrol_tank_health_addr = veh.ptr + 0x0824
+                    memory.write_float(health_addr, memory.read_float(max_health_addr))
+                    memory.write_float(engine_health_addr, 1000.0)
+                    memory.write_float(petrol_tank_health_addr, 1000.0)
+                end
+            end)
+
+            self.root:action(T'Roll Up Windows', {}, T'Opposite of rolling them down', function()
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    for i = 0, 7 do
+                        veh:roll_up_window(i)
+                    end
+                end
+            end)
+
+            self.root:action(T'Smash Windows', {}, T'Smash all the windows of your vehicle', function()
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    for i = 0, 7 do
+                        veh:smash_vehicle_window(i)
+                    end
+                end
+            end)
+
+            self.root:action(T'Fix Windows', {}, T'Fix all the windows of your vehicle', function()
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    for i = 0, 7 do
+                        veh:fix_vehicle_window(i)
+                    end
+                end
+            end)
+
+            self.root:action(T'Remove Windows', {}, T'Remove all the windows of your vehicle', function()
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    for i = 0, 7 do
+                        veh:remove_vehicle_window(i)
+                    end
+                end
+            end)
+
+            self.root:slider_float(T'Vehicle Headlights Multiplier', {T'rvehlightmultiplier'}, T'Set the multiplier for vehicle lights', 0.0, math.max_float, 1.0 * 100, 1.0 * 100, function(value) 
+                local veh = players.localplayer_vehicle()
+                if veh ~= 0 then
+                    veh:set_vehicle_light_multiplier(value / 100)
+                end
+            end)
+
+            self.root:slider_float(T'Set Max Speed', {T'rvmaxspeed'}, T'Set the max speed of the vehicle', 0.0, math.max_float, 0.0, 1.0 * 100, function(value) 
+                local veh = players.localplayer_vehicle()
+                if veh ~= 0 then
+                    veh:set_vehicle_max_speed(value / 100)
+                    veh:set_entity_max_speed(value / 100)
+                end
+            end)
+        end
+    end
+
+    inline function bypass_ownership_check(state)
+        local addr = self.g.PVOwnershipBypass:g()
+        memory.write_byte(addr, state ? 0 : 1)
+    end
+
+    function update_decor_info()
+        if not self.update:isset(eUpdateFlags.UF_DECORS) then
+            self.update:set(eUpdateFlags.UF_DECORS)
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.decor.menu_name then
+                    self.update:clear(eUpdateFlags.UF_DECORS)
+                    return false
+                end
+
+                local veh = players.localplayer_vehicle()
+                if veh:valid() then
+                    self.decor_player_vehicle.value = decorator.decor_get_int(veh.entity, 'Player_Vehicle')
+                    self.decor_pv_slot.value = decorator.decor_get_int(veh.entity, 'PV_Slot')
+                    self.decor_previous_owner.value = decorator.decor_get_int(veh.entity, 'Previous_Owner')
+                    self.decor_sprayed_vehicle.value = decorator.decor_get_bool(veh.entity, 'Sprayed_Vehicle_Decorator')
+                    self.decor_vehicle_reward.value = decorator.decor_get_int(veh.entity, 'Vehicle_Reward')
+                    self.decor_vehicle_reward_teams.value = decorator.decor_get_int(veh.entity, 'Vehicle_Reward_Teams')
+                    self.decor_skill_blocker.value = decorator.decor_get_bool(veh.entity, 'Skill_Blocker')
+                    self.decor_target_player_for_team.value = decorator.decor_get_int(veh.entity, 'TargetPlayerForTeam')
+                    self.decor_xp_blocker.value = decorator.decor_get_bool(veh.entity, 'XP_Blocker')
+                    self.decor_crowd_control_setup.value = decorator.decor_get_int(veh.entity, 'CrowdControlSetUp')
+                    self.decor_bought_drugs.value = decorator.decor_get_bool(veh.entity, 'Bought_Drugs')
+                    self.decor_heroin_in_possession.value = decorator.decor_get_bool(veh.entity, 'HeroinInPossession')
+                    self.decor_coke_in_possession.value = decorator.decor_get_bool(veh.entity, 'CokeInPossession')
+                    self.decor_weed_in_possession.value = decorator.decor_get_bool(veh.entity, 'WeedInPossession')
+                    self.decor_meth_in_possession.value = decorator.decor_get_bool(veh.entity, 'MethInPossession')
+                    self.decor_bombdec.value = decorator.decor_get_int(veh.entity, 'bombdec')
+                    self.decor_bombdec1.value = decorator.decor_get_int(veh.entity, 'bombdec1')
+                    self.decor_bombowner.value = decorator.decor_get_int(veh.entity, 'bombowner')
+                    self.decor_no_plate_scan.value = decorator.decor_get_bool(veh.entity, 'noPlateScan')
+                    self.decor_prison_break_boss.value = decorator.decor_get_bool(veh.entity, 'prisonBreakBoss')
+                    self.decor_cashondeadbody.value = decorator.decor_get_int(veh.entity, 'cashondeadbody')
+                    self.decor_mission_type.value = decorator.decor_get_int(veh.entity, 'MissionType')
+                    self.decor_match_id.value = decorator.decor_get_int(veh.entity, 'MatchId')
+                    self.decor_team_id.value = decorator.decor_get_int(veh.entity, 'TeamId')
+                    self.decor_not_allow_as_saved_veh.value = decorator.decor_get_int(veh.entity, 'Not_Allow_As_Saved_Veh')
+                    self.decor_veh_modded_by_player.value = decorator.decor_get_int(veh.entity, 'Veh_Modded_By_Player')
+                    self.decor_mp_bitset.value = decorator.decor_get_int(veh.entity, 'MPBitset')
+                    self.decor_mc_entity_id.value = decorator.decor_get_int(veh.entity, 'MC_EntityID')
+                    self.decor_mc_chase_ped_id.value = decorator.decor_get_int(veh.entity, 'MC_ChasePedID')
+                    self.decor_mc_train_id.value = decorator.decor_get_int(veh.entity, 'MC_TrainID')
+                    self.decor_mc_team0_veh_delivered_rules.value = decorator.decor_get_int(veh.entity, 'MC_Team0_VehDeliveredRules')
+                    self.decor_mc_team1_veh_delivered_rules.value = decorator.decor_get_int(veh.entity, 'MC_Team1_VehDeliveredRules')
+                    self.decor_mc_team2_veh_delivered_rules.value = decorator.decor_get_int(veh.entity, 'MC_Team2_VehDeliveredRules')
+                    self.decor_mc_team3_veh_delivered_rules.value = decorator.decor_get_int(veh.entity, 'MC_Team3_VehDeliveredRules')
+                    self.decor_fm_cloned_ped_part.value = decorator.decor_get_int(veh.entity, 'FMMC_ClonedPedPart')
+                    self.decor_attribute_damage.value = decorator.decor_get_int(veh.entity, 'AttributeDamage')
+                    self.decor_gang_backup.value = decorator.decor_get_int(veh.entity, 'GangBackup')
+                    self.decor_created_by_pegasus.value = decorator.decor_get_bool(veh.entity, 'CreatedByPegasus')
+                    self.decor_before_corona.value = decorator.decor_get_int(veh.entity, 'BeforeCorona')
+                    self.decor_heist_veh_id.value = decorator.decor_get_int(veh.entity, 'Heist_Veh_ID')
+                    self.decor_cc_istate.value = decorator.decor_get_int(veh.entity, 'CC_iState')
+                    self.decor_cc_istate_prev.value = decorator.decor_get_int(veh.entity, 'CC_iStatePrev')
+                    self.decor_cc_ibitset.value = decorator.decor_get_int(veh.entity, 'CC_iBitSet')
+                    self.decor_cc_finfluence_direct_threat.value = decorator.decor_get_float(veh.entity, 'CC_fInfluenceDirectThreat')
+                    self.decor_cc_finfluence_shouting.value = decorator.decor_get_float(veh.entity, 'CC_fInfluenceShouting')
+                    self.decor_cc_ibeatdown_hits_remaining.value = decorator.decor_get_int(veh.entity, 'CC_iBeatdownHitsRemaining')
+                    self.decor_cc_ibeatdown_rounds.value = decorator.decor_get_int(veh.entity, 'CC_iBeatdownRounds')
+                    self.decor_luxe_minigame_act_props.value = decorator.decor_get_int(veh.entity, 'LUXE_MINIGAME_ACT_PROPS')
+                    self.decor_luxe_veh_instance_id.value = decorator.decor_get_int(veh.entity, 'LUXE_VEH_INSTANCE_ID')
+                    self.decor_using_for_time_trial.value = decorator.decor_get_bool(veh.entity, 'UsingForTimeTrial')
+                    self.decor_enable_veh_luxe_acts.value = decorator.decor_get_int(veh.entity, 'EnableVehLuxeActs')
+                    self.decor_player_goon.value = decorator.decor_get_int(veh.entity, 'Player_Goon')
+                    self.decor_player_boss.value = decorator.decor_get_int(veh.entity, 'Player_Boss')
+                    self.decor_previous_boss.value = decorator.decor_get_int(veh.entity, 'Previous_Boss')
+                    self.decor_pyv_owner.value = decorator.decor_get_int(veh.entity, 'PYV_Owner')
+                    self.decor_pyv_vehicle.value = decorator.decor_get_int(veh.entity, 'PYV_Vehicle')
+                    self.decor_pyv_yacht.value = decorator.decor_get_int(veh.entity, 'PYV_Yacht')
+                    self.decor_pyv_warp_from.value = decorator.decor_get_int(veh.entity, 'PYV_WarpFrom')
+                    self.decor_contraband_owner.value = decorator.decor_get_int(veh.entity, 'ContrabandOwner')
+                    self.decor_heli_taxi.value = decorator.decor_get_bool(veh.entity, 'HeliTaxi')
+                    self.decor_contraband_delivery_type.value = decorator.decor_get_int(veh.entity, 'ContrabandDeliveryType')
+                    self.decor_random_id.value = decorator.decor_get_int(veh.entity, 'RandomID')
+                    self.decor_export_vehicle.value = decorator.decor_get_int(veh.entity, 'ExportVehicle')
+                    self.decor_respawn_veh.value = decorator.decor_get_int(veh.entity, 'RespawnVeh')
+                    self.decor_player_truck.value = decorator.decor_get_int(veh.entity, 'Player_Truck')
+                    self.decor_creator_trailer.value = decorator.decor_get_int(veh.entity, 'Creator_Trailer')
+                    self.decor_fmdeliverable_id.value = decorator.decor_get_int(veh.entity, 'FMDeliverableID')
+                    self.decor_player_avenger.value = decorator.decor_get_int(veh.entity, 'Player_Avenger')
+                    self.decor_player_acid_lab.value = decorator.decor_get_int(veh.entity, 'Player_Acid_Lab')
+                    self.decor_player_support_bike_vehicle.value = decorator.decor_get_int(veh.entity, 'Player_Support_Bike_Vehicle')
+                    self.decor_player_hacker_truck.value = decorator.decor_get_int(veh.entity, 'Player_Hacker_Truck')
+                    self.decor_bb_carrier.value = decorator.decor_get_bool(veh.entity, 'BBCarrier')
+                    self.decor_gb_mission_fire.value = decorator.decor_get_int(veh.entity, 'GBMissionFire')
+                    self.decor_gbc_vehicle.value = decorator.decor_get_bool(veh.entity, 'GBCVehicle')
+                    self.decor_csh_vehicle.value = decorator.decor_get_bool(veh.entity, 'CSHVehicle')
+                    self.decor_allow_mod_spray_repair.value = decorator.decor_get_bool(veh.entity, 'AllowModSprayRepair')
+                    self.decor_fmc_vehicle.value = decorator.decor_get_bool(veh.entity, 'FMCVehicle')
+                    self.decor_player_submarine.value = decorator.decor_get_int(veh.entity, 'Player_Submarine')
+                    self.decor_player_submarine_dinghy.value = decorator.decor_get_int(veh.entity, 'Player_Submarine_Dinghy')
+                    self.decor_player_moon_pool.value = decorator.decor_get_int(veh.entity, 'Player_Moon_Pool')
+                    self.decor_vehicle_list.value = decorator.decor_get_bool(veh.entity, 'VehicleList')
+                    self.decor_company_suv.value = decorator.decor_get_int(veh.entity, 'Company_SUV')
+                    self.decor_test_drive.value = decorator.decor_get_bool(veh.entity, 'TestDrive')
+                    self.decor_player_thruster.value = decorator.decor_get_int(veh.entity, 'Player_Thruster')
+                    self.decor_player_owned_veh.value = decorator.decor_get_int(veh.entity, 'Player_Owned_Veh')
+                    self.decor_photo_taken.value = decorator.decor_get_bool(veh.entity, 'PHOTO_TAKEN')
+                    self.decor_doe_elk.value = decorator.decor_get_bool(veh.entity, 'doe_elk')
+                    self.decor_hunt_score.value = decorator.decor_get_int(veh.entity, 'hunt_score')
+                    self.decor_hunt_weapon.value = decorator.decor_get_int(veh.entity, 'hunt_weapon')
+                    self.decor_hunt_undetected.value = decorator.decor_get_bool(veh.entity, 'hunt_undetected')
+                    self.decor_hunt_nocall.value = decorator.decor_get_bool(veh.entity, 'hunt_nocall')
+                    self.decor_hunt_chal_weapon.value = decorator.decor_get_int(veh.entity, 'hunt_chal_weapon')
+                    self.decor_hunt_kill_time.value = decorator.decor_get_int(veh.entity, 'hunt_kill_time')
+                    self.decor_dismissed_by.value = decorator.decor_get_int(veh.entity, 'DismissedBy')
+                    self.decor_darts_name.value = decorator.decor_get_int(veh.entity, 'Darts_name')
+                    self.decor_getaway_winched.value = decorator.decor_get_bool(veh.entity, 'Getaway_Winched')
+                    self.decor_map_gauntlet.value = decorator.decor_get_int(veh.entity, 'MapGauntlet')
+                    self.decor_ignored_by_quick_save.value = decorator.decor_get_bool(veh.entity, 'IgnoredByQuickSave')
+                    self.decor_getaway_vehicle_valid.value = decorator.decor_get_bool(veh.entity, 'GetawayVehicleValid')
+                    self.decor_rampage_car_exploded.value = decorator.decor_get_bool(veh.entity, 'RampageCarExploded')
+                    self.decor_carwash_vehicle_decorator.value = decorator.decor_get_bool(veh.entity, 'Carwash_Vehicle_Decorator')
+                    self.decor_casino_game_info_decorator.value = decorator.decor_get_int(veh.entity, 'Casino_Game_Info_Decorator')
+                end
+            end)
+        end
+    end
+end
+
+return Vehicles

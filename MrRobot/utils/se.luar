@@ -1,0 +1,156 @@
+pluto_use class, new
+
+class SE
+    events = {
+        {1, 'Fake Register CEO'}, 
+        {2, 'Fake Register MC'}, 
+        {3, 'Fake Register VIP'},
+        {4, 'Fake Off The Radar'},
+        {5, 'Fake Ghost Org'},
+        {6, 'Mugged'},
+        {7, 'Ewo'},
+        {8, 'Ghosted'},
+        {9, 'Destroyed Vehicle Cargo'},
+        {10, 'Cash Stolen'},
+        {11, 'Cash Banked'},
+        {12, 'Cash Removed'},
+        {13, 'Jammer Activated'},
+        {14, 'Delivered Motorcycle'},
+        {15, 'Joined Organisation'},
+        {16, 'Quit Organisation'},
+        {17, 'Marked For Death'},
+        {18, 'Interior Invite'},
+        {19, 'Mugger Killed'}
+    }
+
+    inline function register_ceo(bitflags) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 514341487, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) 
+    end
+
+    inline function register_vip(bitflags) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 514341487, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function register_mc(bitflags) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 514341487, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function off_radar(bitflags, amount) 
+        util.trigger_script_event(bitflags, {-642704387, 1, -1496350145, amount or 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function ghost_org(bitflags) 
+        util.trigger_script_event(bitflags, {-642704387, 1, 688031806, 0, 0, 0, 7953752157564464705, 31084746152966761, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function successfully_mugged(bitflags, amount) 
+        util.trigger_script_event(bitflags, {-642704387, 0, -1079941038, amount or 10000, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0})
+    end
+
+    inline function mugger_killed(bitflags) 
+        util.trigger_script_event(bitflags, {-642704387, 0, -578453253, 0, 0, 0, 0, 0, 0, 0, 2954937499648, 0, 0, 0})
+    end
+
+    inline function attacked_armoured_truck(bitflags, attacker) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 1964206081, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function empty_notification(bitflags) 
+        util.trigger_script_event(bitflags, {-642704387, 0, -1896366254, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function cash_banked(bitflags, amount) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 94410750, amount or math.max_int, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function cash_stolen(bitflags, amount) 
+        util.trigger_script_event(bitflags, {-642704387, 0, -295926414, amount or math.max_int, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function cash_removed(bitflags, amount) 
+        util.trigger_script_event(bitflags, {-642704387, 0, -242911964, amount or math.max_int, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function jammer_activated(bitflags) 
+        util.trigger_script_event(bitflags, {-642704387, 0, -1957780196, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
+    end
+
+    inline function collect_pink_slip(bitflags, collector) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 1919354072, 0, 0, 0, 0, 0, 0, 0, collector, 0, 0, 0})
+    end
+
+    inline function player_ewo(bitflags, ewo) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 1269083963, 0, 0, 0, 0, 0, 0, 0, ewo, 0, 0, 0})
+    end
+
+    inline function destroyed_vehicle_cargo(bitflags, target) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 1537935777, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0})
+    end
+
+    inline function delivered_motorcycle(bitflags, target) 
+        util.trigger_script_event(bitflags, {-642704387, 0, -1532850163, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0})
+    end
+
+    inline function joined_org(bitflags, target) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 1601625667, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0})
+    end
+
+    inline function quit_org(bitflags, target) 
+        util.trigger_script_event(bitflags, {-642704387, 0, -1995714668, 0, 0, 0, 0, 0, 0, 0, target, 0, 0, 0})
+    end
+
+    inline function marked_for_death(bitflags, marked_by) 
+        util.trigger_script_event(bitflags, {-642704387, 0, 110435988, 0, 0, 0, 0, 0, 0, 0, marked_by, 0, 0, 0})
+    end
+
+    inline function become_ghosted(bitflags, ghosted_to) 
+        util.trigger_script_event(bitflags, {-642704387, 0, -1233120647, 0, 0, 0, 0, 0, 0, 0, ghosted_to, 0, 0, 0})
+    end
+
+    inline function interior_invite(bitflags, id=0) 
+        util.trigger_script_event(bitflags, {996099702, players.user(), id, math.max_int})
+    end
+
+    inline function force_quit_mission(bitflags)
+        util.trigger_script_event(bitflags, {-332947903, 0, 0})
+    end
+
+    inline function ceo_kick(bitflags)
+        util.trigger_script_event(bitflags, { 618715507, 1, 1, 5 })
+    end
+
+    inline function marked_for_death_ceo_kick(bitflags)
+        util.trigger_script_event(bitflags, { 618715507, 1, 1, 6 })
+        util.trigger_script_event(bitflags, { 618715507, 1, 1, 5 })
+    end
+
+    inline function start_freemode_mission(bitflags, mission_id)
+        util.trigger_script_event(bitflags, { 1450115979, 1, mission_id, -1 })
+    end
+
+    inline function freeze_player(bitflags, state)
+        util.trigger_script_event(bitflags, { -1321657966, 1, 25, -1, 1, 60, state ? 1 : 0, 1, 0, 2147483647 })
+    end
+
+    inline function disable_player(bitflags, state)
+        util.trigger_script_event(bitflags, { -1321657966, 1, 25, -1, 1, 60, state ? 1 : 0, 0, 0, 2147483647 })
+    end
+
+    inline function pause_menu_vehicle_kick(bitflags)
+        util.trigger_script_event(bitflags, { -1098727618, 32, 0, 0, 0 })
+    end
+
+    inline function prevent_auto_shuffle(bitflags)
+        util.trigger_script_event(bitflags, { 641708561, -1, 1, 0 })
+    end
+
+    inline function sub_counter_measure(bitflags, pid)
+        util.trigger_script_event(bitflags, { 302119011, pid, 0, 1, 1 })
+    end
+
+    inline function sub_bomb(bitflags, pid)
+        util.trigger_script_event(bitflags, { 302119011, pid, 1, 0, 1 })
+    end
+end
+
+return new SE()

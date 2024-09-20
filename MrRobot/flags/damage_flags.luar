@@ -1,0 +1,27 @@
+return {
+    DF_None = 0x0,
+    DF_IsAccurate = 0x1, -- 1 << 0
+    DF_MeleeDamage = 0x2, -- 1 << 1
+    DF_SelfDamage = 0x4, -- 1 << 2
+    DF_ForceMeleeDamage = 0x8, -- 1 << 3
+    DF_IgnorePedFlags = 0x10, -- 1 << 4
+    DF_ForceInstantKill = 0x20, -- 1 << 5
+    DF_IgnoreArmor = 0x40, -- 1 << 6
+    DF_IgnoreStatModifiers = 0x80, -- 1 << 7
+    DF_FatalMeleeDamage = 0x100, -- 1 << 8
+    DF_AllowHeadShot = 0x200, -- 1 << 9
+    DF_AllowDriverKill = 0x400, -- 1 << 10
+    DF_KillPriorToClearedWantedLevel = 0x800, -- 1 << 11
+    DF_SuppressImpactAudio = 0x1000, -- 1 << 12
+    DF_ExpectedPlayerKill = 0x2000, -- 1 << 13
+    DF_DontReportCrimes = 0x4000, -- 1 << 14
+    DF_PtFxOnly = 0x8000, -- 1 << 15
+    DF_UsePlayerPendingDamage = 0x10000, -- 1 << 16
+    DF_AllowCloneMeleeDamage = 0x20000, -- 1 << 17
+    DF_NoAnimatedMeleeReaction = 0x40000, -- 1 << 18
+    DF_IgnoreRemoteDistCheck = 0x80000, -- 1 << 19
+    DF_VehicleMeleeHit = 0x100000, -- 1 << 20
+    DF_EnduranceDamageOnly = 0x200000, -- 1 << 21
+    DF_HealthDamageOnly = 0x400000, -- 1 << 22
+    DF_DamageFromBentBullet = 0x800000, -- 1 << 23
+}

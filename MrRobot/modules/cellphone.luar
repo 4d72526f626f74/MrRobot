@@ -1,0 +1,62 @@
+pluto_use class
+
+local Module, T = require('abstract_base_classes.module'), require('languages.trans')
+
+class Cellphone extends Module
+    function __construct(root)
+        self.root = root
+        self.contacts = {
+            { name = 'Lester', contact_id = 12 },
+            { name = 'Ron', contact_id = 20 },
+            { name = 'Mors Mutual', contact_id = 91 },
+            { name = 'Merry Weather', contact_id = 85 },
+            { name = 'Pegasus', contact_id = 41 },
+            { name = 'Mechanic', contact_id = 89 },
+            { name = 'Agent 14', contact_id = 76 },
+            { name = 'Assistant', contact_id = 74 },
+            { name = 'Franklin', contact_id = 175 },
+            { name = 'Yohan', contact_id = 181 },
+            { name = 'Charlie', contact_id = 190 },
+            { name = 'Downtown Cab', contact_id = 131 },
+            { name = 'English Dave', contact_id = 153 },
+            { name = 'Gerald', contact_id = 86 },
+            { name = 'Simeon', contact_id = 18 },
+            { name = 'Pavel', contact_id = 169 },
+            { name = 'Brucie', contact_id = 84 },
+            { name = 'Juliet', contact_id = 104 },
+            { name = 'Nikki', contact_id = 105 },
+            { name = 'Chastity', contact_id = 106 },
+            { name = 'Cheetah', contact_id = 107 },
+            { name = 'Sapphire', contact_id = 108 },
+            { name = 'Infernus', contact_id = 109 },
+            { name = 'Fufu', contact_id = 110 },
+            { name = 'Peach', contact_id = 111 },
+            { name = 'Remote Bomb', contact_id = 88 }
+        }
+
+        self.contacts = self.utils:sort_table(self.contacts, |a, b| -> a.name < b.name)
+
+        for self.contacts as contact do
+            self.root:action(T:T('Call %s', contact.name), {$'call{contact.name}'}, T:T('Call %s', contact.name), || -> self:call(contact.contact_id))
+        end
+
+        self.root:divider('')
+
+        self.root:action(T'Fix Phone', {}, T'Fixes your phone if calling someone doesn\'t work (usually results in phone and interaction menu being un-usable)', function()
+            memory.write_int(memory.script_global(20930 + 1), 0) -- Global_20930.f_1
+            memory.write_int(memory.script_global(20930 + 2), 0)
+        end)
+    end
+
+    inline function call(contact)
+        self.speed_up_dialing.value = true
+        util.yield_once()
+        memory.write_int(memory.script_global(8115), contact) -- Global_8115
+        memory.write_int(memory.script_global(20930 + 1), 10)
+        memory.write_int(memory.script_global(20930 + 2), 6)
+        util.yield(1500)
+        self.speed_up_dialing.value = false
+    end
+end
+
+return Cellphone

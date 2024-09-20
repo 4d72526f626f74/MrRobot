@@ -1,0 +1,603 @@
+pluto_use class, try, catch, new
+
+local Aimbot = require('abstract_base_classes.aimbot')
+local T = require('languages.trans')
+local bitwise = require('libs.bitwise')
+local cbitfield = require('libs.cbitfield')
+local weapon_manager = require('utils.weapon_manager')
+local esp = require('libs.esp')
+local damage_flags = require('flags.damage_flags')
+
+class PlayerAimbot extends Aimbot
+    function __construct(root)
+        self.root = root:list(T'Player', {$'rwplayeraimbot'})
+        self.is_dev = self.utils:is_dev(players.user())
+        self.targets = new bitwise.bitfield(0)
+        self.bounds = { x = 0.5 - (0.02 / 2), y = 0.5 - (0.03 / 2) }
+        self.settings = new cbitfield(0, {
+            { 1, 'use_fov', 1 },
+            { 2, 'custom_fov', 1 },
+            { 3, 'ignore_vehicles', 1 },
+            { 4, 'target_friends', 1 },
+            { 5, 'show_target', 1 },
+            { 6, 'visible_check', 1 },
+            { 7, 'damage_override', 1 },
+            { 8, 'insta_kill', 1 },
+            { 9, 'spectate', 1 },
+            { 10, 'fov_type', 2 },
+            { 11, 'damage', 10 },
+            { 12, 'bone', 17 },
+            { 13, 'auto_aimbot', 1 },
+            { 14, 'variable_damage', 1 },
+            { 15, 'prediction', 1 },
+            { 16, 'improved_accuracy', 1 },
+            { 17, 'aim_detection', 1 },
+            { 18, 'ignore_godmode', 1 }
+        })
+        
+        self.chance_settings = new cbitfield(0, {
+            { 1, 'chance_based', 1 },
+            { 2, 'group_chance_based', 1 },
+            { 3, 'chance', 7 },
+            { 4, 'chance_sniper', 7 },
+            { 5, 'chance_rifle', 7 },
+            { 6, 'chance_mg', 7 },
+            { 7, 'chance_shotgun', 7 },
+            { 8, 'chance_pistol', 7 },
+            { 9, 'chance_smg', 7 }
+        })
+
+        self.fov = 0.50
+        self.settings.use_fov = true
+        --self.settings.custom_fov = false
+        self.settings.ignore_vehicles = false
+        self.settings.target_friends = false
+        self.settings.show_target = true
+        self.settings.visible_check = true
+        self.settings.damage_override = false
+        self.settings.insta_kill = false
+        self.settings.spectate = true
+        self.settings.fov_type = 2
+        self.settings.damage = 100
+        self.settings.bone = 39317
+        self.settings.auto_aimbot = false
+        self.settings.variable_damage = false
+        self.settings.prediction = false
+        self.settings.improved_accuracy = true
+        self.settings.aim_detection = false
+        self.settings.ignore_godmode = true
+
+        self.chance_settings.chance_based = false
+        self.chance_settings.group_chance_based = true
+        self.chance_settings.chance = 100
+        self.chance_settings.chance_sniper = 100
+        self.chance_settings.chance_rifle = 30
+        self.chance_settings.chance_mg = 30
+        self.chance_settings.chance_shotgun = 40
+        self.chance_settings.chance_pistol = 100
+        self.chance_settings.chance_smg = 40
+        self.bone_offset = v3(0, 0, 0)
+
+        self.handler.aimbot_add = self.utils:partial(self.aimbot_add, self)
+        self.handler.aimbot_remove = self.utils:partial(self.aimbot_remove, self)
+
+        self.root:toggle_loop(T'Aimbot', {}, T'Enable aimbot', || -> self:aimbot_loop())
+        self.root:toggle_loop(T'Unfair Aimbot', {}, T'Enable unfair aimbot', || -> self:unfair_aimbot_loop())
+        self.root:toggle_loop(T'Triggerbot', {}, T'Enable triggerbot', || -> self:triggerbot_loop())
+        self.root:toggle_loop(T'Unfair Triggerbot', {}, T'Enable unfair triggerbot', || -> self:unfair_triggerbot_loop())
+        self.root:divider('')
+
+        self.root:toggle(T'Use FOV', {}, T'Should the aimbot use a fov?', function(state) self.settings.use_fov = state end, self.settings.use_fov)
+        --self.root:toggle(T'Custom FOV', {}, '', function(state) self.settings.custom_fov = state end, self.settings.custom_fov)
+
+        self.root:toggle(T'Ignore Vehicles', {}, T'Should the aimbot ignore players in vehicles', function(state) self.settings.ignore_vehicles = state end, self.settings.ignore_vehicles)
+        self.root:toggle(T'Target Friends', {}, T'Should friends be clapped?', function(state) self.settings.target_friends = state end, self.settings.target_friends)
+        self.root:toggle(T'Show Target', {}, T'Show ESP for the current target', function(state) self.settings.show_target = state end, self.settings.show_target)
+        self.root:toggle(T'Visible Check', {}, T'Check if the player is visible (applies to aimbot only)', function(state) self.settings.visible_check = state end, self.settings.visible_check)
+        self.root:toggle(T'Damage Override', {}, T'Should the damage be overridden with a custom value?', function(state) self.settings.damage_override = state end, self.settings.damage_override)
+        self.root:toggle(T'Insta Kill', {}, T'Will the aimbot deal enough damage to insta kill (insta kills BST users as well)', function(state) self.settings.insta_kill = state end, self.settings.insta_kill)
+        self.root:toggle(T'Spectate', {}, T'Should the aimbot spectate out of range players? (applies to unfair aimbot)', function(state) self.settings.spectate = state end, self.settings.spectate)
+        self.root:toggle(T'Auto Aimbot', {}, T'Should the aimbot auto-shoot (applies to unfair aimbot)', function(state) self.settings.auto_aimbot = state end, self.settings.auto_aimbot)
+        self.root:toggle(T'Variable Damage', {}, T'Will the damage dealt be variable depending on the body part hitting?', function(state) self.settings.variable_damage = state end, self.settings.variable_damage)
+        self.root:toggle(T'Prediction', {}, T'Should the aimbot predict where the bullet should be fired to hit (this does not work very well in public sessions)', function(state) self.settings.prediction = state end, self.settings.prediction)
+        self.root:toggle(T'Improved Accuracy', {}, T'Should the aimbot spawn the bullet at the player instead of your weapons barrel? (this only applies when the target is on foot)', function(state) self.settings.improved_accuracy = state end, self.settings.improved_accuracy)
+        self.root:toggle(T'Aim Detection', {}, T'Alerts you when another player is aiming at you', function(state) self.settings.aim_detection = state end, self.settings.aim_detection)
+        self.root:toggle(T'Ignore Godmode Bots', {}, T'Should the aimbot ignore players with godmode?', function(state) self.settings.ignore_godmode = state end, self.settings.ignore_godmode)
+
+        self.root:divider('')
+
+        self.root:list_select(T'Bone', {}, T'Bone to target', {
+            {1, 'Head'}, 
+            {2, 'Chest'}, 
+            {3, 'Stomach'}, 
+            {4, 'Left Foot'}, 
+            {5, 'Right Leg'}, 
+            {6, 'Left Hand'}, 
+            {7, 'Right Hand'}, 
+            {8, 'Pelvis'}, 
+            {9, 'Left Leg'}, 
+            {10, 'Left Knee'}, 
+            {11, 'Left Arm'}
+        }, 2, function(index)
+            local bone = self.aimbot_bones[index] or 39317
+            self.settings.bone = bone
+
+            if self.settings.bone == 0 then
+                self.bone_offset.x = 0.0
+                self.bone_offset.y = 0. 
+                self.bone_offset.z = 0.4
+            elseif self.settings.bone == 56604 then
+                self.bone_offset.x = 0.0
+                self.bone_offset.y = 0.0
+                self.bone_offset.z = 0.75
+            end
+        end)
+
+        self.root:list_select(T'FOV Type', {}, T'The type of FOV', {
+            { 1, 'Normal' },
+            { 2, 'Precision' }
+        }, self.settings.fov_type, function(index)
+            self.settings.fov_type = index
+            if index == 1 then
+                self.precise_fov.visible = false
+                self.normal_fov.visible = true
+                self.fov = self.normal_fov.value
+            elseif index == 2 then
+                self.precise_fov.visible = true
+                self.normal_fov.visible = false
+                self.fov = self.precise_fov.value / 100
+            end
+        end)
+
+        self.normal_fov = self.root:slider(T'FOV', {T'rwplayerabfov'}, T'The FOV of the aimbot', 0, 180, 1, 1, function(value)
+            if self.settings.fov_type == 1 then
+                self.fov = value
+            end
+        end)
+
+        self.precise_fov = self.root:slider_float(T'Precision FOV', {T'rwplayerabpfov'}, T'A more precise FOV for the aimbot', 0.0, 180.0 * 100, self.fov * 100, 1.0, function(value)
+            if self.settings.fov_type == 2 then
+                self.fov = value / 100
+            end
+        end)
+
+        if self.settings.fov_type == 1 then
+            self.precise_fov.visible = false
+            self.normal_fov.visible = true
+        elseif self.settings.fov_type == 2 then
+            self.precise_fov.visible = true
+            self.normal_fov.visible = false
+        end
+
+        self.root:slider(T'Damage', {T'rwplayerabdamage'}, T'The damage of the aimbot', 0, (1 << 10) - 1, self.settings.damage, 1, function(value)
+            self.settings.damage = value
+        end)
+
+        self.root:divider('')
+        self.chance_menu = self.root:list(T'Chance', {})
+
+        self.chance_menu:toggle(T'Chance Based', {}, T'Will the aimbot be chance based?', function(state) self.chance_settings.chance_based = state end, self.chance_settings.chance_based)
+        self.chance_menu:slider(T'Chance', {T'rwplayerabchance'}, T'The chance of the aimbot', 0, 100, self.chance_settings.chance, 1, function(value) self.chance_settings.chance = value end, self.chance_settings.chance)
+        self.chance_menu:divider('')
+        
+        self.chance_menu:toggle(T'Group Chance Based', {}, T'Will the aimbot be group chance based?', function(state) self.chance_settings.group_chance_based = state end, self.chance_settings.group_chance_based)
+        self.chance_menu:slider(T'Sniper Chance', {T'rwplayersniperabchance'}, T'The chance of the aimbot for snipers', 0, 100, self.chance_settings.chance_sniper, 1, function(value)
+            self.chance_settings.chance_sniper = value
+        end)
+
+        self.chance_menu:slider(T'Rifle Chance', {T'rwplayerrifleabchance'}, T'The chance of the aimbot for rifles', 0, 100, self.chance_settings.chance_rifle, 1, function(value)
+            self.chance_settings.chance_rifle = value
+        end)
+
+        self.chance_menu:slider(T'MG Chance', {T'rwplayermgabchance'}, T'The chance of the aimbot for machine guns', 0, 100, self.chance_settings.chance_mg, 1, function(value)
+            self.chance_settings.chance_mg = value
+        end)
+
+        self.chance_menu:slider(T'Shotgun Chance', {T'rwplayershotgunabchance'}, T'The chance of the aimbot for shotguns', 0, 100, self.chance_settings.chance_shotgun, 1, function(value)
+            self.chance_settings.chance_shotgun = value
+        end)
+
+        self.chance_menu:slider(T'Pistol Chance', {T'rwplayerpistolabchance'}, T'The chance of the aimbot for pistols', 0, 100, self.chance_settings.chance_pistol, 1, function(value)
+            self.chance_settings.chance_pistol = value
+        end)
+
+        self.chance_menu:slider(T'SMG Chance', {T'rwplayersmgabchance'}, T'The chance of the aimbot for submachine guns', 0, 100, self.chance_settings.chance_smg, 1, function(value)
+            self.chance_settings.chance_smg = value
+        end)
+
+        self.targets_menu = self.root:list(T'Targets', {})
+    end
+
+    function aimbot_loop()
+        local target = self:get_target()
+
+        if self.settings.aim_detection then
+            local aiming_pid = self.utils:get_player_aiming_at_you()
+            if aiming_pid ~= -1 then
+                util.toast(T:T('%s is aiming at you', players.get_name(aiming_pid)))
+            end
+        end
+
+        if target ~= 0 then
+            local pid = network.network_get_player_index_from_ped(target)
+            local localplayer = players.localplayer()
+            local is_visible = localplayer:has_entity_clear_los_to_entity(target, 17)
+            if self.settings.show_target then
+                esp.draw_bone_esp(target, is_visible ? 0x00FF00FF : 0xFF0000FF)
+            end
+
+            if self.settings.visible_check and not is_visible then return end
+            local aiming_at_target = false
+
+            if player.get_entity_player_is_free_aiming_at(players.user(), self.ent_ptr) then
+                local ent = memory.read_int(self.ent_ptr)
+                if ent == target then
+                    aiming_at_target = true
+                end
+            else
+                aiming_at_target = false
+            end
+
+            if aiming_at_target then return end
+
+            if localplayer:is_ped_shooting() then
+                local weapon_hash = localplayer:get_selected_ped_weapon()
+                local weapon_group = util.reverse_joaat(weapon.get_weapontype_group(weapon_hash))
+                local should_return = false
+                if weapon_group == 'GROUP_HEAVY' or weapon_group == 'GROUP_THROWABLE' or weapon_group == 'GROUP_MELEE' then 
+                    should_return = true
+                end
+
+                if weapon_hash == 'WEAPON_RAILGUNXM3':joaat() then
+                    should_return = false
+                end
+
+                if should_return then return end
+
+                local chance = (self.chance_settings.chance_based or self.chance_settings.group_chance_based) ? math.random(1, 100) : 100
+                local damage = 0
+                local min_mult = 0.05
+                local max_mult = 0.40
+
+                if self.settings.damage_override then
+                    damage = self.settings.damage
+                else
+                    if not self.settings.variable_damage then
+                        damage = weapon.get_weapon_damage(weapon_hash, self.settings.bone)
+                    else
+                        if not self.settings.improved_accuracy then
+                            if self.settings.bone == 56604 or self.settings.bone == 12844 then
+                                damage = weapon.get_weapon_damage(weapon_hash, self.settings.bone)
+                            else
+                                local maximum = weapon.get_weapon_damage(weapon_hash, self.settings.bone)
+                                maximum = maximum - (min_mult * maximum)
+                                local minimum = maximum - (max_mult * maximum)
+                                maximum = math.floor(maximum)
+                                minimum = math.floor(minimum)
+                                damage = math.random(minimum, maximum)
+                            end
+                        else
+                            local maximum = weapon.get_weapon_damage(weapon_hash, self.settings.bone)
+                            maximum = maximum - (min_mult * maximum)
+                            local minimum = maximum - (max_mult * maximum)
+                            maximum = math.floor(maximum)
+                            minimum = math.floor(minimum)
+                            damage = math.random(minimum, maximum)
+                        end
+                    end
+                end
+
+                if self.settings.insta_kill then
+                    if self.utils:player_has_bst(pid) then
+                        damage = 340
+                    else
+                        damage = 1000
+                    end
+                end
+
+                if self.chance_settings.chance_based then
+                    if chance > self.chance_settings.chance then return end
+                elseif self.chance_settings.group_chance_based then
+                    if weapon_group == 'GROUP_SNIPER' then
+                        if chance > self.chance_settings.chance_sniper then return end
+                    elseif weapon_group == 'GROUP_RIFLE' then
+                        if chance > self.chance_settings.chance_rifle then return end
+                    elseif weapon_group == 'GROUP_MG' then
+                        if chance > self.chance_settings.chance_mg then return end
+                    elseif weapon_group == 'GROUP_SHOTGUN' then
+                        if chance > self.chance_settings.chance_shotgun then return end
+                    elseif weapon_group == 'GROUP_PISTOL' then
+                        if chance > self.chance_settings.chance_pistol then return end
+                    elseif weapon_group == 'GROUP_SMG' then
+                        if chance > self.chance_settings.chance_smg then return end
+                    end
+                end
+
+                if not ped.is_ped_in_any_vehicle(target) then
+                    self:shoot_while_on_foot(target, weapon_hash, damage, 10000.0)
+                else
+                    self:shoot_while_in_vehicle(target, weapon_hash, damage, 10000.0)
+                end
+            end
+        end
+    end
+
+    function unfair_aimbot_loop()
+        local target = self:get_closest_player()
+        if target ~= nil then
+            local localplayer = players.localplayer()
+            local pid = network.network_get_player_index_from_ped(target)
+            if self.settings.show_target then
+                esp.draw_bone_esp(target, localplayer:has_entity_clear_los_to_entity(target, 17) ? 0x00FF00FF : 0xFF0000FF)
+            end
+
+            local is_shooting = localplayer:is_ped_shooting()
+            if self.settings.auto_aimbot then
+                is_shooting = true
+            end
+
+            if is_shooting and not entity.is_entity_dead(target) then
+                self.utils:damage_player(
+                    pid, localplayer:get_selected_ped_weapon(), 1000.0, 
+                    damage_flags.DF_IsAccurate | damage_flags.DF_AllowHeadShot | damage_flags.DF_AllowDriverKill | damage_flags.DF_ForceInstantKill
+                    | damage_flags.DF_IgnoreRemoteDistCheck
+                )
+            end
+        end
+
+        ::continue::
+    end
+
+    function triggerbot_loop()
+        if player.get_entity_player_is_free_aiming_at(players.user(), self.ent_ptr) then
+            local ent = memory.read_int(self.ent_ptr)
+            if ent ~= 0 then
+                local model = util.reverse_joaat(entity.get_entity_model(ent))
+                local pid = network.network_get_player_index_from_ped(ent)
+                if model:find('freemode') then
+                    if not entity.is_entity_dead(ent) and not network.is_entity_a_ghost(ent) then
+                        if not self.settings.target_friends and self.utils:is_friend(pid) then return end
+                        if not self.targets:isset(1 << pid) then return end
+                        util.yield(25)
+                        for i = 0, 8 do
+                            pad.set_control_value_next_frame(0, 24, 1)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    function unfair_triggerbot_loop()
+        if player.get_entity_player_is_free_aiming_at(players.user(), self.ent_ptr) then
+            local ent = memory.read_int(self.ent_ptr)
+            if ent ~= 0 then
+                local model = util.reverse_joaat(entity.get_entity_model(ent))
+                local pid = network.network_get_player_index_from_ped(ent)
+                if model:find('freemode') then
+                    if not entity.is_entity_dead(ent) and not network.is_entity_a_ghost(ent) then
+                        if not self.settings.target_friends and self.utils:is_friend(pid) then return end
+                        if not self.targets:isset(1 << pid) then return end
+                        for i = 0, 5 do
+                            pad.set_control_value_next_frame(0, 24, 1)
+                        end
+                        local to = ped.get_ped_bone_coords(ent, self.bone, 0.0, 0.0, 0.0)
+                        local from = self:get_weapon_barrel_coords()
+                        local localplayer = players.localplayer()
+                        local weapon_hash = localplayer:get_selected_ped_weapon()
+                        local weapon_group = util.reverse_joaat(weapon.get_weapontype_group(weapon_hash))
+                        local damage = weapon.get_weapon_damage(weapon_hash, self.settings.bone)
+                        self:shoot(from, to, weapon_hash, damage, 1000.0)
+                        if not entity.is_entity_dead(ent) then
+                            if weapon_group == 'GROUP_SNIPER' or weapon_group == 'GROUP_PISTOL' then
+                                util.yield(1200)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    function aimbot_add(pid, root)
+        local name = players.get_name(pid)
+        local ref = self.targets_menu:refByRelPath(name)
+
+        if pid ~= players.user() then
+            if not ref:isValid() then
+                self.targets:bool(1 << pid, true)
+                self.targets_menu:toggle(name, {}, '', function(state)
+                    self.targets:bool(1 << pid, state)
+                end, self.targets:isset(1 << pid))
+            end
+        end
+    end
+
+    function aimbot_remove(pid, name)
+        self.targets:clear(1 << pid)
+        local ref = self.targets_menu:refByRelPath(name)
+        if ref:isValid() then
+            ref:delete()
+        end
+    end
+
+    function get_target()
+        local target = nil
+        local pcoords = players.get_position(players.user())
+        local my_ped = players.user_ped()
+        local max_distance = weapon_manager:get_weapon_range()
+        local veh = players.localplayer_vehicle()
+        for pid = 0, players.max_players do
+            if self.utils:player_exists(pid) and pid ~= players.user() and self.targets:isset(1 << pid) then
+                local player_ped = player.get_player_ped(pid)
+                local coords = players.get_position(pid)
+                if not entity.is_entity_dead(player_ped) then
+                    local distance = pcoords:distance(coords)
+                    if distance <= max_distance then
+                        if self.settings.ignore_vehicles and ped.is_ped_in_any_vehicle(player_ped) then
+                            goto continue
+                        elseif not self.settings.target_friends and self.utils:is_friend(pid) then
+                            goto continue
+                        elseif players.is_in_interior(pid) then
+                            goto continue
+                        elseif players.is_godmode(pid) then
+                            if self.settings.ignore_godmode then
+                                goto continue
+                            end
+                        elseif network.is_entity_a_ghost(player_ped) then
+                            goto continue
+                        end
+                        
+                        local fov = (self.settings.use_fov) ? self.fov : -1
+                        for self.aimbot_bones as bone do
+                            if self:bone_within_bounds(player_ped, bone, (fov == -1) ? 1000 : self.fov) then
+                                target = player_ped
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+            ::continue::
+        end
+        return target
+    end
+
+    function get_closest_player()
+        local target = nil
+        local max_dist = math.huge
+
+        for pid = 0, players.max_players do
+            if self.utils:player_exists(pid) and pid ~= players.user() and self.targets:isset(1 << pid) then
+                local target_pos = players.get_position(pid)
+                local my_pos = players.get_position(players.user())
+                local pped = player.get_player_ped(pid)
+                if not self.settings.target_friends and self.utils:is_friend(pid) then
+                    goto continue
+                elseif not entity.is_entity_dead(pped) and not players.is_in_interior(pid) and not players.is_godmode(pid) then
+                    local distance = my_pos:distance(target_pos)
+                    if distance < max_dist then
+                        max_dist = distance
+                        target = pped
+                    end
+                end
+            end
+            ::continue::
+        end
+        return target
+    end
+
+    function get_weapon_barrel_coords()
+        local localplayer = players.localplayer()
+        local weapon_ent = localplayer:get_current_ped_weapon_entity_index(ent, true)
+        if weapon_ent ~= 0 then
+            local model = entity.get_entity_model(weapon_ent)
+            local min, max = entities.get_model_dimensions(weapon_ent)
+            if model == ('w_sr_heavysnipermk2'):joaat() then
+                max.x = max.x - min.x
+                max.y = max.y - min.y
+                max.z = max.z - 0.05
+            else
+                max.z = max.z - 0.05
+            end
+            local coords = entity.get_offset_from_entity_in_world_coords(weapon_ent, max.x, max.y, max.z)
+            return coords
+        end
+        return nil
+    end
+
+    inline function world_to_screen(pos)
+        if util.get_screen_coord_from_world_coord_no_adjustment(pos.x, pos.y, pos.z, self.sx_ptr, self.sy_ptr) then
+            local sx, sy = memory.read_float(self.sx_ptr), memory.read_float(self.sy_ptr)
+            return { x = sx, y = sy }
+        end
+    end
+
+    function bone_within_bounds(pped, bone, fov)
+        if fov == -1 then return true end
+
+        local bone_coords = ped.get_ped_bone_coords(pped, bone, 0.0, 0.0, 0.0)
+        local screen_coords = self:world_to_screen(bone_coords)
+        local my_pos = players.get_position(players.user())
+        bone_coords.z = bone_coords.z + 0.15
+
+        if screen_coords ~= nil then
+            local x1, y1 = screen_coords.x, screen_coords.y
+            local x2, y2 = self.bounds.x, self.bounds.y
+            local dist = (x2 - x1) ^ 2 + (y2 - y1) ^ 2
+            local player_dist = my_pos:distance(bone_coords)
+
+            local multiplier = 0.8
+            if player_dist > 100 then
+                multiplier = player_dist / 100
+            end
+
+            if dist <= fov / 180 * multiplier then
+                return true
+            end
+        end
+
+        return false
+    end
+
+    function shoot_while_on_foot(target, weapon_hash, damage, bullet_speed)
+        local bone_offset = self.bone_offset
+        local from, to
+
+        self.utils:damage_player(
+            network.network_get_player_index_from_ped(target), weapon_hash, damage, 
+            damage_flags.DF_IsAccurate | damage_flags.DF_IgnoreRemoteDistCheck
+        )
+        damage = 1
+
+        if self.settings.improved_accuracy then
+            local pos = ped.get_ped_bone_coords(target, self.settings.bone, 0.01, bone_offset.y, bone_offset.z)
+            misc.shoot_single_bullet_between_coords(
+                pos.x, pos.y - 0.5, pos.z, pos.x, pos.y, pos.z, 
+                damage, true, weapon_hash, players.user_ped(), 
+                true, true, bullet_speed
+            )
+            return
+        else
+            from = self:get_weapon_barrel_coords()
+            to = ped.get_ped_bone_coords(target, self.settings.bone, bone_offset.x, bone_offset.y, bone_offset.z)
+        end
+
+        if self.settings.prediction then
+            local speed = bullet_speed
+            local distance = from:distance(to)
+            local velocity = entity.get_entity_velocity(target) -- multiply by 6.8 for up-atomiser
+            local time = distance / speed
+            local predicted_position = v3(velocity.x * time, velocity.y * time, velocity.z * time):add(to)
+            self:shoot(from, self.settings.prediction ? predicted_position : to, weapon_hash, damage, bullet_speed)
+        else
+            self:shoot(from, to, weapon_hash, damage, bullet_speed)
+        end
+    end
+
+    function shoot_while_in_vehicle(target, weapon_hash, damage, bullet_speed)
+        local bone_offset = self.bone_offset
+
+        self.utils:damage_player(
+            network.network_get_player_index_from_ped(target), weapon_hash, damage, 
+            damage_flags.DF_IsAccurate | damage_flags.DF_IgnoreRemoteDistCheck
+        )
+        damage = 1
+
+        local from = ped.get_ped_bone_coords(target, 39317, 0.0, 1.2, 0.1)
+        local to = ped.get_ped_bone_coords(target, self.settings.bone, bone_offset.x, bone_offset.y, bone_offset.z)
+
+        if self.settings.prediction then
+            local speed = bullet_speed
+            local distance = from:distance(to)
+            local velocity = entity.get_entity_velocity(target)
+            local time = distance / speed
+            local predicted_position = v3(velocity.x * time, velocity.y * time, velocity.z * time):add(to)
+            self:shoot(from, predicted_position, weapon_hash, damage, bullet_speed)
+        else
+            self:shoot(from, to, weapon_hash, damage, bullet_speed)
+        end
+    end
+end
+
+return PlayerAimbot

@@ -1,0 +1,16 @@
+return {
+    {1, 'Melee'},
+    {2, 'Bullet'},
+    {3, 'Bullet Rubber'},
+    {4, 'Explosive'},
+    {5, 'Fire'},
+    {6, 'Collision'},
+    {7, 'Fall'},
+    {8, 'Drown'},
+    {9, 'Electric'},
+    {10, 'Barbed Wire'},
+    {11, 'Fire Extinguisher'},
+    {12, 'Smoke'},
+    {13, 'Water Cannon'},
+    {14, 'Tranquilizer'}
+}

@@ -1,0 +1,12 @@
+return {
+    boss_id = 0x50,
+    total_goons = 0x50 + 0x98,
+    goon_slots_begin = 0x50 + 0x60,
+    mission_id_trigger = 0x50 + 0x100,
+    active_mission_id = 0x50 + 0x108,
+    unk_state = 0x50 + 0x110,
+    unk_state2 = 0x50 + 0x118,
+    script_id = 0x50 + 0x120,
+    instance_id = 0x1A0,
+    mission_type = 0x50 + 0x5B0, -- not confirmed to be 100% correct
+}

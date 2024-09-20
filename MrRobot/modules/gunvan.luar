@@ -1,0 +1,182 @@
+pluto_use class, new
+
+local Module, T = require('abstract_base_classes.module'), require('languages.trans')
+local weapons = require('data.weapons')
+local zone_info = require('data.zone_info')
+local cbitfield = require('libs.cbitfield')
+local labels = require('utils.labels')
+
+class Gunvan extends Module
+    gunvan_locations = {
+        v3(-29.532, 6435.136, 31.162),
+        v3(1705.214, 4819.167, 41.75),
+        v3(1795.522, 3899.753, 33.869),
+        v3(1335.536, 2758.746, 51.099),
+        v3(795.583, 1210.78, 338.962),
+        v3(-3192.67, 1077.205, 20.594),
+        v3(-789.719, 5400.921, 33.915),
+        v3(-24.384, 3048.167, 40.703),
+        v3(2666.786, 1469.324, 24.237),
+        v3(-1454.966, 2667.503, 3.2),
+        v3(2340.418, 3054.188, 47.888),
+        v3(1509.183, -2146.795, 76.853),
+        v3(1137.404, -1358.654, 34.322),
+        v3(-57.208, -2658.793, 5.737),
+        v3(1905.017, 565.222, 175.558),
+        v3(974.484, -1718.798, 30.296),
+        v3(779.077, -3266.297, 5.719),
+        v3(-587.728, -1637.208, 19.611),
+        v3(733.99, -736.803, 26.165),
+        v3(-1694.632, -454.082, 40.712),
+        v3(-1330.726, -1163.948, 4.313),
+        v3(-496.618, 40.231, 52.316),
+        v3(275.527, 66.509, 94.108),
+        v3(260.928, -763.35, 30.559),
+        v3(-478.025, -741.45, 30.299),
+        v3(894.94, 3603.911, 32.56),
+        v3(-2166.511, 4289.503, 48.733),
+        v3(1465.633, 6553.67, 13.771),
+        v3(1101.032, -335.172, 66.944),
+        v3(149.683, -1655.674, 29.028)
+    }
+
+    function __construct(root)
+        self.root = root
+        self.weapons_start = self.g.GunVanWeaponsStart
+        self.weapons_end = self.g.GunVanWeaponsEnd-3
+        self.throwables_start = self.g.GunVanThrowablesStart
+        self.throwables_end = self.g.GunVanThrowablesEnd
+
+        self.update = new cbitfield(0, {
+            { 1, 'position', 1 }
+        })
+
+        local weapons_tbl = weapons:as_table(true)
+        weapons_tbl = self.utils:sort_table(weapons_tbl, |a, b| -> a[1] < b[1])
+
+        self.gv_weapons = self.root:list(T'Weapons', {}, '', nil, nil, function()
+            if #self.gv_weapons:getChildren() == 0 then
+                for index = self.weapons_start, self.weapons_end do
+                    local weapon_index = memory.script_global(GLOBAL_TUNABLE_BASE + index)
+                    local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                    
+                    local slot = self.gv_weapons:list(labels:get(name), {})
+                    slot:list_action(T'Weapon', {}, T'Weapon to change it to', weapons_tbl, function(index)
+                        local weapon_name = weapons_tbl[index]
+                        local hash = weapons:find_hash(weapon_name)
+                        memory.write_int(weapon_index, hash)
+                        slot.menu_name = weapon_name
+                    end)
+                end
+            else
+                for index, child in pairs(self.gv_weapons:getChildren()) do
+                    if child:isValid() then
+                        local weapon_index = memory.script_global(GLOBAL_TUNABLE_BASE + (self.weapons_start + index) - 1)
+                        local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                        child.menu_name = labels:get(name)
+                    end
+                end
+            end
+        end)
+
+        self.gv_throwables = self.root:list(T'Throwables', {}, '', nil, nil, function()
+            if #self.gv_throwables:getChildren() == 0 then
+                for index = self.throwables_start, self.throwables_end do
+                    local weapon_index = memory.script_global(GLOBAL_TUNABLE_BASE + index)
+                    local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                    
+                    local slot = self.gv_throwables:list(labels:get(name), {})
+                    slot:list_action(T'Weapon', {}, T'Weapon to change it to', weapons_tbl, function(index)
+                        local weapon_name = weapons_tbl[index]
+                        local hash = weapons:find_hash(weapon_name)
+                        memory.write_int(weapon_index, hash)
+                        slot.menu_name = weapon_name
+                    end)
+                end
+            else
+                for index, child in pairs(self.gv_throwables:getChildren()) do
+                    if child:isValid() then
+                        local weapon_index = memory.script_global(GLOBAL_TUNABLE_BASE + (self.throwables_start + index) - 1)
+                        local name = util.reverse_joaat(memory.read_int(weapon_index)):upper()
+                        child.menu_name = labels:get(name)
+                    end
+                end
+            end
+        end)
+        self.root:divider('')
+        self.gunvan_pos = self.root:list(T'Position', {}, '', nil, nil, || -> self:update_position_info())
+
+        self.root:toggle(T'Remove Proximity', {$'gvremoveproxy'}, T'Remove proximity radius so the gun van will appear on your map regardless of where you are', function(state)
+            local proximity = self.g.GunVanProximity:g()
+            memory.write_float(proximity, state ? math.max_float : 500.0)
+        end)
+
+        self.gunvan_current_pos = self.gunvan_pos:readonly('')
+        self.gunvan_pos:divider('')
+
+        self.gunvan_pos:action(T'Teleport', {$'gvtp'}, T'Teleport to gun van', function()
+            local index = memory.read_int(self.g.GunVanPositionIndex:g())
+            local coords = self.gunvan_locations[index + 1]
+
+            if coords ~= nil then
+                players.localplayer():set_entity_coords_no_offset(coords.x, coords.y, coords.z + 2, false, false, false)
+            end
+        end)
+
+        self.show_blip = self.gunvan_pos:toggle(T'Add Blip', {$'gvblip'}, T'Add a blip for the gun van', function(state)
+            if state then
+                local index = memory.read_int(self.g.GunVanPositionIndex:g())
+                local coords = self.gunvan_locations[index + 1]
+
+                if coords ~= nil then
+                    local blip = hud.add_blip_for_coord(coords.x, coords.y, coords.z)
+                    hud.set_blip_sprite(blip, 844)
+                    hud.set_blip_colour(blip, 5)
+                    hud.set_blip_name_from_text_file(blip, 'BLIP_844')
+                    hud.set_blip_display(blip, 6)
+                    hud.set_blip_scale(blip, 1.1)
+                    self.utils.to_delete:add_blip(blip)
+
+                    util.create_tick_handler(function()
+                        if not self.show_blip.value then
+                            return false
+                        end
+
+                        local pos = players.get_position(players.user())
+                        if pos:distance(coords) < 100 then
+                            hud.set_blip_display(blip, 0)
+                        else
+                            hud.set_blip_display(blip, 6)
+                        end
+                    end)
+                end
+            else
+                self.utils.to_delete:delete_blips_with_sprite(844)
+            end
+        end)
+    end
+
+    function update_position_info()
+        if not self.update.position then
+            self.update.position = true
+            util.create_tick_handler(function()
+                local item = menu.get_current_menu_list()
+                if item.menu_name ~= self.gunvan_pos.menu_name then
+                    self.update.position = false
+                    return false
+                end
+
+                local current_index = self.g.GunVanPositionIndex:g()
+                local index = memory.read_int(current_index)
+                local coords = self.gunvan_locations[index + 1]
+
+                if  coords ~= nil then
+                    local name = zone_info[zone.get_name_of_zone(coords.x, coords.y, coords.z)]
+                    self.gunvan_current_pos.menu_name = T:T('Position: %s', name)
+                end
+            end)
+        end
+    end
+end
+
+return Gunvan

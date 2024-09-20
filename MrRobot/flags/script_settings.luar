@@ -1,0 +1,13 @@
+return {
+    show_alerts = 1 << 0,
+    disable_transaction_error = 1 << 1,
+    enable_player_overlay = 1 << 2,
+    debug = 1 << 3,
+    suppress_request_control_failures = 1 << 4,
+    show_risky_options = 1 << 5,
+    cache_globals = 1 << 6,
+    UNKNOWN = 1 << 7, -- was developer but it's not used anymore
+    seperate_players = 1 << 8,
+    spoof_yacht_names = 1 << 9,
+    default = 1 << 0 | 1 << 1 | 1 << 6 | 1 << 8
+}

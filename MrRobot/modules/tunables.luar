@@ -1,0 +1,70 @@
+pluto_use class
+
+local Module, T = require('abstract_base_classes.module'), require('languages.trans')
+
+class Tunables extends Module
+    function __construct(root)
+        self.root = root
+        self.base = memory.script_global(GLOBAL_TUNABLE_BASE)
+        self.tunable = self.root:text_input(T'Tunable', {T'rttunable'}, T'Tunable that you want to edit, you do not need to add 262145 as that is done for you', function(value) end, '0')
+        self.value = self.root:text_input(T'Value', {T'rtvalue'}, T'Value that you want to set the tunable to', function(value) end, '0')
+
+        self.root:divider('')
+
+        for ({
+            { args = { T'Write Long', {}, T'Write a long (64 bits)' }, func = 'write_long' },
+            { args = { T'Write Int', {}, T'Write an int (32 bits)' }, func = 'write_int' },
+            { args = { T'Write Short', {}, T'Write a short (16 bits)' }, func = 'write_short' },
+            { args = { T'Write Byte', {}, T'Write a byte (8 bits)' }, func = 'write_byte' },
+            { args = { T'Write Float', {}, T'Write a float' }, func = 'write_float' },
+            { args = { T'Write String', {}, T'Write a string' }, func = 'write_string' }
+        }) as data do
+            local args = data.args
+            args[4] = function()
+                local tunable = tonumber(self.tunable.value)
+                local value = self.value.value
+                if not (data.func == 'write_string') then
+                    value = tonumber(value)
+                end
+                if type(value) == 'number' or type(value) == 'string' then
+                    memory[data.func](self.base + (tunable << 3), value)
+                else
+                    util.toast('Invalid value')
+                end
+            end
+            self.root:action(table.unpack(args))
+        end
+
+        self.root:divider('')
+        for ({
+            { args = { T'Read Long', {}, T'Read a long (64 bits)' }, func = 'read_long' },
+            { args = { T'Read Int', {}, T'Read an int (32 bits)' }, func = 'read_int' },
+            { args = { T'Read Short', {}, T'Read a short (16 bits)' }, func = 'read_short' },
+            { args = { T'Read Byte', {}, T'Read a byte (8 bits)' }, func = 'read_byte' },
+            { args = { T'Read Float', {}, T'Read a float' }, func = 'read_float' },
+            { args = { T'Read String', {}, T'Read a string' }, func = 'read_string' }
+        }) as data do
+            local args = data.args
+            args[4] = function()
+                local tunable = tonumber(self.tunable.value)
+                local value = memory[data.func](self.base + (tunable << 3))
+                if data.func == 'read_string' then
+                    util.toast(value)
+                else
+                    util.toast(tostring(value))
+                end
+            end
+            self.root:action(table.unpack(args))
+        end
+
+        self.root:divider('')
+        self.root:action(T'Reset Tunables', {}, T'Reset all tunables to their default values', function()
+            local g = self.g.TunablesReset:g()
+            memory.write_int(g, 1)
+            util.yield_once()
+            memory.write_int(g, -1)
+        end)
+    end
+end
+
+return Tunables

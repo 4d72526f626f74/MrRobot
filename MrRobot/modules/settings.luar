@@ -1,0 +1,245 @@
+pluto_use class
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+local script_settings = require('flags.script_settings')
+
+class Settings extends Module
+    function __construct(root)
+        self.root = root
+        self.dll_path = ''
+
+        if self.utils:is_dev(players.user()) then
+            self.root:divider($'v{SCRIPT_VERSION}-dev')
+        else
+            self.root:divider($'v{SCRIPT_VERSION}')
+        end
+        if self.utils:has_updated() then
+            local child = menu.my_root():getChildren()[2]
+            child:attachBefore(menu.shadow_root():divider(T'Outdated'))
+        end
+        menu.my_root():divider('')
+
+        self.remove_transaction_error = self.root:toggle_loop(T'Remove Transaction Errors', {}, T'Removes annoying transaction error notifications', || -> memory.write_byte(self.g.TransactionErrorNotification:g(), 0))
+        self.remove_transaction_error.value = self.utils.settings.disable_transaction_error
+        
+        self.show_alerts = self.root:toggle(T'Show Alerts', {}, T'Should alerts be shown? (disabling this will force alerts to be sent to console instead of displaying)', function(state)
+            self.utils.settings.show_alerts = state
+
+        end, self.utils.settings.show_alerts)
+
+        self.show_risky_options = self.root:toggle(T'Show Risky Options', {}, T'Should risky options be shown? (disabling this will hide options that may cause issues)', function(state)
+            self.utils.settings.show_risky_options = state
+        end, self.utils.settings.show_risky_options)
+
+        self.suppress_request_control_failures = self.root:toggle(T'Suppress Request Control Failures', {}, T'Should the failed to request control message be displayed?', function(state)
+            self.utils.settings.suppress_request_control_failures = state
+        end, self.utils.settings.suppress_request_control_failures)
+
+        local scripts = self:get_all_running_scripts()
+        self.handle_events = self.root:toggle_loop(T'GTA Script Emitter', {}, T'Trigger an event when scripts start/stop', function()
+            local new_scripts = self:get_all_running_scripts()
+            for new_scripts as name do
+                if not table.contains(scripts, name) then
+                    self.utils.emitter:emit('script_started', name)
+                end
+            end
+
+            for scripts as name do
+                if not table.contains(new_scripts, name) then
+                    self.utils.emitter:emit('script_stopped', name)
+                end
+            end
+
+            scripts = new_scripts
+        end)
+        self.handle_events.value = true
+
+        self.root:divider('')
+        self.cache = self.root:list(T'Globals Cache', {T'sglobalscache'}, '')
+        self.cache_globals = self.cache:toggle(T'Cache Globals', {}, T'Should script globals be cached or not?', function(state)
+            self.utils.settings.cache_globals = state
+        end, self.utils.settings.cache_globals)
+
+        self.cache:toggle_loop(T'Show Timer', {}, '', function()
+            local time_left = (self.utils.globals_cache.last_clear - os.time())
+            util.draw_debug_text(T:T('Time Remaining %d seconds', time_left))
+        end)
+
+        self.cache:slider(T'Cache Timer', {T'scachetimer'}, T'How long should globals be cached for? (in seconds)', 1, 3600, 600, 1, function(value)
+            self.utils.globals_cache.clear_time = value
+        end)
+
+        self.cache:divider('')
+        self.cache:action(T'Clear Globals Cache', {T'sclrgcache'}, T'Clears the cache for globals, use this if a feature is not working such as invisibility in self', function()
+            self.utils.globals_cache.clear = true
+        end)
+
+        self.experimental = self.root:list(T'Experimental', {T'rexperimental'}, T'Experimental features that may have unintended behaviour')
+        self.experimental:text_input(T'DLL Path', {T'rdllpath'}, T'Path to the DLL to load', function(value)
+           self.dll_path = value
+        end, self.dll_path)
+
+        self.experimental:action(T'Load DLL', {T'rloaddll'}, T'Loads the DLL from the path specified', function()
+            if self.dll_path ~= '' then
+                if filesystem.exists(self.dll_path) then
+                    local LoadLibraryA = self.utils:find_kernel_export('LoadLibraryA')
+                    if LoadLibraryA ~= 0 then
+                        local name = self.dll_path:match('%w+.dll$')
+                        local base = memory.scan(name)
+
+                        if base ~= GTA_BASE then
+                            util.display_info($'DLL already loaded at {string.format("0x%X", base)}')
+                        else
+                            if util.call_foreign_function(LoadLibraryA, self.dll_path) ~= 0 then
+                                base = memory.scan(name)
+                                util.display_success($'DLL loaded at {string.format("0x%X", base)}')
+                            else
+                                util.display_error('Failed to load DLL')
+                            end
+                        end
+                    end
+                else
+                    util.display_error('DLL path does not exist')
+                end
+            else
+                util.display_error('No DLL path specified')
+            end
+        end)
+
+        local langs = {
+            {1, 'English'},
+            {2, 'German'},
+            {3, 'Spanish'},
+            {4, 'French'},
+            {5, 'Portuguese'},
+            {6, 'Russian'},
+            {7, 'Polish'},
+            {8, 'Dutch'},
+            {9, 'Turkish'},
+            {10, 'Italian'},
+            {11, 'Vietnamese'},
+            {12, 'Ukrainian'}
+        }
+        local index = 1
+
+        self.lang = self.root:list(T'Language', {T'rlanguage'}, T'')
+        for k, v in pairs(langs) do
+            if v[2] == SCRIPT_LANGUAGE then
+                index = k
+                break
+            end
+        end
+        self.lang_select = self.lang:list_select(T'Language', {}, T'Change the language of the script', langs, index, function(value)
+            if util.can_continue() then
+                local file <close> = assert(io.open($'{SCRIPT_ROOT}\\languages\\language.txt', 'w'))
+                file:write(langs[value][2])
+                file:close()
+                util.restart_script()
+            end
+        end)
+
+        if self.utils:is_dev(players.user()) then
+            self.dev = self.root:list(T'Developer', {T'rdeveloper'}, T'')
+            self.re = self.dev:list(T'Reverse Engineering', {T'rre'}, T'')
+            self.scripts = self.dev:list(T'Scripts', {T'rscripts'})
+            self.dev:divider('')
+
+            self.re:action(T'Copy CPed Address', {}, '', function()
+                util.copy_addr(entities.handle_to_pointer(players.user_ped()))
+            end)
+
+            self.re:action(T'Copy CVehicle Address', {}, '', function()
+                util.copy_addr(players.localplayer_vehicle().ptr)
+            end)
+
+            self.re:action(T'Copy CPlayerInfo Address', {}, T'Copy the address of the players CPlayerInfo', function()
+                local player_ped = player.get_player_ped(pid)
+                util.copy_addr(entities.get_player_info(entities.handle_to_pointer(player_ped)), true)
+            end)
+
+            self.dev:toggle_loop(T'Display Entity Aiming At', {}, T'Displays the entity you are aiming at', function()
+                if player.get_entity_player_is_free_aiming_at(players.user(), self.ent) then
+                    local ent = memory.read_int(self.ent)
+                    if ent ~= 0 then
+                        local model_hash = entity.get_entity_model(ent)
+                        util.draw_debug_text($'{util.reverse_joaat(model_hash)} - {ent}')
+                    end
+                end
+            end)
+
+            self.dev:toggle_loop(T'Display Last Driver Of Vehicle', {}, T'Displays the last driver of the vehicle you are in', function()
+                if player.get_entity_player_is_free_aiming_at(players.user(), self.ent) then
+                    local ent = memory.read_int(self.ent)
+                    if ent ~= 0 then
+                        if entity.is_entity_a_vehicle(ent) then
+                            local ptr = entities.handle_to_pointer(ent)
+                            if ptr ~= 0 then
+                                local last_driver = memory.read_long(ptr + 0xD18)
+                                if last_driver ~= 0 then
+                                    local pid = network.network_get_player_index_from_ped(entities.pointer_to_handle(last_driver))
+                                    if pid ~= -1 then
+                                        util.draw_debug_text(T:T('Last Driver: %s', players.get_name(pid)))
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+
+            self.dev:toggle_loop(T'Display Running Scripts', {}, '', function()
+                local scripts = self:get_all_running_scripts()
+                for scripts as name do
+                    util.draw_debug_text(name)
+                end
+            end)
+
+            self.dev:divider('')
+            self.dev:action(T'Copy Heading', {}, '', function()
+                local localplayer = players.localplayer()
+                util.copy_to_clipboard(localplayer:get_entity_heading())
+            end)
+
+            self.scripts:action(T'Add/Refresh Scripts List', {}, '', function()
+                local children = self.scripts:getChildren()
+                for i = 4, #children do
+                    local child = children[i]
+                    if child:isValid() then
+                        child:delete()
+                    end
+                end
+
+                local scripts = self:get_all_running_scripts()
+                for scripts as name do
+                    self.scripts:readonly(tostring(name), '')
+                end
+            end)
+
+            self.scripts:action(T'Delete All Scripts', {}, '', function()
+                local children = self.scripts:getChildren()
+                for i = 4, #children do
+                    local child = children[i]
+                    if child:isValid() then
+                        child:delete()
+                    end
+                end
+            end)
+
+            self.scripts:divider('')
+        end
+    end
+
+    inline function get_all_running_scripts()
+        local scripts = {}
+        script.script_thread_iterator_reset()
+        local script_thread = script.script_thread_iterator_get_next_thread_id()
+        repeat
+            table.insert(scripts, script.get_name_of_script_with_this_id(script_thread))
+            script_thread = script.script_thread_iterator_get_next_thread_id()
+        until script_thread == 0
+        return scripts
+    end
+end
+
+return Settings

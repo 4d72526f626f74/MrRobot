@@ -1,0 +1,127 @@
+pluto_use class
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+
+class Cooldowns extends Module
+    function __construct(root)
+        self.root = root
+        self.kosatka = self.root:list(T'Kosatka', {$'rckosatka'})
+        self.terrorbyte = self.root:list(T'Terrorbyte', {$'rcterrorbyte'})
+
+        do
+            self.kosatka:toggle(T'Remove Missile Cooldown', {}, T'Remove kosatka guided missile cooldown', function(state)
+                self:set_kosatka_missile_cooldown(state ? 0 : 60000)
+            end)
+
+            self.kosatka:toggle(T'Remove Missile Distance', {}, T'Remove kosatka guided missile distance limit', function(state)
+                self:set_kosatka_missile_distance(state ? math.max_float : 4000)
+            end)
+
+            self.kosatka:toggle_loop(T'Remove Request Cooldown', {}, T'Remove kosatka request cooldown', function(state)
+                self:remove_kosatka_request_cooldown()
+            end)
+
+            self.kosatka:toggle_loop(T'Remove Dinghy Cooldown', {}, T'Remove kosatka dinghy cooldown', function(state)
+                self:remove_kosatka_dinghy_cooldown()
+            end)
+        end
+
+        do
+            self.terrorbyte:toggle_loop(T'Remove Request Cooldown', {}, T'Remove terrorbyte request cooldown', function()
+                self:remove_terrorbyte_request_cooldown()
+            end)
+        end
+
+        self.root:divider('')
+        self.root:toggle(T'Remove Moonpool Cooldown', {}, T'Remove moonpool request cooldown', function(state)
+            self:set_moonpool_cooldown(state ? 0 : 300000)
+        end)
+
+        self.root:toggle(T'Remove MK2 Cooldown', {}, T'Remove Oppressor MKII request cooldown', function(state)
+            self:set_mk2_cooldown(state ? 0 : 300000)
+        end)
+
+        self.root:toggle(T'Remove Strike Team Cooldown', {}, T'Remove strike team request cooldown', function(state)
+            self:set_strike_team_cooldown(state ? 0 : 300000)
+        end)
+
+        self.root:toggle(T'Remove MK2 Chaff Cooldown', {}, T'Remove Oppressor MKII chaff cooldown', function(state)
+            self:set_oppressor2_chaff_cooldown(state ? 0 : 6000)
+        end)
+
+        self.root:toggle(T'Remove MK2 Flare Cooldown', {}, T'Remove Oppressor MKII flare cooldown', function(state)
+            self:set_oppressor2_flare_cooldown(state ? 0 : 6000)
+        end)
+
+        self.root:toggle(T'Infinite Chaff Duration', {}, T'Make Oppressor MKII Chaff last forever', function(state)
+            self:set_oppressor2_chaff_duration(state ? math.max_float : 10.0)
+        end)
+
+        self.root:toggle_loop(T'Remove Acid Lab Request Cooldown', {}, T'Remove acid lab request cooldown', function(state)
+            self:set_acid_lab_request_cooldown(state ? 0 : 300000)
+        end)
+
+        self.root:toggle_loop(T'Remove MOC Request Cooldown', {}, T'Remove MOC request cooldown', function(state)
+            self:remove_moc_request_cooldown()
+        end)
+
+        self.root:toggle_loop(T'Remove Avenger Request Cooldown', {}, T'Remove Avenger request cooldown', function(state)
+            self:remove_avenger_request_cooldown()
+        end)
+
+        self.root:toggle_loop(T'Remove Personal Vehicle Cooldown', {}, T'Remove personal vehicle request cooldown', function(state)
+            self:remove_personal_vehicle_request_cooldown()
+        end)
+
+        self.root:toggle_loop(T'Remove CEO Vehicle Cooldown', {}, T'Remove CEO vehicle request cooldown', function(state)
+            self:remove_ceo_vehicle_request_cooldown()
+        end)
+
+        self.root:toggle_loop(T'Remove Ballistic Armor Cooldown', {}, T'Remove ballistic armor request cooldown', function(state)
+            memory.write_int(self.g.BallisticArmorCooldown:g(), 0)
+        end)
+
+        self.root:toggle_loop(T'Remove All Cooldowns', {}, T'Remove cooldowns for loads of things within the interaction menu', function(state)
+            for i = 0, 79 do 
+                memory.write_int(memory.script_global(2685444 + 4342 + 245 + 1 + (i * 2)), 0)
+            end
+        end)
+
+        self.root:toggle_loop(T'Remove Personal Vehicle Request Delay', {}, T'Personal vehicles will be delivered to you instantly', function()
+            self:remove_personal_vehicle_request_delay()
+        end)
+    end
+
+    inline function set_kosatka_missile_cooldown(value) memory.write_int(self.g.KosatkaMissileCooldown:g(), value) end
+    inline function set_kosatka_missile_distance(value) memory.write_float(self.g.KosatkaMissileDistance:g(), value) end
+    inline function remove_kosatka_request_cooldown() memory.write_int(self.g.KosatkaRequestCooldown:g(), 0) end
+    inline function remove_kosatka_dinghy_cooldown() memory.write_int(self.g.KosatkaDinghyCooldown:g(), 0) end
+    inline function remove_moc_request_cooldown() memory.write_int(self.g.MOCRequestCooldown:g(), 0) end
+    inline function remove_avenger_request_cooldown() memory.write_int(self.g.AvengerRequestCooldown:g(), 0) end
+    inline function remove_terrorbyte_request_cooldown() memory.write_int(self.g.TerrorbyteRequestCooldown:g(), 0) end
+    inline function remove_personal_vehicle_request_cooldown() memory.write_int(self.g.PersonalVehicleRequestCooldown:g(), 0) end
+    inline function remove_ceo_vehicle_request_cooldown() memory.write_int(self.g.CEOVehicleRequestCooldown:g(), 0) end
+    inline function set_terrorbyte_drone_cooldown(value) memory.write_int(self.g.TerrorbyteDroneCooldown:g(), value) end
+    inline function set_terrorbyte_drone_distance(value) memory.write_float(self.g.TerrorbyteDistance:g(), value) end
+    inline function set_terrorbyte_drone_height(value) memory.write_float(self.g.TerrorbyteHeight:g(), value) end
+    inline function set_terrorbyte_drone_shock_cooldown(value) memory.write_int(self.g.TerrorbyteShockCooldown:g(), value) end
+    inline function set_terrorbyte_drone_boost_recharge_time(value) memory.write_int(self.g.TerrorbyteBoostRechargeTime:g(), value) end
+    inline function set_terrorbyte_drone_detonate_countdown(value) memory.write_int(self.g.TerrorbyteDetonateCountdown:g(), value) end
+    inline function set_terrorbyte_drone_damage_players(value) memory.write_int(self.g.TerrorbyteDroneDamagePlayers:g(), value) end
+    inline function set_terrorbyte_drone_damage_peds(value) memory.write_int(self.g.TerrorbyteDroneDamagePeds:g(), value) end
+    inline function get_terrorbyte_drone_damage_players() return memory.read_int(self.g.TerrorbyteDroneDamagePlayers:g()) end
+    inline function get_terrorbyte_drone_damage_peds() return memory.read_int(self.g.TerrorbyteDroneDamagePeds:g()) end
+    inline function set_terrorbyte_drone_boost_time(value) memory.write_int(self.g.TerrorbyteDroneBoostTime:g(), value) end
+    inline function set_terrorbyte_drone_forward_speed(value) memory.write_float(self.g.TerrorbyteDroneForwardSpeed:g(), value) end
+    inline function set_moonpool_cooldown(value) memory.write_int(self.g.MoonpoolCooldown:g(), value) end
+    inline function set_mk2_cooldown(value) memory.write_int(self.g.Mk2Cooldown:g(), value) end
+    inline function set_strike_team_cooldown(value) memory.write_int(self.g.StrikeTeamCooldown:g(), value) memory.write_int(self.g.StrikeTeamCooldown2:g(), 0) end
+    inline function set_oppressor2_flare_cooldown(value) memory.write_int(self.g.Oppressor2FlareCooldown:g(), value) end
+    inline function set_oppressor2_chaff_duration(value) memory.write_int(self.g.Oppressor2ChaffDuration:g(), value) end
+    inline function set_oppressor2_chaff_cooldown(value) memory.write_int(self.g.Oppressor2ChaffCooldown:g(), value) end
+    inline function set_acid_lab_request_cooldown(value) memory.write_int(self.g.AcidLabRequestCooldown:g(), value) end
+    inline function remove_personal_vehicle_request_delay() memory.write_int(memory.script_local(table.unpack(self.g.PersonalVehicleRequestDelay)), 0) end
+end
+
+return Cooldowns

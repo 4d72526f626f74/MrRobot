@@ -1,0 +1,1120 @@
+pluto_use class, try, catch, new
+
+local Module = require('abstract_base_classes.module')
+local T = require('languages.trans')
+local weapon_manager = require('utils.weapon_manager')
+local damage_flags = require('flags.damage_flags')
+local animal_ids = require('data.animal_ids')
+
+enum eRagdollBlockingFlags begin
+    RBF_BULLET_IMPACT = 0,
+    RBF_VEHICLE_IMPACT = 1,
+    RBF_FIRE = 2,
+    RBF_ELECTROCUTION = 3,
+    RBF_PLAYER_IMPACT = 4,
+    RBF_EXPLOSION = 5,
+    RBF_IMPACT_OBJECT = 6,
+    RBF_MELEE = 7,
+    RBF_RUBBER_BULLET = 8,
+    RBF_FALLING = 9,
+    RBF_WATER_JET = 10,
+    RBF_DROWNING = 11,
+    _0x9F52E2C4 = 12,
+    RBF_PLAYER_BUMP = 13,
+    RBF_PLAYER_RAGDOLL_BUMP = 14,
+    RBF_PED_RAGDOLL_BUMP = 15,
+    RBF_VEHICLE_GRAB = 16,
+    RBF_SMOKE_GRENADE = 17,
+    ALL = 0x3FFFF
+end
+
+local char_stats = {
+    { read = 'STAMINA', write = 'STAM' },
+    { read = 'SHOOTING_ABILITY', write = 'SHO' },
+    { read = 'STRENGTH', write = 'STRN' },
+    { read = 'STEALTH_ABILITY', write = 'STL' },
+    { read = 'FLYING_ABILITY', write = 'FLY' },
+    { read = 'WHEELIE_ABILITY', write = 'DRIV' },
+    { read = 'LUNG_CAPACITY', write = 'LUNG' }
+}
+
+class Self extends Module
+    function __construct(root)
+        self.root = root
+        self.pedlist = self.utils:sort_table(require('data.pedlist'), |a, b| -> a < b)
+        self.cutscenes_list = self.utils:sort_table(require('data.cutscenes'), |a, b| -> a < b)
+
+        self.auto_heal = self.root:list(T'Auto Heal', {T'rsautoheal'}, '')
+        self.modded_health = self.root:list(T'Modded Health', {T'rsmodhealth'}, '')
+        self.sp = self.root:list(T'Super Punch', {T'rssuperpunch'}, '')
+        self.configurable_sp = self.sp:list(T'Configurable Super Punch', {}, T'Configurable Super Punch options')
+        self.hiding = self.root:list(T'Hiding', {T'rshiding'}, '')
+        self.mental_state = self.root:list(T'Mental State', {T'rsmentalstate'}, '')
+        self.noclip = self.root:list(T'No Clip', {T'rsnoclip'}, '')
+        self.bounty = self.root:list(T'Bounty', {T'rsbounty'}, '')
+        self.model_changer = self.root:list(T'Model Changer', {T'rsmodelchanger'}, '')
+        self.cutscene = self.root:list(T'Cutscenes', {T'rscutscenes'}, '')
+        self.pvp_helper = self.root:list(T'PvP Helper', {T'rspvphelper'}, '')
+        self.single_player = self.root:list(T'Single Player', {T'rssingleplayer'}, '')
+        self.entity_proofs = self.root:list(T'Entity Proofs', {T'rsentityproofs'}, '')
+        self.char_stats_editor = self.root:list(T'Character Stats Editor', {T'rscharstatseditor'}, '')
+        self.hallucinate = self.root:list(T'Hallucinate', {T'rshallucinate'}, '')
+
+        self.sp:divider('')
+        
+        self.auto_heal:toggle_loop(T'Auto Heal', {'rsautoheal'}, T'Automatically heal the player when your health is below a certain threshold.', function()
+            local localplayer = players.localplayer()
+            local health_percent = localplayer:get_health_percent()
+            
+            if health_percent < self.health_threshold.value then
+                localplayer:set_entity_health(localplayer:get_entity_max_health())
+                if self.heal_armour.value then
+                    localplayer:set_ped_armour(player.get_player_max_armour(players.user()))
+                end
+            end
+        end)
+
+        self.heal_armour = self.auto_heal:toggle(T'Heal Armour', {T'rshealarmour'}, T'Automatically heal your armour when your health is below a certain threshold.', function(state) end)
+
+        self.auto_heal:toggle_loop(T'Display Current Health Percentage', {T'rdisplayhealthpercent'}, T'Displays your current health as a percentage', function()
+            local localplayer = players.localplayer()
+            util.draw_debug_text($'Health: {localplayer:get_health_percent()}%')
+        end)
+
+        self.health_threshold = self.auto_heal:slider(T'Health Threshold', {T'rhealthreshold'}, T'Health threshold to start healing', 0, 100, 100, 1, function(value) end)
+
+        self.modded_health:text_input(T'Max Health', {T'rsmaxhealth'}, T'Change your max health', function(health)
+            if not util.can_continue() then return end
+            local localplayer = players.localplayer()
+            
+            try
+                local health = tonumber(health)
+                localplayer:set_ped_max_health(health)
+                localplayer:set_entity_health(health)
+            catch e then
+                util.display_error($'Error setting health: {e}')
+            end
+        end)
+
+        self.modded_health:action(T'Reset Max Health', {T'rresetmaxhealth'}, T'Reset your max health to the default value', function()
+            local localplayer = players.localplayer()
+            localplayer:set_ped_max_health(localplayer.max_health)
+            localplayer:set_entity_health(localplayer.max_health)
+        end)
+
+        self.sp:toggle_loop(T'Super Punch', {}, T'Kill players and peds in a single hit', function()
+            self:superpunch(17, 1000.0, false, true, 0.0)
+        end)
+
+        self.sp:toggle_loop(T'Orbital Cannon Super Punch', {}, T'Kill players and peds in a single hit', function()
+            local orbital_cannon = self.g.OrbitalCannon:g()
+            memory.write_byte(orbital_cannon, 1)
+            self:superpunch(60, 1000.0, false, true, 0.0)
+        end)
+
+        self.non_explo_superpunch = self.configurable_sp:toggle_loop(T'Super Punch (Non Explosive)', {}, T'Send peds flying in a single punch', function()
+            local localplayer = players.localplayer()
+            if localplayer:get_selected_ped_weapon() == ('WEAPON_UNARMED'):joaat() then
+                if localplayer:get_ped_last_weapon_impact_coord(self.impact_coords) then
+                    local closest_entity = nil
+                    for entities.get_all_peds_as_pointers() as ptr do
+                        local coords = entities.get_position(ptr)
+                        if closest_entity == nil then
+                            closest_entity = ptr
+                        else
+                            if coords:distance(self.impact_coords) < entities.get_position(closest_entity):distance(self.impact_coords) then
+                                closest_entity = ptr
+                            end
+                        end
+                    end
+
+                    local ent = entities.pointer_to_handle(closest_entity)
+                    if ent ~= 0 then
+                        if not ped.is_ped_a_player(ent) then
+                            local forward_vector = localplayer:get_entity_forward_vector()
+                            forward_vector:mul(-1.0)
+                            self.utils:apply_upwards_force_to_entity(ent, self.sp_upwards_power.value)
+                            self.utils:apply_backwards_force_to_entity(ent, self.sp_downwards_power.value)
+                            util.yield(50)
+                            ped.set_ped_to_ragdoll_with_fall(ent, 1000, 1000, 1, forward_vector.x, forward_vector.y, forward_vector.z, 1, 0, 0, 0, 0, 0, 0)
+                            self.utils:apply_backwards_force_to_entity(ent, 7)
+                            self.utils:apply_upwards_force_to_entity(ent, 3)
+                        end
+                    end
+                end
+            end
+        end)
+        self.configurable_sp:divider('')
+
+        self.sp_upwards_power = self.configurable_sp:slider(T'Upwards Power', {T'rspuppower'}, T'How much upwards force to apply', 1, 500, 15, 1, function(value) end)
+        self.sp_downwards_power = self.configurable_sp:slider(T'Backwards Power', {T'rspdownpower'}, T'How much backwards force to apply', 1, 500, 40, 1, function(value) end)
+
+        self.configurable_sp:divider('Configs')
+        self.configurable_sp:action(T'Default Config', {}, T'Reset the sliders to their default values', function()
+            self.sp_upwards_power.value = 15
+            self.sp_downwards_power.value = 40
+        end)
+
+        self.configurable_sp:action(T'Ultra Weak', {}, T'Apply an ultra weak configuration', function()
+            self.sp_upwards_power.value = 1
+            self.sp_downwards_power.value = 1
+        end)
+
+        self.configurable_sp:action(T'Weak', {}, T'Apply a weak configuration', function()
+            self.sp_upwards_power.value = 5
+            self.sp_downwards_power.value = 10
+        end)
+
+        self.configurable_sp:action(T'Medium', {}, T'Apply a medium configuration', function()
+            self.sp_upwards_power.value = 15
+            self.sp_downwards_power.value = 40
+        end)
+
+        self.configurable_sp:action(T'Strong', {}, T'Apply a strong configuration', function()
+            self.sp_upwards_power.value = 25
+            self.sp_downwards_power.value = 60
+        end)
+
+        self.configurable_sp:action(T'Extreme', {}, T'Apply an extreme configuration', function()
+            self.sp_upwards_power.value = 50
+            self.sp_downwards_power.value = 100
+        end)
+
+        self.anti_psychopath = self.mental_state:toggle_loop(T'Anti-Psychopath', {T'rsantipsychopath'}, T'Disables killing players, peds and cops affecting your mental state', function()
+            local mental_state = self.g.MentalState:g()
+            local mental_state_value = self.g.MentalStateValue:g()
+            stats.stat_set_float(self.utils.char_stat_hashes.mental_state, 0.0, true)
+    
+            memory.write_byte(mental_state, 1)
+            memory.write_float(mental_state_value, 0.0)
+        end,
+        function()
+            local mental_state = self.g.MentalState:g()
+            memory.write_byte(mental_state, 0)
+        end)
+
+        self.hiding:toggle(T'Method 1', {T'rshide1'}, T'First method of hiding from players', function(state)
+            self:set_stealth_mode(state)
+            self:set_invisibility(state)
+        end)
+
+        self.hiding:toggle(T'Method 2', {T'rshide2'}, T'Second method of hiding from players', function(state)
+            self:set_interior_state(state)
+            self:set_invisibility(state)
+        end)
+
+        self.hide_m3 = self.hiding:toggle(T'Method 3', {T'rshide3'}, T'Third method of hiding from players', function(state)
+            if state then
+                util.create_tick_handler(function()
+                    if not self.hide_m3.value then
+                        self:set_interior_state_1(false)
+                        return false
+                    end
+                    self:set_blip_coords(-99999, -99999, -99999, true)
+                end)
+            end
+        end)
+
+        self.psychopath = self.mental_state:toggle_loop(T'Psychopath', {T'rspsychopath'}, T'Show your inner psychopath', function()
+            local mental_state_value = self.g.MentalStateValue:g()
+            memory.write_float(mental_state_value, 100.0)
+            stats.stat_set_float(self.utils.char_stat_hashes.mental_state, 100.0, true)
+        end)
+    
+        self.display_mental_state = self.mental_state:toggle_loop(T'Display Mental State', {T'rsdisplaymentalstate'}, T'Displays your current mental state', function()
+            local mental_state_value = self.g.MentalStateValue:g()
+            local value = memory.read_float(mental_state_value)
+            util.draw_debug_text('Mental State: ' .. value)
+        end)
+
+        self.p_noclip = self.noclip:toggle_loop(T'No Clip', {T'rnoclip'}, T'Fly around the map', function()
+            local localplayer = players.localplayer()
+            if localplayer:is_ped_in_any_vehicle() then
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    veh:freeze_entity_position(true)
+                    veh:set_entity_collision(false, true)
+
+                    local rot = cam.get_gameplay_cam_rot(5)
+                    veh:set_entity_rotation(rot.x, rot.y, rot.z, 5, true)
+
+                    if util.is_key_down(0x57) then -- W
+                        local pos = veh:get_offset_from_entity_in_world_coords(0, 1 * self.noclip_speed.value, 0)
+                        veh:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                    elseif util.is_key_down(0x53) then -- S
+                        local pos = veh:get_offset_from_entity_in_world_coords(0, -1 * self.noclip_speed.value, 0)
+                        veh:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                    end
+
+                    if util.is_key_down(0x41) then -- A
+                        local pos = veh:get_offset_from_entity_in_world_coords(-1 * self.noclip_speed.value, 0, 0)
+                        veh:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                    elseif util.is_key_down(0x44) then -- D
+                        local pos = veh:get_offset_from_entity_in_world_coords(1 * self.noclip_speed.value, 0, 0)
+                        veh:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                    end
+
+                    -- left shift
+                    if util.is_key_down(0x10) then
+                        local pos = veh:get_offset_from_entity_in_world_coords(0, 0, 1 * self.noclip_speed.value)
+                        veh:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                    end
+
+                    -- left control
+                    if util.is_key_down(0x11) then
+                        local pos = veh:get_offset_from_entity_in_world_coords(0, 0, -1 * self.noclip_speed.value)
+                        veh:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                    end
+                end
+            else
+                localplayer:freeze_entity_position(true)
+                localplayer:set_entity_collision(false, true)
+
+                local rot = cam.get_gameplay_cam_rot(5)
+                localplayer:set_entity_rotation(rot.x, rot.y, rot.z, 5, true)
+
+                if util.is_key_down(0x57) then -- W
+                    local pos = localplayer:get_offset_from_entity_in_world_coords(0, 1 * self.noclip_speed.value, 0)
+                    localplayer:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                elseif util.is_key_down(0x53) then -- S
+                    local pos = localplayer:get_offset_from_entity_in_world_coords(0, -1 * self.noclip_speed.value, 0)
+                    localplayer:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                end
+
+                if util.is_key_down(0x41) then -- A
+                    local pos = localplayer:get_offset_from_entity_in_world_coords(-1 * self.noclip_speed.value, 0, 0)
+                    localplayer:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                elseif util.is_key_down(0x44) then -- D
+                    local pos = localplayer:get_offset_from_entity_in_world_coords(1 * self.noclip_speed.value, 0, 0)
+                    localplayer:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                end
+
+                -- left shift
+                if util.is_key_down(0x10) then
+                    local pos = localplayer:get_offset_from_entity_in_world_coords(0, 0, 1 * self.noclip_speed.value)
+                    localplayer:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                end
+
+                -- left control
+                if util.is_key_down(0x11) then
+                    local pos = localplayer:get_offset_from_entity_in_world_coords(0, 0, -1 * self.noclip_speed.value)
+                    localplayer:set_entity_coords_no_offset(pos.x, pos.y, pos.z, false, false, false)
+                end
+            end
+        end, function()
+            local localplayer = players.localplayer()
+            if localplayer:is_ped_in_any_vehicle() then
+                local veh = players.localplayer_vehicle()
+                if veh.entity ~= 0 then
+                    veh:freeze_entity_position(false)
+                    veh:set_entity_collision(true, true)
+                end
+            else
+                localplayer:freeze_entity_position(false)
+                localplayer:set_entity_collision(true, true)
+                localplayer:clear_ped_tasks_immediately()
+            end
+        end)
+
+        self.noclip_speed = self.noclip:slider(T'Speed', {}, T'Speed multiplier', 1, 100, 1, 1, function(value) end)
+
+        self.remove_bounty = self.bounty:action(T'Remove Bounty', {T'rsremovebounty'}, T'Removes your bounty (this functions differently to Stand\'s remove bounty feature)', function()
+            local pid = players.user()
+            players.set_bounty(pid, 0, false)
+            players.set_bounty_reward(pid, 0)
+        end)
+
+        self.collect_bounty = self.bounty:action(T'Collect Bounty', {T'rscollectbounty'}, T'Collect your bounty', function()
+            memory.write_int(self.g.BountyTimer:g(), 2880000)
+            memory.write_byte(self.g.BountyLocal:g(), -1)
+        end)
+
+        self.model_changer_list = self.model_changer:list(T'Models', {}, T'A list of possible peds in the game')
+        self.animals = self.model_changer_list:list(T'Animals', {})
+        self.males = self.model_changer_list:list(T'Males', {})
+        self.females = self.model_changer_list:list(T'Females', {})
+        self.other = self.model_changer_list:list(T'Other', {})
+        self.model_changer_list:divider('')
+
+        for self.pedlist as model do
+            if (model:lower()):find('a_c_') then
+                self.animals:action(tostring(model), {}, T'Change your model', function()
+                    local hash = model:joaat()
+                    self:load_and_set_model(hash)
+                end)
+            elseif (model:lower()):find('%w_m_') then
+                self.males:action(tostring(model), {}, T'Change your model', function()
+                    local hash = model:joaat()
+                    self:load_and_set_model(hash)
+                end)
+            elseif (model:lower()):find('%w_f_') then
+                self.females:action(tostring(model), {}, T'Change your model', function()
+                    local hash = model:joaat()
+                    self:load_and_set_model(hash)
+                end)
+            else
+                self.other:action(tostring(model), {}, T'Change your model', function()
+                    local hash = model:joaat()
+                    self:load_and_set_model(hash)
+                end)
+            end
+
+            self.model_changer_list:action(tostring(model), {}, T'Change your model', function()
+                local hash = model:joaat()
+                self:load_and_set_model(hash)
+            end)
+        end
+        self.model_changer:divider('')
+        
+        self.model_custom_ped = self.model_changer:text_input(T'Custom Model', {T'rscustomped'}, T'Change your ped to something else', function(model)
+            local hash = model:joaat()
+            if streaming.is_model_valid(hash) then
+                self:load_and_set_model(hash)
+            end
+        end, 'A_C_Cat_01')
+
+        self.random_ped = self.model_changer:action(T'Random Ped', {T'rsrandomped'}, T'Become a random ped', function()
+            local rand = math.random(1, #self.pedlist)
+            local hash = self.pedlist[rand]:joaat()
+            self:load_and_set_model(hash)
+        end)
+
+        self.cutscene_list = self.cutscene:list(T'Cutscenes', {}, T'A list of cutscenes in the game')
+
+        for self.cutscenes_list as scene do
+            self.cutscene_list:action(tostring(scene), {}, T'Play this cutscene', function()
+                self:load_and_play_cutscene(scene)
+            end)
+        end
+        self.cutscene:divider('')
+
+        self.play_cutscene = self.cutscene:text_input(T'Play Cutscene', {T'rsplaycutscene'}, T'Play a cutscene', function(name)
+            self:load_and_play_cutscene(name)
+        end, 'abigail_mcs_1_concat')
+
+        self.stop_cutscene = self.cutscene:action(T'Stop Cutscene', {T'rsstopcutscene'}, T'Stop the cutscene you are currently playing', function()
+            cutscene.stop_cutscene_immediately()
+        end)
+
+        self.snack_armour_regen = self.pvp_helper:list(T'Snack/Armour Regen', {T'rshealthregen'}, T'Unlike auto heal this will only regenerate your health and armour when you take damage from other players')
+        self.health_delay = self.snack_armour_regen:slider(T'Delay', {T'rshealthdelay'}, T'Delay before health regeneration starts (ms)', 0, 10000, 1000, 100, function(value) end)
+        self.health_amount = self.snack_armour_regen:slider(T'Amount', {T'rshealthamount'}, T'Amount of health to regenerate', 0, 100, 25, 1, function(value) end)
+        self.snack_armour_regen:divider('')
+
+        local size <constexpr> = 13
+        local event_data = memory.alloc(size * 8)
+
+        self.utils.emitter:on('regenerate_health', self.utils:partial(self.event_regenerate_health, self))
+        self.snack_armour_regen:toggle_loop(T'Enable Regeneration', {}, T'Start regenerating', function()
+            for i = 0, script.get_number_of_events(1) do
+                local event = script.get_event_at_index(1, i)
+                if event == 186 then
+                    if script.get_event_data(1, i, event_data, size) then
+                        local victim = memory.read_int(event_data)
+                        local attacker = memory.read_int(event_data + (1 * 8))
+                        local damage = memory.read_float(event_data + (2 * 8))
+                        local is_fatal = memory.read_byte(event_data + (5 * 8))
+                        local weapon_hash = memory.read_int(event_data + (6 * 8))
+                        local entity_type = memory.read_int(event_data + (12 * 8))
+                        
+                        if entity_type == 0 and ped.is_ped_a_player(victim) and ped.is_ped_a_player(attacker) then
+                            local victim_pid = network.network_get_player_index_from_ped(victim)
+                            local attacker_pid = network.network_get_player_index_from_ped(attacker)
+
+                            if is_fatal == 0 then
+                                self.utils.emitter:emit('regenerate_health')
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+        
+        self.pvp_helper:divider('')
+
+        self.auto_bst = self.pvp_helper:toggle_loop(T'Auto BST', {T'rsautobst'}, T'Automatically use BST when a player is within 300m of you while using BST', function()
+            local bst = self.g.DisableBST:g()
+            local player_coords = players.get_position(players.user())
+            local localplayer = players.localplayer()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= players.user() then
+                    local player_ped = player.get_player_ped(pid)
+                    local ptr = entities.handle_to_pointer(player_ped)
+                    local coords = entity.get_offset_from_entity_in_world_coords(player_ped, 0.0, 0.0, 0.0)
+                    if ptr ~= 0 and player_coords:distance(coords) < 300.0 then
+                        local player_info = entities.get_player_info(ptr)
+                        if player_info then
+                            local weapon_defense = memory.read_float(player_info + 0x0D70)
+                            if weapon_defense < 0.99 and not localplayer:is_entity_dead() then
+                                local value = memory.read_byte(bst)
+                                if memory.read_byte(bst) == 0 then
+                                    self:trigger_instant_bst()
+                                    util.yield(50)
+                                    util.display_info(T:T('%s is using BST, enabling BST to counter it', players.get_name(pid)))
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+
+        self.auto_swap_ammo = self.pvp_helper:toggle_loop(T'Auto Swap Special Ammo', {}, T'Automatically swaps between AP and HP rounds depending on whether the target has armour or not', function()
+            local localplayer = players.localplayer()
+            if localplayer.ptr == 0 then return end
+            if player.get_entity_player_is_free_aiming_at(players.user(), self.ent_buffer) then
+                local ent = memory.read_int(self.ent_buffer)
+                if ent ~= 0 then
+                    local ptr = entities.handle_to_pointer(ent)
+                    local armor = memory.read_float(ptr + 0x150C)
+                    weapon_manager:set_special_ammo_type(armor > 0.0 ? 1 : 4)
+                end
+            end
+        end)
+
+        stats.stat_get_int('SP0_TOTAL_CASH':joaat(), self.money_ptr, -1)
+        self.single_player:text_input(T'Michael Money', {$'spmichaelmoney'}, '', function(value)
+            if not util.can_continue() then return end
+            stats.stat_set_int('SP0_TOTAL_CASH':joaat(), value, true)
+        end, memory.read_int(self.money_ptr))
+
+        stats.stat_get_int('SP1_TOTAL_CASH':joaat(), self.money_ptr, -1)
+        self.single_player:text_input(T'Franklin Money', {$'spfranklinmoney'}, '', function(value)
+            if not util.can_continue() then return end
+            stats.stat_set_int('SP1_TOTAL_CASH':joaat(), value, true)
+        end, memory.read_int(self.money_ptr))
+
+        stats.stat_get_int('SP2_TOTAL_CASH':joaat(), self.money_ptr, -1)
+        self.single_player:text_input(T'Trevor Money', {$'sptrevormoney'}, '', function(value)
+            if not util.can_continue() then return end
+            stats.stat_set_int('SP2_TOTAL_CASH':joaat(), value, true)
+        end, memory.read_int(self.money_ptr))
+
+        self.single_player:divider('')
+        self.single_player:action(T'Give Michael $100,000', {}, T'Gives Michael $100,000', function()
+            stats.stat_get_int('SP0_TOTAL_CASH':joaat(), self.money_ptr, -1)
+            stats.stat_set_int('SP0_TOTAL_CASH':joaat(), memory.read_int(self.money_ptr) + 100000, true)
+        end)
+
+        self.single_player:action(T'Give Franklin $100,000', {}, T'Gives Franklin $100,000', function()
+            stats.stat_get_int('SP1_TOTAL_CASH':joaat(), self.money_ptr, -1)
+            stats.stat_set_int('SP1_TOTAL_CASH':joaat(), memory.read_int(self.money_ptr) + 100000, true)
+        end)
+
+        self.single_player:action(T'Give Trevor $100,000', {}, T'Gives Trevor $100,000', function()
+            stats.stat_get_int('SP2_TOTAL_CASH':joaat(), self.money_ptr, -1)
+            stats.stat_set_int('SP2_TOTAL_CASH':joaat(), memory.read_int(self.money_ptr) + 100000, true)
+        end)
+
+        self.entity_proofs:toggle(T'Bullet Proof', {T'rsbulletproof'}, T'Make yourself bullet proof', function(state)
+            if not util.can_continue() then return end
+            local proofs = self:get_entity_proofs(players.user_ped())
+            proofs['bulletproof'] = state
+            self:set_entity_proofs(players.user_ped(), proofs)
+        end, self:get_entity_proofs(players.user_ped())['bulletproof'])
+
+        self.entity_proofs:toggle(T'Fire Proof', {T'rsfireproof'}, T'Make yourself fire proof', function(state)
+            if not util.can_continue() then return end
+            local proofs = self:get_entity_proofs(players.user_ped())
+            proofs['fireproof'] = state
+            self:set_entity_proofs(players.user_ped(), proofs)
+        end, self:get_entity_proofs(players.user_ped())['fireproof'])
+
+        self.entity_proofs:toggle(T'Explosion Proof', {T'rsexplosionproof'}, T'Make yourself explosion proof', function(state)
+            if not util.can_continue() then return end
+            local proofs = self:get_entity_proofs(players.user_ped())
+            proofs['explosionproof'] = state
+            self:set_entity_proofs(players.user_ped(), proofs)
+        end, self:get_entity_proofs(players.user_ped())['explosionproof'])
+
+        self.entity_proofs:toggle(T'Collision Proof', {T'rscollisionproof'}, T'Make yourself collision proof', function(state)
+            if not util.can_continue() then return end
+            local proofs = self:get_entity_proofs(players.user_ped())
+            proofs['collisionproof'] = state
+            self:set_entity_proofs(players.user_ped(), proofs)
+        end, self:get_entity_proofs(players.user_ped())['collisionproof'])
+
+        self.entity_proofs:toggle(T'Melee Proof', {T'rsmeleeproof'}, T'Make yourself melee proof', function(state)
+            if not util.can_continue() then return end
+            local proofs = self:get_entity_proofs(players.user_ped())
+            proofs['meleeproof'] = state
+            self:set_entity_proofs(players.user_ped(), proofs)
+        end, self:get_entity_proofs(players.user_ped())['meleeproof'])
+
+        self.entity_proofs:toggle(T'Steam Proof', {T'rssteamproof'}, T'Make yourself steam proof', function(state)
+            if not util.can_continue() then return end
+            local proofs = self:get_entity_proofs(players.user_ped())
+            proofs['steamproof'] = state
+            self:set_entity_proofs(players.user_ped(), proofs)
+        end, self:get_entity_proofs(players.user_ped())['steamproof'])
+
+        self.entity_proofs:toggle(T'Water Proof', {T'rswaterproof'}, T'Make yourself water proof', function(state)
+            if not util.can_continue() then return end
+            local proofs = self:get_entity_proofs(players.user_ped())
+            proofs['waterproof'] = state
+            self:set_entity_proofs(players.user_ped(), proofs)
+        end, self:get_entity_proofs(players.user_ped())['waterproof'])
+
+        self.char_slot = self.char_stats_editor:slider(T'Character Slot', {T'rscharslot'}, T'Character slot to edit', 1, 2, 1, 1, function(value) end)
+        self.char_stats_editor:divider('')
+
+        self.char_stats_editor:action(T'Max All Stats', {T'rsmaxallstats'}, T'Max all of your stats', function()
+            local char = self.char_slot.value - 1
+            for char_stats as stat do
+                stats.stat_set_int($'MP{char}_SCRIPT_INCREASE_{stat.write}':joaat(), 100, true)
+            end
+        end)
+
+        self.char_stats_editor:action(T'Max Stamina', {T'rsmaxstamina'}, T'Max your stamina', function()
+            local char = self.char_slot.value - 1
+            stats.stat_set_int($'MP{char}_SCRIPT_INCREASE_STAM':joaat(), 100, true)
+        end)
+
+        self.char_stats_editor:action(T'Max Shooting', {T'rsmaxshooting'}, T'Max your shooting', function()
+            local char = self.char_slot.value - 1
+            stats.stat_set_int($'MP{char}_SCRIPT_INCREASE_SHO':joaat(), 100, true)
+        end)
+
+        self.char_stats_editor:action(T'Max Strength', {T'rsmaxstrength'}, T'Max your strength', function()
+            local char = self.char_slot.value - 1
+            stats.stat_set_int($'MP{char}_SCRIPT_INCREASE_STRN':joaat(), 100, true)
+        end)
+
+        self.char_stats_editor:action(T'Max Stealth', {T'rsmaxstealth'}, T'Max your stealth', function()
+            local char = self.char_slot.value - 1
+            stats.stat_set_int($'MP{char}_SCRIPT_INCREASE_STL':joaat(), 100, true)
+        end)
+
+        self.char_stats_editor:action(T'Max Flying', {T'rsmaxflying'}, T'Max your flying', function()
+            local char = self.char_slot.value - 1
+            stats.stat_set_int($'MP{char}_SCRIPT_INCREASE_FLY':joaat(), 100, true)
+        end)
+
+        self.char_stats_editor:action(T'Max Driving', {T'rsmaxdriving'}, T'Max your driving', function()
+            local char = self.char_slot.value - 1
+            stats.stat_set_int($'MP{char}_SCRIPT_INCREASE_DRIV':joaat(), 100, true)
+        end)
+
+        self.char_stats_editor:action(T'Max Lung Capacity', {T'rsmaxlungcapacity'}, T'Max your lung capacity', function()
+            local char = self.char_slot.value - 1
+            stats.stat_set_int($'MP{char}_SCRIPT_INCREASE_LUNG':joaat(), 100, true)
+        end)
+
+        self.h_animal_id = self.hallucinate:list_select(T'Animal', {T'rsanimal'}, T'Animal to hallucinate as', animal_ids, 0, function(value) end)
+        
+        self.hallucinate:action(T'Hallucinate', {}, '', function()
+            local animal_id = self.h_animal_id.value
+            local t1 = self.g.TriggerHallucination:g()
+            local t2 = self.g.TriggerHallucination1:g()
+            local choice = self.g.HallucinateAnimalID:g()
+
+            memory.write_int(choice, animal_id)
+            memory.write_byte(t1, 1)
+            memory.write_byte(t2, 1)
+        end)
+
+        self.root:divider('')
+        self.root:toggle(T'Stealth', {T'rsstealth'}, T'An undetected version of off the radar, while enabled you won\'t show on the radar and will not trigger off the radar too long detections for other menus', function(state)
+            self:set_stealth_mode(state) 
+        end)
+
+        self.root:toggle_loop(T'Bribe Authorities', {T'rsbribepigs'}, T'Bribe the authorities to remove your wanted level', function()
+            local timer = self.g.BribeAuthoritiesTimer:g()
+            self:set_bribe_authorities(true)
+            memory.write_int(timer, network.get_network_time() + 817000 - 120000)
+        end, function()
+            self:set_bribe_authorities(false)
+        end)
+
+        self.root:toggle(T'Invisibility', {T'rsinvisibility'}, T'Be invisible to other players', function(state)
+            self:set_invisibility(state)
+        end)
+
+        self.root:toggle(T'Spoof Interior State', {T'rsspoofinteriorstate'}, T'Spoof your interior state', function(state)
+            self:set_interior_state(state)
+        end)
+
+        self.root:toggle(T'Harden Player', {T'rshardenplayer'}, T'Hardens your player', function(state)
+            local localplayer = players.localplayer()
+            localplayer:set_ped_suffers_critical_hits(not state)
+            localplayer:set_ped_upper_body_damage_only(state)
+        end)
+
+        self.root:toggle_loop(T'Fast Respawn', {T'rsfastrespawn'}, T'Respawns you instantly', function()
+            local respawn = self.g.FastRespawn:g()
+            local respawn_state = self.g.RespawnState:g()
+
+            if memory.read_byte(respawn_state) & 0xC == 0xC then
+                memory.write_byte(respawn, 1)
+                util.yield_once()
+                memory.write_byte(respawn, 0)
+            end
+        end)
+
+        self.root:toggle_loop(T'Killer Karma', {T'rskarma'}, T'Karma the player that killed you', function()
+            local killer_karma = self.g.PlayerKiller:g()
+            local respawn = self.g.FastRespawn:g()
+            local respawn_state = self.g.RespawnState:g()
+            if memory.read_byte(respawn_state) ~= 0 then
+                local pid = memory.read_int(killer_karma)
+                if pid ~= -1 and self.utils:player_exists(pid) then
+                    repeat
+                        util.yield_once()
+                    until memory.read_byte(respawn_state) == 0
+                    util.yield(1000)
+                    --self.utils:shoot_player(pid, 1, 'WEAPON_HEAVYSNIPER_MK2':joaat(), true)
+                    self.utils:damage_player(
+                        pid, 'WEAPON_HEAVYSNIPER_MK2', 230.0,
+                        damage_flags.DF_IsAccurate | damage_flags.DF_IgnoreRemoteDistCheck 
+                    )
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Godmode Killer Karma', {T'rsgodmodekarma'}, T'Karma the player that killed you with godmode', function()
+            local killer_karma = self.g.PlayerKiller:g()
+            local respawn = self.g.FastRespawn:g()
+            local respawn_state = self.g.RespawnState:g()
+            if memory.read_byte(respawn_state) ~= 0 then
+                local pid = memory.read_int(killer_karma)
+                if not players.is_in_interior(pid) and players.is_godmode(pid) and players.get_host() == players.user() then
+                    local proot = menu.player_root(pid)
+                    local kick = proot:refByRelPath('Kick>Smart')
+                    if kick:isValid() then
+                        kick:trigger()
+                    end
+                end
+            end
+        end)
+
+        self.root:toggle_loop(T'Infinite OTR / Ghost Org', {T'rsinfiniteotr'}, T'Freezes the timer for ghost org and off the radar', function()
+            self:set_off_the_radar_timer(network.get_network_time() + 817000 - 60000)
+        end)
+
+        self.root:toggle(T'Force Ghost Org', {T'rsforceghostorg'}, T'Always go ghost org instead of off the radar (this won\'t work unless you are in an organisation)', function(state)
+            local addr = self.g.AbilitiesBitfield:g()
+            memory.write_byte(
+                addr,
+                memory.bits:bool(memory.read_byte(addr), 0x6, state)
+            )
+        end)
+
+        self.root:toggle(T'Snacks Instantly Restore', {T'rssnackinstarestore'}, T'All snacks fill you health up after just 1 snack', function(state)
+            for i = self.g.SnacksInstantRestoreStart, self.g.SnacksInstantRestoreEnd do
+                memory.write_float(memory.script_global(GLOBAL_TUNABLE_BASE + i), state ? 100.0 : 1.0)
+            end
+        end)
+
+        self.beast_mode = self.root:toggle(T'Beast Mode', {T'rsbeastmode'}, T'Enables beast mode which makes you stronger, faster and more durable than normal', function(state)
+            local localplayer = players.localplayer()
+            if not util.is_session_started() then
+                self.beast_mode.value = false
+                return
+            end
+
+            if state then
+                util.create_tick_handler(function()
+                    if not self.beast_mode.value then
+                        return false
+                    end
+                    localplayer:set_entity_health(math.max_int)
+                end)
+                localplayer:give_weapon_to_ped(('WEAPON_UNARMED'):joaat(), 0, true, true)
+                repeat
+                    util.yield_once()
+                    localplayer:clear_ped_tasks_immediately()
+                    localplayer:clear_ped_tasks_immediately()
+                until localplayer:is_ped_stopped()
+                util.yield(200)
+
+                local pos = localplayer:get_offset_from_entity_in_world_coords(0.05, 0.5, -1.11)
+                local scene = network.network_create_synchronised_scene(pos.x, pos.y, pos.z, 0.0, 0.0, localplayer:get_entity_heading() + 90.0, 2, false, false, 1.0, 0.0, 1.0)
+                network.network_add_synchronised_scene_camera(scene, 'ANIM@MP_FM_EVENT@INTRO', 'BEAST_TRANSFORM_CAM')
+                localplayer:task_play_anim('ANIM@MP_FM_EVENT@INTRO', 'BEAST_TRANSFORM', 1000.0, -2.0, -1, 0, 0.0, false, false, false)
+                localplayer:force_ped_ai_and_animation_update(false, false)
+                network.network_force_local_use_of_synced_scene_camera(scene)
+                network.network_start_synchronised_scene(scene)
+
+                if not graphics.animpostfx_is_running('BeastIntroScene') then
+                    graphics.animpostfx_play('BeastIntroScene', 0, false)
+                end
+
+                audio.start_audio_scene('FM_Event_Beast_Transform_Sequence_Scene')
+                audio.play_sound_frontend(-1, 'Frontend_Beast_Transform_Back', 'FM_Events_Sasquatch_Sounds', false)
+
+                localplayer:clear_ped_stored_hat_prop()
+                localplayer:clear_all_ped_props(1)
+                localplayer:set_ped_config_flag(189, true)
+                localplayer:set_ped_config_flag(407, true)
+                player.set_player_melee_weapon_damage_modifier(players.user(), 100.0, true)
+                localplayer:set_ped_suffers_critical_hits(false)
+                localplayer:set_disable_high_fall_death(true)
+                player.set_player_max_explosive_damage(players.user(), 500.0)
+                localplayer:set_ped_config_flag(410, true)
+                player.set_player_vehicle_defense_modifier(players.user(), math.max_float)
+                player.set_player_vehicle_damage_modifier(players.user(), math.min_float)
+                localplayer:set_ped_config_flag(411, true)
+                misc.set_player_is_in_animal_form(true)
+                player.set_player_leave_ped_behind(players.user(), false)
+                localplayer:finalize_head_blend()
+                player.set_run_sprint_multiplier_for_player(players.user(), 1.49)
+            else
+                localplayer:clear_ped_stored_hat_prop()
+                localplayer:clear_all_ped_props(1)
+                localplayer:set_ped_config_flag(189, false)
+                localplayer:set_ped_config_flag(407, false)
+                player.set_player_melee_weapon_damage_modifier(players.user(), 1.0, true)
+                localplayer:set_ped_max_health(328) 
+                localplayer:set_entity_health(328)
+                localplayer:set_ped_suffers_critical_hits(true)
+                localplayer:set_disable_high_fall_death(false)
+                player.set_player_max_explosive_damage(players.user(), 100.0)
+                localplayer:set_ped_config_flag(410, false)
+                localplayer:set_entity_alpha(255, false)
+                player.set_player_vehicle_defense_modifier(players.user(), 1.0)
+                player.set_player_vehicle_damage_modifier(players.user(), 1.0)
+                localplayer:set_ped_config_flag(411, false)
+                misc.set_player_is_in_animal_form(false)
+                player.set_player_leave_ped_behind(players.user(), true)
+                network.network_disable_leave_remote_ped_behind(false)
+                localplayer:set_ped_component_variation(1, 0, 0, 0)
+                player.set_run_sprint_multiplier_for_player(players.user(), 1.0)
+            end
+        end)
+
+        self.root:toggle_loop(T'Crouch Strafe', {}, T'Make your player strafe a crouched position (only works in first person)', function()
+            local localplayer = players.localplayer()
+            localplayer:set_ped_strafe_clipset('move_ped_crouched_strafing')
+        end, function()
+            local localplayer = players.localplayer()
+            localplayer:reset_ped_strafe_clipset()
+        end)
+
+        self.root:toggle_loop(T'Tbag', {}, T'Make you tbag the ground (only works in first person)', function()
+            local localplayer = players.localplayer()
+            localplayer:set_ped_strafe_clipset('move_ped_crouched_strafing')
+            util.yield_once()
+            localplayer:reset_ped_strafe_clipset()
+        end, function()
+            local localplayer = players.localplayer()
+            localplayer:reset_ped_strafe_clipset()
+        end)
+
+        self.root:toggle(T'Become Interior', {T'rsbecomeinterior'}, T'Your blip on the map will show as if you are inside of an interior when you really aren\'t', function(state)
+            self:set_is_in_interior(state)
+        end)
+
+        self.root:toggle(T'Pause Menu Active', {}, T'Make it look like you\'re in the pause menu when you are not', function(state)
+            self:set_pause_menu(state)
+        end)
+
+        self.root:toggle_loop(T'Out Of Sight', {}, T'Enable out of sight, what else?', function()
+            self:set_out_of_sight(true)
+        end,
+        function()
+            self:set_out_of_sight(false)
+        end)
+
+        self.root:toggle_loop(T'Infinite BST', {T'rsinfbst'}, T'BST will never run out', function()
+            local localplayer = players.localplayer()
+            local bst = memory.script_local(table.unpack(self.g.BSTTimer))
+            local bst_toggle = self.g.InstantBST:g()
+
+            if not localplayer:is_entity_dead() and memory.read_byte(bst_toggle) == 0 then
+                util.yield(700)
+                self:trigger_instant_bst()
+            elseif localplayer:is_entity_dead() and memory.read_byte(bst_toggle) == 1 then
+                self:disable_bst()
+            end
+
+            memory.write_int(bst, network.get_network_time())
+        end, function()
+            self:disable_bst()
+        end)
+
+        self.root:toggle_loop(T'Infinite Bribe Authorities', {}, T'Makes bribe authorities last forever', function()
+            memory.write_int(self.g.BribeAuthoritiesTimer:g(), network.get_network_time())
+        end)
+
+        self.auto_restock = self.root:toggle_loop(T'Auto Restock Snacks And Armour', {}, T'Fully stocked snacks and armour in your inventory at all times', function()
+            local value = math.max_int
+            -- stats.stat_set_int($'MP{char_slot}_NO_BOUGHT_YUM_SNACKS':joaat(), value)
+            -- stats.stat_set_int($'MP{char_slot}_NO_BOUGHT_HEALTH_SNACKS':joaat(), value)
+            -- stats.stat_set_int($'MP{char_slot}_NO_BOUGHT_EPIC_SNACKS':joaat(), value)
+            -- stats.stat_set_int($'MP{char_slot}_NUMBER_OF_CHAMP_BOUGHT':joaat(), value)
+            -- stats.stat_set_int($'MP{char_slot}_NUMBER_OF_ORANGE_BOUGHT':joaat(), value)
+            -- stats.stat_set_int($'MP{char_slot}_NUMBER_OF_BOURGE_BOUGHT':joaat(), value)
+            -- stats.stat_set_int($'MP{char_slot}_NUMBER_OF_SPRUNK_BOUGHT':joaat(), value)
+            -- stats.stat_set_int($'MP{char_slot}_CIGARETTES_BOUGHT':joaat(), 0)
+            -- stats.stat_set_int($'MP{char_slot}_MP_CHAR_ARMOUR_5_COUNT':joaat(), value)
+            stats.stat_set_int(self.utils.char_stat_hashes.ego_chaser, value)
+            stats.stat_set_int(self.utils.char_stat_hashes.super_light_armour, 0)
+            stats.stat_set_int(self.utils.char_stat_hashes.light_armour, 0)
+            stats.stat_set_int(self.utils.char_stat_hashes.medium_armour, 0)
+            stats.stat_set_int(self.utils.char_stat_hashes.heavy_armour, 0)
+
+            stats.stat_set_int(self.utils.char_stat_hashes.super_heavy_armour, value)
+        end)
+        self.auto_restock.value = true
+
+        self.root:toggle(T'Demi God', {T'rsdemigod'}, T'Become a demi god, this will protect you from bullets, collisions and melee attacks (ONLY AGAINST PEDS, PLAYERS CAN STILL CAUSE YOU DAMAGE)', function(state)
+            local ptr = entities.handle_to_pointer(players.user_ped())
+            local addr = ptr + 0x188
+            memory.write_short(
+                addr, 
+                memory.bits:bool(memory.read_short(addr), 1 << 10, state)
+            )
+        end)
+
+        self.root:toggle(T'Disable Wasted Effect', {T'rsdisablewastedeffect'}, T'Disables the wasted effect, the text and sound will not occur when dying', function(state)
+            memory.write_byte(self.g.DisableWastedEffect:g(), state ? 1 : 0)
+        end)
+
+        self.enable_crouching = self.root:toggle(T'Enable Crouching', {T'rsenablecrouching'}, T'Enables crouching when pressing CTRL to activate stealth movement (local only)', function(state)
+            local CPed = players.cped()
+            local player_ped = players.user_ped()
+            if state then
+                util.create_tick_handler(function()
+                    if not self.enable_crouching.value then
+                        return false
+                    end
+
+                    if ped.get_ped_stealth_movement(player_ped) then
+                        CPed.m_ped_task_flag = memory.bits:clear(CPed.m_ped_task_flag, 1 << 4)
+                    end
+                end)
+            end
+        end)
+
+        self.force_crouched_movement = self.root:toggle(T'Force Crouched Movement', {T'rsforcecrouchedmovement'}, T'Forces crouched movement (local only)', function(state)
+            local CPed = players.cped()
+            local player_ped = players.user_ped()
+            if state then
+                util.create_tick_handler(function()
+                    if not self.force_crouched_movement.value then
+                        return false
+                    end
+
+                    CPed.m_ped_task_flag = memory.bits:clear(CPed.m_ped_task_flag, 1 << 4)
+                end)
+            end
+        end)
+
+        self.walk_through_water = self.root:toggle(T'Walk Through Water', {T'rswalkthroughwater'}, T'Allows you to walk through water instead of attempting to swim (local only)', function(state)
+            local CPed = players.cped()
+            local player_ped = players.user_ped()
+            if state then
+                util.create_tick_handler(function()
+                    if not self.walk_through_water.value then
+                        return false
+                    end
+
+                    CPed.m_ped_task_flag = CPed.m_ped_task_flag &~ 0x600
+                end)
+            end
+        end)
+
+        self.root:toggle_loop(T'No Passive Mode Delays', {T'rsnopassivedelays'}, T'No delays when enabling/disabling passive mode', function()
+            do
+                local timer = self.g.PassiveCooldownTimer:g()
+                local state = self.g.PassiveCooldownTimerState:g()
+
+                if memory.read_byte(state) == 1 then
+                    memory.write_int(timer, 0)
+                end
+            end
+
+            local timer = self.g.PassiveDisableTimer:g()
+            local state = self.g.PassiveDisableTimerState:g()
+
+            memory.write_int(timer, 0)
+        end)
+
+        self.root:toggle_loop(T'Faster Combat', {}, T'Faster combat', function()
+            local localplayer = players.localplayer()
+            if localplayer:get_is_task_active(128) or localplayer:get_is_task_active(130) then
+                localplayer:force_ped_ai_and_animation_update()
+            end
+        end)
+
+        self.root:toggle(T'Anti-Ragdoll', {}, '', function(state)
+            local localplayer = players.localplayer()
+            local flags = state ? eRagdollBlockingFlags.ALL : 0
+            localplayer:set_ragdoll_blocking_flags(flags)
+        end)
+
+        self.root:toggle_loop(T'BST Spawn On Player', {}, T'BST will always spawn on the players exist coords', function()
+            local pos = players.get_position(players.user())
+            local bst_coords = self.g.BSTSpawnCoords:g()
+            v3.set(bst_coords, pos)
+        end)
+
+        self.root:divider('')
+
+        self.root:action(T'Max Health', {T'rsmaxhealth'}, T'Set your health to max', function()
+            local localplayer = players.localplayer()
+            localplayer:set_entity_health(localplayer:get_entity_max_health())
+        end)
+    
+        self.root:action(T'Max Armour', {T'rsmaxarmour'}, T'Set your armour to max', function()
+            local localplayer = players.localplayer()
+            localplayer:set_ped_armour(player.get_player_max_armour(players.user()))
+        end)
+
+        self.root:action(T'Infinite Snacks And Armour', {T'rsinfiniteinventory'}, T'Gives you infinite snacks and armour in your inventory', function()
+            local value = math.max_int
+            local char_slot = util.get_char_slot()
+            
+            stats.stat_set_int(($'MP{char_slot}_NO_BOUGHT_YUM_SNACKS'):joaat(), value)
+            stats.stat_set_int(($'MP{char_slot}_NO_BOUGHT_HEALTH_SNACKS'):joaat(), value)
+            stats.stat_set_int(($'MP{char_slot}_NO_BOUGHT_EPIC_SNACKS'):joaat(), value)
+            stats.stat_set_int(($'MP{char_slot}_NUMBER_OF_CHAMP_BOUGHT'):joaat(), value)
+            stats.stat_set_int(($'MP{char_slot}_NUMBER_OF_ORANGE_BOUGHT'):joaat(), value)
+            stats.stat_set_int(($'MP{char_slot}_NUMBER_OF_BOURGE_BOUGHT'):joaat(), value)
+            stats.stat_set_int(($'MP{char_slot}_NUMBER_OF_SPRUNK_BOUGHT'):joaat(), value)
+            stats.stat_set_int(($'MP{char_slot}_CIGARETTES_BOUGHT'):joaat(), 0)
+            stats.stat_set_int(($'MP{char_slot}_MP_CHAR_ARMOUR_1_COUNT'):joaat(), 0)
+            stats.stat_set_int(($'MP{char_slot}_MP_CHAR_ARMOUR_2_COUNT'):joaat(), 0)
+            stats.stat_set_int(($'MP{char_slot}_MP_CHAR_ARMOUR_3_COUNT'):joaat(), 0)
+            stats.stat_set_int(($'MP{char_slot}_MP_CHAR_ARMOUR_4_COUNT'):joaat(), 0)
+            stats.stat_set_int(($'MP{char_slot}_MP_CHAR_ARMOUR_5_COUNT'):joaat(), value)
+            stats.stat_set_int(($'MP{char_slot}_BREATHING_APPAR_BOUGHT'):joaat(), value)
+        end)
+
+        self.root:action(T'Instant BST', {T'rinstantbst'}, T'Instantly reap the reward of bst', function()
+            self:trigger_instant_bst()
+        end)
+
+        self.root:action(T'Teleport To Nearest Hospital', {T'rstpnearbyhospital'}, T'Teleport you to the nearest hospital as if someone just used the orbital cannon on you', function()
+            local tp = self.g.TeleportNearestHospital:g()
+            memory.write_byte(tp, 1)
+            util.yield(2000)
+            memory.write_byte(tp, 0)
+        end)
+
+        self.root:action(T'Equip Ballistic Armor', {T'rsequiparmor'}, T'Equip ballistic armor without getting an airdrop', function()
+            local armour = self.g.EquipBallisticArmor:g()
+            if memory.read_byte(armour) == 0 then
+                memory.write_byte(armour, 1)
+            end
+        end)
+
+        self.root:action(T'Remove Ballistic Armor', {T'rsremovearmor'}, T'Remove ballistic armor', function()
+            local armour = self.g.RemoveBallisticArmor:g()
+            memory.write_byte(armour, 1)
+        end)
+
+        self.root:action(T'Off The Radar', {T'rsofftheradar'}, T'Gives you off the radar', function()
+            self:set_off_the_radar(true, false)
+        end)
+
+        self.root:action(T'Ghost Organisation', {T'rsghostorg'}, T'Gives you ghost organisation', function()
+            self:set_off_the_radar(true, true)
+        end)
+
+        self.root:action(T'Reset Off Radar Timer', {T'rresetotrghostorgtimer'}, T'Reset the timer for off the radar/ghost org', function()
+            memory.write_int(self.g.OtrGhostTimer:g(), network.get_network_time())
+        end)
+    
+        self.root:action(T'Diable Off The Radar', {T'rsstophiding'}, T'Disable off the radar / ghost org', function()
+            self:set_off_the_radar(false, false)
+        end)
+
+        self.root:action(T'Disable Blind Eye', {T'rsstopblindeye'}, T'Disable the cops turning a blind eye to you', function()
+            memory.write_byte(self.g.BribeAuthorities:g(), 0)
+        end)
+
+        self.root:action(T'Disable BST', {T'rsdisablebst'}, T'Disables BST so you no longer deal double damage', function()
+            self:disable_bst()
+        end)
+
+        self.root:action(T'Suicide', {T'rssuicide'}, T'Improved version of Stand\'s suicide feature', function()
+            local localplayer = players.localplayer()
+            for pid = 0, players.max_players do
+                if self.utils:player_exists(pid) and pid ~= players.user() then
+                    local ped = player.get_player_ped(pid)
+                    localplayer:clear_entity_last_damage_entity(ped)
+                end
+            end
+            util.yield_once()
+            localplayer:set_entity_health(0)
+        end)
+
+        self.root:divider('')
+
+        self.root:text_input(T'Current Health', {T'rscurhealth'}, '', function(health)
+            if not util.can_continue() then return end
+            local localplayer = players.localplayer()
+            health = tonumber(health)
+
+            localplayer:set_entity_health(health)
+        end, entity.get_entity_health(players.user_ped()))
+
+        self.root:text_input(T'Current Armour', {T'rscurarmour'}, '', function(armour)
+            if not util.can_continue() then return end
+            local localplayer = players.localplayer()
+            armour = tonumber(armour)
+
+            localplayer:set_ped_armour(armour)
+        end, ped.get_ped_armour(players.user_ped()))
+    end
+
+    function superpunch(exp_type=17, damage=1000, is_audible=false, is_invisible=true, camera_shake=0.0)
+        local localplayer = players.localplayer()
+        if localplayer:get_selected_ped_weapon() == 'WEAPON_UNARMED':joaat() then
+            if localplayer:get_ped_last_weapon_impact_coord(self.impact_coords) then
+                localplayer:set_entity_proofs(true, true, true, true, true, true, true)
+                localplayer:add_owned_explosion(self.impact_coords.x, self.impact_coords.y, self.impact_coords.z, exp_type, damage, is_audible, is_invisible, camera_shake)
+                util.yield(500)
+                localplayer:set_entity_proofs(false, false, false, false, false, false, false, false)
+            end
+        end
+    end
+
+    function load_and_set_model(hash)
+        local state, err = pcall(util.request_model, hash)
+        if not state then
+            util.toast($'Error loading model: {err}')
+            return
+        else
+            player.set_player_model(players.user(), hash)
+            streaming.set_model_as_no_longer_needed(hash)
+        end
+    end
+
+    function load_and_play_cutscene(name)
+        cutscene.request_cutscene(name, 8)
+        repeat
+            util.yield_once()
+        until cutscene.has_cutscene_loaded(name)
+        cutscene.start_cutscene(name)
+    end
+
+    function event_regenerate_health()
+        local localplayer = players.localplayer()
+        local max_health = localplayer:get_entity_max_health()
+        local _ = 0
+
+        util.create_tick_handler(function()
+            if _ == 0 then
+                util.yield(2000)
+                localplayer:set_ped_armour(100)
+            end
+
+            local health_delay = self.health_delay.value
+            local health_amount = self.health_amount.value
+            local health = localplayer:get_entity_health()
+            local heal_amount = health + health_amount
+
+            if health >= max_health then
+                return false
+            end
+
+            localplayer:set_entity_health(heal_amount)
+            util.yield(health_delay)
+            _ = _ + 1
+        end)
+    end
+end
+
+return Self
